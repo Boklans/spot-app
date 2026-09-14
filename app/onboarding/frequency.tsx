@@ -1,0 +1,11 @@
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Button } from '@/components/ui/Button';
+import { Screen } from '@/components/ui/Screen';
+import { colors } from '@/constants/colors';
+import { spacing } from '@/constants/spacing';
+import { saveOnboarding } from '@/store/workoutStore';
+
+export default function Frequency() { const [days, setDays] = useState(3); return <Screen style={styles.screen}><Text style={styles.step}>03 / 04</Text><Text style={styles.title}>How often can you train</Text><Text style={styles.subtitle}>Choose your realistic schedule.</Text><View style={styles.selector}><Pressable accessibilityRole="button" onPress={() => setDays(Math.max(2, days - 1))} style={styles.control}><Text style={styles.controlText}>−</Text></Pressable><View style={styles.number}><Text style={styles.value}>{days}</Text><Text style={styles.unit}>DAYS / WEEK</Text></View><Pressable accessibilityRole="button" onPress={() => setDays(Math.min(6, days + 1))} style={styles.control}><Text style={styles.controlText}>+</Text></Pressable></View><View style={styles.spacer} /><Button onPress={async () => { await saveOnboarding({ trainingFrequency: days }); router.push('/onboarding/equipment'); }}>Continue</Button></Screen>; }
+const styles = StyleSheet.create({ screen: { paddingTop: spacing.huge }, step: { color: colors.primary, fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: spacing.xl }, title: { color: colors.text, fontSize: 32, fontWeight: '800' }, subtitle: { color: colors.secondary, fontSize: 15, marginTop: spacing.sm }, selector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 100 }, control: { width: 60, height: 60, borderRadius: 16, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border }, controlText: { color: colors.text, fontSize: 32, fontWeight: '300' }, number: { alignItems: 'center' }, value: { color: colors.primary, fontSize: 88, fontWeight: '800' }, unit: { color: colors.secondary, fontSize: 12, fontWeight: '800', letterSpacing: 1 }, spacer: { flex: 1 } });

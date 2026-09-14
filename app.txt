@@ -1,0 +1,1017 @@
+You are a senior React Native and Expo engineer working on a production-quality fitness startup application called SPOT.
+
+Your task is to build the first UI prototype of the application.
+
+IMPORTANT
+Do not build the backend.
+Do not add authentication.
+Do not add AI integration.
+Do not add payments.
+Do not add MongoDB or API calls.
+
+The goal of this phase is to build a beautiful, functional, high-quality mobile UI prototype using mock data.
+
+---
+
+# PRODUCT
+
+App name SPOT
+
+Tagline
+
+Train smarter. Progress automatically.
+
+SPOT is an adaptive workout application.
+
+The core idea
+
+The user should open the app and immediately know what to do next.
+
+SPOT remembers previous workouts, tracks progress and eventually recommends what weight and reps the user should perform.
+
+The UX philosophy is
+
+Less thinking.
+More training.
+
+The application should feel premium, minimal, athletic and intelligent.
+
+Do NOT make it look like an old-school bodybuilding application.
+
+Avoid
+
+ excessive gradients
+ neon gaming UI
+ too many colors
+ excessive shadows
+ cluttered dashboards
+ generic fitness stock images
+
+The visual direction should feel like a combination of
+
+ premium Apple fitness UI
+ modern health applications
+ professional athletic software
+ minimal dark SaaS design
+
+---
+
+# TECH STACK
+
+Use
+
+ Expo
+ React Native
+ TypeScript
+ Expo Router
+
+Use the existing project structure where possible.
+
+You may install lightweight UI dependencies if truly necessary, but avoid unnecessary dependencies.
+
+Use
+
+ functional components
+ TypeScript
+ reusable components
+ clean folder structure
+ centralized design tokens
+
+Do not create backend services.
+
+All data should currently come from mock data files.
+
+---
+
+# APP STRUCTURE
+
+Create the following structure
+
+app
+
+_layout.tsx
+
+onboarding
+welcome.tsx
+goal.tsx
+experience.tsx
+frequency.tsx
+equipment.tsx
+program-ready.tsx
+
+(tabs)
+_layout.tsx
+index.tsx
+progress.tsx
+program.tsx
+profile.tsx
+
+workout
+preview.tsx
+active.tsx
+rest.tsx
+complete.tsx
+
+components
+
+ui
+Screen.tsx
+Button.tsx
+Card.tsx
+ProgressBar.tsx
+StatCard.tsx
+
+workout
+ExerciseRow.tsx
+SetRow.tsx
+RestTimer.tsx
+
+progress
+StrengthCard.tsx
+MuscleProgress.tsx
+
+constants
+
+colors.ts
+spacing.ts
+typography.ts
+
+data
+
+mockWorkout.ts
+mockProgress.ts
+mockProgram.ts
+
+store
+
+workoutStore.ts
+
+---
+
+# DESIGN SYSTEM
+
+Use a dark premium interface.
+
+Main colors
+
+Background
+#0B0D0F
+
+Surface
+#15181C
+
+Elevated surface
+#1C2025
+
+Primary accent
+#C8FF3D
+
+Primary muted
+use a darker version of the primary accent
+
+Text primary
+#F5F5F5
+
+Text secondary
+#8E959F
+
+Text muted
+#555C65
+
+Success
+#65E572
+
+Warning
+#FFB84D
+
+Danger
+#FF5C5C
+
+Optional AI accent
+#7C5CFF
+
+The primary lime color should be used carefully.
+
+It should primarily highlight
+
+ primary CTA buttons
+ active workout states
+ completed sets
+ positive progress
+ selected onboarding options
+
+---
+
+# SPACING SYSTEM
+
+Use a consistent spacing scale
+
+4
+8
+12
+16
+20
+24
+32
+40
+48
+
+Use generous spacing.
+
+Do not make the UI feel cramped.
+
+---
+
+# TYPOGRAPHY
+
+The interface should prioritize large, bold training numbers.
+
+Use typography approximately like
+
+Display
+40–48
+
+Heading
+28–32
+
+Title
+20–24
+
+Body
+16
+
+Caption
+13–14
+
+Large training values such as weight and reps should visually dominate the screen.
+
+For example
+
+72.5
+KG
+
+8
+REPS
+
+---
+
+# PHASE 1 SCREENS
+
+Build the following screens.
+
+---
+
+## 1. WELCOME SCREEN
+
+Minimal premium introduction.
+
+Content
+
+SPOT
+
+Train smarter.
+Progress automatically.
+
+Primary button
+
+Get started
+
+Secondary action
+
+Log in
+
+Use subtle background visual styling.
+
+Do not use stock fitness imagery.
+
+---
+
+## 2. GOAL SCREEN
+
+Title
+
+What's your goal
+
+Subtitle
+
+We'll use this to build your training plan.
+
+Options
+
+Build Muscle
+Build size & shape
+
+Get Stronger
+Increase strength
+
+Lose Fat
+Reduce body fat
+
+Recomposition
+Build muscle while reducing fat
+
+The selected option should have
+
+ subtle primary border
+ slightly different background
+ checkmark
+
+Bottom CTA
+
+Continue
+
+---
+
+## 3. EXPERIENCE SCREEN
+
+Title
+
+What's your experience
+
+Subtitle
+
+How long have you been training consistently
+
+Options
+
+Beginner
+Less than 6 months
+
+Intermediate
+6 months – 3 years
+
+Advanced
+3+ years
+
+Bottom CTA
+
+Continue
+
+---
+
+## 4. TRAINING FREQUENCY SCREEN
+
+Title
+
+How often can you train
+
+Subtitle
+
+Choose your realistic schedule.
+
+Show a large number selector.
+
+Default
+
+3
+
+DAYS  WEEK
+
+Include minus and plus buttons.
+
+Bottom CTA
+
+Continue
+
+---
+
+## 5. EQUIPMENT SCREEN
+
+Title
+
+What equipment do you have
+
+Options
+
+Full Gym
+Dumbbells
+Barbell
+Machines
+Bodyweight
+
+Use selectable cards.
+
+Allow multiple selections.
+
+Bottom CTA
+
+Continue
+
+---
+
+## 6. PROGRAM READY SCREEN
+
+This should feel like a small wow moment.
+
+Title
+
+YOUR PLAN IS READY
+
+Program
+
+Upper  Lower
+
+3 DAYS  WEEK
+
+Built for
+
+Build Muscle
+
+Show the weekly schedule.
+
+MON
+Upper A
+Chest • Back • Arms
+
+WED
+Lower A
+Legs • Core
+
+FRI
+Upper B
+Chest • Back • Shoulders
+
+Show
+
+~55 min  workout
+
+CTA
+
+Start training
+
+---
+
+# TAB NAVIGATION
+
+Create a bottom navigation with
+
+Home
+Progress
+Program
+Profile
+
+Use a custom premium dark tab bar.
+
+The active icon and label should use the primary accent.
+
+---
+
+# HOME SCREEN
+
+Greeting
+
+Good evening, Ihor
+
+Show a training readiness card.
+
+Example
+
+94%
+
+READY TO TRAIN
+
+Your body is ready
+
+Then show
+
+TODAY'S WORKOUT
+
+UPPER A
+
+Chest • Back • Arms
+
+7 exercises
+
+~55 min
+
+Primary CTA
+
+START WORKOUT
+
+Below this show
+
+THIS WEEK
+
+3  4 workouts
+
+Use a progress indicator.
+
+Then show an insight card.
+
+Title
+
+SPOT INSIGHT
+
+Content
+
+Your Bench Press is ready for 75 kg.
+
+Based on your last 3 workouts.
+
+This card can use a subtle purple accent.
+
+---
+
+# PROGRAM SCREEN
+
+Show the user's program.
+
+Header
+
+YOUR PROGRAM
+
+Upper  Lower
+
+3 days  week
+
+Show workout cards
+
+Upper A
+
+Chest
+Back
+Biceps
+Triceps
+
+Lower A
+
+Quads
+Hamstrings
+Calves
+Core
+
+Upper B
+
+Chest
+Shoulders
+Back
+Arms
+
+Include an edit action visually, but it does not need full editing functionality yet.
+
+---
+
+# WORKOUT PREVIEW
+
+When the user presses START WORKOUT, navigate to the workout preview.
+
+Show
+
+UPPER A
+
+7 exercises
+
+~55 min
+
+List exercises
+
+Bench Press
+3 sets
+72.5 kg
+
+Incline Dumbbell Press
+3 sets
+24 kg
+
+Barbell Row
+3 sets
+70 kg
+
+Lat Pulldown
+3 sets
+65 kg
+
+Shoulder Press
+3 sets
+45 kg
+
+Triceps Pushdown
+3 sets
+55 kg
+
+Biceps Curl
+3 sets
+12 kg
+
+CTA
+
+START WORKOUT
+
+---
+
+# ACTIVE WORKOUT SCREEN
+
+This is the most important screen.
+
+Make it extremely easy to use during a workout.
+
+Header
+
+Upper A
+
+Show workout progress
+
+72%
+
+Then show
+
+BENCH PRESS
+
+Chest
+
+Previous workout
+
+70 kg × 10
+70 kg × 9
+70 kg × 9
+
+TODAY
+
+72.5 KG
+
+Show three sets.
+
+Example
+
+SET 1
+8 reps
+Completed
+
+SET 2
+8 reps
+Completed
+
+SET 3
+7 reps
+Active
+
+Large primary CTA
+
+COMPLETE SET
+
+Use mock state.
+
+When the user presses COMPLETE SET
+
+ mark the active set as completed
+ advance to the next set
+ if there are remaining sets, navigate to REST
+ if exercise is completed, move to the next exercise
+
+The UI should feel smooth and responsive.
+
+---
+
+# SET INPUT
+
+Create a dedicated UI section or screen for adjusting weight and reps.
+
+Weight
+
+72.5 KG
+
+Allow
+
+minus button
+current weight
+plus button
+
+Rep options
+
+6
+7
+8
+9
+10
+
+The selected rep should be visually highlighted.
+
+Avoid requiring the keyboard for the primary workout flow.
+
+---
+
+# REST TIMER
+
+After completing a set, navigate to a rest screen.
+
+Show
+
+SET COMPLETE
+
+Large countdown
+
+0230
+
+REST TIME
+
+Next set
+
+72.5 KG × 6–8
+
+Actions
+
++30 SEC
+
+SKIP
+
+The timer must actually count down.
+
+Use local state.
+
+When the timer reaches zero, show
+
+READY FOR YOUR NEXT SET
+
+Allow returning to the workout.
+
+---
+
+# WORKOUT COMPLETE SCREEN
+
+After the workout
+
+WORKOUT COMPLETE
+
+Show
+
+54 min
+Duration
+
+7
+Exercises
+
+21
+Sets
+
+9,840 kg
+Volume
+
+Show
+
+2 PERSONAL RECORDS
+
+Bench Press
+72.5 × 8
+
+Incline DB Press
+24 × 9
+
+Primary CTA
+
+DONE
+
+Navigate back to Home.
+
+---
+
+# PROGRESS SCREEN
+
+Header
+
+YOUR PROGRESS
+
+Time range
+
+Last 30 days
+
+Show three statistics
+
+12
+WORKOUTS
+
++14%
+TRAINING VOLUME
+
+5
+NEW PRs
+
+Then show strength progress.
+
+BENCH PRESS
+
+75 KG
+
+Create a simple line chart.
+
+Do not use a heavy charting dependency unless necessary.
+
+Then show muscle progress
+
+Chest
++18%
+
+Back
++12%
+
+Shoulders
++7%
+
+Arms
++21%
+
+Legs
+-4%
+
+Use progress bars.
+
+---
+
+# PROFILE SCREEN
+
+Header
+
+IHOR
+
+Intermediate
+
+Build Muscle
+
+Show
+
+TRAINING
+
+Upper  Lower
+
+3 days  week
+
+Then preferences
+
+Units
+kg
+
+Rest Timer
+
+Notifications
+
+Then account items
+
+Subscription
+
+Restore Purchase
+
+Privacy
+
+Support
+
+---
+
+# MOCK DATA
+
+Create realistic mock data.
+
+Use the following example user
+
+Name
+Ihor
+
+Goal
+Build Muscle
+
+Experience
+Intermediate
+
+Training frequency
+3 days per week
+
+Current workout
+
+Upper A
+
+Exercises
+
+Bench Press
+
+Previous
+70 × 10
+70 × 9
+70 × 9
+
+Today
+72.5 kg
+
+Target
+6–8 reps
+
+Incline Dumbbell Press
+24 kg
+
+Barbell Row
+70 kg
+
+Lat Pulldown
+65 kg
+
+Shoulder Press
+45 kg
+
+Triceps Pushdown
+55 kg
+
+Biceps Curl
+12 kg
+
+---
+
+# FUNCTIONAL REQUIREMENTS
+
+The prototype must have working navigation.
+
+The onboarding flow must work.
+
+The selected onboarding data should be stored locally for now.
+
+The user should be able to
+
+ select a goal
+ select experience
+ select training frequency
+ select equipment
+ view the generated program
+ enter the Home screen
+ start a workout
+ complete sets
+ use the rest timer
+ finish the workout
+ view the workout completion summary
+ navigate between tabs
+
+Use local state or Zustand.
+
+Do not overengineer the store.
+
+---
+
+# CODE QUALITY
+
+Use
+
+ reusable components
+ clear TypeScript types
+ centralized constants
+ no duplicated styles where possible
+ meaningful component names
+ clean file organization
+
+Avoid
+
+ giant screen files
+ duplicated color values
+ inline magic numbers
+ unnecessary dependencies
+ backend placeholders that are not needed
+
+---
+
+# IMPORTANT UX REQUIREMENTS
+
+The application must be optimized for using inside a gym.
+
+Users may have
+
+ sweaty hands
+ limited time between sets
+ one hand available
+ poor internet
+
+Therefore
+
+ buttons should be large
+ touch targets should be comfortable
+ important actions should be obvious
+ the UI should not feel crowded
+ the active workout screen should prioritize weight and reps
+
+---
+
+# FIRST IMPLEMENTATION GOAL
+
+Build the entire UI skeleton and navigation first.
+
+Do not try to make every feature perfect.
+
+Priority order
+
+1. Design system
+2. Navigation
+3. Onboarding
+4. Home
+5. Workout flow
+6. Rest timer
+7. Workout complete
+8. Progress
+9. Program
+10. Profile
+
+After implementing, verify that the Expo project runs without TypeScript errors.
+
+Fix all obvious build errors.
+
+At the end, provide a concise summary of
+
+ files created
+ dependencies added
+ architecture decisions
+ how to run the app
+ what remains for the next phase
+
+Do not implement backend, authentication, payments or AI yet.

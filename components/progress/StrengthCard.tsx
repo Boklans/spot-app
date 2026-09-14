@@ -1,0 +1,7 @@
+import { StyleSheet, Text, View } from 'react-native';
+import { colors } from '@/constants/colors';
+import { Card } from '../ui/Card';
+import { spacing } from '@/constants/spacing';
+
+export function StrengthCard() { return <Card><View style={styles.header}><View><Text style={styles.label}>BENCH PRESS</Text><Text style={styles.value}>75 <Text style={styles.unit}>KG</Text></Text></View><Text style={styles.delta}>+14%</Text></View><View style={styles.chart}>{[42, 46, 44, 53, 50, 61, 58, 72, 75].map((point, index) => <View key={index} style={[styles.point, { height: point }]} />)}</View><View style={styles.axis}><Text>30 DAYS AGO</Text><Text>TODAY</Text></View></Card>; }
+const styles = StyleSheet.create({ header: { flexDirection: 'row', justifyContent: 'space-between' }, label: { color: colors.secondary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 }, value: { color: colors.text, fontSize: 32, fontWeight: '800', marginTop: spacing.sm }, unit: { color: colors.secondary, fontSize: 12 }, delta: { color: colors.success, fontWeight: '800' }, chart: { height: 100, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: spacing.xl, borderBottomWidth: 1, borderBottomColor: colors.border }, point: { width: 7, backgroundColor: colors.primary, borderRadius: 4 }, axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm }, axisText: { color: colors.muted, fontSize: 10 } });

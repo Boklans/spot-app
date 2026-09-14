@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "SPOT",
+    "slug": "spot-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "spot",
+    "userInterfaceStyle": "dark",
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
