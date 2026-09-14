@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { generateProgram, type GeneratedWorkout } from '@/lib/programGenerator';
+import type { PersonalRecord } from '@/types/workout';
 import { defaultOnboarding } from './workoutStore';
 
 export type WorkoutSet = {
@@ -26,12 +27,14 @@ export type WorkoutExercise = {
 
 export type WorkoutSession = {
   id: string;
+  programWorkoutId: string;
   workoutName: string;
   startedAt: string;
   completedAt?: string;
   currentExerciseIndex: number;
   currentSetIndex: number;
   exercises: WorkoutExercise[];
+  personalRecords: PersonalRecord[];
   completed: boolean;
 };
 
@@ -40,6 +43,7 @@ type WorkoutSessionState = {
   restEndsAt: number | null;
   initializeSession: (workout?: GeneratedWorkout) => void;
   completeCurrentSet: () => void;
+  setPersonalRecords: (personalRecords: PersonalRecord[]) => void;
   updateCurrentSet: (values: { weight?: number; reps?: number }) => void;
   addRestTime: (seconds: number) => void;
   skipRest: () => void;
@@ -82,15 +86,21 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
     set({
       session: {
         id: `session-${Date.now()}`,
+        programWorkoutId: workout.id,
         workoutName: workout.name,
         startedAt: now,
         currentExerciseIndex: 0,
         currentSetIndex: 0,
         exercises: createSessionExercises(workout),
+        personalRecords: [],
         completed: false,
       },
       restEndsAt: null,
     });
+  },
+
+  setPersonalRecords: (personalRecords) => {
+    set((state) => state.session ? { session: { ...state.session, personalRecords } } : state);
   },
 
   completeCurrentSet: () => {

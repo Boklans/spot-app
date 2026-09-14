@@ -1,4 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '@/components/ui/Screen';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card } from '@/components/ui/Card';
@@ -6,7 +8,21 @@ import { StrengthCard } from '@/components/progress/StrengthCard';
 import { MuscleProgress } from '@/components/progress/MuscleProgress';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { muscleProgress } from '@/data/mockProgress';
+import { calculateBenchPressProgress, calculateMuscleProgress, calculateProgressSummary, formatVolume, type ProgressPeriod } from '@/lib/progressCalculator';
+import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 
-export default function Progress() { return <Screen><View style={styles.header}><View><Text style={styles.eyebrow}>OVERVIEW</Text><Text style={styles.title}>Your progress</Text></View><Text style={styles.range}>Last 30 days⌄</Text></View><View style={styles.stats}><StatCard value="12" label="WORKOUTS" /><StatCard value="+14%" label="VOLUME" accent={colors.success} /><StatCard value="5" label="NEW PRs" accent={colors.purple} /></View><Text style={styles.section}>STRENGTH</Text><StrengthCard /><Text style={styles.section}>MUSCLE PROGRESS</Text><Card>{muscleProgress.map(item => <MuscleProgress key={item.name} {...item} />)}</Card></Screen>; }
-const styles = StyleSheet.create({ header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: spacing.xl }, eyebrow: { color: colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 }, title: { color: colors.text, fontSize: 30, fontWeight: '800', marginTop: 8 }, range: { color: colors.secondary, fontSize: 12 }, stats: { flexDirection: 'row', marginBottom: spacing.xxl }, section: { color: colors.secondary, fontSize: 11, letterSpacing: 1.3, fontWeight: '800', marginBottom: spacing.md, marginTop: spacing.sm } });
+export default function Progress() {
+	const history = useWorkoutHistoryStore((state) => state.workouts);
+	const loadHistory = useWorkoutHistoryStore((state) => state.loadHistory);
+	const [period, setPeriod] = useState<ProgressPeriod>('30D');
+	useEffect(() => { loadHistory(); }, [loadHistory]);
+
+	const summary = calculateProgressSummary(history, period);
+	const strength = calculateBenchPressProgress(history, period);
+	const muscles = calculateMuscleProgress(history, period);
+	const maxMuscleVolume = muscles[0]?.volume ?? 0;
+
+	return <Screen><View style={styles.header}><View><Text style={styles.eyebrow}>OVERVIEW</Text><Text style={styles.title}>Your progress</Text></View><Pressable accessibilityRole="button" onPress={() => router.push('/history/index')} style={styles.historyButton}><Text style={styles.historyButtonText}>VIEW HISTORY</Text></Pressable></View><View style={styles.periods}>{(['7D', '30D', 'ALL'] as ProgressPeriod[]).map((item) => <Pressable accessibilityRole="button" key={item} onPress={() => setPeriod(item)} style={[styles.period, period === item && styles.periodSelected]}><Text style={[styles.periodText, period === item && styles.periodTextSelected]}>{item}</Text></Pressable>)}</View><View style={styles.stats}><View style={styles.statRow}><StatCard value={String(summary.workouts)} label="WORKOUTS" /><StatCard value={String(summary.trainingDays)} label="TRAINING DAYS" accent={colors.success} /></View><View style={styles.statRow}><StatCard value={formatVolume(summary.volume)} label="TRAINING VOLUME" /><StatCard value={String(summary.personalRecords)} label="NEW PRs" accent={colors.purple} /></View></View>{summary.workouts === 0 ? <Card style={styles.emptyCard}><Text style={styles.emptyTitle}>NO TRAINING DATA YET</Text><Text style={styles.emptyBody}>Complete your first workout to start tracking progress.</Text><Pressable accessibilityRole="button" onPress={() => router.replace('/(tabs)')} style={styles.emptyAction}><Text style={styles.emptyActionText}>START TRAINING</Text></Pressable></Card> : null}<Text style={styles.section}>STRENGTH</Text><StrengthCard progress={strength} /><Text style={styles.section}>MUSCLE PROGRESS</Text>{muscles.length === 0 ? <Card><Text style={styles.emptyTitle}>NO MUSCLE DATA YET</Text><Text style={styles.emptyBody}>Complete a workout to see volume by muscle group.</Text></Card> : <Card>{muscles.map((item) => <MuscleProgress key={item.name} {...item} maxVolume={maxMuscleVolume} />)}</Card>}</Screen>;
+}
+
+const styles = StyleSheet.create({ header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: spacing.lg }, eyebrow: { color: colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 }, title: { color: colors.text, fontSize: 30, fontWeight: '800', marginTop: 8 }, historyButton: { minHeight: 44, justifyContent: 'center' }, historyButtonText: { color: colors.primary, fontSize: 11, fontWeight: '900', letterSpacing: 1 }, periods: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 12, padding: spacing.xs, marginBottom: spacing.xl }, period: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 9 }, periodSelected: { backgroundColor: colors.primary }, periodText: { color: colors.secondary, fontSize: 12, fontWeight: '800' }, periodTextSelected: { color: colors.background }, stats: { marginBottom: spacing.xxl, gap: spacing.sm }, statRow: { flexDirection: 'row', gap: spacing.sm }, section: { color: colors.secondary, fontSize: 11, letterSpacing: 1.3, fontWeight: '800', marginBottom: spacing.md, marginTop: spacing.sm }, emptyCard: { marginBottom: spacing.lg }, emptyTitle: { color: colors.secondary, fontSize: 11, letterSpacing: 1.2, fontWeight: '800' }, emptyBody: { color: colors.text, fontSize: 15, lineHeight: 22, marginTop: spacing.md }, emptyAction: { minHeight: 48, justifyContent: 'center', marginTop: spacing.md }, emptyActionText: { color: colors.primary, fontSize: 12, fontWeight: '900', letterSpacing: 1 } });

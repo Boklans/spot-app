@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -7,11 +8,13 @@ import { SetRow } from '@/components/workout/SetRow';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { getSessionProgress, useWorkoutSessionStore } from '@/store/workoutSessionStore';
 
 export default function Active() {
 	const session = useWorkoutSessionStore((state) => state.session);
 	const completeCurrentSet = useWorkoutSessionStore((state) => state.completeCurrentSet);
+	const [finishing, setFinishing] = useState(false);
 
 	if (!session) {
 		return <Screen><Text style={styles.empty}>No active workout.</Text><Button onPress={() => router.replace('/workout/preview')}>BACK TO WORKOUT</Button></Screen>;
@@ -23,9 +26,13 @@ export default function Active() {
 	const isFinalSet = session.currentSetIndex === exercise.sets.length - 1;
 	const isFinalExercise = session.currentExerciseIndex === session.exercises.length - 1;
 
-	const finishSet = () => {
+	const finishSet = async () => {
+		if (finishing) return;
 		completeCurrentSet();
 		if (isFinalSet && isFinalExercise) {
+			setFinishing(true);
+			const completedSession = useWorkoutSessionStore.getState().session;
+			if (completedSession) await finalizeWorkoutSession(completedSession);
 			router.replace('/workout/complete');
 		} else {
 			router.push('/workout/rest');
@@ -43,7 +50,7 @@ export default function Active() {
 		<Card style={styles.previous}><Text style={styles.label}>PREVIOUS WORKOUT</Text><Text style={styles.previousValue}>{exercise.previousSets.map((set) => `${set.weight} kg × ${set.reps}`).join('   ')}</Text></Card>
 		<View style={styles.today}><Text style={styles.label}>TODAY</Text><Text style={styles.weight}>{activeSet.weight} <Text style={styles.unit}>KG</Text></Text><Text style={styles.target}>Target {activeSet.targetReps}</Text></View>
 		<Card style={styles.sets}>{exercise.sets.map((set, index) => <SetRow key={set.id} number={index + 1} reps={set.reps} active={index === session.currentSetIndex} completed={set.completed} />)}</Card>
-		<Button onPress={finishSet}>{isFinalSet && isFinalExercise ? 'FINISH WORKOUT' : 'COMPLETE SET'}</Button>
+		<Button onPress={finishSet}>{finishing ? 'SAVING WORKOUT' : isFinalSet && isFinalExercise ? 'FINISH WORKOUT' : 'COMPLETE SET'}</Button>
 		<Pressable accessibilityRole="button" onPress={() => router.push('/workout/input')} style={styles.adjustButton}><Text style={styles.adjust}>Adjust weight or reps</Text></Pressable>
 	</Screen>;
 }
