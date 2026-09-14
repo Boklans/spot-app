@@ -5,11 +5,12 @@ import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { loadOnboarding } from '@/store/workoutStore';
+import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 
 export default function Index() {
 	useEffect(() => {
 		let mounted = true;
-		loadOnboarding().then((data) => {
+		Promise.all([loadOnboarding(), useWorkoutSessionStore.getState().hydrateSession()]).then(([data]) => {
 			if (!mounted) return;
 			router.replace(data?.completed ? '/(tabs)' : '/onboarding/welcome');
 		}).catch(() => {

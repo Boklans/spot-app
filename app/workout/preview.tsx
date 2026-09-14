@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { ExerciseRow } from '@/components/workout/ExerciseRow';
 import { Screen } from '@/components/ui/Screen';
@@ -14,17 +14,32 @@ import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 export default function Preview() {
 	const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
 	const initializeSession = useWorkoutSessionStore((state) => state.initializeSession);
+	const activeSession = useWorkoutSessionStore((state) => state.session);
+	const activeRestEndsAt = useWorkoutSessionStore((state) => state.restEndsAt);
 	const [program, setProgram] = useState<GeneratedProgram>(() => generateProgram(defaultOnboarding));
 	useEffect(() => { loadOnboarding().then((data) => setProgram(generateProgram(data ?? defaultOnboarding))); }, []);
 	const selectedId = typeof workoutId === 'string' ? workoutId : undefined;
 	const workout = program.workouts.find((item) => item.id === selectedId) ?? program.workouts[0];
+	const startWorkout = async () => {
+		if (activeSession && !activeSession.completed) {
+			const resume = () => router.replace(activeRestEndsAt !== null ? '/workout/rest' : '/workout/active');
+			Alert.alert('ACTIVE WORKOUT', 'You already have a workout in progress.', [
+				{ text: 'CANCEL', style: 'cancel' },
+				{ text: 'RESUME', onPress: resume },
+				{ text: 'START NEW', style: 'destructive', onPress: async () => { await initializeSession(workout); router.replace('/workout/active'); } },
+			]);
+			return;
+		}
+		await initializeSession(workout);
+		router.replace('/workout/active');
+	};
 
 	return <Screen>
 		<Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.backButton}><Text style={styles.back}>‹  HOME</Text></Pressable>
 		<View style={styles.header}><Text style={styles.title}>{workout.name}</Text><Text style={styles.meta}>{workout.exercises.length} exercises  •  ~{workout.estimatedMinutes} min</Text></View>
 		<Text style={styles.section}>TODAY'S PLAN</Text>
 		{workout.exercises.map((exercise) => <ExerciseRow key={exercise.name} name={exercise.name} muscle={exercise.muscleGroup} sets={exercise.sets} weight={exercise.recommendedWeight ? `${exercise.recommendedWeight} kg` : 'Bodyweight'} />)}
-		<View style={styles.bottom}><Button onPress={() => { initializeSession(workout); router.replace('/workout/active'); }}>START WORKOUT</Button></View>
+		<View style={styles.bottom}><Button onPress={startWorkout}>START WORKOUT</Button></View>
 	</Screen>;
 }
 

@@ -11,7 +11,7 @@ export function detectPersonalRecords(current: CompletedWorkout, history: Comple
     const currentSets = exercise.sets;
     const historicalSets = history
       .flatMap((workout) => workout.exercises)
-      .filter((item) => item.exerciseName.toLowerCase() === exercise.exerciseName.toLowerCase())
+      .filter((item) => item.exerciseId === exercise.exerciseId || item.exerciseName.toLowerCase() === exercise.exerciseName.toLowerCase())
       .flatMap((item) => item.sets);
 
     if (historicalSets.length === 0 || currentSets.length === 0) continue;

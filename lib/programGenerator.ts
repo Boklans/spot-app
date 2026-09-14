@@ -4,6 +4,7 @@ export type EquipmentId = 'full_gym' | 'dumbbells' | 'barbell' | 'machines' | 'b
 export type GoalId = OnboardingData['goal'];
 
 export type GeneratedExercise = {
+  id: string;
   name: string;
   muscleGroup: string;
   sets: number;
@@ -37,7 +38,11 @@ const dayLabels = ['MON', 'WED', 'FRI', 'SAT', 'TUE', 'THU'];
 const defaultEquipment: EquipmentId[] = ['full_gym'];
 const supportedEquipment: EquipmentId[] = ['full_gym', 'dumbbells', 'barbell', 'machines', 'bodyweight'];
 
-const option = (name: string, muscleGroup: string, recommendedWeight: number, equipment: EquipmentId, targetRepRange = '8-12'): ExerciseOption => ({ name, muscleGroup, recommendedWeight, equipment, targetRepRange });
+function exerciseId(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
+const option = (name: string, muscleGroup: string, recommendedWeight: number, equipment: EquipmentId, targetRepRange = '8-12'): ExerciseOption => ({ id: exerciseId(name), name, muscleGroup, recommendedWeight, equipment, targetRepRange });
 
 const exerciseOptions = {
   horizontalPush: [

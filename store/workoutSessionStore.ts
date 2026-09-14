@@ -1,7 +1,10 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { generateProgram, type GeneratedWorkout } from '@/lib/programGenerator';
-import type { PersonalRecord } from '@/types/workout';
+import { findLatestExerciseSets, recommendWeight, type WeightRecommendation } from '@/lib/adaptiveProgression';
+import type { CompletedWorkout, PersonalRecord } from '@/types/workout';
 import { defaultOnboarding } from './workoutStore';
+import { useWorkoutHistoryStore } from './workoutHistoryStore';
 
 export type WorkoutSet = {
   id: string;
@@ -22,6 +25,7 @@ export type WorkoutExercise = {
   name: string;
   muscleGroup: string;
   previousSets: PreviousSet[];
+  recommendation: WeightRecommendation;
   sets: WorkoutSet[];
 };
 
@@ -38,10 +42,21 @@ export type WorkoutSession = {
   completed: boolean;
 };
 
+export const ACTIVE_WORKOUT_SESSION_STORAGE_KEY = 'spot_active_workout_session';
+
+type ActiveWorkoutStorage = {
+  session: WorkoutSession;
+  restEndsAt: number | null;
+  restNextType: 'set' | 'exercise' | null;
+};
+
 type WorkoutSessionState = {
   session: WorkoutSession | null;
   restEndsAt: number | null;
-  initializeSession: (workout?: GeneratedWorkout) => void;
+  restNextType: 'set' | 'exercise' | null;
+  hydrated: boolean;
+  hydrateSession: () => Promise<boolean>;
+  initializeSession: (workout?: GeneratedWorkout) => Promise<void>;
   completeCurrentSet: () => void;
   setPersonalRecords: (personalRecords: PersonalRecord[]) => void;
   updateCurrentSet: (values: { weight?: number; reps?: number }) => void;
@@ -51,21 +66,90 @@ type WorkoutSessionState = {
 };
 
 const DEFAULT_REST_SECONDS = 150;
+let persistenceQueue = Promise.resolve();
 
-function createSessionExercises(workout: GeneratedWorkout): WorkoutExercise[] {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object';
+}
+
+function isWorkoutSet(value: unknown): value is WorkoutSet {
+  if (!isRecord(value)) return false;
+  return typeof value.id === 'string'
+    && typeof value.weight === 'number'
+    && typeof value.reps === 'number'
+    && typeof value.targetReps === 'string'
+    && typeof value.completed === 'boolean'
+    && (value.completedAt === undefined || typeof value.completedAt === 'string');
+}
+
+function isRecommendation(value: unknown): value is WeightRecommendation {
+  if (!isRecord(value)) return false;
+  return typeof value.recommendedWeight === 'number'
+    && (value.recommendationReason === 'increase' || value.recommendationReason === 'maintain' || value.recommendationReason === 'reduce' || value.recommendationReason === 'program_default')
+    && (value.source === 'history' || value.source === 'program_default')
+    && typeof value.explanation === 'string';
+}
+
+function isWorkoutSession(value: unknown): value is WorkoutSession {
+  if (!isRecord(value)) return false;
+  if (typeof value.id !== 'string' || typeof value.programWorkoutId !== 'string' || typeof value.workoutName !== 'string' || typeof value.startedAt !== 'string') return false;
+  if (typeof value.currentExerciseIndex !== 'number' || typeof value.currentSetIndex !== 'number' || !Array.isArray(value.exercises) || !Array.isArray(value.personalRecords) || typeof value.completed !== 'boolean') return false;
+  if (value.currentExerciseIndex < 0 || value.currentExerciseIndex >= value.exercises.length) return false;
+  return value.exercises.every((exercise) => isRecord(exercise)
+    && typeof exercise.id === 'string'
+    && typeof exercise.name === 'string'
+    && typeof exercise.muscleGroup === 'string'
+    && Array.isArray(exercise.previousSets)
+    && exercise.previousSets.every((set) => isRecord(set) && typeof set.weight === 'number' && typeof set.reps === 'number')
+    && isRecommendation(exercise.recommendation)
+    && Array.isArray(exercise.sets)
+    && exercise.sets.length > 0
+    && exercise.sets.every(isWorkoutSet));
+}
+
+function parseActiveWorkout(value: string | null): ActiveWorkoutStorage | null {
+  if (!value) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!isRecord(parsed) || !isWorkoutSession(parsed.session)) return null;
+    const restEndsAt = parsed.restEndsAt;
+    const restNextType = parsed.restNextType;
+    if (restEndsAt !== null && typeof restEndsAt !== 'number') return null;
+    if (restNextType !== null && restNextType !== 'set' && restNextType !== 'exercise') return null;
+    const exercise = parsed.session.exercises[parsed.session.currentExerciseIndex];
+    if (parsed.session.currentSetIndex < 0 || parsed.session.currentSetIndex >= exercise.sets.length) return null;
+    return { session: parsed.session, restEndsAt, restNextType };
+  } catch {
+    return null;
+  }
+}
+
+function queuePersistence(task: () => Promise<void>) {
+  persistenceQueue = persistenceQueue.then(task).catch(() => undefined);
+}
+
+function persistSnapshot(snapshot: ActiveWorkoutStorage | null) {
+  queuePersistence(async () => {
+    if (!snapshot) {
+      await AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
+      return;
+    }
+    await AsyncStorage.setItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY, JSON.stringify(snapshot));
+  });
+}
+
+function createSessionExercises(workout: GeneratedWorkout, history: CompletedWorkout[]): WorkoutExercise[] {
   return workout.exercises.map((exercise, exerciseIndex) => {
-    const weight = exercise.recommendedWeight;
-    const previousSets = [
-      { weight: Math.max(0, weight - 2.5), reps: 10 },
-      { weight: Math.max(0, weight - 2.5), reps: 9 },
-      { weight: Math.max(0, weight - 2.5), reps: 9 },
-    ];
+    const previousSets = findLatestExerciseSets(history, exercise);
+    const recommendation = recommendWeight(exercise, previousSets);
+    const weight = recommendation.recommendedWeight;
 
     return {
-      id: `exercise-${exerciseIndex + 1}`,
+      id: exercise.id,
       name: exercise.name,
       muscleGroup: exercise.muscleGroup,
       previousSets,
+      recommendation,
       sets: Array.from({ length: exercise.sets }, (_, setIndex) => ({
         id: `exercise-${exerciseIndex + 1}-set-${setIndex + 1}`,
         weight,
@@ -80,8 +164,28 @@ function createSessionExercises(workout: GeneratedWorkout): WorkoutExercise[] {
 export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
   session: null,
   restEndsAt: null,
+  restNextType: null,
+  hydrated: false,
 
-  initializeSession: (workout = generateProgram(defaultOnboarding).workouts[0]) => {
+  hydrateSession: async () => {
+    try {
+      const stored = await AsyncStorage.getItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
+      const snapshot = parseActiveWorkout(stored);
+      if (!snapshot) {
+        if (stored) await AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
+        set({ hydrated: true });
+        return false;
+      }
+      set({ session: snapshot.session, restEndsAt: snapshot.restEndsAt, restNextType: snapshot.restNextType, hydrated: true });
+      return true;
+    } catch {
+      set({ hydrated: true });
+      return false;
+    }
+  },
+
+  initializeSession: async (workout = generateProgram(defaultOnboarding).workouts[0]) => {
+    const history = await useWorkoutHistoryStore.getState().loadHistory();
     const now = new Date().toISOString();
     set({
       session: {
@@ -91,16 +195,20 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         startedAt: now,
         currentExerciseIndex: 0,
         currentSetIndex: 0,
-        exercises: createSessionExercises(workout),
+        exercises: createSessionExercises(workout, history),
         personalRecords: [],
         completed: false,
       },
       restEndsAt: null,
+      restNextType: null,
     });
+    persistSnapshot(useWorkoutSessionStore.getState().session ? { session: useWorkoutSessionStore.getState().session as WorkoutSession, restEndsAt: null, restNextType: null } : null);
   },
 
   setPersonalRecords: (personalRecords) => {
     set((state) => state.session ? { session: { ...state.session, personalRecords } } : state);
+    const state = useWorkoutSessionStore.getState();
+    if (state.session && !state.session.completed) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
   },
 
   completeCurrentSet: () => {
@@ -138,6 +246,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
             completedAt,
           },
           restEndsAt: null,
+          restNextType: null,
         };
       }
 
@@ -155,8 +264,11 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
           currentSetIndex: nextSetIndex,
         },
         restEndsAt: Date.now() + DEFAULT_REST_SECONDS * 1000,
+        restNextType: isLastSet ? 'exercise' : 'set',
       };
     });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
   },
 
   updateCurrentSet: (values) => {
@@ -180,18 +292,34 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         },
       };
     });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
   },
 
   addRestTime: (seconds) => {
     set((state) => ({
       restEndsAt: (state.restEndsAt ?? Date.now()) + seconds * 1000,
     }));
+    const state = useWorkoutSessionStore.getState();
+    if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
   },
 
-  skipRest: () => set({ restEndsAt: null }),
+  skipRest: () => {
+    set({ restEndsAt: null, restNextType: null });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session) persistSnapshot({ session: state.session, restEndsAt: null, restNextType: null });
+  },
 
-  clearSession: () => set({ session: null, restEndsAt: null }),
+  clearSession: () => {
+    set({ session: null, restEndsAt: null, restNextType: null });
+    persistSnapshot(null);
+  },
 }));
+
+export async function clearPersistedActiveWorkout() {
+  persistenceQueue = persistenceQueue.then(() => AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY));
+  await persistenceQueue;
+}
 
 export function getSessionProgress(session: WorkoutSession) {
   const totalSets = session.exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
