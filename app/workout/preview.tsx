@@ -8,6 +8,8 @@ import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { generateProgram, type GeneratedProgram } from '@/lib/programGenerator';
+import { formatWeight } from '@/lib/weightUtils';
+import { useProgramProgressStore } from '@/store/programProgressStore';
 import { defaultOnboarding, loadOnboarding } from '@/store/workoutStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 
@@ -16,10 +18,22 @@ export default function Preview() {
 	const initializeSession = useWorkoutSessionStore((state) => state.initializeSession);
 	const activeSession = useWorkoutSessionStore((state) => state.session);
 	const activeRestEndsAt = useWorkoutSessionStore((state) => state.restEndsAt);
+	const progress = useProgramProgressStore((state) => state.progress);
 	const [program, setProgram] = useState<GeneratedProgram>(() => generateProgram(defaultOnboarding));
-	useEffect(() => { loadOnboarding().then((data) => setProgram(generateProgram(data ?? defaultOnboarding))); }, []);
+
+	useEffect(() => {
+		loadOnboarding().then((data) => {
+			const prog = generateProgram(data ?? defaultOnboarding);
+			setProgram(prog);
+			useProgramProgressStore.getState().loadProgress(prog);
+		});
+	}, []);
+
 	const selectedId = typeof workoutId === 'string' ? workoutId : undefined;
-	const workout = program.workouts.find((item) => item.id === selectedId) ?? program.workouts[0];
+	const rotationIndex = progress && progress.programId === program.id ? progress.nextSequenceIndex : 0;
+	const safeIndex = rotationIndex >= 0 && rotationIndex < program.workouts.length ? rotationIndex : 0;
+	const workout = program.workouts.find((item) => item.id === selectedId) ?? (program.workouts[safeIndex] ?? program.workouts[0]);
+
 	const startWorkout = async () => {
 		if (activeSession && !activeSession.completed) {
 			const resume = () => router.replace(activeRestEndsAt !== null ? '/workout/rest' : '/workout/active');
@@ -38,7 +52,7 @@ export default function Preview() {
 		<Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.backButton}><Text style={styles.back}>‹  HOME</Text></Pressable>
 		<View style={styles.header}><Text style={styles.title}>{workout.name}</Text><Text style={styles.meta}>{workout.exercises.length} exercises  •  ~{workout.estimatedMinutes} min</Text></View>
 		<Text style={styles.section}>TODAY'S PLAN</Text>
-		{workout.exercises.map((exercise) => <ExerciseRow key={exercise.name} name={exercise.name} muscle={exercise.muscleGroup} sets={exercise.sets} weight={exercise.recommendedWeight ? `${exercise.recommendedWeight} kg` : 'Bodyweight'} />)}
+		{workout.exercises.map((exercise) => <ExerciseRow key={exercise.name} name={exercise.name} muscle={exercise.muscleGroup} sets={exercise.sets} weight={exercise.recommendedWeight ? `${formatWeight(exercise.recommendedWeight)} kg` : 'Bodyweight'} />)}
 		<View style={styles.bottom}><Button onPress={startWorkout}>START WORKOUT</Button></View>
 	</Screen>;
 }

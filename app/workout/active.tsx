@@ -9,6 +9,7 @@ import { SetRow } from '@/components/workout/SetRow';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { formatWeight } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { getSessionProgress, useWorkoutSessionStore } from '@/store/workoutSessionStore';
 
@@ -65,8 +66,8 @@ export default function Active() {
 		<ProgressBar value={progress.percentage} />
 		<View style={styles.exerciseHead}><Text style={styles.exercise}>{exercise.name.toUpperCase()}</Text><Text style={styles.muscle}>{exercise.muscleGroup.toUpperCase()}</Text></View>
 		<View style={styles.setIdentity}><Text style={styles.setNumber}>SET {session.currentSetIndex + 1} OF {exercise.sets.length}</Text><Text style={styles.setProgress}>{progress.completedSets} OF {progress.totalSets} TOTAL SETS</Text></View>
-		<View style={styles.today}><Text style={styles.label}>TODAY'S TARGET</Text><Text style={styles.weight}>{activeSet.weight || 'BODYWEIGHT'}{activeSet.weight ? <Text style={styles.unit}> KG</Text> : null}</Text><Text style={styles.target}>{activeSet.targetReps} REPS</Text><Text style={styles.recommendation}>{exercise.recommendation.explanation}</Text></View>
-		<View style={styles.previous}><Text style={styles.label}>PREVIOUS</Text><Text style={styles.previousValue}>{exercise.previousSets.length > 0 ? exercise.previousSets.map((set) => `${set.weight || 'Bodyweight'}${set.weight ? ' kg' : ''} × ${set.reps}`).join('   ') : 'No previous performance'}</Text></View>
+		<View style={styles.today}><Text style={styles.label}>TODAY'S TARGET</Text><Text style={styles.weight}>{activeSet.weight ? formatWeight(activeSet.weight) : 'BODYWEIGHT'}{activeSet.weight ? <Text style={styles.unit}> KG</Text> : null}</Text><Text style={styles.target}>{activeSet.targetReps} REPS</Text><Text style={styles.recommendation}>{exercise.recommendation.explanation}</Text></View>
+		<View style={styles.previous}><Text style={styles.label}>PREVIOUS</Text><Text style={styles.previousValue}>{exercise.previousSets.length > 0 ? exercise.previousSets.map((set) => `${set.weight ? `${formatWeight(set.weight)} kg` : 'Bodyweight'} × ${set.reps}`).join('   ') : 'No previous performance'}</Text></View>
 		<Card style={styles.sets}>{exercise.sets.map((set, index) => <SetRow key={set.id} number={index + 1} reps={set.reps} active={index === session.currentSetIndex} completed={set.completed} />)}</Card>
 		<Button disabled={finishing} onPress={finishSet}>{finishing ? 'SAVING WORKOUT' : isFinalSet && isFinalExercise ? 'FINISH WORKOUT' : 'COMPLETE SET'}</Button>
 		<Pressable accessibilityRole="button" onPress={() => router.push('/workout/input')} style={styles.adjustButton}><Text style={styles.adjust}>ADJUST WEIGHT & REPS</Text></Pressable>

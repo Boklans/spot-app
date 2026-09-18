@@ -1,5 +1,6 @@
 import type { CompletedWorkout } from '@/types/workout';
 import type { EquipmentId, GeneratedExercise } from '@/lib/programGenerator';
+import { addWeight, formatWeight, normalizeWeight, subtractWeight } from '@/lib/weightUtils';
 
 export type ProgressionReason = 'increase' | 'maintain' | 'reduce' | 'program_default';
 export type ProgressionSource = 'history' | 'program_default';
@@ -52,17 +53,39 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
   const { minimum, maximum } = parseRepRange(exercise.targetRepRange);
   const weight = previousSets[0].weight;
   const reps = previousSets.map((set) => set.reps);
-  const increment = practicalIncrement(exercise.equipment, weight);
-  const roundedIncrease = roundPracticalWeight(weight + increment, exercise.equipment);
+  const increment = typeof exercise.weightIncrement === 'number' && exercise.weightIncrement > 0
+    ? exercise.weightIncrement
+    : practicalIncrement(exercise.equipment, weight);
+  const roundedIncrease = addWeight(weight, increment);
 
   if (reps.every((value) => value >= maximum)) {
-    return { recommendedWeight: roundedIncrease, recommendationReason: 'increase', source: 'history', explanation: `You hit ${reps.join('/')} last time. Try ${roundedIncrease} kg today.` };
+    return {
+      recommendedWeight: roundedIncrease,
+      recommendationReason: 'increase',
+      source: 'history',
+      explanation: `You hit ${reps.join('/')} last time. Try ${formatWeight(roundedIncrease)} kg today.`,
+    };
   }
 
   if (reps.every((value) => value >= minimum)) {
-    return { recommendedWeight: weight, recommendationReason: 'maintain', source: 'history', explanation: `Stay at ${weight} kg and build reps.` };
+    return {
+      recommendedWeight: normalizeWeight(weight),
+      recommendationReason: 'maintain',
+      source: 'history',
+      explanation: `Stay at ${formatWeight(weight)} kg and build reps.`,
+    };
   }
 
-  const reduceWeight = roundPracticalWeight(weight * 0.95, exercise.equipment);
-  return { recommendedWeight: reduceWeight < weight ? reduceWeight : weight, recommendationReason: 'reduce', source: 'history', explanation: `Build consistency at ${reduceWeight} kg before increasing again.` };
+  const rawReduced = weight * 0.95;
+  const candidate = increment > 0
+    ? normalizeWeight(Math.round(rawReduced / increment) * increment)
+    : normalizeWeight(rawReduced);
+  const reduceWeight = candidate < weight ? candidate : subtractWeight(weight, increment);
+
+  return {
+    recommendedWeight: reduceWeight < weight ? reduceWeight : normalizeWeight(weight),
+    recommendationReason: 'reduce',
+    source: 'history',
+    explanation: `Build consistency at ${formatWeight(reduceWeight)} kg before increasing again.`,
+  };
 }

@@ -7,6 +7,7 @@ import { RestTimer } from '@/components/workout/RestTimer';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { formatWeight } from '@/lib/weightUtils';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 
 export default function Rest() {
@@ -51,7 +52,7 @@ export default function Rest() {
 	return <Screen style={styles.screen}>
 		<Pressable accessibilityRole="button" hitSlop={12} onPress={handleClose} style={styles.closeButton}><Text style={styles.close}>×</Text></Pressable>
 		<View style={styles.main}><Text style={styles.complete}>SET COMPLETE</Text><RestTimer seconds={seconds} /><Text style={styles.ready}>{isReady ? `READY FOR ${nextLabel}` : 'REST TIME'}</Text></View>
-		<View style={styles.actions}><Card style={styles.nextCard}><Text style={styles.nextCardLabel}>{nextLabel}</Text><Text style={styles.nextExercise}>{exercise.name}</Text><Text style={styles.nextCardValue}>Set {session.currentSetIndex + 1} of {exercise.sets.length}  •  {nextSet.weight ? `${nextSet.weight} kg` : 'Bodyweight'} × {nextSet.targetReps}</Text></Card>{!isReady && <View style={styles.buttons}><Button secondary onPress={() => addRestTime(30)}>+30 SEC</Button></View>}<Button onPress={continueWorkout}>{isReady ? 'CONTINUE' : 'SKIP REST'}</Button></View>
+		<View style={styles.actions}><Card style={styles.nextCard}><Text style={styles.nextCardLabel}>{nextLabel}</Text><Text style={styles.nextExercise}>{exercise.name}</Text><Text style={styles.nextCardValue}>Set {session.currentSetIndex + 1} of {exercise.sets.length}  •  {nextSet.weight ? `${formatWeight(nextSet.weight)} kg` : 'Bodyweight'} × {nextSet.targetReps}</Text></Card>{!isReady && <View style={styles.buttons}><Button secondary onPress={() => addRestTime(30)}>+30 SEC</Button></View>}<Button onPress={continueWorkout}>{isReady ? 'CONTINUE' : 'SKIP REST'}</Button></View>
 	</Screen>;
 }
 

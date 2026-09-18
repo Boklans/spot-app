@@ -27,6 +27,8 @@ export type WorkoutExercise = {
   previousSets: PreviousSet[];
   recommendation: WeightRecommendation;
   sets: WorkoutSet[];
+  weightIncrement: number;
+  restSeconds: number;
 };
 
 export type WorkoutSession = {
@@ -99,6 +101,8 @@ function isWorkoutSession(value: unknown): value is WorkoutSession {
     && typeof exercise.id === 'string'
     && typeof exercise.name === 'string'
     && typeof exercise.muscleGroup === 'string'
+    && (exercise.weightIncrement === undefined || typeof exercise.weightIncrement === 'number')
+    && (exercise.restSeconds === undefined || typeof exercise.restSeconds === 'number')
     && Array.isArray(exercise.previousSets)
     && exercise.previousSets.every((set) => isRecord(set) && typeof set.weight === 'number' && typeof set.reps === 'number')
     && isRecommendation(exercise.recommendation)
@@ -118,7 +122,21 @@ function parseActiveWorkout(value: string | null): ActiveWorkoutStorage | null {
     if (restNextType !== null && restNextType !== 'set' && restNextType !== 'exercise') return null;
     const exercise = parsed.session.exercises[parsed.session.currentExerciseIndex];
     if (parsed.session.currentSetIndex < 0 || parsed.session.currentSetIndex >= exercise.sets.length) return null;
-    return { session: parsed.session, restEndsAt, restNextType };
+
+    const normalizedExercises: WorkoutExercise[] = parsed.session.exercises.map((item) => ({
+      ...item,
+      weightIncrement: typeof item.weightIncrement === 'number' ? item.weightIncrement : 2.5,
+      restSeconds: typeof item.restSeconds === 'number' ? item.restSeconds : DEFAULT_REST_SECONDS,
+    }));
+
+    return {
+      session: {
+        ...parsed.session,
+        exercises: normalizedExercises,
+      },
+      restEndsAt,
+      restNextType,
+    };
   } catch {
     return null;
   }
@@ -143,6 +161,10 @@ function createSessionExercises(workout: GeneratedWorkout, history: CompletedWor
     const previousSets = findLatestExerciseSets(history, exercise);
     const recommendation = recommendWeight(exercise, previousSets);
     const weight = recommendation.recommendedWeight;
+    const weightIncrement = typeof exercise.weightIncrement === 'number' ? exercise.weightIncrement : 2.5;
+    const restSeconds = typeof exercise.restSeconds === 'number'
+      ? exercise.restSeconds
+      : (typeof workout.defaultRestSeconds === 'number' ? workout.defaultRestSeconds : DEFAULT_REST_SECONDS);
 
     return {
       id: exercise.id,
@@ -150,6 +172,8 @@ function createSessionExercises(workout: GeneratedWorkout, history: CompletedWor
       muscleGroup: exercise.muscleGroup,
       previousSets,
       recommendation,
+      weightIncrement,
+      restSeconds,
       sets: Array.from({ length: exercise.sets }, (_, setIndex) => ({
         id: `exercise-${exerciseIndex + 1}-set-${setIndex + 1}`,
         weight,
@@ -220,6 +244,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       const activeSet = exercise?.sets[session.currentSetIndex];
       if (!exercise || !activeSet || activeSet.completed) return state;
 
+      const restDuration = typeof exercise.restSeconds === 'number' ? exercise.restSeconds : DEFAULT_REST_SECONDS;
       const completedAt = new Date().toISOString();
       const exercisesWithCompletedSet = session.exercises.map((item, exerciseIndex) => {
         if (exerciseIndex !== session.currentExerciseIndex) return item;
@@ -263,7 +288,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
           currentExerciseIndex: nextExerciseIndex,
           currentSetIndex: nextSetIndex,
         },
-        restEndsAt: Date.now() + DEFAULT_REST_SECONDS * 1000,
+        restEndsAt: Date.now() + restDuration * 1000,
         restNextType: isLastSet ? 'exercise' : 'set',
       };
     });

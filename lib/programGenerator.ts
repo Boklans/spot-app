@@ -1,5 +1,6 @@
 import type { OnboardingData } from '@/store/workoutStore';
 
+export type WorkoutSplitType = 'upper_lower' | 'full_body' | 'push_pull_legs';
 export type EquipmentId = 'full_gym' | 'dumbbells' | 'barbell' | 'machines' | 'bodyweight';
 export type GoalId = OnboardingData['goal'];
 
@@ -11,6 +12,8 @@ export type GeneratedExercise = {
   recommendedWeight: number;
   targetRepRange: string;
   equipment: EquipmentId;
+  weightIncrement: number;
+  restSeconds?: number;
 };
 
 export type GeneratedWorkout = {
@@ -19,6 +22,7 @@ export type GeneratedWorkout = {
   dayLabel: string;
   muscleGroups: string[];
   estimatedMinutes: number;
+  defaultRestSeconds?: number;
   exercises: GeneratedExercise[];
 };
 
@@ -28,13 +32,43 @@ export type GeneratedProgram = {
   description: string;
   daysPerWeek: number;
   estimatedWorkoutMinutes: number;
+  splitType: WorkoutSplitType;
+  defaultRestSeconds?: number;
   workouts: GeneratedWorkout[];
 };
+
+export function defaultWeightIncrement(equipment: EquipmentId): number {
+  switch (equipment) {
+    case 'barbell':
+      return 2.5;
+    case 'dumbbells':
+      return 1;
+    case 'machines':
+      return 2.5;
+    case 'bodyweight':
+      return 0;
+    case 'full_gym':
+      return 2.5;
+    default:
+      return 2.5;
+  }
+}
+
+export function formatSplitLabel(splitType: WorkoutSplitType): string {
+  switch (splitType) {
+    case 'upper_lower':
+      return 'Upper · Lower';
+    case 'full_body':
+      return 'Full Body';
+    case 'push_pull_legs':
+      return 'Push · Pull · Legs';
+  }
+}
 
 type ExerciseOption = Omit<GeneratedExercise, 'sets' | 'targetRepRange'> & { targetRepRange?: string };
 type WorkoutTemplate = { name: string; exercises: ExerciseOption[]; estimatedMinutes?: number };
 
-const dayLabels = ['MON', 'WED', 'FRI', 'SAT', 'TUE', 'THU'];
+const dayLabels = ['WORKOUT 1', 'WORKOUT 2', 'WORKOUT 3', 'WORKOUT 4', 'WORKOUT 5', 'WORKOUT 6'];
 const defaultEquipment: EquipmentId[] = ['full_gym'];
 const supportedEquipment: EquipmentId[] = ['full_gym', 'dumbbells', 'barbell', 'machines', 'bodyweight'];
 
@@ -42,7 +76,24 @@ function exerciseId(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 }
 
-const option = (name: string, muscleGroup: string, recommendedWeight: number, equipment: EquipmentId, targetRepRange = '8-12'): ExerciseOption => ({ id: exerciseId(name), name, muscleGroup, recommendedWeight, equipment, targetRepRange });
+const option = (
+  name: string,
+  muscleGroup: string,
+  recommendedWeight: number,
+  equipment: EquipmentId,
+  targetRepRange = '8-12',
+  weightIncrement?: number,
+  restSeconds?: number
+): ExerciseOption => ({
+  id: exerciseId(name),
+  name,
+  muscleGroup,
+  recommendedWeight,
+  equipment,
+  targetRepRange,
+  weightIncrement: weightIncrement ?? defaultWeightIncrement(equipment),
+  restSeconds,
+});
 
 const exerciseOptions = {
   horizontalPush: [
@@ -175,20 +226,33 @@ function repeatTemplates(templates: WorkoutTemplate[], frequency: number) {
   });
 }
 
-function buildWorkouts(templates: WorkoutTemplate[], frequency: number): GeneratedWorkout[] {
+export function resolveRestSeconds(
+  exercise?: { restSeconds?: number },
+  workout?: { defaultRestSeconds?: number },
+  program?: { defaultRestSeconds?: number }
+): number {
+  return exercise?.restSeconds
+    ?? workout?.defaultRestSeconds
+    ?? program?.defaultRestSeconds
+    ?? 150;
+}
+
+function buildWorkouts(templates: WorkoutTemplate[], frequency: number, defaultRestSeconds = 150): GeneratedWorkout[] {
   return repeatTemplates(templates, frequency).map((template, index) => {
-    const exercises = template.exercises.map((exercise, exerciseIndex) => ({
+    const exercises: GeneratedExercise[] = template.exercises.map((exercise) => ({
       ...exercise,
       sets: exercise.muscleGroup === 'Core' ? 2 : 3,
       targetRepRange: exercise.targetRepRange ?? '8-12',
       name: exercise.name,
+      weightIncrement: exercise.weightIncrement ?? defaultWeightIncrement(exercise.equipment),
     }));
     return {
       id: `workout-${index + 1}`,
       name: template.name,
-      dayLabel: dayLabels[index] ?? `DAY ${index + 1}`,
+      dayLabel: dayLabels[index] ?? `WORKOUT ${index + 1}`,
       muscleGroups: [...new Set(exercises.map((exercise) => exercise.muscleGroup))],
       estimatedMinutes: template.estimatedMinutes ?? (exercises.length >= 6 ? 55 : 50),
+      defaultRestSeconds,
       exercises,
     };
   });
@@ -201,33 +265,43 @@ export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
   let templates: WorkoutTemplate[];
   let name: string;
   let description: string;
+  let splitType: WorkoutSplitType;
 
   if (onboarding.goal === 'get_stronger') {
-    const strengthBase = frequency >= 5 ? pushPullLegsTemplates(equipment) : upperLowerTemplates(equipment, true);
+    const isPpl = frequency >= 5;
+    splitType = isPpl ? 'push_pull_legs' : 'upper_lower';
+    const strengthBase = isPpl ? pushPullLegsTemplates(equipment) : upperLowerTemplates(equipment, true);
     templates = strengthBase.map((template) => ({ ...template, exercises: template.exercises.slice(0, 5) }));
     name = 'Strength Foundation';
     description = 'Compound-focused training with steady, measurable progress.';
   } else if (onboarding.goal === 'lose_fat') {
+    splitType = frequency <= 3 ? 'full_body' : 'upper_lower';
     templates = frequency <= 3 ? fullBodyTemplates(equipment) : upperLowerTemplates(equipment);
     name = 'Lean Strength';
     description = 'Efficient full-body training built for consistent progress.';
   } else if (onboarding.goal === 'recomposition') {
+    splitType = onboarding.experience === 'beginner' ? 'full_body' : 'upper_lower';
     templates = onboarding.experience === 'beginner' ? fullBodyTemplates(equipment) : upperLowerTemplates(equipment);
     name = 'Build & Refine';
     description = 'Moderate-volume hypertrophy training for strength and shape.';
   } else if (onboarding.experience === 'beginner') {
+    splitType = 'full_body';
     templates = fullBodyTemplates(equipment);
     name = 'Foundation Builder';
     description = 'Simple full-body sessions to build consistency and confidence.';
   } else if (onboarding.experience === 'advanced' && frequency >= 5) {
+    splitType = 'push_pull_legs';
     templates = pushPullLegsTemplates(equipment);
     name = 'Performance Split';
     description = 'A focused five-day structure for experienced training.';
   } else {
+    splitType = 'upper_lower';
     templates = upperLowerTemplates(equipment);
     name = 'Upper Lower';
     description = 'A balanced split that makes every training day count.';
   }
+
+  const defaultRestSeconds = 150;
 
   return {
     id: `program-${onboarding.goal}-${onboarding.experience}-${frequency}`,
@@ -235,6 +309,8 @@ export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
     description,
     daysPerWeek: frequency,
     estimatedWorkoutMinutes: 55,
-    workouts: buildWorkouts(templates, frequency),
+    splitType,
+    defaultRestSeconds,
+    workouts: buildWorkouts(templates, frequency, defaultRestSeconds),
   };
 }

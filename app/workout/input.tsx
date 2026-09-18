@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { addWeight, formatWeight, subtractWeight } from '@/lib/weightUtils';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 
 export default function Input() {
@@ -17,12 +18,13 @@ export default function Input() {
 
 	const exercise = session.exercises[session.currentExerciseIndex];
 	const activeSet = exercise.sets[session.currentSetIndex];
+	const increment = typeof exercise.weightIncrement === 'number' && exercise.weightIncrement > 0 ? exercise.weightIncrement : 2.5;
 
 	return <Screen style={styles.screen}>
 		<Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.backButton}><Text style={styles.back}>‹  BACK TO WORKOUT</Text></Pressable>
 		<Text style={styles.title}>Set your target</Text><Text style={styles.subtitle}>{exercise.name}  •  Set {session.currentSetIndex + 1}</Text>
 		<Text style={styles.label}>WEIGHT</Text>
-		<Card style={styles.weightCard}><Pressable accessibilityRole="button" onPress={() => updateCurrentSet({ weight: Math.max(0, activeSet.weight - 2.5) })} style={styles.control}><Text style={styles.controlText}>−</Text></Pressable><View style={styles.weightValue}><Text style={styles.weight}>{activeSet.weight}</Text><Text style={styles.unit}>KG</Text></View><Pressable accessibilityRole="button" onPress={() => updateCurrentSet({ weight: activeSet.weight + 2.5 })} style={styles.control}><Text style={styles.controlText}>+</Text></Pressable></Card>
+		<Card style={styles.weightCard}><Pressable accessibilityRole="button" onPress={() => updateCurrentSet({ weight: subtractWeight(activeSet.weight, increment) })} style={styles.control}><Text style={styles.controlText}>−</Text></Pressable><View style={styles.weightValue}><Text style={styles.weight}>{formatWeight(activeSet.weight)}</Text><Text style={styles.unit}>KG</Text></View><Pressable accessibilityRole="button" onPress={() => updateCurrentSet({ weight: addWeight(activeSet.weight, increment) })} style={styles.control}><Text style={styles.controlText}>+</Text></Pressable></Card>
 		<Text style={styles.label}>TARGET REPS</Text>
 		<View style={styles.reps}>{[6, 7, 8, 9, 10].map((value) => <Pressable accessibilityRole="button" key={value} onPress={() => updateCurrentSet({ reps: value })} style={[styles.rep, activeSet.reps === value && styles.selected]}><Text style={[styles.repText, activeSet.reps === value && styles.selectedText]}>{value}</Text></Pressable>)}</View>
 		<View style={styles.spacer} /><Button onPress={() => router.back()}>SAVE SET</Button>
