@@ -4,13 +4,18 @@ import { StyleSheet, Text } from 'react-native';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { useProgramStore } from '@/store/programStore';
 import { loadOnboarding } from '@/store/workoutStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 
 export default function Index() {
 	useEffect(() => {
 		let mounted = true;
-		Promise.all([loadOnboarding(), useWorkoutSessionStore.getState().hydrateSession()]).then(([data]) => {
+		Promise.all([
+			loadOnboarding(),
+			useWorkoutSessionStore.getState().hydrateSession(),
+			useProgramStore.getState().loadProgram(),
+		]).then(([data]) => {
 			if (!mounted) return;
 			router.replace(data?.completed ? '/(tabs)' : '/onboarding/welcome');
 		}).catch(() => {

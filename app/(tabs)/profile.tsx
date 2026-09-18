@@ -4,7 +4,8 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { generateProgram, type GeneratedProgram, type WorkoutSplitType } from '@/lib/programGenerator';
+import { resolveRestSeconds, type WorkoutSplitType } from '@/lib/programGenerator';
+import { useProgramStore } from '@/store/programStore';
 import { defaultOnboarding, loadOnboarding, type OnboardingData } from '@/store/workoutStore';
 
 const goalLabels: Record<OnboardingData['goal'], string> = {
@@ -35,18 +36,18 @@ const account = ['Subscription', 'Restore Purchase', 'Privacy', 'Support'];
 
 export default function Profile() {
   const [onboarding, setOnboarding] = useState<OnboardingData>(defaultOnboarding);
-  const [program, setProgram] = useState<GeneratedProgram>(() => generateProgram(defaultOnboarding));
+  const program = useProgramStore((state) => state.program);
 
   useEffect(() => {
     loadOnboarding().then((data) => {
-      const next = data ?? defaultOnboarding;
-      setOnboarding(next);
-      setProgram(generateProgram(next));
+      if (data) setOnboarding(data);
     });
+    useProgramStore.getState().loadProgram();
   }, []);
 
-  const restMinutes = Math.floor((program.defaultRestSeconds ?? 150) / 60).toString().padStart(2, '0');
-  const restSeconds = ((program.defaultRestSeconds ?? 150) % 60).toString().padStart(2, '0');
+  const defaultRest = resolveRestSeconds(undefined, undefined, program);
+  const restMinutes = Math.floor(defaultRest / 60).toString().padStart(2, '0');
+  const restSeconds = (defaultRest % 60).toString().padStart(2, '0');
   const preferences = [
     ['Units', 'kg'],
     ['Rest Timer', `${restMinutes}:${restSeconds}`],

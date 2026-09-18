@@ -1,4 +1,5 @@
 import type { CompletedWorkout, PersonalRecord } from '@/types/workout';
+import { formatWeight } from '@/lib/weightUtils';
 
 export function calculateEstimated1RM(weight: number, reps: number) {
   return Math.round(weight * (1 + reps / 30) * 10) / 10;
@@ -25,7 +26,7 @@ export function detectPersonalRecords(current: CompletedWorkout, history: Comple
         exerciseId: exercise.exerciseId,
         exerciseName: exercise.exerciseName,
         value: currentMaxWeight,
-        label: `${currentMaxWeight} kg`,
+        label: `${formatWeight(currentMaxWeight)} kg`,
       });
     }
 
@@ -38,7 +39,7 @@ export function detectPersonalRecords(current: CompletedWorkout, history: Comple
         exerciseId: exercise.exerciseId,
         exerciseName: exercise.exerciseName,
         value: currentBest1RM,
-        label: `${currentBest1RM} kg estimated 1RM`,
+        label: `${formatWeight(currentBest1RM)} kg estimated 1RM`,
       });
     }
   }

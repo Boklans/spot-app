@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -6,10 +7,18 @@ import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { getSessionSummary, useWorkoutSessionStore } from '@/store/workoutSessionStore';
+import { defaultOnboarding, loadOnboarding } from '@/store/workoutStore';
 
 export default function Complete() {
 	const session = useWorkoutSessionStore((state) => state.session);
 	const clearSession = useWorkoutSessionStore((state) => state.clearSession);
+	const [name, setName] = useState(defaultOnboarding.name);
+
+	useEffect(() => {
+		loadOnboarding().then((data) => {
+			if (data?.name) setName(data.name);
+		});
+	}, []);
 
 	if (!session) {
 		return <Screen><Text style={styles.empty}>No completed workout.</Text><Button onPress={() => router.replace('/(tabs)')}>BACK HOME</Button></Screen>;
@@ -19,7 +28,7 @@ export default function Complete() {
 	const stats = [[`${summary.durationMinutes} min`, 'DURATION'], [String(summary.exerciseCount), 'EXERCISES'], [String(summary.completedSets), 'SETS'], [`${summary.volume.toLocaleString()} kg`, 'VOLUME']];
 
 	return <Screen style={styles.screen}>
-		<View style={styles.hero}><Text style={styles.kicker}>{session.workoutName.toUpperCase()}</Text><Text style={styles.title}>Workout complete</Text><Text style={styles.subtitle}>Strong work, Ihor. Your next session is already getting smarter.</Text></View>
+		<View style={styles.hero}><Text style={styles.kicker}>{session.workoutName.toUpperCase()}</Text><Text style={styles.title}>Workout complete</Text><Text style={styles.subtitle}>Strong work, {name}. Your next session is already getting smarter.</Text></View>
 		<View style={styles.stats}>{stats.map(([value, label]) => <Card key={label} style={styles.stat}><Text style={styles.value}>{value}</Text><Text style={styles.label}>{label}</Text></Card>)}</View>
 		<Card style={styles.prs}><Text style={styles.prTitle}>{session.personalRecords.length} PERSONAL RECORDS</Text>{session.personalRecords.length === 0 ? <Text style={styles.noPrs}>This workout sets your baseline. Keep training to unlock new records.</Text> : session.personalRecords.map((record) => <View key={record.id} style={styles.prRow}><Text style={styles.prName}>{record.exerciseName}</Text><Text style={styles.prValue}>{record.type === 'weight' ? 'Weight' : 'Est. 1RM'}  {record.label}</Text></View>)}</Card>
 		<Button onPress={() => { clearSession(); router.replace('/(tabs)'); }}>DONE</Button>

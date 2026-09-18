@@ -1,11 +1,10 @@
 import { createCompletedWorkoutSnapshot } from '@/lib/completedWorkout';
 import { detectPersonalRecords } from '@/lib/personalRecords';
-import { generateProgram } from '@/lib/programGenerator';
 import { useProgramProgressStore } from '@/store/programProgressStore';
+import { useProgramStore } from '@/store/programStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { clearPersistedActiveWorkout } from '@/store/workoutSessionStore';
 import { useWorkoutSessionStore, type WorkoutSession } from '@/store/workoutSessionStore';
-import { defaultOnboarding, loadOnboarding } from '@/store/workoutStore';
 import type { CompletedWorkout } from '@/types/workout';
 
 export async function finalizeWorkoutSession(session: WorkoutSession): Promise<CompletedWorkout> {
@@ -26,8 +25,7 @@ export async function finalizeWorkoutSession(session: WorkoutSession): Promise<C
   useWorkoutSessionStore.getState().setPersonalRecords(personalRecords);
   await clearPersistedActiveWorkout();
 
-  const onboarding = await loadOnboarding();
-  const program = generateProgram(onboarding ?? defaultOnboarding);
+  const program = await useProgramStore.getState().getOrLoadProgram();
   await useProgramProgressStore.getState().advanceProgress(program, session.programWorkoutId, session.id);
 
   return snapshot;

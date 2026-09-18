@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { generateProgram, type GeneratedWorkout } from '@/lib/programGenerator';
+import { generateProgram, resolveRestSeconds, type GeneratedWorkout } from '@/lib/programGenerator';
 import { findLatestExerciseSets, recommendWeight, type WeightRecommendation } from '@/lib/adaptiveProgression';
 import type { CompletedWorkout, PersonalRecord } from '@/types/workout';
 import { defaultOnboarding } from './workoutStore';
@@ -46,7 +46,7 @@ export type WorkoutSession = {
 
 export const ACTIVE_WORKOUT_SESSION_STORAGE_KEY = 'spot_active_workout_session';
 
-type ActiveWorkoutStorage = {
+export type ActiveWorkoutStorage = {
   session: WorkoutSession;
   restEndsAt: number | null;
   restNextType: 'set' | 'exercise' | null;
@@ -67,7 +67,6 @@ type WorkoutSessionState = {
   clearSession: () => void;
 };
 
-const DEFAULT_REST_SECONDS = 150;
 let persistenceQueue = Promise.resolve();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -126,7 +125,7 @@ function parseActiveWorkout(value: string | null): ActiveWorkoutStorage | null {
     const normalizedExercises: WorkoutExercise[] = parsed.session.exercises.map((item) => ({
       ...item,
       weightIncrement: typeof item.weightIncrement === 'number' ? item.weightIncrement : 2.5,
-      restSeconds: typeof item.restSeconds === 'number' ? item.restSeconds : DEFAULT_REST_SECONDS,
+      restSeconds: typeof item.restSeconds === 'number' ? item.restSeconds : resolveRestSeconds(),
     }));
 
     return {
@@ -162,9 +161,7 @@ function createSessionExercises(workout: GeneratedWorkout, history: CompletedWor
     const recommendation = recommendWeight(exercise, previousSets);
     const weight = recommendation.recommendedWeight;
     const weightIncrement = typeof exercise.weightIncrement === 'number' ? exercise.weightIncrement : 2.5;
-    const restSeconds = typeof exercise.restSeconds === 'number'
-      ? exercise.restSeconds
-      : (typeof workout.defaultRestSeconds === 'number' ? workout.defaultRestSeconds : DEFAULT_REST_SECONDS);
+    const restSeconds = resolveRestSeconds(exercise, workout);
 
     return {
       id: exercise.id,
@@ -244,7 +241,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       const activeSet = exercise?.sets[session.currentSetIndex];
       if (!exercise || !activeSet || activeSet.completed) return state;
 
-      const restDuration = typeof exercise.restSeconds === 'number' ? exercise.restSeconds : DEFAULT_REST_SECONDS;
+      const restDuration = resolveRestSeconds(exercise);
       const completedAt = new Date().toISOString();
       const exercisesWithCompletedSet = session.exercises.map((item, exerciseIndex) => {
         if (exerciseIndex !== session.currentExerciseIndex) return item;

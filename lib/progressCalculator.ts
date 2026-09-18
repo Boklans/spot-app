@@ -27,6 +27,23 @@ function startOfDay(value: Date) {
   return date;
 }
 
+export function getStartOfWeek(now = new Date()): Date {
+  const date = startOfDay(now);
+  const day = date.getDay(); // 0 is Sunday, 1 is Monday...
+  const diff = (day === 0 ? -6 : 1) - day; // Monday as first day of week
+  date.setDate(date.getDate() + diff);
+  return date;
+}
+
+export function countWorkoutsThisWeek(history: CompletedWorkout[], now = new Date()): number {
+  const startOfWeek = getStartOfWeek(now).getTime();
+  const currentNow = now.getTime();
+  return history.filter((workout) => {
+    const time = new Date(workout.completedAt).getTime();
+    return time >= startOfWeek && time <= currentNow;
+  }).length;
+}
+
 function getWindowStart(period: ProgressPeriod, now: Date) {
   if (period === 'ALL') return null;
   const start = startOfDay(now);
