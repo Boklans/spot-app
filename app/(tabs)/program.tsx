@@ -6,7 +6,7 @@ import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatWeight } from '@/lib/weightUtils';
-import { useProgramProgressStore } from '@/store/programProgressStore';
+import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
 
 export default function Program() {
@@ -17,11 +17,10 @@ export default function Program() {
 		useProgramStore.getState().loadProgram();
 	}, []);
 
-	const nextIndex = progress && progress.programId === program.id ? progress.nextSequenceIndex : 0;
-	const safeIndex = nextIndex >= 0 && nextIndex < program.workouts.length ? nextIndex : 0;
+	const scheduledWorkout = getScheduledWorkout(program, progress);
 
-	return <Screen><View style={styles.header}><View><Text style={styles.eyebrow}>YOUR PROGRAM</Text><Text style={styles.title}>{program.name}</Text><Text style={styles.meta}>{program.daysPerWeek} days / week</Text></View><Text style={styles.edit}>EDIT</Text></View><Text style={styles.description}>{program.description}</Text>{program.workouts.map((workout, index) => {
-		const isUpNext = index === safeIndex;
+	return <Screen><View style={styles.header}><View><Text style={styles.eyebrow}>YOUR PROGRAM</Text><Text style={styles.title}>{program.name}</Text><Text style={styles.meta}>{program.daysPerWeek} days / week</Text></View><Pressable accessibilityRole="button" onPress={() => router.push('/program/edit' as any)} hitSlop={10}><Text style={styles.edit}>EDIT</Text></Pressable></View><Text style={styles.description}>{program.description}</Text>{program.workouts.map((workout, index) => {
+		const isUpNext = workout.id === scheduledWorkout.id;
 		return <Pressable accessibilityRole="button" key={workout.id} onPress={() => router.push({ pathname: '/workout/preview', params: { workoutId: workout.id } })}><Card style={[styles.card, isUpNext && styles.cardUpNext]}><View style={styles.cardHead}><View><View style={styles.numberRow}><Text style={styles.number}>{workout.dayLabel?.startsWith('WORKOUT') ? workout.dayLabel : `WORKOUT ${index + 1}`}</Text>{isUpNext && <View style={styles.upNextBadge}><Text style={styles.upNextBadgeText}>UP NEXT</Text></View>}</View><Text style={styles.name}>{workout.name}</Text></View><Text style={styles.arrow}>›</Text></View><View style={styles.muscles}>{workout.muscleGroups.map((muscle) => <View key={muscle} style={styles.pill}><Text style={styles.pillText}>{muscle}</Text></View>)}</View><View style={styles.exercises}>{workout.exercises.map((exercise) => <View key={exercise.name} style={styles.exercise}><Text style={styles.exerciseName}>{exercise.name}</Text><Text style={styles.exerciseMeta}>{exercise.sets} sets  •  {exercise.targetRepRange}  •  {exercise.recommendedWeight ? `${formatWeight(exercise.recommendedWeight)} kg` : 'Bodyweight'}</Text></View>)}</View></Card></Pressable>;
 	})}</Screen>;
 }

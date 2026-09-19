@@ -8,7 +8,7 @@ import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatWeight } from '@/lib/weightUtils';
-import { useProgramProgressStore } from '@/store/programProgressStore';
+import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 
@@ -25,9 +25,7 @@ export default function Preview() {
 	}, []);
 
 	const selectedId = typeof workoutId === 'string' ? workoutId : undefined;
-	const rotationIndex = progress && progress.programId === program.id ? progress.nextSequenceIndex : 0;
-	const safeIndex = rotationIndex >= 0 && rotationIndex < program.workouts.length ? rotationIndex : 0;
-	const scheduledWorkout = program.workouts[safeIndex] ?? program.workouts[0];
+	const scheduledWorkout = getScheduledWorkout(program, progress);
 	const workout = program.workouts.find((item) => item.id === selectedId) ?? scheduledWorkout;
 	const isOffRotation = selectedId !== undefined && workout.id !== scheduledWorkout.id;
 
