@@ -11,8 +11,12 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
+import { ExercisePickerModal } from '@/components/program/ExercisePickerModal';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import type { LibraryExercise } from '@/lib/exerciseLibrary';
+import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
+import { generateUUID } from '@/lib/programMigration';
 import { useProgramStore } from '@/store/programStore';
 import type { UserExercise, UserProgram } from '@/types/userProgram';
 
@@ -27,6 +31,9 @@ export default function ProgramEdit() {
 
   // Sub-view navigation state: null = Program Editor; string = Workout Editor
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
+
+  // Exercise Picker Modal state
+  const [isExercisePickerVisible, setIsExercisePickerVisible] = useState(false);
 
   // Local raw text input buffers for decimal numbers to prevent decimal-point stripping during typing
   const [rawWeightInputs, setRawWeightInputs] = useState<Record<string, string>>({});
@@ -50,6 +57,7 @@ export default function ProgramEdit() {
 
   const handleMoveWorkoutUp = (index: number) => {
     if (index <= 0) return;
+    hapticMedium();
     setDraft((prev) => {
       const workouts = [...prev.workouts];
       const temp = workouts[index - 1];
@@ -60,6 +68,8 @@ export default function ProgramEdit() {
   };
 
   const handleMoveWorkoutDown = (index: number) => {
+    if (index >= draft.workouts.length - 1) return;
+    hapticMedium();
     setDraft((prev) => {
       if (index >= prev.workouts.length - 1) return prev;
       const workouts = [...prev.workouts];
@@ -101,6 +111,7 @@ export default function ProgramEdit() {
   // Exercise Level Handlers
   const handleMoveExerciseUp = (workoutId: string, exerciseIndex: number) => {
     if (exerciseIndex <= 0) return;
+    hapticMedium();
     setDraft((prev) => ({
       ...prev,
       workouts: prev.workouts.map((w) => {
@@ -115,6 +126,9 @@ export default function ProgramEdit() {
   };
 
   const handleMoveExerciseDown = (workoutId: string, exerciseIndex: number) => {
+    const currentWorkout = draft.workouts.find((w) => w.id === workoutId);
+    if (!currentWorkout || exerciseIndex >= currentWorkout.exercises.length - 1) return;
+    hapticMedium();
     setDraft((prev) => ({
       ...prev,
       workouts: prev.workouts.map((w) => {
@@ -148,6 +162,31 @@ export default function ProgramEdit() {
     }));
   };
 
+  const handleAddExercise = (workoutId: string, libExercise: LibraryExercise) => {
+    const newExercise: UserExercise = {
+      id: generateUUID(),
+      name: libExercise.name,
+      muscleGroup: libExercise.muscleGroup,
+      sets: libExercise.defaultSets ?? 3,
+      recommendedWeight: libExercise.defaultWeight ?? 0,
+      targetRepRange: libExercise.defaultRepRange ?? '8-10',
+      equipment: libExercise.equipment,
+      weightIncrement: libExercise.weightIncrement,
+      restSeconds: 90,
+    };
+
+    setDraft((prev) => ({
+      ...prev,
+      workouts: prev.workouts.map((w) => {
+        if (w.id !== workoutId) return w;
+        return {
+          ...w,
+          exercises: [...w.exercises, newExercise],
+        };
+      }),
+    }));
+  };
+
   const handleUpdateExercise = (
     workoutId: string,
     exerciseId: string,
@@ -166,11 +205,13 @@ export default function ProgramEdit() {
   };
 
   const handleSetsDelta = (workoutId: string, exercise: UserExercise, delta: number) => {
+    hapticLight();
     const nextSets = Math.max(1, exercise.sets + delta);
     handleUpdateExercise(workoutId, exercise.id, { sets: nextSets });
   };
 
   const handleWeightDelta = (workoutId: string, exercise: UserExercise, delta: number) => {
+    hapticLight();
     const next = Math.max(0, parseFloat((exercise.recommendedWeight + delta).toFixed(2)));
     setRawWeightInputs((prev) => ({ ...prev, [exercise.id]: String(next) }));
     handleUpdateExercise(workoutId, exercise.id, { recommendedWeight: next });
@@ -196,6 +237,7 @@ export default function ProgramEdit() {
       ...draft,
       name: trimmed,
     });
+    hapticSuccess();
     router.back();
   };
 
@@ -444,12 +486,28 @@ export default function ProgramEdit() {
               </Card>
             );
           })}
+
+          {/* Add Exercise Button */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setIsExercisePickerVisible(true)}
+            style={({ pressed }) => [styles.addExerciseButton, pressed && styles.buttonPressed]}
+          >
+            <Text style={styles.addExerciseText}>+ ADD EXERCISE</Text>
+          </Pressable>
         </View>
 
         {/* Done Button */}
         <View style={styles.bottomActions}>
           <Button onPress={() => setSelectedWorkoutId(null)}>DONE</Button>
         </View>
+
+        {/* Exercise Picker Modal */}
+        <ExercisePickerModal
+          visible={isExercisePickerVisible}
+          onClose={() => setIsExercisePickerVisible(false)}
+          onSelect={(libExercise) => handleAddExercise(selectedWorkout.id, libExercise)}
+        />
       </Screen>
     );
   }
@@ -901,5 +959,22 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     fontWeight: '800',
+  },
+  addExerciseButton: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 14,
+    paddingVertical: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
+  addExerciseText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
 });

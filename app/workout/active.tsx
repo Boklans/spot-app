@@ -9,6 +9,7 @@ import { SetRow } from '@/components/workout/SetRow';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { hapticMedium } from '@/lib/haptics';
 import { formatWeight } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { getSessionProgress, useWorkoutSessionStore } from '@/store/workoutSessionStore';
@@ -53,6 +54,7 @@ export default function Active() {
 				Alert.alert('Could not save workout', 'Your workout is still on this device. Try saving again.');
 			}
 		} else {
+			hapticMedium();
 			router.push('/workout/rest');
 		}
 	};

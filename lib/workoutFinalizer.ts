@@ -1,4 +1,5 @@
 import { createCompletedWorkoutSnapshot } from '@/lib/completedWorkout';
+import { hapticSuccess } from '@/lib/haptics';
 import { detectPersonalRecords } from '@/lib/personalRecords';
 import { useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
@@ -28,5 +29,6 @@ export async function finalizeWorkoutSession(session: WorkoutSession): Promise<C
   const program = await useProgramStore.getState().getOrLoadProgram();
   await useProgramProgressStore.getState().advanceProgress(program, session.programWorkoutId, session.id);
 
+  await hapticSuccess();
   return snapshot;
 }

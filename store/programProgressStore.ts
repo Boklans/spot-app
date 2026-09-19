@@ -11,6 +11,7 @@ export type ProgramProgress = {
   completedWorkoutCount: number;
   lastCompletedWorkoutId?: string;
   lastCompletedSessionId?: string;
+  lastDismissedReviewWeek?: string;
   updatedAt: string;
 };
 
@@ -21,6 +22,7 @@ type ParsedRawProgress = {
   completedWorkoutCount: number;
   lastCompletedWorkoutId?: string;
   lastCompletedSessionId?: string;
+  lastDismissedReviewWeek?: string;
   updatedAt: string;
 };
 
@@ -30,6 +32,7 @@ type ProgramProgressState = {
   loadProgress: (program: UserProgram | GeneratedProgram) => Promise<ProgramProgress>;
   advanceProgress: (program: UserProgram | GeneratedProgram, completedWorkoutId: string, sessionId?: string) => Promise<ProgramProgress>;
   resetProgress: (programId: string, initialWorkoutId?: string) => Promise<ProgramProgress>;
+  dismissWeeklyReview: (weekKey: string) => Promise<void>;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -62,6 +65,7 @@ function parseProgress(value: string | null): ParsedRawProgress | null {
       completedWorkoutCount: parsed.completedWorkoutCount,
       lastCompletedWorkoutId: typeof parsed.lastCompletedWorkoutId === 'string' ? parsed.lastCompletedWorkoutId : undefined,
       lastCompletedSessionId: typeof parsed.lastCompletedSessionId === 'string' ? parsed.lastCompletedSessionId : undefined,
+      lastDismissedReviewWeek: typeof parsed.lastDismissedReviewWeek === 'string' ? parsed.lastDismissedReviewWeek : undefined,
       updatedAt: parsed.updatedAt,
     };
   } catch {
@@ -140,6 +144,7 @@ export const useProgramProgressStore = create<ProgramProgressState>((set, get) =
         completedWorkoutCount: parsed.completedWorkoutCount,
         lastCompletedWorkoutId: parsed.lastCompletedWorkoutId,
         lastCompletedSessionId: parsed.lastCompletedSessionId,
+        lastDismissedReviewWeek: parsed.lastDismissedReviewWeek,
         updatedAt: parsed.updatedAt,
       };
 
@@ -192,6 +197,7 @@ export const useProgramProgressStore = create<ProgramProgressState>((set, get) =
       completedWorkoutCount: current.completedWorkoutCount + 1,
       lastCompletedWorkoutId: completedWorkoutId,
       lastCompletedSessionId: sessionId,
+      lastDismissedReviewWeek: current.lastDismissedReviewWeek,
       updatedAt: new Date().toISOString(),
     };
 
@@ -203,6 +209,22 @@ export const useProgramProgressStore = create<ProgramProgressState>((set, get) =
 
     set({ progress: next, hydrated: true });
     return next;
+  },
+
+  dismissWeeklyReview: async (weekKey: string) => {
+    const current = get().progress;
+    if (!current) return;
+    const updated: ProgramProgress = {
+      ...current,
+      lastDismissedReviewWeek: weekKey,
+      updatedAt: new Date().toISOString(),
+    };
+    try {
+      await AsyncStorage.setItem(PROGRAM_PROGRESS_STORAGE_KEY, JSON.stringify(updated));
+    } catch {
+      // Continue even if local storage temporarily failed
+    }
+    set({ progress: updated });
   },
 
   resetProgress: async (programId: string, initialWorkoutId?: string) => {

@@ -13,6 +13,13 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ihor.spot"
+    },
+    "android": {
+      "package": "com.ihor.spot"
     }
   }
 }
