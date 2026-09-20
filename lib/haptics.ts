@@ -54,3 +54,5 @@ export async function hapticSelection(): Promise<void> {
   }
 }
 
+export const hapticImpact = hapticLight;
+

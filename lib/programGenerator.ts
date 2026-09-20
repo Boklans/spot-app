@@ -1,6 +1,7 @@
+import { useUserProfileStore } from '@/store/userProfileStore';
 import type { OnboardingData } from '@/store/workoutStore';
 
-export type WorkoutSplitType = 'upper_lower' | 'full_body' | 'push_pull_legs';
+export type WorkoutSplitType = 'upper_lower' | 'full_body' | 'push_pull_legs' | 'custom';
 export type EquipmentId = 'full_gym' | 'dumbbells' | 'barbell' | 'machines' | 'bodyweight';
 export type GoalId = OnboardingData['goal'];
 
@@ -62,13 +63,37 @@ export function formatSplitLabel(splitType: WorkoutSplitType): string {
       return 'Full Body';
     case 'push_pull_legs':
       return 'Push · Pull · Legs';
+    case 'custom':
+      return 'Custom Split';
   }
 }
 
 type ExerciseOption = Omit<GeneratedExercise, 'sets' | 'targetRepRange'> & { targetRepRange?: string };
 type WorkoutTemplate = { name: string; exercises: ExerciseOption[]; estimatedMinutes?: number };
 
-const dayLabels = ['WORKOUT 1', 'WORKOUT 2', 'WORKOUT 3', 'WORKOUT 4', 'WORKOUT 5', 'WORKOUT 6'];
+export const DEFAULT_WEEKDAY_SCHEDULES: Record<number, string[]> = {
+  2: ['TUE', 'SAT'],
+  3: ['MON', 'WED', 'FRI'],
+  4: ['MON', 'TUE', 'THU', 'FRI'],
+  5: ['MON', 'TUE', 'WED', 'FRI', 'SAT'],
+  6: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
+};
+
+export function getWorkoutDayLabel(
+  dayLabel?: string,
+  index = 0,
+  trainingDays?: string[],
+  frequency = 3
+): string {
+  if (dayLabel && !dayLabel.toUpperCase().startsWith('WORKOUT')) {
+    return dayLabel;
+  }
+  const days = (trainingDays && trainingDays.length > 0)
+    ? trainingDays
+    : (DEFAULT_WEEKDAY_SCHEDULES[frequency] ?? DEFAULT_WEEKDAY_SCHEDULES[3]);
+  return days[index % days.length] ?? `DAY ${index + 1}`;
+}
+
 const defaultEquipment: EquipmentId[] = ['full_gym'];
 const supportedEquipment: EquipmentId[] = ['full_gym', 'dumbbells', 'barbell', 'machines', 'bodyweight'];
 
@@ -210,11 +235,124 @@ function upperLowerTemplates(equipment: EquipmentId[], strength = false): Workou
 
 function pushPullLegsTemplates(equipment: EquipmentId[]): WorkoutTemplate[] {
   return [
-    { name: 'Upper', exercises: [pick(exerciseOptions.horizontalPush, equipment), pick(exerciseOptions.row, equipment), pick(exerciseOptions.verticalPull, equipment), pick(exerciseOptions.shoulderPush, equipment), pick(exerciseOptions.biceps, equipment)] },
-    { name: 'Lower', exercises: [pick(exerciseOptions.squat, equipment), pick(exerciseOptions.hinge, equipment), pick(exerciseOptions.lunges, equipment), pick(exerciseOptions.legAccessory, equipment), pick(exerciseOptions.calves, equipment), pick(exerciseOptions.core, equipment)] },
-    { name: 'Push', exercises: [pick(exerciseOptions.horizontalPush, equipment), pick(exerciseOptions.inclinePush, equipment), pick(exerciseOptions.shoulderPush, equipment), pick(exerciseOptions.triceps, equipment)] },
-    { name: 'Pull', exercises: [pick(exerciseOptions.verticalPull, equipment), pick(exerciseOptions.row, equipment), pick(exerciseOptions.biceps, equipment), pick(exerciseOptions.core, equipment)] },
-    { name: 'Legs', exercises: [pick(exerciseOptions.squat, equipment), pick(exerciseOptions.hinge, equipment), pick(exerciseOptions.lunges, equipment), pick(exerciseOptions.legAccessory, equipment), pick(exerciseOptions.calves, equipment), pick(exerciseOptions.core, equipment)] },
+    {
+      name: 'Push',
+      exercises: [
+        pick(exerciseOptions.horizontalPush, equipment),
+        pick(exerciseOptions.inclinePush, equipment),
+        pick(exerciseOptions.shoulderPush, equipment),
+        pick(exerciseOptions.triceps, equipment),
+        pick(exerciseOptions.core, equipment),
+      ],
+      estimatedMinutes: 50,
+    },
+    {
+      name: 'Pull',
+      exercises: [
+        pick(exerciseOptions.verticalPull, equipment),
+        pick(exerciseOptions.row, equipment),
+        pick(exerciseOptions.biceps, equipment),
+        pick(exerciseOptions.shoulderPush, equipment),
+        pick(exerciseOptions.core, equipment),
+      ],
+      estimatedMinutes: 50,
+    },
+    {
+      name: 'Legs',
+      exercises: [
+        pick(exerciseOptions.squat, equipment),
+        pick(exerciseOptions.hinge, equipment),
+        pick(exerciseOptions.lunges, equipment),
+        pick(exerciseOptions.legAccessory, equipment),
+        pick(exerciseOptions.calves, equipment),
+      ],
+      estimatedMinutes: 55,
+    },
+    {
+      name: 'Push 2',
+      exercises: [
+        pick(exerciseOptions.inclinePush, equipment),
+        pick(exerciseOptions.horizontalPush, equipment),
+        pick(exerciseOptions.shoulderPush, equipment),
+        pick(exerciseOptions.triceps, equipment),
+      ],
+      estimatedMinutes: 50,
+    },
+    {
+      name: 'Pull 2',
+      exercises: [
+        pick(exerciseOptions.row, equipment),
+        pick(exerciseOptions.verticalPull, equipment),
+        pick(exerciseOptions.biceps, equipment),
+        pick(exerciseOptions.core, equipment),
+      ],
+      estimatedMinutes: 50,
+    },
+    {
+      name: 'Legs 2',
+      exercises: [
+        pick(exerciseOptions.hinge, equipment),
+        pick(exerciseOptions.squat, equipment),
+        pick(exerciseOptions.lunges, equipment),
+        pick(exerciseOptions.calves, equipment),
+      ],
+      estimatedMinutes: 50,
+    },
+  ];
+}
+
+function customSplitTemplates(equipment: EquipmentId[]): WorkoutTemplate[] {
+  return [
+    {
+      name: 'Chest & Triceps',
+      exercises: [
+        pick(exerciseOptions.horizontalPush, equipment),
+        pick(exerciseOptions.inclinePush, equipment),
+        pick(exerciseOptions.triceps, equipment),
+        pick(exerciseOptions.core, equipment),
+      ],
+      estimatedMinutes: 45,
+    },
+    {
+      name: 'Back & Biceps',
+      exercises: [
+        pick(exerciseOptions.verticalPull, equipment),
+        pick(exerciseOptions.row, equipment),
+        pick(exerciseOptions.biceps, equipment),
+        pick(exerciseOptions.core, equipment),
+      ],
+      estimatedMinutes: 45,
+    },
+    {
+      name: 'Legs & Shoulders',
+      exercises: [
+        pick(exerciseOptions.squat, equipment),
+        pick(exerciseOptions.hinge, equipment),
+        pick(exerciseOptions.shoulderPush, equipment),
+        pick(exerciseOptions.calves, equipment),
+      ],
+      estimatedMinutes: 50,
+    },
+    {
+      name: 'Arms & Core',
+      exercises: [
+        pick(exerciseOptions.biceps, equipment),
+        pick(exerciseOptions.triceps, equipment),
+        pick(exerciseOptions.shoulderPush, equipment),
+        pick(exerciseOptions.core, equipment),
+      ],
+      estimatedMinutes: 40,
+    },
+    {
+      name: 'Full Body Conditioning',
+      exercises: [
+        pick(exerciseOptions.squat, equipment),
+        pick(exerciseOptions.horizontalPush, equipment),
+        pick(exerciseOptions.verticalPull, equipment),
+        pick(exerciseOptions.lunges, equipment),
+      ],
+      estimatedMinutes: 50,
+    },
   ];
 }
 
@@ -231,25 +369,143 @@ export function resolveRestSeconds(
   workout?: { defaultRestSeconds?: number },
   program?: { defaultRestSeconds?: number }
 ): number {
-  return exercise?.restSeconds
+  const profileRest = (() => {
+    try {
+      return useUserProfileStore.getState().profile.defaultRestSeconds;
+    } catch {
+      return undefined;
+    }
+  })();
+
+  return profileRest
+    ?? exercise?.restSeconds
     ?? workout?.defaultRestSeconds
     ?? program?.defaultRestSeconds
     ?? 150;
 }
 
-function buildWorkouts(templates: WorkoutTemplate[], frequency: number, defaultRestSeconds = 150): GeneratedWorkout[] {
+export function calculateRecommendedRest(
+  exerciseName?: string,
+  equipment?: EquipmentId,
+  goal?: string,
+  bodyStats?: { weightKg?: number }
+): number {
+  const isCompound = Boolean(
+    exerciseName && (
+      exerciseName.toLowerCase().includes('squat') ||
+      exerciseName.toLowerCase().includes('bench') ||
+      exerciseName.toLowerCase().includes('deadlift') ||
+      exerciseName.toLowerCase().includes('overhead') ||
+      exerciseName.toLowerCase().includes('leg press') ||
+      exerciseName.toLowerCase().includes('row')
+    )
+  );
+
+  let rest = isCompound ? 150 : 90;
+
+  if (goal === 'get_stronger') {
+    rest += 30;
+  } else if (goal === 'lose_fat') {
+    rest = Math.max(60, rest - 30);
+  }
+
+  // Heavier trainees performing compound lifts require extended ATP-CP resynthesis
+  if (isCompound && bodyStats?.weightKg && bodyStats.weightKg >= 85) {
+    rest = Math.min(180, rest + 15);
+  }
+
+  return rest;
+}
+
+export function calibrateInitialWeight(
+  baseWeight: number,
+  equipment: EquipmentId,
+  experience?: string,
+  goal?: string,
+  bodyStats?: { weightKg?: number; heightCm?: number }
+): number {
+  if (equipment === 'bodyweight' || baseWeight <= 0) return 0;
+
+  // 1. Experience scaling
+  let expMultiplier = 1.0;
+  if (experience === 'beginner') expMultiplier = 0.55;
+  else if (experience === 'advanced') expMultiplier = 1.30;
+
+  // 2. Goal scaling
+  let goalMultiplier = 1.0;
+  if (goal === 'get_stronger') goalMultiplier = 1.10;
+  else if (goal === 'lose_fat') goalMultiplier = 0.90;
+
+  // 3. Bodyweight allometric scaling (reference lifter: 75 kg)
+  let bodyMultiplier = 1.0;
+  if (bodyStats?.weightKg && bodyStats.weightKg > 35) {
+    bodyMultiplier = Math.pow(bodyStats.weightKg / 75, 0.67);
+    bodyMultiplier = Math.max(0.72, Math.min(1.35, bodyMultiplier));
+  }
+
+  const raw = baseWeight * expMultiplier * goalMultiplier * bodyMultiplier;
+
+  // 4. Equipment-specific roundings
+  if (equipment === 'barbell') {
+    const rounded = Math.round(raw / 2.5) * 2.5;
+    return Math.max(20, rounded);
+  }
+
+  if (equipment === 'dumbbells') {
+    const rounded = Math.round(raw / 2) * 2;
+    return Math.max(4, rounded);
+  }
+
+  if (equipment === 'machines') {
+    const rounded = Math.round(raw / 2.5) * 2.5;
+    return Math.max(10, rounded);
+  }
+
+  return Math.round(raw / 2.5) * 2.5;
+}
+
+function buildWorkouts(
+  templates: WorkoutTemplate[],
+  frequency: number,
+  defaultRestSeconds = 150,
+  trainingDays?: string[],
+  onboarding?: OnboardingData
+): GeneratedWorkout[] {
   return repeatTemplates(templates, frequency).map((template, index) => {
-    const exercises: GeneratedExercise[] = template.exercises.map((exercise) => ({
-      ...exercise,
-      sets: exercise.muscleGroup === 'Core' ? 2 : 3,
-      targetRepRange: exercise.targetRepRange ?? '8-12',
-      name: exercise.name,
-      weightIncrement: exercise.weightIncrement ?? defaultWeightIncrement(exercise.equipment),
-    }));
+    const exercises: GeneratedExercise[] = template.exercises.map((exercise) => {
+      const calibratedWeight = onboarding
+        ? calibrateInitialWeight(
+            exercise.recommendedWeight,
+            exercise.equipment,
+            onboarding.experience,
+            onboarding.goal,
+            { weightKg: onboarding.weightKg, heightCm: onboarding.heightCm }
+          )
+        : exercise.recommendedWeight;
+
+      const calibratedRest = onboarding
+        ? calculateRecommendedRest(
+            exercise.name,
+            exercise.equipment,
+            onboarding.goal,
+            { weightKg: onboarding.weightKg }
+          )
+        : exercise.restSeconds ?? defaultRestSeconds;
+
+      return {
+        ...exercise,
+        recommendedWeight: calibratedWeight,
+        restSeconds: calibratedRest,
+        sets: exercise.muscleGroup === 'Core' ? 2 : 3,
+        targetRepRange: exercise.targetRepRange ?? '8-12',
+        name: exercise.name,
+        weightIncrement: exercise.weightIncrement ?? defaultWeightIncrement(exercise.equipment),
+      };
+    });
     return {
       id: `workout-${index + 1}`,
       name: template.name,
-      dayLabel: dayLabels[index] ?? `WORKOUT ${index + 1}`,
+      dayLabel: getWorkoutDayLabel(undefined, index, trainingDays, frequency),
       muscleGroups: [...new Set(exercises.map((exercise) => exercise.muscleGroup))],
       estimatedMinutes: template.estimatedMinutes ?? (exercises.length >= 6 ? 55 : 50),
       defaultRestSeconds,
@@ -267,7 +523,27 @@ export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
   let description: string;
   let splitType: WorkoutSplitType;
 
-  if (onboarding.goal === 'get_stronger') {
+  if (onboarding.splitPreference === 'full_body') {
+    splitType = 'full_body';
+    templates = fullBodyTemplates(equipment, onboarding.goal === 'get_stronger');
+    name = onboarding.goal === 'get_stronger' ? 'Full Body Strength' : 'Full Body Hypertrophy';
+    description = 'High-frequency full-body sessions hitting every muscle group with maximum recovery.';
+  } else if (onboarding.splitPreference === 'push_pull_legs') {
+    splitType = 'push_pull_legs';
+    templates = pushPullLegsTemplates(equipment);
+    name = 'Push / Pull / Legs (PPL)';
+    description = 'Specialized split targeting synergistic muscle groups with high focus and pump.';
+  } else if (onboarding.splitPreference === 'upper_lower') {
+    splitType = 'upper_lower';
+    templates = upperLowerTemplates(equipment, onboarding.goal === 'get_stronger');
+    name = 'Upper / Lower Split';
+    description = 'Classic balanced structure separating upper body pushing/pulling and lower body power.';
+  } else if (onboarding.splitPreference === 'custom') {
+    splitType = 'custom';
+    templates = customSplitTemplates(equipment);
+    name = 'Custom Athlete Split';
+    description = 'Targeted muscle group split with freedom to customize exercises.';
+  } else if (onboarding.goal === 'get_stronger') {
     const isPpl = frequency >= 5;
     splitType = isPpl ? 'push_pull_legs' : 'upper_lower';
     const strengthBase = isPpl ? pushPullLegsTemplates(equipment) : upperLowerTemplates(equipment, true);
@@ -311,6 +587,6 @@ export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
     estimatedWorkoutMinutes: 55,
     splitType,
     defaultRestSeconds,
-    workouts: buildWorkouts(templates, frequency, defaultRestSeconds),
+    workouts: buildWorkouts(templates, frequency, defaultRestSeconds, onboarding.trainingDays, onboarding),
   };
 }

@@ -6,6 +6,12 @@
     "orientation": "portrait",
     "scheme": "spot",
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0D0F",
+    "primaryColor": "#C8FF3D",
+    "splash": {
+      "backgroundColor": "#0B0D0F",
+      "resizeMode": "contain"
+    },
     "plugins": [
       "expo-router",
       "expo-asset",
@@ -16,10 +22,16 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.ihor.spot"
+      "bundleIdentifier": "com.ihor.spot",
+      "infoPlist": {
+        "UIBackgroundModes": ["audio"]
+      }
     },
     "android": {
-      "package": "com.ihor.spot"
+      "package": "com.ihor.spot",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0D0F"
+      }
     }
   }
 }

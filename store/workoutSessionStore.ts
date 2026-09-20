@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { generateProgram, resolveRestSeconds, type GeneratedWorkout } from '@/lib/programGenerator';
+import { generateProgram, resolveRestSeconds, type GeneratedExercise, type GeneratedWorkout } from '@/lib/programGenerator';
 import { findLatestExerciseSets, recommendWeight, type WeightRecommendation } from '@/lib/adaptiveProgression';
 import type { CompletedWorkout, PersonalRecord } from '@/types/workout';
 import { defaultOnboarding } from './workoutStore';
@@ -64,6 +64,7 @@ type WorkoutSessionState = {
   updateCurrentSet: (values: { weight?: number; reps?: number }) => void;
   addRestTime: (seconds: number) => void;
   skipRest: () => void;
+  swapExercise: (newExercise: { name: string; muscleGroup: string; defaultWeight?: number }) => void;
   clearSession: () => void;
 };
 
@@ -330,6 +331,54 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
     set({ restEndsAt: null, restNextType: null });
     const state = useWorkoutSessionStore.getState();
     if (state.session) persistSnapshot({ session: state.session, restEndsAt: null, restNextType: null });
+  },
+
+  swapExercise: (newExercise) => {
+    set((state) => {
+      if (!state.session) return state;
+      const { currentExerciseIndex } = state.session;
+      const currentEx = state.session.exercises[currentExerciseIndex];
+      const history = useWorkoutHistoryStore.getState().workouts;
+      const generatedEx: GeneratedExercise = {
+        id: currentEx?.id ?? `swapped-${Date.now()}`,
+        name: newExercise.name,
+        muscleGroup: newExercise.muscleGroup,
+        equipment: 'barbell',
+        sets: currentEx?.sets.length ?? 3,
+        targetRepRange: currentEx?.sets[0]?.targetReps ?? '8-12',
+        recommendedWeight: newExercise.defaultWeight ?? 20,
+        weightIncrement: currentEx?.weightIncrement ?? 2.5,
+        restSeconds: currentEx?.restSeconds ?? 90,
+      };
+      const previousSets = findLatestExerciseSets(history, generatedEx);
+      const rec = recommendWeight(generatedEx, previousSets);
+
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          exercises: state.session.exercises.map((ex, idx) => {
+            if (idx !== currentExerciseIndex) return ex;
+            return {
+              ...ex,
+              name: newExercise.name,
+              muscleGroup: newExercise.muscleGroup,
+              previousSets,
+              recommendation: rec,
+              sets: ex.sets.map((s) => (s.completed ? s : { ...s, weight: rec.recommendedWeight })),
+            };
+          }),
+        },
+      };
+    });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session) {
+      persistSnapshot({
+        session: state.session,
+        restEndsAt: state.restEndsAt,
+        restNextType: state.restNextType,
+      });
+    }
   },
 
   clearSession: () => {

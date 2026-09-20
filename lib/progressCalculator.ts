@@ -1,4 +1,6 @@
 import { calculateEstimated1RM } from '@/lib/personalRecords';
+import { convertVolumeToActiveUnit, getActiveWeightUnit } from '@/lib/weightUtils';
+import type { WeightUnit } from '@/store/userProfileStore';
 import type { UserProgram } from '@/types/userProgram';
 import type { CompletedExercise, CompletedWorkout } from '@/types/workout';
 
@@ -267,6 +269,8 @@ export function getAvailableExercisesForProgress(
   return result;
 }
 
-export function formatVolume(value: number) {
-  return `${Math.round(value).toLocaleString()} kg`;
+export function formatVolume(value: number, unit?: WeightUnit) {
+  const active = unit ?? getActiveWeightUnit();
+  const converted = convertVolumeToActiveUnit(value, active);
+  return `${Math.round(converted).toLocaleString()} ${active.toUpperCase()}`;
 }

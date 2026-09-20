@@ -1,59 +1,490 @@
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  Dimensions,
+  Image,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { RestTimer } from '@/components/workout/RestTimer';
-import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
-import { formatWeight } from '@/lib/weightUtils';
+import { getExerciseImage } from '@/lib/exerciseImages';
+import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
+import { useI18n } from '@/lib/i18n';
+import { playRestCompleteSound } from '@/lib/soundEffects';
+import { useWeightUnit } from '@/lib/weightUtils';
+import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 
 export default function Rest() {
-	const session = useWorkoutSessionStore((state) => state.session);
-	const restEndsAt = useWorkoutSessionStore((state) => state.restEndsAt);
-	const restNextType = useWorkoutSessionStore((state) => state.restNextType);
-	const addRestTime = useWorkoutSessionStore((state) => state.addRestTime);
-	const skipRest = useWorkoutSessionStore((state) => state.skipRest);
-	const [now, setNow] = useState(Date.now());
-	const seconds = Math.max(0, Math.ceil(((restEndsAt ?? Date.now()) - now) / 1000));
+  const { t, language } = useI18n();
+  const { formatWithUnit } = useWeightUnit();
+  const session = useWorkoutSessionStore((state) => state.session);
+  const restEndsAt = useWorkoutSessionStore((state) => state.restEndsAt);
+  const restNextType = useWorkoutSessionStore((state) => state.restNextType);
+  const addRestTime = useWorkoutSessionStore((state) => state.addRestTime);
+  const skipRest = useWorkoutSessionStore((state) => state.skipRest);
 
-	useEffect(() => {
-		const timer = setInterval(() => setNow(Date.now()), 1000);
-		return () => clearInterval(timer);
-	}, []);
+  const [now, setNow] = useState(Date.now());
+  const seconds = Math.max(0, Math.ceil(((restEndsAt ?? Date.now()) - now) / 1000));
+  const lastHapticSecond = useRef<number | null>(null);
 
-	if (!session) {
-		return <Screen><Text style={styles.empty}>No active workout.</Text><Button onPress={() => router.replace('/(tabs)')}>BACK HOME</Button></Screen>;
-	}
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(timer);
+  }, []);
 
-	const exercise = session.exercises[session.currentExerciseIndex];
-	const nextSet = exercise.sets[session.currentSetIndex];
+  useEffect(() => {
+    if (seconds <= 3 && seconds > 0 && lastHapticSecond.current !== seconds) {
+      lastHapticSecond.current = seconds;
+      hapticLight();
+    } else if (seconds === 0 && lastHapticSecond.current !== 0) {
+      lastHapticSecond.current = 0;
+      hapticSuccess();
+      playRestCompleteSound();
+    }
+  }, [seconds]);
 
-	const continueWorkout = () => {
-		skipRest();
-		router.replace('/workout/active');
-	};
-	const handleClose = () => {
-		const completedSets = session.exercises.reduce((total, item) => total + item.sets.filter((set) => set.completed).length, 0);
-		if (completedSets === 0) {
-			router.replace('/(tabs)');
-			return;
-		}
-		Alert.alert('ABANDON WORKOUT?', 'Your current workout progress will be saved so you can resume it later.', [
-			{ text: 'KEEP WORKOUT', style: 'cancel' },
-			{ text: 'EXIT WORKOUT', style: 'destructive', onPress: () => router.replace('/(tabs)') },
-		]);
-	};
-	const isReady = seconds === 0;
-	const nextLabel = restNextType === 'exercise' ? 'NEXT EXERCISE' : 'NEXT SET';
+  if (!session) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyTitle}>{t('noActiveWorkout')}</Text>
+          <Button onPress={() => router.replace('/(tabs)')}>{t('backToHome')}</Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-	return <Screen style={styles.screen}>
-		<Pressable accessibilityRole="button" hitSlop={12} onPress={handleClose} style={styles.closeButton}><Text style={styles.close}>×</Text></Pressable>
-		<View style={styles.main}><Text style={styles.complete}>SET COMPLETE</Text><RestTimer seconds={seconds} /><Text style={styles.ready}>{isReady ? `READY FOR ${nextLabel}` : 'REST TIME'}</Text></View>
-		<View style={styles.actions}><Card style={styles.nextCard}><Text style={styles.nextCardLabel}>{nextLabel}</Text><Text style={styles.nextExercise}>{exercise.name}</Text><Text style={styles.nextCardValue}>Set {session.currentSetIndex + 1} of {exercise.sets.length}  •  {nextSet.weight ? `${formatWeight(nextSet.weight)} kg` : 'Bodyweight'} × {nextSet.targetReps}</Text></Card>{!isReady && <View style={styles.buttons}><Button secondary onPress={() => addRestTime(30)}>+30 SEC</Button></View>}<Button onPress={continueWorkout}>{isReady ? 'CONTINUE' : 'SKIP REST'}</Button></View>
-	</Screen>;
+  // The upcoming exercise and set that user will perform after this rest
+  const targetExercise = session.exercises[session.currentExerciseIndex];
+  const nextSet = targetExercise?.sets[session.currentSetIndex];
+  const setNumber = (session.currentSetIndex ?? 0) + 1;
+  const totalSets = targetExercise?.sets.length ?? 0;
+
+  const continueWorkout = () => {
+    hapticMedium();
+    skipRest();
+    router.replace('/workout/active');
+  };
+
+  const handleBack = () => {
+    hapticLight();
+    const hasCompletedSets = session.exercises.some((e) =>
+      e.sets.some((s) => s.completed)
+    );
+
+    if (!hasCompletedSets) {
+      router.replace('/(tabs)');
+      return;
+    }
+
+    Alert.alert(
+      language === 'uk' ? 'Перервати тренування?' : 'Interrupt Workout?',
+      language === 'uk'
+        ? 'Ви можете зберегти виконані підходи в історію або вийти на головну і продовжити пізніше.'
+        : 'You can save completed sets to history, or pause and resume later from the home screen.',
+      [
+        {
+          text: language === 'uk' ? 'Продовжити відпочинок' : 'Keep Resting',
+          style: 'cancel',
+        },
+        {
+          text: language === 'uk' ? 'Пауза (на головну)' : 'Pause & Exit',
+          onPress: () => {
+            hapticLight();
+            router.replace('/(tabs)');
+          },
+        },
+        {
+          text: language === 'uk' ? 'Завершити та зберегти' : 'Finish & Save',
+          style: 'default',
+          onPress: async () => {
+            hapticMedium();
+            try {
+              await finalizeWorkoutSession(session);
+              router.replace('/workout/complete');
+            } catch {
+              router.replace('/(tabs)');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAdd30 = () => {
+    hapticLight();
+    addRestTime(30);
+  };
+
+  const minutes = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, '0');
+  const remainingSeconds = (seconds % 60).toString().padStart(2, '0');
+
+  const weightStr = nextSet?.weight ? formatWithUnit(nextSet.weight) : t('bodyweight');
+  const repsStr = nextSet?.targetReps ? ` × ${nextSet.targetReps}` : '';
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      {/* 1. Header Bar with Back Button and Raised SET COMPLETE */}
+      <View style={styles.topBar}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          hitSlop={12}
+          onPress={handleBack}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        </Pressable>
+
+        {/* Raised SET COMPLETE pill */}
+        <View style={styles.statusPill}>
+          <Ionicons
+            name="checkmark-circle"
+            size={15}
+            color={colors.primary}
+            style={{ marginRight: 6 }}
+          />
+          <Text style={styles.statusPillText}>{t('setComplete')}</Text>
+        </View>
+
+        {/* Placeholder to keep statusPill centered */}
+        <View style={styles.topBarSpacer} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {/* 2. Timer Center Zone: Exactly Centered between SET COMPLETE and heroCard */}
+        <View style={styles.timerCenterZone}>
+          <Text
+            style={[
+              styles.timerDigits,
+              seconds === 0 && styles.timerDigitsComplete,
+            ]}
+          >
+            {minutes}:{remainingSeconds}
+          </Text>
+          <Text style={styles.timerLabel}>{t('restTimer')}</Text>
+        </View>
+
+        {/* 3. Hero Upcoming Exercise Card (Big Centered Image + Details) */}
+        <View style={styles.heroCard}>
+          {/* Header Text: Kicker & Exercise Name ABOVE image */}
+          <View style={styles.cardHeader}>
+            <Text style={styles.kickerText}>
+              {restNextType === 'exercise' ? t('nextExercise') : t('nextSet')}
+            </Text>
+            <Text numberOfLines={1} style={styles.exerciseTitle}>
+              {targetExercise?.name ?? t('nextExercise')}
+            </Text>
+          </View>
+
+          {/* Big Centered Exercise 3D Illustration */}
+          <View style={styles.imageContainer}>
+            <Image
+              source={getExerciseImage(targetExercise?.name)}
+              style={styles.image}
+              resizeMode="cover"
+            />
+          </View>
+
+          {/* Target Weight, Reps & Set Counter Pill BELOW image */}
+          <View style={styles.targetBadgesRow}>
+            <View style={styles.targetWeightBadge}>
+              <MaterialCommunityIcons
+                name="weight-lifter"
+                size={16}
+                color={colors.primary}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.targetWeightText}>
+                {weightStr}
+                {repsStr}
+              </Text>
+            </View>
+
+            {totalSets > 0 && (
+              <View style={styles.setCounterBadge}>
+                <Text style={styles.setCounterText}>
+                  {t('setOf')} {setNumber}/{totalSets}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* 4. Action Buttons (+30s & Start/Skip) */}
+        <View style={styles.actionsRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add 30 seconds"
+            onPress={handleAdd30}
+            style={styles.addTimeBtn}
+          >
+            <Ionicons name="add" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
+            <Text style={styles.addTimeText}>{t('plus30Sec')}</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Skip rest or start next set"
+            onPress={continueWorkout}
+            style={[
+              styles.startBtn,
+              seconds === 0 && styles.startBtnPulse,
+            ]}
+          >
+            <Text style={styles.startBtnText}>
+              {seconds === 0
+                ? language === 'uk'
+                  ? 'Почати підхід'
+                  : 'Start Set'
+                : language === 'uk'
+                ? 'Пропустити'
+                : 'Skip'}
+            </Text>
+            <Ionicons
+              name="arrow-forward"
+              size={18}
+              color="#0B0D0F"
+              style={{ marginLeft: 6 }}
+            />
+          </Pressable>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
 
-const styles = StyleSheet.create({ screen: { paddingTop: spacing.xl }, closeButton: { minHeight: 44, justifyContent: 'center', width: 44 }, close: { color: colors.secondary, fontSize: 30 }, main: { alignItems: 'center', marginTop: spacing.huge }, complete: { color: colors.primary, fontSize: 12, letterSpacing: 1.6, fontWeight: '900' }, ready: { color: colors.success, fontSize: 14, letterSpacing: 1.1, fontWeight: '900', marginTop: spacing.xl }, actions: { marginTop: 'auto' }, nextCard: { marginBottom: spacing.md }, nextCardLabel: { color: colors.secondary, fontSize: 10, fontWeight: '800', letterSpacing: 1 }, nextExercise: { color: colors.text, fontSize: 20, fontWeight: '800', marginTop: spacing.sm }, nextCardValue: { color: colors.secondary, fontSize: 14, marginTop: spacing.sm }, buttons: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: spacing.sm }, empty: { color: colors.text, fontSize: 22, fontWeight: '800', marginBottom: spacing.xl } });
+const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: '#0B0D0F',
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    height: 48,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  topBarSpacer: {
+    width: 40,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.28)',
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  statusPillText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 26,
+  },
+  timerCenterZone: {
+    flex: 1,
+    minHeight: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 8,
+  },
+  timerDigits: {
+    color: '#FFFFFF',
+    fontSize: 54,
+    fontWeight: '900',
+    letterSpacing: 2,
+    fontVariant: ['tabular-nums'],
+  },
+  timerDigitsComplete: {
+    color: colors.primary,
+  },
+  timerLabel: {
+    color: '#8E9BAE',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
+  heroCard: {
+    width: '100%',
+    maxWidth: 350,
+    backgroundColor: '#12161D',
+    borderRadius: 24,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    marginVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  cardHeader: {
+    alignItems: 'center',
+    marginBottom: 12,
+    width: '100%',
+    paddingHorizontal: 8,
+  },
+  kickerText: {
+    color: '#8E9BAE',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  exerciseTitle: {
+    color: '#FFFFFF',
+    fontSize: 21,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+  imageContainer: {
+    width: '100%',
+    height: 195,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#080A0D',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  targetBadgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    width: '100%',
+  },
+  targetWeightBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.28)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+  },
+  targetWeightText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  setCounterBadge: {
+    backgroundColor: '#161B24',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+  },
+  setCounterText: {
+    color: '#8E9BAE',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    maxWidth: 350,
+    marginTop: 10,
+  },
+  addTimeBtn: {
+    flex: 1,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#161B24',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addTimeText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  startBtn: {
+    flex: 1.35,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  startBtnPulse: {
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+  },
+  startBtnText: {
+    color: '#0B0D0F',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  emptyWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 20,
+  },
+});

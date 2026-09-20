@@ -17,10 +17,13 @@ import { spacing } from '@/constants/spacing';
 import type { LibraryExercise } from '@/lib/exerciseLibrary';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { generateUUID } from '@/lib/programMigration';
+import { getWorkoutDayLabel } from '@/lib/programGenerator';
+import { useI18n } from '@/lib/i18n';
 import { useProgramStore } from '@/store/programStore';
 import type { UserExercise, UserProgram } from '@/types/userProgram';
 
 export default function ProgramEdit() {
+  const { t, tm, td } = useI18n();
   const activeProgram = useProgramStore((state) => state.program);
   const updateUserProgram = useProgramStore((state) => state.updateUserProgram);
 
@@ -225,11 +228,11 @@ export default function ProgramEdit() {
   const handleSave = async () => {
     const trimmed = draft.name.trim();
     if (!trimmed) {
-      Alert.alert('Validation Error', 'Program name cannot be empty.');
+      Alert.alert(t('validationError'), t('programNameEmpty'));
       return;
     }
     if (draft.workouts.length === 0) {
-      Alert.alert('Validation Error', 'Program must have at least one workout.');
+      Alert.alert(t('validationError'), t('programMustHaveWorkout'));
       return;
     }
 
@@ -256,21 +259,21 @@ export default function ProgramEdit() {
             onPress={() => setSelectedWorkoutId(null)}
             style={styles.navButton}
           >
-            <Text style={styles.cancelText}>‹ Workouts</Text>
+            <Text style={styles.cancelText}>‹ {t('routine')}</Text>
           </Pressable>
-          <Text style={styles.topTitle}>Edit Workout</Text>
+          <Text style={styles.topTitle}>{t('editWorkout')}</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => setSelectedWorkoutId(null)}
             style={styles.navButton}
           >
-            <Text style={styles.saveNavText}>Done</Text>
+            <Text style={styles.saveNavText}>{t('done')}</Text>
           </Pressable>
         </View>
 
         {/* Workout Name Input */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>WORKOUT NAME</Text>
+          <Text style={styles.sectionLabel}>{t('workoutName')}</Text>
           <TextInput
             value={selectedWorkout.name}
             onChangeText={(text) => handleWorkoutNameChange(selectedWorkout.id, text)}
@@ -280,7 +283,7 @@ export default function ProgramEdit() {
             autoCapitalize="words"
           />
           <Text style={styles.workoutSubFocus}>
-            Focus: {selectedWorkout.muscleGroups.join(' • ')}
+            {selectedWorkout.muscleGroups.map((m) => tm(m)).join(' • ')}
           </Text>
         </View>
 
@@ -288,9 +291,9 @@ export default function ProgramEdit() {
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionLabel}>
-              EXERCISES ({selectedWorkout.exercises.length})
+              {t('exercises').toUpperCase()} ({selectedWorkout.exercises.length})
             </Text>
-            <Text style={styles.subHelpText}>Reorder & adjust variables</Text>
+            <Text style={styles.subHelpText}>{t('reorderVariables')}</Text>
           </View>
 
           {selectedWorkout.exercises.map((exercise, exIndex) => {
@@ -312,7 +315,7 @@ export default function ProgramEdit() {
                   <View style={styles.exerciseMetaCol}>
                     <Text style={styles.exerciseTitle}>{exercise.name}</Text>
                     <Text style={styles.exerciseMuscle}>
-                      {exercise.muscleGroup}  •  {exercise.equipment}
+                      {tm(exercise.muscleGroup)}  •  {exercise.equipment}
                     </Text>
                   </View>
 
@@ -360,7 +363,7 @@ export default function ProgramEdit() {
                 <View style={styles.variablesGrid}>
                   {/* Sets Control */}
                   <View style={styles.variableCol}>
-                    <Text style={styles.variableLabel}>SETS</Text>
+                    <Text style={styles.variableLabel}>{t('sets').toUpperCase()}</Text>
                     <View style={styles.stepperContainer}>
                       <Pressable
                         accessibilityRole="button"
@@ -391,7 +394,7 @@ export default function ProgramEdit() {
 
                   {/* Target Rep Range */}
                   <View style={styles.variableCol}>
-                    <Text style={styles.variableLabel}>TARGET REPS</Text>
+                    <Text style={styles.variableLabel}>{t('reps')}</Text>
                     <TextInput
                       value={exercise.targetRepRange}
                       onChangeText={(text) =>
@@ -410,7 +413,7 @@ export default function ProgramEdit() {
                   {/* Recommended Weight */}
                   <View style={styles.variableCol}>
                     <View style={styles.weightLabelRow}>
-                      <Text style={styles.variableLabel}>REC. WEIGHT (KG)</Text>
+                      <Text style={styles.variableLabel}>{t('recWeight')}</Text>
                       <View style={styles.quickWeightRow}>
                         <Pressable
                           onPress={() => handleWeightDelta(selectedWorkout.id, exercise, -2.5)}
@@ -455,7 +458,7 @@ export default function ProgramEdit() {
 
                   {/* Weight Increment */}
                   <View style={styles.variableCol}>
-                    <Text style={styles.variableLabel}>INCREMENT (KG)</Text>
+                    <Text style={styles.variableLabel}>{t('increment')}</Text>
                     <TextInput
                       value={incrementDisplay}
                       onChangeText={(text) => {
@@ -493,13 +496,13 @@ export default function ProgramEdit() {
             onPress={() => setIsExercisePickerVisible(true)}
             style={({ pressed }) => [styles.addExerciseButton, pressed && styles.buttonPressed]}
           >
-            <Text style={styles.addExerciseText}>+ ADD EXERCISE</Text>
+            <Text style={styles.addExerciseText}>+ {t('addExercise').toUpperCase()}</Text>
           </Pressable>
         </View>
 
         {/* Done Button */}
         <View style={styles.bottomActions}>
-          <Button onPress={() => setSelectedWorkoutId(null)}>DONE</Button>
+          <Button onPress={() => setSelectedWorkoutId(null)}>{t('done').toUpperCase()}</Button>
         </View>
 
         {/* Exercise Picker Modal */}
@@ -518,17 +521,17 @@ export default function ProgramEdit() {
       {/* Top Header */}
       <View style={styles.topBar}>
         <Pressable accessibilityRole="button" onPress={handleCancel} style={styles.navButton}>
-          <Text style={styles.cancelText}>Cancel</Text>
+          <Text style={styles.cancelText}>{t('cancel')}</Text>
         </Pressable>
-        <Text style={styles.topTitle}>Edit Program</Text>
+        <Text style={styles.topTitle}>{t('editProgram')}</Text>
         <Pressable accessibilityRole="button" onPress={handleSave} style={styles.navButton}>
-          <Text style={styles.saveNavText}>Save</Text>
+          <Text style={styles.saveNavText}>{t('save')}</Text>
         </Pressable>
       </View>
 
       {/* Program Name Input */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>PROGRAM NAME</Text>
+        <Text style={styles.sectionLabel}>{t('programName')}</Text>
         <TextInput
           value={draft.name}
           onChangeText={handleProgramNameChange}
@@ -542,8 +545,8 @@ export default function ProgramEdit() {
       {/* Workouts List */}
       <View style={styles.section}>
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionLabel}>WORKOUTS ({draft.workouts.length})</Text>
-          <Text style={styles.subHelpText}>Tap Edit to configure exercises</Text>
+          <Text style={styles.sectionLabel}>{t('sessions')} ({draft.workouts.length})</Text>
+          <Text style={styles.subHelpText}>{t('reorderHelp')}</Text>
         </View>
 
         {draft.workouts.map((workout, index) => {
@@ -559,14 +562,14 @@ export default function ProgramEdit() {
               >
                 <View style={styles.workoutInfo}>
                   <Text style={styles.workoutIndex}>
-                    {workout.dayLabel?.startsWith('WORKOUT') ? workout.dayLabel : `WORKOUT ${index + 1}`}
+                    {td(getWorkoutDayLabel(workout.dayLabel, index, undefined, draft.workouts.length))}
                   </Text>
                   <Text style={styles.workoutName}>{workout.name}</Text>
                   <Text style={styles.workoutMeta}>
-                    {workout.exercises.length} exercises  •  ~{workout.estimatedMinutes} min
+                    {workout.exercises.length} {t('exercises').toLowerCase()}  •  ~{workout.estimatedMinutes} {t('min')}
                   </Text>
                   <Text style={styles.workoutFocus}>
-                    {workout.muscleGroups.join(' • ')}
+                    {workout.muscleGroups.map((m) => tm(m)).join(' • ')}
                   </Text>
                 </View>
                 <Text style={styles.chevronArrow}>›</Text>
@@ -585,7 +588,7 @@ export default function ProgramEdit() {
                       pressed && styles.buttonPressed,
                     ]}
                   >
-                    <Text style={[styles.iconText, isFirst && styles.iconTextDisabled]}>▲ Move Up</Text>
+                    <Text style={[styles.iconText, isFirst && styles.iconTextDisabled]}>▲ {t('moveUp')}</Text>
                   </Pressable>
 
                   <Pressable
@@ -598,7 +601,7 @@ export default function ProgramEdit() {
                       pressed && styles.buttonPressed,
                     ]}
                   >
-                    <Text style={[styles.iconText, isLast && styles.iconTextDisabled]}>▼ Move Down</Text>
+                    <Text style={[styles.iconText, isLast && styles.iconTextDisabled]}>▼ {t('moveDown')}</Text>
                   </Pressable>
                 </View>
 
@@ -611,7 +614,7 @@ export default function ProgramEdit() {
                       pressed && styles.buttonPressed,
                     ]}
                   >
-                    <Text style={styles.editWorkoutText}>Edit</Text>
+                    <Text style={styles.editWorkoutText}>{t('edit')}</Text>
                   </Pressable>
 
                   <Pressable
@@ -622,7 +625,7 @@ export default function ProgramEdit() {
                       pressed && styles.buttonPressed,
                     ]}
                   >
-                    <Text style={styles.deleteText}>Delete</Text>
+                    <Text style={styles.deleteText}>{t('delete')}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -633,8 +636,8 @@ export default function ProgramEdit() {
 
       {/* Bottom Save / Cancel Controls */}
       <View style={styles.bottomActions}>
-        <Button onPress={handleSave}>SAVE CHANGES</Button>
-        <Button secondary onPress={handleCancel}>Discard Changes</Button>
+        <Button onPress={handleSave}>{t('saveChanges').toUpperCase()}</Button>
+        <Button secondary onPress={handleCancel}>{t('discardChanges')}</Button>
       </View>
     </Screen>
   );
