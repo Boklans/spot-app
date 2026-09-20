@@ -131,8 +131,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   statusLabel: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
 
