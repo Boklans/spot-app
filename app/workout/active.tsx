@@ -69,7 +69,7 @@ function getExerciseIcon(name: string): keyof typeof MaterialCommunityIcons.glyp
 }
 
 export default function Active() {
-  const { t, tm, language } = useI18n();
+  const { t, tm, td, te, tw, language } = useI18n();
   const { unitLabel, format, formatWithUnit } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
   const completeCurrentSet = useWorkoutSessionStore((state) => state.completeCurrentSet);
@@ -168,7 +168,7 @@ export default function Active() {
           <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
         </Pressable>
 
-        <Text style={styles.topWorkoutName}>{session.workoutName}</Text>
+        <Text style={styles.topWorkoutName}>{tw(session.workoutName)}</Text>
 
         <Text style={styles.topPercent}>{percent}%</Text>
       </View>
@@ -193,7 +193,7 @@ export default function Active() {
             />
           </View>
           <View style={styles.exerciseInfoCol}>
-            <Text style={styles.exerciseName}>{exercise.name}</Text>
+            <Text style={styles.exerciseName}>{te(exercise.name)}</Text>
             <Text style={styles.exerciseMuscle}>{tm(exercise.muscleGroup)}</Text>
           </View>
           <Pressable
@@ -393,7 +393,7 @@ export default function Active() {
                             isCurrent && styles.swapItemNameCurrent,
                           ]}
                         >
-                          {alt.name}
+                          {te(alt.name)}
                         </Text>
                         <Text style={styles.swapItemDetail}>
                           {tm(alt.muscleGroup)} • {t('base')} {formatWithUnit(alt.defaultWeight)}

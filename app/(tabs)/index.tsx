@@ -10,10 +10,11 @@ import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { countWorkoutsThisWeek, getStartOfWeek } from '@/lib/progressCalculator';
 import { calculateMuscleRecovery } from '@/lib/recoveryEngine';
-import { useI18n } from '@/lib/i18n';
+import { translateExercise, useI18n } from '@/lib/i18n';
 import { formatWeightWithUnit } from '@/lib/weightUtils';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
+import type { AppLanguage } from '@/store/userProfileStore';
 import { WORKOUT_HISTORY_STORAGE_KEY, useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { defaultOnboarding, loadOnboarding } from '@/store/workoutStore';
@@ -84,7 +85,7 @@ function computeReadinessScore(
   return { percentage, label, subtitle, color };
 }
 
-function computeSpotInsight(history: CompletedWorkout[]): string {
+function computeSpotInsight(history: CompletedWorkout[], lang: AppLanguage = 'en'): string {
   const sorted = [...(history || [])].sort((a, b) => {
     const timeA = new Date(a.completedAt || a.startedAt || 0).getTime();
     const timeB = new Date(b.completedAt || b.startedAt || 0).getTime();
@@ -95,7 +96,10 @@ function computeSpotInsight(history: CompletedWorkout[]): string {
     const latestPR = sorted.find((w) => w.personalRecords && w.personalRecords.length > 0);
     if (latestPR && latestPR.personalRecords[0]) {
       const pr = latestPR.personalRecords[0];
-      return `Your ${pr.exerciseName} is calibrated for ${formatWeightWithUnit(pr.value + 2.5)} based on your recent training.`;
+      const exName = translateExercise(pr.exerciseName, lang);
+      return lang === 'uk'
+        ? `Ваш показник у ${exName} калібровано на ${formatWeightWithUnit(pr.value + 2.5)} на основі недавніх тренувань.`
+        : `Your ${pr.exerciseName} is calibrated for ${formatWeightWithUnit(pr.value + 2.5)} based on your recent training.`;
     }
 
     for (const w of sorted) {
@@ -104,17 +108,22 @@ function computeSpotInsight(history: CompletedWorkout[]): string {
         const lastSet = topEx.sets[topEx.sets.length - 1];
         if (lastSet && lastSet.weight > 0) {
           const nextWeight = lastSet.weight + 2.5;
-          return `Your ${topEx.exerciseName} is calibrated for ${formatWeightWithUnit(nextWeight)} based on your recent workout.`;
+          const exName = translateExercise(topEx.exerciseName, lang);
+          return lang === 'uk'
+            ? `Ваш показник у ${exName} калібровано на ${formatWeightWithUnit(nextWeight)} на основі недавнього тренування.`
+            : `Your ${topEx.exerciseName} is calibrated for ${formatWeightWithUnit(nextWeight)} based on your recent workout.`;
         }
       }
     }
   }
 
-  return 'Start Upper A to establish your baseline and activate progressive overload.';
+  return lang === 'uk'
+    ? 'Почніть перше тренування, щоб встановити базову вагу та активувати прогресивне перевантаження.'
+    : 'Start your workout to establish your baseline and activate progressive overload.';
 }
 
 export default function Home() {
-  const { t, tm, language } = useI18n();
+  const { t, tm, td, te, tw, language } = useI18n();
   const [name, setName] = useState(defaultOnboarding.name);
   const [focusKey, setFocusKey] = useState(0);
 
@@ -196,8 +205,8 @@ export default function Home() {
 
   // Dynamic SPOT Insight
   const spotInsight = useMemo(
-    () => computeSpotInsight(history),
-    [history, focusKey]
+    () => computeSpotInsight(history, language),
+    [history, focusKey, language]
   );
 
   // Weekly tracker data
@@ -283,7 +292,7 @@ export default function Home() {
           }
           style={styles.workoutMainRow}
         >
-          <Text style={styles.workoutName}>{nextWorkout.name}</Text>
+          <Text style={styles.workoutName}>{tw(nextWorkout.name)}</Text>
           <Ionicons name="chevron-forward" size={24} color="#8E959F" />
         </Pressable>
 

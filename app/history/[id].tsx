@@ -12,7 +12,7 @@ import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 
 export default function HistoryDetail() {
-  const { t, tm, language } = useI18n();
+  const { t, tm, te, tw, language } = useI18n();
   const { formatWithUnit } = useWeightUnit();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const workouts = useWorkoutHistoryStore((state) => state.workouts);
@@ -46,7 +46,7 @@ export default function HistoryDetail() {
       </Pressable>
 
       <View style={styles.header}>
-        <Text style={styles.title}>{workout.workoutName}</Text>
+        <Text style={styles.title}>{tw(workout.workoutName)}</Text>
         <Text style={styles.date}>
           {new Date(workout.completedAt).toLocaleDateString(language === 'uk' ? 'uk-UA' : 'en-US')}
         </Text>
@@ -76,7 +76,7 @@ export default function HistoryDetail() {
         ) : (
           workout.personalRecords.map((record) => (
             <View key={record.id} style={styles.prRow}>
-              <Text style={styles.exerciseName}>{record.exerciseName}</Text>
+              <Text style={styles.exerciseName}>{te(record.exerciseName)}</Text>
               <Text style={styles.prValue}>
                 {record.type === 'weight' ? t('weight') : t('estimated1RM')}  {record.label}
               </Text>
@@ -88,7 +88,7 @@ export default function HistoryDetail() {
       <Text style={styles.section}>{t('exercises').toUpperCase()}</Text>
       {workout.exercises.map((exercise) => (
         <Card key={exercise.exerciseId} style={styles.exercise}>
-          <Text style={styles.exerciseName}>{exercise.exerciseName}</Text>
+          <Text style={styles.exerciseName}>{te(exercise.exerciseName)}</Text>
           <Text style={styles.muscle}>{tm(exercise.muscleGroup)}</Text>
           {exercise.sets.map((set, index) => (
             <View key={`${exercise.exerciseId}-${set.completedAt}-${index}`} style={styles.set}>

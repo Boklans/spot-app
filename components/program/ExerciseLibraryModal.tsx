@@ -28,7 +28,7 @@ export function ExerciseLibraryModal({
   onSelectExercise,
   onClose,
 }: ExerciseLibraryModalProps) {
-  const { t, tm } = useI18n();
+  const { t, tm, te } = useI18n();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
@@ -37,13 +37,15 @@ export function ExerciseLibraryModal({
       const matchesCategory =
         selectedCategory === 'All' ||
         ex.muscleGroup.toLowerCase() === selectedCategory.toLowerCase();
+      const localizedName = te(ex.name);
       const matchesSearch =
         ex.name.toLowerCase().includes(search.toLowerCase()) ||
+        localizedName.toLowerCase().includes(search.toLowerCase()) ||
         ex.muscleGroup.toLowerCase().includes(search.toLowerCase()) ||
         tm(ex.muscleGroup).toLowerCase().includes(search.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [search, selectedCategory, tm]);
+  }, [search, selectedCategory, tm, te]);
 
   return (
     <Modal
@@ -148,7 +150,7 @@ export function ExerciseLibraryModal({
                     />
                   </View>
                   <View>
-                    <Text style={styles.exerciseName}>{item.name}</Text>
+                    <Text style={styles.exerciseName}>{te(item.name)}</Text>
                     <Text style={styles.exerciseMeta}>
                       {tm(item.muscleGroup)} • {item.equipment} • {t('base')} {item.defaultWeight} {t('kg')}
                     </Text>

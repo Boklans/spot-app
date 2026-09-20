@@ -30,7 +30,7 @@ function getExerciseIcon(name: string): keyof typeof MaterialCommunityIcons.glyp
 }
 
 export default function WorkoutPreview() {
-  const { t, tm, language } = useI18n();
+  const { t, tm, td, te, tw, language } = useI18n();
   const { formatWithUnit } = useWeightUnit();
   const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
   const initializeSession = useWorkoutSessionStore((state) => state.initializeSession);
@@ -138,7 +138,7 @@ export default function WorkoutPreview() {
       >
         {/* Workout Title Header */}
         <View style={styles.titleSection}>
-          <Text style={styles.workoutTitle}>{workout.name}</Text>
+          <Text style={styles.workoutTitle}>{tw(workout.name)}</Text>
           <Text style={styles.workoutMuscles}>{displayMuscles}</Text>
 
           {/* Readiness Progress Bar */}
@@ -180,7 +180,7 @@ export default function WorkoutPreview() {
                   />
                 </View>
                 <View style={styles.exerciseInfoCol}>
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
+                  <Text style={styles.exerciseName}>{te(exercise.name)}</Text>
                   <Text style={styles.exerciseMeta}>
                     {exercise.sets} {t('sets').toLowerCase()} • {weightLabel}
                   </Text>

@@ -57,7 +57,7 @@ const PREPARED_ANSWERS: Record<string, string> = {
 };
 
 export default function Program() {
-  const { t } = useI18n();
+  const { t, tm, td, te, tw, language } = useI18n();
   const { formatWithUnit } = useWeightUnit();
   const program = useProgramStore((state) => state.program);
   const progress = useProgramProgressStore((state) => state.progress);
@@ -321,10 +321,10 @@ export default function Program() {
                 contentContainerStyle={styles.splitChipRow}
               >
                 {[
-                  { id: 'full_body', label: 'Full Body' },
-                  { id: 'upper_lower', label: 'Upper / Lower' },
-                  { id: 'push_pull_legs', label: 'Push / Pull / Legs' },
-                  { id: 'custom', label: 'Custom' },
+                  { id: 'full_body', label: language === 'uk' ? 'Фулбоді' : 'Full Body' },
+                  { id: 'upper_lower', label: language === 'uk' ? 'Верх / Низ' : 'Upper / Lower' },
+                  { id: 'push_pull_legs', label: language === 'uk' ? 'Штовхай / Тягни / Ноги' : 'Push / Pull / Legs' },
+                  { id: 'custom', label: language === 'uk' ? 'Власний' : 'Custom' },
                 ].map((item) => {
                   const isActive = program.splitType === item.id;
                   return (
@@ -370,7 +370,7 @@ export default function Program() {
                     <View style={{ flex: 1 }}>
                       <View style={styles.workoutLabelRow}>
                         <Text style={styles.workoutNumber}>
-                          {getWorkoutDayLabel(workout.dayLabel, index, onboarding?.trainingDays, program.workouts.length)}
+                          {td(getWorkoutDayLabel(workout.dayLabel, index, onboarding?.trainingDays, program.workouts.length))}
                         </Text>
                         {isUpNext && (
                           <View style={styles.upNextBadge}>
@@ -378,7 +378,7 @@ export default function Program() {
                           </View>
                         )}
                       </View>
-                      <Text style={styles.workoutName}>{workout.name}</Text>
+                      <Text style={styles.workoutName}>{tw(workout.name)}</Text>
                     </View>
                     <View style={styles.cardActionsRight}>
                       <Pressable
@@ -402,7 +402,7 @@ export default function Program() {
                   <View style={styles.muscleTagsRow}>
                     {workout.muscleGroups.map((muscle) => (
                       <View key={muscle} style={styles.muscleTag}>
-                        <Text style={styles.muscleTagText}>{muscle}</Text>
+                        <Text style={styles.muscleTagText}>{tm(muscle)}</Text>
                       </View>
                     ))}
                   </View>
@@ -410,9 +410,9 @@ export default function Program() {
                   <View style={styles.exerciseList}>
                     {workout.exercises.map((exercise) => (
                       <View key={exercise.name} style={styles.exerciseRow}>
-                        <Text style={styles.exerciseNameText}>{exercise.name}</Text>
+                        <Text style={styles.exerciseNameText}>{te(exercise.name)}</Text>
                         <Text style={styles.exerciseMetaText}>
-                          {exercise.sets} sets • {exercise.targetRepRange} •{' '}
+                          {exercise.sets} {t('sets').toLowerCase()} • {exercise.targetRepRange} •{' '}
                           {exercise.recommendedWeight
                             ? formatWithUnit(exercise.recommendedWeight)
                             : t('bodyweight')}

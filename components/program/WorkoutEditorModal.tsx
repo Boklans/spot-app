@@ -33,8 +33,8 @@ export function WorkoutEditorModal({
 }: WorkoutEditorModalProps) {
   if (!workout) return null;
 
-  const { t, tm, td } = useI18n();
-  const [workoutName, setWorkoutName] = useState(workout.name);
+  const { t, tm, td, te, tw } = useI18n();
+  const [workoutName, setWorkoutName] = useState(tw(workout.name));
   const [exercises, setExercises] = useState<UserExercise[]>(workout.exercises);
   const [libraryVisible, setLibraryVisible] = useState(false);
 
@@ -145,7 +145,7 @@ export function WorkoutEditorModal({
                       <Text style={styles.orderBadgeText}>{index + 1}</Text>
                     </View>
                     <View style={styles.exerciseRowInfo}>
-                      <Text style={styles.exerciseRowName}>{ex.name}</Text>
+                      <Text style={styles.exerciseRowName}>{te(ex.name)}</Text>
                       <Text style={styles.exerciseRowMeta}>
                         {ex.sets} {t('sets').toLowerCase()} • {ex.targetRepRange} • {tm(ex.muscleGroup)}
                       </Text>

@@ -38,7 +38,7 @@ type ActiveViewTab = 'overview' | 'muscles' | 'weight' | 'prs';
 const CORE_MUSCLES = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs'];
 
 export default function Progress() {
-  const { t, tm, language } = useI18n();
+  const { t, tm, te, language } = useI18n();
   const { unit, unitLabel, format, formatWithUnit, formatVolume, fromKg } = useWeightUnit();
   const profile = useUserProfileStore((state) => state.profile);
   const history = useWorkoutHistoryStore((state) => state.workouts);
@@ -433,7 +433,7 @@ export default function Progress() {
                             isSelected && styles.exercisePillTextActive,
                           ]}
                         >
-                          {ex.name}
+                          {te(ex.name)}
                         </Text>
                       </Pressable>
                     );
@@ -448,7 +448,7 @@ export default function Progress() {
                 <View style={{ flex: 1, marginRight: 12 }}>
                   <Text style={styles.strengthKicker}>STRENGTH</Text>
                   <Text numberOfLines={1} style={styles.strengthExerciseName}>
-                    {exerciseName}
+                    {te(exerciseName)}
                   </Text>
                   {bestExerciseSetText ? (
                     <Text style={styles.strengthSubBest}>{bestExerciseSetText}</Text>
@@ -495,10 +495,14 @@ export default function Progress() {
                     style={{ marginBottom: 8 }}
                   />
                   <Text style={styles.chartEmptyTitle}>
-                    No data for {exerciseName} yet
+                    {language === 'uk'
+                      ? `Ще немає даних для ${te(exerciseName)}`
+                      : `No data for ${exerciseName} yet`}
                   </Text>
                   <Text style={styles.chartEmptyBody}>
-                    Log sets for {exerciseName} in your workouts to track your progressive overload curve.
+                    {language === 'uk'
+                      ? `Записуйте підходи для ${te(exerciseName)}, щоб відстежувати графік навантаження.`
+                      : `Log sets for ${exerciseName} in your workouts to track your progressive overload curve.`}
                   </Text>
                 </View>
               )}
@@ -599,7 +603,7 @@ export default function Progress() {
               <View style={styles.muscleMiniBars}>
                 {displayMuscles.slice(0, 3).map((m) => (
                   <View key={m.name} style={styles.muscleMiniRow}>
-                    <Text style={styles.muscleMiniName}>{m.name}</Text>
+                    <Text style={styles.muscleMiniName}>{tm(m.name)}</Text>
                     <Text style={styles.muscleMiniVal}>
                       {formatVolume(m.volume)}
                     </Text>
@@ -913,7 +917,7 @@ export default function Progress() {
                     </View>
 
                     <View style={styles.prCardBody}>
-                      <Text style={styles.prCardName}>{item.name}</Text>
+                      <Text style={styles.prCardName}>{te(item.name)}</Text>
                       <Text style={styles.prCardDate}>{item.date}</Text>
                     </View>
 
@@ -929,9 +933,13 @@ export default function Progress() {
                 <View style={styles.prEmptyIconWrap}>
                   <MaterialCommunityIcons name="trophy-outline" size={40} color="#4B5565" />
                 </View>
-                <Text style={styles.prEmptyTitle}>No personal records yet</Text>
+                <Text style={styles.prEmptyTitle}>
+                  {language === 'uk' ? 'Ще немає особистих рекордів' : 'No personal records yet'}
+                </Text>
                 <Text style={styles.prEmptyBody}>
-                  Finish your first workout to establish your baseline records.
+                  {language === 'uk'
+                    ? 'Завершіть своє перше тренування, щоб зафіксувати рекорди.'
+                    : 'Finish your first workout to establish your baseline records.'}
                 </Text>
               </View>
             )}

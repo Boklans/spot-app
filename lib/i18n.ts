@@ -547,9 +547,21 @@ export function translateMuscle(muscle: string, lang: AppLanguage = 'en'): strin
   return map[m] ?? muscle;
 }
 
-export function formatDayLabel(dayLabel: string, lang: AppLanguage = 'en'): string {
+export function formatDayLabel(dayLabel?: string, lang: AppLanguage = 'en'): string {
+  if (!dayLabel) return '';
   if (lang !== 'uk') return dayLabel;
+
   const clean = dayLabel.trim().toUpperCase();
+
+  const dayMatch = clean.match(/^DAY\s*(\d+)$/i);
+  if (dayMatch) {
+    return `ДЕНЬ ${dayMatch[1]}`;
+  }
+  const workoutMatch = clean.match(/^WORKOUT\s*(\d+)$/i);
+  if (workoutMatch) {
+    return `ТРЕНУВАННЯ ${workoutMatch[1]}`;
+  }
+
   const map: Record<string, string> = {
     MON: 'ПН',
     TUE: 'ВТ',
@@ -566,13 +578,186 @@ export function formatDayLabel(dayLabel: string, lang: AppLanguage = 'en'): stri
     SATURDAY: 'СУБОТА',
     SUNDAY: 'НЕДІЛЯ',
   };
+
   return map[clean] ?? dayLabel;
+}
+
+const UKRAINIAN_EXERCISES: Record<string, string> = {
+  // Chest
+  'barbell bench press': 'Жим штанги лежачи',
+  'bench press': 'Жим штанги лежачи',
+  'incline dumbbell press': 'Жим гантелей під кутом',
+  'dumbbell bench press': 'Жим гантелей лежачи',
+  'incline barbell press': 'Жим штанги під кутом',
+  'incline bench press': 'Жим штанги під кутом',
+  'incline bench': 'Жим штанги під кутом',
+  'incline press': 'Жим під кутом',
+  'incline chest press': 'Жим у похилому тренажері',
+  'machine chest press': 'Жим у тренажері на груди',
+  'cable chest fly': 'Зведення в кросовері',
+  'cable fly': 'Зведення в кросовері',
+  'push-ups': 'Відтискання від підлоги',
+  'push ups': 'Відтискання від підлоги',
+  'push-up': 'Відтискання',
+  'push up': 'Відтискання',
+  'chest dips': 'Відтискання на брусах',
+  'dips': 'Відтискання на брусах',
+  'bench dips': 'Зворотні відтискання від лави',
+
+  // Back
+  'lat pulldown': 'Тяга верхнього блоку',
+  'barbell bent-over row': 'Тяга штанги в нахилі',
+  'barbell row': 'Тяга штанги в нахилі',
+  'single-arm dumbbell row': 'Тяга гантелі в нахилі',
+  'dumbbell row': 'Тяга гантелі в нахилі',
+  'seated cable row': 'Горизонтальна тяга блоку',
+  'seated row': 'Горизонтальна тяга блоку',
+  'cable row': 'Горизонтальна тяга блоку',
+  'inverted row': 'Австралійські підтягування',
+  'pull-ups': 'Підтягування',
+  'pull ups': 'Підтягування',
+  'pull-up': 'Підтягування',
+  'pull up': 'Підтягування',
+  'chin-ups': 'Підтягування зворотним хватом',
+  'chin ups': 'Підтягування зворотним хватом',
+  'face pulls': 'Тяга до обличчя (Face Pulls)',
+  'face pull': 'Тяга до обличчя',
+
+  // Shoulders
+  'overhead barbell press': 'Армійський жим штанги',
+  'overhead press': 'Армійський жим (над головою)',
+  'military press': 'Армійський жим',
+  'dumbbell shoulder press': 'Жим гантелей сидячи',
+  'shoulder press': 'Жим на плечі',
+  'machine shoulder press': 'Жим на плечі в тренажері',
+  'pike push-ups': 'Відтискання куточком (Pike)',
+  'lateral dumbbell raises': 'Махи гантелями в сторони',
+  'lateral raises': 'Махи гантелями в сторони',
+  'lateral raise': 'Махи в сторони',
+  'cable lateral raise': 'Відведення руки в кросовері',
+
+  // Legs & Glutes
+  'barbell back squat': 'Присідання зі штангою',
+  'barbell squat': 'Присідання зі штангою',
+  'squat': 'Присідання зі штангою',
+  'squats': 'Присідання',
+  'goblet squat': 'Кубкові присідання (Goblet)',
+  'bodyweight squats': 'Присідання з власною вагою',
+  'romanian deadlift': 'Румунська тяга',
+  'deadlift': 'Станова тяга',
+  'dumbbell romanian deadlift': 'Румунська тяга з гантелями',
+  'leg press': 'Жим ногами в тренажері',
+  'bulgarian split squat': 'Болгарські випади',
+  'leg extension': 'Розгинання ніг у тренажері',
+  'lying leg curl': 'Згинання ніг лежачи',
+  'leg curl': 'Згинання ніг у тренажері',
+  'glute bridge': 'Сідничний місток',
+  'walking lunges': 'Крокуючі випади',
+  'barbell lunges': 'Випади зі штангою',
+  'reverse lunges': 'Зворотні випади',
+  'lunges': 'Випади',
+  'dumbbell step-up': 'Зашагування на тумбу',
+  'step-ups': 'Зашагування на платформу',
+
+  // Arms
+  'barbell biceps curl': 'Підйом штанги на біцепс',
+  'barbell curl': 'Підйом штанги на біцепс',
+  'incline dumbbell curl': 'Згинання гантелей на похилій лаві',
+  'hammer curl': 'Молотки (Hammer Curls)',
+  'biceps curl': 'Згинання рук на біцепс',
+  'dumbbell curl': 'Згинання гантелей на біцепс',
+  'cable curl': 'Згинання на біцепс у кросовері',
+  'triceps cable pushdown': 'Розгинання на трицепс у блоці',
+  'triceps pushdown': 'Розгинання на трицепс у блоці',
+  'overhead triceps extension': 'Французький жим гантелі стоячи',
+  'dumbbell overhead extension': 'Французький жим гантелі стоячи',
+  'close-grip bench press': 'Жим вузьким хватом',
+  'ez-bar skull crushers': 'Французький жим (Skull Crushers)',
+  'skull crushers': 'Французький жим (Skull Crushers)',
+
+  // Calves & Core
+  'standing calf raise': 'Підйоми на носки стоячи',
+  'dumbbell calf raise': 'Підйоми на носки з гантелями',
+  'calf raise': 'Підйоми на носки',
+  'hanging knee raise': 'Підйом колін у висі',
+  'cable kneeling crunch': 'Скручування в кросовері',
+  'cable crunch': 'Скручування в блоці на прес',
+  'weighted plank': 'Планка з обтяженням',
+  'plank': 'Планка',
+};
+
+export function translateExercise(name?: string, lang: AppLanguage = 'en'): string {
+  if (!name) return '';
+  if (lang !== 'uk') return name;
+
+  const clean = name.trim();
+  const lower = clean.toLowerCase();
+
+  if (UKRAINIAN_EXERCISES[lower]) {
+    return UKRAINIAN_EXERCISES[lower];
+  }
+
+  for (const [key, translated] of Object.entries(UKRAINIAN_EXERCISES)) {
+    if (lower.includes(key)) {
+      return translated;
+    }
+  }
+
+  return name;
+}
+
+const UKRAINIAN_WORKOUTS: Record<string, string> = {
+  'full body a': 'Фулбоді A',
+  'full body b': 'Фулбоді B',
+  'full body c': 'Фулбоді C',
+  'full body': 'Фулбоді',
+  'upper a': 'Верх тіла A',
+  'lower a': 'Низ тіла A',
+  'upper b': 'Верх тіла B',
+  'lower b': 'Низ тіла B',
+  'upper': 'Верх тіла',
+  'lower': 'Низ тіла',
+  'push': 'Штовхай (Push)',
+  'pull': 'Тягни (Pull)',
+  'legs': 'Ноги (Legs)',
+  'push 1': 'Штовхай 1',
+  'pull 1': 'Тягни 1',
+  'legs 1': 'Ноги 1',
+  'push 2': 'Штовхай 2',
+  'pull 2': 'Тягни 2',
+  'legs 2': 'Ноги 2',
+  'chest & triceps': 'Груди та трицепс',
+  'back & biceps': 'Спина та біцепс',
+  'legs & shoulders': 'Ноги та плечі',
+  'arms & core': 'Руки та прес',
+  'full body conditioning': 'Фулбоді кондиція',
+  'custom routine': 'Власна програма',
+  'custom workout': 'Власне тренування',
+  'rest day': 'День відпочинку',
+};
+
+export function translateWorkoutName(name?: string, lang: AppLanguage = 'en'): string {
+  if (!name) return '';
+  if (lang !== 'uk') return name;
+
+  const lower = name.trim().toLowerCase();
+  if (UKRAINIAN_WORKOUTS[lower]) {
+    return UKRAINIAN_WORKOUTS[lower];
+  }
+  for (const [key, translated] of Object.entries(UKRAINIAN_WORKOUTS)) {
+    if (lower.includes(key)) {
+      return translated;
+    }
+  }
+  return name;
 }
 
 export function useI18n() {
   const language = useUserProfileStore((state) => state.profile.language) ?? 'en';
   const t = (key: TranslationKey): string => getTranslation(key, language);
   const tm = (muscle: string): string => translateMuscle(muscle, language);
-  const td = (day: string): string => formatDayLabel(day, language);
-  return { t, tm, td, language };
+  const td = (day?: string): string => formatDayLabel(day, language);
+  const te = (exercise?: string): string => translateExercise(exercise, language);
+  const tw = (workout?: string): string => translateWorkoutName(workout, language);
+  return { t, tm, td, te, tw, language };
 }

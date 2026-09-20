@@ -17,7 +17,7 @@ import { getSessionSummary, useWorkoutSessionStore } from '@/store/workoutSessio
 import { defaultOnboarding, loadOnboarding } from '@/store/workoutStore';
 
 export default function Complete() {
-  const { t, language } = useI18n();
+  const { t, te, tw, language } = useI18n();
   const { formatVolume } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
   const clearSession = useWorkoutSessionStore((state) => state.clearSession);
@@ -85,7 +85,7 @@ export default function Complete() {
             <MaterialCommunityIcons name="party-popper" size={44} color="#FFD130" />
           </View>
           <Text style={styles.title}>{t('workoutComplete')}</Text>
-          <Text style={styles.workoutSubtitle}>{session.workoutName}</Text>
+          <Text style={styles.workoutSubtitle}>{tw(session.workoutName)}</Text>
         </View>
 
         {/* 3. Stats Tri-Card Row */}
@@ -139,7 +139,7 @@ export default function Complete() {
                   <MaterialCommunityIcons name="dumbbell" size={16} color={colors.primary} />
                 </View>
                 <Text numberOfLines={1} style={styles.prExerciseName}>
-                  {record.exerciseName}
+                  {te(record.exerciseName)}
                 </Text>
                 <Text style={styles.prValueText}>{record.label}</Text>
                 <Ionicons name="chevron-forward" size={16} color="#6C7A8E" />

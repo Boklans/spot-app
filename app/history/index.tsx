@@ -16,7 +16,7 @@ function dateKey(value: string) {
 }
 
 export default function History() {
-  const { t, language } = useI18n();
+  const { t, tw, language } = useI18n();
   const workouts = useWorkoutHistoryStore((state) => state.workouts);
   const loadHistory = useWorkoutHistoryStore((state) => state.loadHistory);
 
@@ -77,7 +77,7 @@ export default function History() {
                 <Card style={styles.workout}>
                   <View style={styles.workoutTop}>
                     <View>
-                      <Text style={styles.workoutName}>{workout.workoutName}</Text>
+                      <Text style={styles.workoutName}>{tw(workout.workoutName)}</Text>
                       <Text style={styles.date}>
                         {new Date(workout.completedAt).toLocaleDateString(language === 'uk' ? 'uk-UA' : 'en-US')}
                       </Text>

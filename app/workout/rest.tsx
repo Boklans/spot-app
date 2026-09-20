@@ -23,7 +23,7 @@ import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 
 export default function Rest() {
-  const { t, language } = useI18n();
+  const { t, te, language } = useI18n();
   const { formatWithUnit } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
   const restEndsAt = useWorkoutSessionStore((state) => state.restEndsAt);
@@ -187,7 +187,7 @@ export default function Rest() {
               {restNextType === 'exercise' ? t('nextExercise') : t('nextSet')}
             </Text>
             <Text numberOfLines={1} style={styles.exerciseTitle}>
-              {targetExercise?.name ?? t('nextExercise')}
+              {targetExercise ? te(targetExercise.name) : t('nextExercise')}
             </Text>
           </View>
 
