@@ -420,16 +420,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   readinessLabel: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: 1.1,
+    letterSpacing: 0.8,
+    lineHeight: 28,
   },
   readinessSubtitle: {
     fontSize: 15,
     color: '#8E959F',
-    fontWeight: '400',
-    lineHeight: 20,
+    fontWeight: '500',
+    lineHeight: 21,
   },
   workoutCard: {
     backgroundColor: '#15191F',
