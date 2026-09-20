@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   Pressable,
@@ -54,6 +54,11 @@ export default function Progress() {
   const [selectedMuscle, setSelectedMuscle] = useState('Chest');
   const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
   const [logWeightModalVisible, setLogWeightModalVisible] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [activeTab]);
 
   // Sync on tab focus
   useFocusEffect(
@@ -362,6 +367,7 @@ export default function Progress() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -529,6 +535,7 @@ export default function Progress() {
               onPress={() => {
                 hapticLight();
                 setActiveTab('weight');
+                scrollRef.current?.scrollTo({ y: 0, animated: false });
               }}
               style={[styles.previewSectionCard, { marginBottom: 16 }]}
             >
@@ -581,6 +588,7 @@ export default function Progress() {
               onPress={() => {
                 hapticLight();
                 setActiveTab('muscles');
+                scrollRef.current?.scrollTo({ y: 0, animated: false });
               }}
               style={styles.previewSectionCard}
             >
