@@ -72,11 +72,13 @@ type ExerciseOption = Omit<GeneratedExercise, 'sets' | 'targetRepRange'> & { tar
 type WorkoutTemplate = { name: string; exercises: ExerciseOption[]; estimatedMinutes?: number };
 
 export const DEFAULT_WEEKDAY_SCHEDULES: Record<number, string[]> = {
+  1: ['SUN'],
   2: ['TUE', 'SAT'],
   3: ['MON', 'WED', 'FRI'],
   4: ['MON', 'TUE', 'THU', 'FRI'],
   5: ['MON', 'TUE', 'WED', 'FRI', 'SAT'],
   6: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
+  7: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
 };
 
 export function getWorkoutDayLabel(
@@ -515,7 +517,7 @@ function buildWorkouts(
 }
 
 export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
-  const frequency = Math.min(6, Math.max(2, onboarding.trainingFrequency));
+  const frequency = Math.min(7, Math.max(1, onboarding.trainingFrequency));
   const selectedEquipment = onboarding.equipment.filter(isEquipmentId);
   const equipment = selectedEquipment.length > 0 ? selectedEquipment : defaultEquipment;
   let templates: WorkoutTemplate[];

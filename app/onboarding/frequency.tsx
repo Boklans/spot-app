@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Pressable,
   SafeAreaView,
@@ -12,6 +12,7 @@ import {
 import { colors } from '@/constants/colors';
 import { hapticImpact, hapticMedium } from '@/lib/haptics';
 import {
+  loadOnboarding,
   saveOnboarding,
   type WorkoutSplitPreference,
 } from '@/store/workoutStore';
@@ -30,9 +31,9 @@ const SPLIT_CHOICES: SplitChoice[] = [
     id: 'full_body',
     title: 'Full Body',
     subtitle: 'Train your entire body every session. Optimal frequency & recovery.',
-    badge: '2–3 DAYS',
+    badge: '1–3 DAYS',
     icon: 'human',
-    daysRecommended: [2, 3],
+    daysRecommended: [1, 2, 3],
   },
   {
     id: 'upper_lower',
@@ -46,9 +47,9 @@ const SPLIT_CHOICES: SplitChoice[] = [
     id: 'push_pull_legs',
     title: 'Push / Pull / Legs (PPL)',
     subtitle: 'Classic athletic split: Chest/Delts/Triceps, Back/Biceps, Quads/Hams.',
-    badge: '3–6 DAYS',
+    badge: '3–7 DAYS',
     icon: 'arm-flex',
-    daysRecommended: [3, 4, 5, 6],
+    daysRecommended: [3, 4, 5, 6, 7],
   },
   {
     id: 'custom',
@@ -56,38 +57,53 @@ const SPLIT_CHOICES: SplitChoice[] = [
     subtitle: 'Train by your own program with full freedom to swap any exercises.',
     badge: 'ANY SCHEDULE',
     icon: 'tune',
-    daysRecommended: [2, 3, 4, 5, 6],
+    daysRecommended: [1, 2, 3, 4, 5, 6, 7],
   },
 ];
 
 const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
 const SCHEDULE_PATTERNS: Record<number, string[]> = {
+  1: ['SUN'],
   2: ['TUE', 'SAT'],
   3: ['MON', 'WED', 'FRI'],
   4: ['MON', 'TUE', 'THU', 'FRI'],
   5: ['MON', 'TUE', 'WED', 'FRI', 'SAT'],
   6: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
+  7: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
 };
 
 export default function Frequency() {
   const [selectedDays, setSelectedDays] = useState<string[]>(['MON', 'WED', 'FRI']);
   const [selectedSplit, setSelectedSplit] =
     useState<WorkoutSplitPreference>('full_body');
+  const [hasPresetSplit, setHasPresetSplit] = useState(false);
+
+  useEffect(() => {
+    loadOnboarding().then((data) => {
+      if (data?.splitPreference) {
+        setSelectedSplit(data.splitPreference);
+        setHasPresetSplit(true);
+      }
+      if (data?.trainingFrequency && SCHEDULE_PATTERNS[data.trainingFrequency]) {
+        setSelectedDays(data.trainingDays || SCHEDULE_PATTERNS[data.trainingFrequency]);
+      }
+    });
+  }, []);
 
   const days = selectedDays.length;
 
   const toggleDay = (day: string) => {
     hapticImpact();
     if (selectedDays.includes(day)) {
-      if (selectedDays.length <= 2) return; // Keep minimum 2 days
+      if (selectedDays.length <= 1) return; // Keep minimum 1 day
       const next = selectedDays.filter((d) => d !== day);
       setSelectedDays(next);
       if (next.length <= 2 && selectedSplit === 'push_pull_legs') {
         setSelectedSplit('full_body');
       }
     } else {
-      if (selectedDays.length >= 6) return; // Maximum 6 days
+      if (selectedDays.length >= 7) return; // Maximum 7 days
       const next = WEEKDAYS.filter((d) => selectedDays.includes(d) || d === day);
       setSelectedDays(next);
       if (next.length >= 5 && selectedSplit === 'full_body') {
@@ -97,7 +113,7 @@ export default function Frequency() {
   };
 
   const handleDecrease = () => {
-    if (selectedDays.length > 2) {
+    if (selectedDays.length > 1) {
       hapticImpact();
       const next = selectedDays.slice(0, selectedDays.length - 1);
       setSelectedDays(next);
@@ -108,7 +124,7 @@ export default function Frequency() {
   };
 
   const handleIncrease = () => {
-    if (selectedDays.length < 6) {
+    if (selectedDays.length < 7) {
       hapticImpact();
       const nextDay = WEEKDAYS.find((d) => !selectedDays.includes(d));
       if (nextDay) {
@@ -171,16 +187,16 @@ export default function Frequency() {
               accessibilityRole="button"
               accessibilityLabel="Decrease frequency"
               onPress={handleDecrease}
-              disabled={days <= 2}
+              disabled={days <= 1}
               style={[
                 styles.stepBtn,
-                days <= 2 && styles.stepBtnDisabled,
+                days <= 1 && styles.stepBtnDisabled,
               ]}
             >
               <Text
                 style={[
                   styles.stepBtnText,
-                  days <= 2 && styles.stepBtnTextDisabled,
+                  days <= 1 && styles.stepBtnTextDisabled,
                 ]}
               >
                 −
@@ -196,16 +212,16 @@ export default function Frequency() {
               accessibilityRole="button"
               accessibilityLabel="Increase frequency"
               onPress={handleIncrease}
-              disabled={days >= 6}
+              disabled={days >= 7}
               style={[
                 styles.stepBtn,
-                days >= 6 && styles.stepBtnDisabled,
+                days >= 7 && styles.stepBtnDisabled,
               ]}
             >
               <Text
                 style={[
                   styles.stepBtnText,
-                  days >= 6 && styles.stepBtnTextDisabled,
+                  days >= 7 && styles.stepBtnTextDisabled,
                 ]}
               >
                 +
@@ -244,79 +260,134 @@ export default function Frequency() {
           </View>
         </View>
 
-        {/* 5. Split Selection Header */}
-        <View style={styles.splitHeaderRow}>
-          <Text style={styles.splitSectionTitle}>TRAINING SPLIT</Text>
-          <Text style={styles.splitSectionSub}>CHOOSE ONE</Text>
-        </View>
-
-        {/* 6. Split Choices Cards */}
-        <View style={styles.splitList}>
-          {SPLIT_CHOICES.map((choice) => {
-            const isSelected = selectedSplit === choice.id;
-            const isRecommended = choice.daysRecommended.includes(days);
-
-            return (
+        {/* 5. Split Selection Header & Choices */}
+        {hasPresetSplit ? (
+          <View style={{ marginTop: 24, marginBottom: 8 }}>
+            <View style={styles.splitHeaderRow}>
+              <Text style={styles.splitSectionTitle}>TRAINING SPLIT</Text>
               <Pressable
-                key={choice.id}
                 accessibilityRole="button"
-                accessibilityLabel={choice.title}
-                onPress={() => handleSelectSplit(choice.id)}
-                style={[
-                  styles.splitCard,
-                  isSelected && styles.splitCardSelected,
-                ]}
+                accessibilityLabel="Change training split"
+                onPress={() => {
+                  hapticImpact();
+                  setHasPresetSplit(false);
+                }}
+                hitSlop={10}
               >
-                <View style={styles.splitCardHeader}>
-                  <View style={styles.splitCardLeft}>
-                    <View
-                      style={[
-                        styles.splitIconWrap,
-                        isSelected && styles.splitIconWrapSelected,
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name={choice.icon}
-                        size={22}
-                        color={isSelected ? colors.primary : '#8E9BAE'}
-                      />
-                    </View>
-                    <View>
-                      <Text
-                        style={[
-                          styles.splitCardTitle,
-                          isSelected && styles.splitCardTitleSelected,
-                        ]}
-                      >
-                        {choice.title}
-                      </Text>
-                      {isRecommended && (
-                        <View style={styles.recommendedBadge}>
-                          <Text style={styles.recommendedBadgeText}>
-                            RECOMMENDED FOR {days} DAYS
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
+                <Text style={styles.changeSplitText}>CHANGE</Text>
+              </Pressable>
+            </View>
 
-                  <View
+            <View style={styles.presetSplitCard}>
+              <View style={styles.presetSplitLeft}>
+                <View style={styles.presetSplitIconWrap}>
+                  <MaterialCommunityIcons
+                    name={
+                      selectedSplit === 'full_body'
+                        ? 'human'
+                        : selectedSplit === 'upper_lower'
+                        ? 'weight-lifter'
+                        : selectedSplit === 'push_pull_legs'
+                        ? 'arm-flex'
+                        : 'tune'
+                    }
+                    size={22}
+                    color={colors.primary}
+                  />
+                </View>
+                <View style={styles.presetSplitTextWrap}>
+                  <Text style={styles.presetSplitTitle}>
+                    {selectedSplit === 'full_body'
+                      ? 'Full Body'
+                      : selectedSplit === 'upper_lower'
+                      ? 'Upper / Lower'
+                      : selectedSplit === 'push_pull_legs'
+                      ? 'Push / Pull / Legs (PPL)'
+                      : 'Custom Routine'}
+                  </Text>
+                  <Text style={styles.presetSplitSubtitle}>
+                    Selected in previous step · Calibrated for {days} days
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+            </View>
+          </View>
+        ) : (
+          <>
+            <View style={styles.splitHeaderRow}>
+              <Text style={styles.splitSectionTitle}>TRAINING SPLIT</Text>
+              <Text style={styles.splitSectionSub}>CHOOSE ONE</Text>
+            </View>
+
+            <View style={styles.splitList}>
+              {SPLIT_CHOICES.map((choice) => {
+                const isSelected = selectedSplit === choice.id;
+                const isRecommended = choice.daysRecommended.includes(days);
+
+                return (
+                  <Pressable
+                    key={choice.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={choice.title}
+                    onPress={() => handleSelectSplit(choice.id)}
                     style={[
-                      styles.checkCircle,
-                      isSelected && styles.checkCircleSelected,
+                      styles.splitCard,
+                      isSelected && styles.splitCardSelected,
                     ]}
                   >
-                    {isSelected && (
-                      <Ionicons name="checkmark" size={15} color="#0B0D0F" />
-                    )}
-                  </View>
-                </View>
+                    <View style={styles.splitCardHeader}>
+                      <View style={styles.splitCardLeft}>
+                        <View
+                          style={[
+                            styles.splitIconWrap,
+                            isSelected && styles.splitIconWrapSelected,
+                          ]}
+                        >
+                          <MaterialCommunityIcons
+                            name={choice.icon}
+                            size={22}
+                            color={isSelected ? colors.primary : '#8E9BAE'}
+                          />
+                        </View>
+                        <View>
+                          <Text
+                            style={[
+                              styles.splitCardTitle,
+                              isSelected && styles.splitCardTitleSelected,
+                            ]}
+                          >
+                            {choice.title}
+                          </Text>
+                          {isRecommended && (
+                            <View style={styles.recommendedBadge}>
+                              <Text style={styles.recommendedBadgeText}>
+                                RECOMMENDED FOR {days} DAYS
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
 
-                <Text style={styles.splitCardSubtitle}>{choice.subtitle}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+                      <View
+                        style={[
+                          styles.checkCircle,
+                          isSelected && styles.checkCircleSelected,
+                        ]}
+                      >
+                        {isSelected && (
+                          <Ionicons name="checkmark" size={15} color="#0B0D0F" />
+                        )}
+                      </View>
+                    </View>
+
+                    <Text style={styles.splitCardSubtitle}>{choice.subtitle}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* 7. Pinned CTA Button */}
@@ -578,6 +649,52 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
+  changeSplitText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  presetSplitCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#161B22',
+    borderWidth: 1.5,
+    borderColor: 'rgba(200, 255, 61, 0.4)',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 20,
+  },
+  presetSplitLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    flex: 1,
+  },
+  presetSplitIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+  },
+  presetSplitTextWrap: {
+    flex: 1,
+  },
+  presetSplitTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  presetSplitSubtitle: {
+    fontSize: 12,
+    color: '#8E9BAE',
+    marginTop: 2,
+  },
   bottomBar: {
     paddingHorizontal: 20,
     paddingBottom: 24,
@@ -588,15 +705,15 @@ const styles = StyleSheet.create({
   },
   continueBtn: {
     backgroundColor: colors.primary,
-    height: 56,
-    borderRadius: 16,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 8,
+    shadowRadius: 10,
+    elevation: 4,
   },
   continueBtnPressed: {
     opacity: 0.85,
@@ -604,8 +721,8 @@ const styles = StyleSheet.create({
   },
   continueText: {
     color: '#0B0D0F',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '900',
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
   },
 });
