@@ -85,6 +85,8 @@ export function WheelPicker<T extends number | string>({
   const isInteractingRef = useRef(false);
   const lastReportedIndexRef = useRef<number>(-1);
   const lastHapticIndexRef = useRef<number>(-1);
+  const lastHapticTimeRef = useRef<number>(0);
+  const isHapticBusyRef = useRef<boolean>(false);
 
   const selectedIndex = Math.max(0, data.findIndex((item) => item === selectedValue));
 
@@ -105,7 +107,7 @@ export function WheelPicker<T extends number | string>({
     return [...topPads, ...items, ...botPads];
   }, [data]);
 
-  // Initial scroll position
+  // Initial scroll position on mount
   useEffect(() => {
     lastReportedIndexRef.current = selectedIndex;
     lastHapticIndexRef.current = selectedIndex;
@@ -114,11 +116,11 @@ export function WheelPicker<T extends number | string>({
         offset: selectedIndex * ITEM_HEIGHT,
         animated: false,
       });
-    }, 30);
+    }, 20);
     return () => clearTimeout(timeout);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Scroll to selected value if changed externally
+  // Scroll to selected value ONLY if changed externally (not while user is touching)
   useEffect(() => {
     const targetIdx = data.findIndex((item) => item === selectedValue);
     if (targetIdx < 0) return;
@@ -133,7 +135,9 @@ export function WheelPicker<T extends number | string>({
     }
   }, [selectedValue, data]);
 
-  // Pure 60 FPS haptics check — NO state updates during onScroll
+  // Pure 60 FPS scroll handler:
+  // 1. NO React state updates (zero setState calls).
+  // 2. Strict haptics throttle (both index-based and time-based, non-blocking).
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetY = e.nativeEvent.contentOffset.y;
@@ -141,16 +145,26 @@ export function WheelPicker<T extends number | string>({
       const clamped = Math.max(0, Math.min(data.length - 1, rawIdx));
 
       if (clamped !== lastHapticIndexRef.current) {
-        lastHapticIndexRef.current = clamped;
-        if (Platform.OS !== 'web') {
-          Haptics.selectionAsync().catch(() => {});
+        const now = Date.now();
+        // Throttle haptic calls: min 75ms between pulses and do not overlap
+        if (!isHapticBusyRef.current && now - lastHapticTimeRef.current >= 75) {
+          lastHapticIndexRef.current = clamped;
+          lastHapticTimeRef.current = now;
+          if (Platform.OS !== 'web') {
+            isHapticBusyRef.current = true;
+            Haptics.selectionAsync()
+              .catch(() => {})
+              .finally(() => {
+                isHapticBusyRef.current = false;
+              });
+          }
         }
       }
     },
     [data.length]
   );
 
-  // Commit selected value only when scroll settles
+  // ONLY update selected state when scroll settles
   const commitIndex = useCallback(
     (offsetY: number) => {
       isInteractingRef.current = false;
@@ -176,6 +190,7 @@ export function WheelPicker<T extends number | string>({
 
   const handleScrollEndDrag = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const velocity = Math.abs(e.nativeEvent.velocity?.y ?? 0);
+    // If released with virtually no momentum, commit immediately
     if (velocity < 0.1) {
       commitIndex(e.nativeEvent.contentOffset.y);
     }
@@ -230,6 +245,15 @@ export function WheelPicker<T extends number | string>({
     [selectedIndex, formatLabel, unit, onActivePress, data, onValueChange]
   );
 
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: ITEM_HEIGHT,
+      offset: ITEM_HEIGHT * index,
+      index,
+    }),
+    []
+  );
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -237,20 +261,16 @@ export function WheelPicker<T extends number | string>({
         data={paddedData}
         keyExtractor={(item) => item.key}
         renderItem={renderItem}
-        getItemLayout={(_, index) => ({
-          length: ITEM_HEIGHT,
-          offset: ITEM_HEIGHT * index,
-          index,
-        })}
+        getItemLayout={getItemLayout}
         snapToInterval={ITEM_HEIGHT}
         snapToAlignment="start"
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
-        windowSize={5}
+        initialNumToRender={10}
+        windowSize={3}
         maxToRenderPerBatch={5}
-        initialNumToRender={7}
         removeClippedSubviews={Platform.OS !== 'web'}
-        scrollEventThrottle={16}
+        scrollEventThrottle={32}
         onScroll={handleScroll}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={handleScrollEndDrag}

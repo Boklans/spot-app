@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -130,20 +130,31 @@ export default function Input() {
 
   // ─── Handlers ────────────────────────────────────────────────────────────
 
-  const handleSelectWeight = (displayVal: number) => {
-    const kg = toKg(Math.max(0, displayVal));
-    updateCurrentSet({ weight: Math.round(kg * 100) / 100 });
-  };
+  const handleSelectWeight = useCallback(
+    (displayVal: number) => {
+      const kg = toKg(Math.max(0, displayVal));
+      updateCurrentSet({ weight: Math.round(kg * 100) / 100 });
+    },
+    [toKg, updateCurrentSet]
+  );
 
-  const handleSelectReps = (r: number) => {
-    const bounded = Math.min(1000, Math.max(1, r));
-    updateCurrentSet({ reps: bounded });
-  };
+  const handleSelectReps = useCallback(
+    (r: number) => {
+      const bounded = Math.min(1000, Math.max(1, r));
+      updateCurrentSet({ reps: bounded });
+    },
+    [updateCurrentSet]
+  );
 
-  const handleSelectRest = (sec: number) => {
-    const bounded = Math.min(600, Math.max(10, sec));
-    updateExerciseRest(session.currentExerciseIndex, bounded);
-  };
+  const handleSelectRest = useCallback(
+    (sec: number) => {
+      const bounded = Math.min(600, Math.max(10, sec));
+      if (session) {
+        updateExerciseRest(session.currentExerciseIndex, bounded);
+      }
+    },
+    [session, updateExerciseRest]
+  );
 
   const handleSaveCustomWeight = () => {
     const parsed = parseFloat(customWeightText.replace(',', '.'));
