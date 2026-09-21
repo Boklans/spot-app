@@ -23,7 +23,7 @@ import { useProgramStore } from '@/store/programStore';
 import type { UserExercise, UserProgram } from '@/types/userProgram';
 
 export default function ProgramEdit() {
-  const { t, tm, td } = useI18n();
+  const { t, tm, td, language } = useI18n();
   const activeProgram = useProgramStore((state) => state.program);
   const updateUserProgram = useProgramStore((state) => state.updateUserProgram);
 
@@ -481,6 +481,30 @@ export default function ProgramEdit() {
                       }}
                       keyboardType="decimal-pad"
                       placeholder="2.5"
+                      placeholderTextColor={colors.muted}
+                      style={styles.gridInput}
+                    />
+                  </View>
+                </View>
+
+                <View style={[styles.variablesGrid, { marginTop: spacing.md }]}>
+                  {/* Rest Duration */}
+                  <View style={styles.variableCol}>
+                    <Text style={styles.variableLabel}>
+                      {language === 'uk' ? 'ВІДПОЧИНОК (СЕК)' : 'REST DURATION (SEC)'}
+                    </Text>
+                    <TextInput
+                      value={String(exercise.restSeconds ?? 90)}
+                      onChangeText={(text) => {
+                        const num = parseInt(text, 10);
+                        if (!isNaN(num) && num >= 10 && num <= 600) {
+                          handleUpdateExercise(selectedWorkout.id, exercise.id, {
+                            restSeconds: num,
+                          });
+                        }
+                      }}
+                      keyboardType="number-pad"
+                      placeholder="90"
                       placeholderTextColor={colors.muted}
                       style={styles.gridInput}
                     />

@@ -23,20 +23,38 @@ const BASE_REPS = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 25, 30, 40, 50, 75, 100, 150, 200, 300, 500, 1000,
 ];
 
+const BASE_REST_OPTIONS = [15, 30, 45, 60, 90, 120, 150, 180, 240, 300];
+
+function formatRestDuration(sec: number, isUk: boolean): string {
+  const mins = Math.floor(sec / 60);
+  const remainingSec = sec % 60;
+  if (mins === 0) {
+    return `${sec} ${isUk ? 'с' : 's'}`;
+  }
+  if (remainingSec === 0) {
+    return `${mins} ${isUk ? 'хв' : 'm'}`;
+  }
+  return `${mins}:${remainingSec < 10 ? '0' : ''}${remainingSec}`;
+}
+
 export default function Input() {
   const { t, language } = useI18n();
   const { unit, unitLabel, toKg, fromKg } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
   const updateCurrentSet = useWorkoutSessionStore((state) => state.updateCurrentSet);
+  const updateExerciseRest = useWorkoutSessionStore((state) => state.updateExerciseRest);
 
   const weightScrollRef = useRef<ScrollView>(null);
   const repsScrollRef = useRef<ScrollView>(null);
+  const restScrollRef = useRef<ScrollView>(null);
 
   // Modal states for direct typing
   const [weightModalVisible, setWeightModalVisible] = useState(false);
   const [customWeightText, setCustomWeightText] = useState('');
   const [repsModalVisible, setRepsModalVisible] = useState(false);
   const [customRepsText, setCustomRepsText] = useState('');
+  const [restModalVisible, setRestModalVisible] = useState(false);
+  const [customRestText, setCustomRestText] = useState('');
 
   const exercise = session?.exercises[session.currentExerciseIndex];
   const activeSet = exercise?.sets[session?.currentSetIndex ?? 0];
@@ -47,6 +65,7 @@ export default function Input() {
 
   const currentWeightKg = activeSet?.weight ?? 70;
   const currentReps = activeSet?.reps ?? 8;
+  const currentRestSeconds = exercise?.restSeconds ?? 90;
   const currentDisplayWeight = fromKg(currentWeightKg);
 
   const weightStep = unit === 'lbs' ? 5 : (increment ?? 2.5);
@@ -76,11 +95,18 @@ export default function Input() {
     return BASE_REPS;
   }, [currentReps]);
 
+  const restList = useMemo(() => {
+    if (!BASE_REST_OPTIONS.includes(currentRestSeconds) && currentRestSeconds >= 10 && currentRestSeconds <= 600) {
+      return [...BASE_REST_OPTIONS, currentRestSeconds].sort((a, b) => a - b);
+    }
+    return BASE_REST_OPTIONS;
+  }, [currentRestSeconds]);
+
   // Auto-scroll weight wheel into view
   useEffect(() => {
     const idx = weightList.findIndex((w) => Math.abs(w - currentDisplayWeight) < 0.05);
     if (idx >= 0 && weightScrollRef.current) {
-      const chipTotalWidth = 66; // 58 width + 8 gap
+      const chipTotalWidth = 66;
       weightScrollRef.current.scrollTo({
         x: Math.max(0, idx * chipTotalWidth - 130),
         animated: true,
@@ -92,13 +118,25 @@ export default function Input() {
   useEffect(() => {
     const idx = repsList.indexOf(currentReps);
     if (idx >= 0 && repsScrollRef.current) {
-      const chipTotalWidth = 58; // 50 width + 8 gap
+      const chipTotalWidth = 58;
       repsScrollRef.current.scrollTo({
         x: Math.max(0, idx * chipTotalWidth - 130),
         animated: true,
       });
     }
   }, [currentReps, repsList]);
+
+  // Auto-scroll rest wheel into view
+  useEffect(() => {
+    const idx = restList.indexOf(currentRestSeconds);
+    if (idx >= 0 && restScrollRef.current) {
+      const chipTotalWidth = 66;
+      restScrollRef.current.scrollTo({
+        x: Math.max(0, idx * chipTotalWidth - 130),
+        animated: true,
+      });
+    }
+  }, [currentRestSeconds, restList]);
 
   if (!session) {
     return (
@@ -129,6 +167,12 @@ export default function Input() {
     updateCurrentSet({ reps: bounded });
   };
 
+  const handleSelectRest = (sec: number) => {
+    hapticLight();
+    const bounded = Math.min(600, Math.max(10, sec));
+    updateExerciseRest(session.currentExerciseIndex, bounded);
+  };
+
   const handleSaveCustomWeight = () => {
     const parsed = parseFloat(customWeightText.replace(',', '.'));
     if (!isNaN(parsed) && parsed >= 0 && parsed <= 999) {
@@ -143,6 +187,14 @@ export default function Input() {
       handleSelectReps(parsed);
     }
     setRepsModalVisible(false);
+  };
+
+  const handleSaveCustomRest = () => {
+    const parsed = parseInt(customRestText, 10);
+    if (!isNaN(parsed) && parsed >= 10 && parsed <= 600) {
+      handleSelectRest(parsed);
+    }
+    setRestModalVisible(false);
   };
 
   const handleDone = () => {
@@ -178,7 +230,7 @@ export default function Input() {
             {isUk ? 'ВАГА' : 'WEIGHT'} ({unitLabel})
           </Text>
 
-          {/* Hero Weight Display (Tap to type exact value) */}
+          {/* Hero Weight Display */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Enter custom weight"
@@ -235,7 +287,7 @@ export default function Input() {
             </Pressable>
           </View>
 
-          {/* Scrollable Weight Wheel / Ruler */}
+          {/* Scrollable Weight Wheel */}
           <ScrollView
             ref={weightScrollRef}
             horizontal
@@ -280,7 +332,7 @@ export default function Input() {
             </Pressable>
           </View>
 
-          {/* Hero Reps Display (Tap to type exact value) */}
+          {/* Hero Reps Display */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Enter custom reps"
@@ -353,7 +405,104 @@ export default function Input() {
           </ScrollView>
         </View>
 
-        {/* 4. Bottom Pinned Save / Done Button */}
+        {/* 4. Rest Duration for this Exercise */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.repsHeaderRow}>
+            <Text style={styles.sectionHeaderLabel}>
+              {isUk ? 'ВІДПОЧИНОК ДЛЯ ЦІЄЇ ВПРАВИ' : 'REST FOR THIS EXERCISE'}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                hapticLight();
+                setCustomRestText(String(currentRestSeconds));
+                setRestModalVisible(true);
+              }}
+              style={styles.customKeypadBtn}
+            >
+              <Ionicons name="time-outline" size={14} color={colors.primary} />
+              <Text style={styles.customKeypadBtnText}>
+                {isUk ? 'Ввести час' : 'Set custom'}
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Hero Rest Display */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Enter custom rest duration"
+            onPress={() => {
+              hapticLight();
+              setCustomRestText(String(currentRestSeconds));
+              setRestModalVisible(true);
+            }}
+            style={styles.heroRow}
+          >
+            <Ionicons name="timer-outline" size={26} color={colors.primary} style={{ marginRight: 8 }} />
+            <Text style={styles.heroRepsText}>{currentRestSeconds}</Text>
+            <Text style={styles.heroRepsUnitText}>{isUk ? 'с' : 's'}</Text>
+            <Text style={styles.heroRestSubtext}>({formatRestDuration(currentRestSeconds, isUk)})</Text>
+            <Ionicons name="pencil" size={16} color="#8E959F" style={{ marginLeft: 6 }} />
+          </Pressable>
+
+          {/* Quick Step Buttons for Rest */}
+          <View style={styles.quickStepRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => handleSelectRest(Math.max(10, currentRestSeconds - 30))}
+              style={styles.quickStepBtn}
+            >
+              <Text style={styles.quickStepBtnText}>-30s</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => handleSelectRest(Math.max(10, currentRestSeconds - 15))}
+              style={styles.quickStepBtn}
+            >
+              <Text style={styles.quickStepBtnText}>-15s</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => handleSelectRest(Math.min(600, currentRestSeconds + 15))}
+              style={styles.quickStepBtn}
+            >
+              <Text style={styles.quickStepBtnText}>+15s</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => handleSelectRest(Math.min(600, currentRestSeconds + 30))}
+              style={styles.quickStepBtn}
+            >
+              <Text style={styles.quickStepBtnText}>+30s</Text>
+            </Pressable>
+          </View>
+
+          {/* Scrollable Rest List */}
+          <ScrollView
+            ref={restScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.scrollStrip}
+          >
+            {restList.map((sec) => {
+              const isSelected = sec === currentRestSeconds;
+              return (
+                <Pressable
+                  key={sec}
+                  accessibilityRole="button"
+                  onPress={() => handleSelectRest(sec)}
+                  style={[styles.repChip, isSelected && styles.repChipSelected, { minWidth: 58 }]}
+                >
+                  <Text style={[styles.repChipText, isSelected && styles.repChipTextSelected]}>
+                    {sec}s
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* 5. Bottom Pinned Save / Done Button */}
         <View style={styles.bottomBar}>
           <Pressable
             accessibilityRole="button"
@@ -469,6 +618,58 @@ export default function Input() {
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Modal: Direct Rest Input (10-600) */}
+      <Modal
+        visible={restModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRestModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalHeaderTitle}>
+              {isUk ? 'Час відпочинку для вправи' : 'Rest Duration for Exercise'}
+            </Text>
+            <Text style={styles.modalHeaderSubtitle}>
+              {isUk ? 'Введіть секунди (10–600)' : 'Enter seconds (10–600)'}
+            </Text>
+
+            <TextInput
+              style={styles.modalInput}
+              keyboardType="number-pad"
+              autoFocus
+              value={customRestText}
+              onChangeText={setCustomRestText}
+              placeholder="90"
+              placeholderTextColor="#5A6472"
+              selectTextOnFocus
+            />
+
+            <View style={styles.modalActionsRow}>
+              <Pressable
+                onPress={() => setRestModalVisible(false)}
+                style={styles.modalCancelBtn}
+              >
+                <Text style={styles.modalCancelBtnText}>
+                  {isUk ? 'Скасувати' : 'Cancel'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={handleSaveCustomRest}
+                style={styles.modalSaveBtn}
+              >
+                <Text style={styles.modalSaveBtnText}>
+                  {isUk ? 'Зберегти' : 'Save'}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -513,7 +714,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1E2530',
     padding: 18,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   sectionHeaderLabel: {
     color: '#717B8A',
@@ -584,6 +785,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     marginLeft: 6,
+    alignSelf: 'flex-end',
+    marginBottom: 5,
+  },
+  heroRestSubtext: {
+    color: '#8E959F',
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 8,
     alignSelf: 'flex-end',
     marginBottom: 5,
   },

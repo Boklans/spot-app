@@ -5,11 +5,15 @@ import {
   Alert,
   Dimensions,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { Button } from '@/components/ui/Button';
@@ -30,7 +34,10 @@ export default function Rest() {
   const restNextType = useWorkoutSessionStore((state) => state.restNextType);
   const addRestTime = useWorkoutSessionStore((state) => state.addRestTime);
   const skipRest = useWorkoutSessionStore((state) => state.skipRest);
+  const updateExerciseRest = useWorkoutSessionStore((state) => state.updateExerciseRest);
 
+  const [showRestModal, setShowRestModal] = useState(false);
+  const [customSecondsText, setCustomSecondsText] = useState('');
   const [now, setNow] = useState(Date.now());
   const seconds = Math.max(0, Math.ceil(((restEndsAt ?? Date.now()) - now) / 1000));
   const lastHapticSecond = useRef<number | null>(null);
@@ -167,7 +174,15 @@ export default function Rest() {
         bounces={false}
       >
         {/* 2. Timer Center Zone: Exactly Centered between SET COMPLETE and heroCard */}
-        <View style={styles.timerCenterZone}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Adjust rest timer"
+          onPress={() => {
+            hapticLight();
+            setShowRestModal(true);
+          }}
+          style={styles.timerCenterZone}
+        >
           <Text
             style={[
               styles.timerDigits,
@@ -176,8 +191,16 @@ export default function Rest() {
           >
             {minutes}:{remainingSeconds}
           </Text>
-          <Text style={styles.timerLabel}>{t('restTimer')}</Text>
-        </View>
+          <View style={styles.timerSubtitleRow}>
+            <Text style={styles.timerLabel}>{t('restTimer')}</Text>
+            <View style={styles.restConfigBadge}>
+              <Ionicons name="options-outline" size={12} color={colors.primary} />
+              <Text style={styles.restConfigText}>
+                {targetExercise?.restSeconds ?? 90}s
+              </Text>
+            </View>
+          </View>
+        </Pressable>
 
         {/* 3. Hero Upcoming Exercise Card (Big Centered Image + Details) */}
         <View style={styles.heroCard}>
@@ -225,16 +248,28 @@ export default function Rest() {
           </View>
         </View>
 
-        {/* 4. Action Buttons (+30s & Start/Skip) */}
+        {/* 4. Action Buttons (-15s, +30s & Start/Skip) */}
         <View style={styles.actionsRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Subtract 15 seconds"
+            onPress={() => {
+              hapticLight();
+              addRestTime(-15);
+            }}
+            style={styles.subTimeBtn}
+          >
+            <Text style={styles.addTimeText}>-15s</Text>
+          </Pressable>
+
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add 30 seconds"
             onPress={handleAdd30}
             style={styles.addTimeBtn}
           >
-            <Ionicons name="add" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
-            <Text style={styles.addTimeText}>{t('plus30Sec')}</Text>
+            <Ionicons name="add" size={18} color="#FFFFFF" style={{ marginRight: 2 }} />
+            <Text style={styles.addTimeText}>+30s</Text>
           </Pressable>
 
           <Pressable
@@ -264,6 +299,95 @@ export default function Rest() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Rest Duration Configuration Modal */}
+      <Modal
+        visible={showRestModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRestModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalHeaderTitle}>
+              {language === 'uk' ? 'Налаштувати відпочинок' : 'Customize Rest Duration'}
+            </Text>
+            <Text style={styles.modalHeaderSubtitle}>
+              {language === 'uk'
+                ? `Для вправи: ${targetExercise ? te(targetExercise.name) : ''}`
+                : `For: ${targetExercise ? targetExercise.name : ''}`}
+            </Text>
+
+            {/* Quick preset chips */}
+            <View style={styles.modalPresetRow}>
+              {[30, 45, 60, 90, 120, 180, 240].map((presetSec) => {
+                const isCurrent = (targetExercise?.restSeconds ?? 90) === presetSec;
+                return (
+                  <Pressable
+                    key={presetSec}
+                    onPress={() => {
+                      hapticLight();
+                      updateExerciseRest(session.currentExerciseIndex, presetSec);
+                      useWorkoutSessionStore.setState({ restEndsAt: Date.now() + presetSec * 1000 });
+                      setShowRestModal(false);
+                    }}
+                    style={[styles.modalPresetChip, isCurrent && styles.modalPresetChipActive]}
+                  >
+                    <Text style={[styles.modalPresetText, isCurrent && styles.modalPresetTextActive]}>
+                      {presetSec}s
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Custom input */}
+            <View style={styles.customRestInputRow}>
+              <TextInput
+                style={styles.customRestInput}
+                keyboardType="number-pad"
+                placeholder={String(targetExercise?.restSeconds ?? 90)}
+                placeholderTextColor="#5A6472"
+                value={customSecondsText}
+                onChangeText={setCustomSecondsText}
+              />
+              <Text style={styles.customRestInputUnit}>
+                {language === 'uk' ? 'сек' : 'sec'}
+              </Text>
+            </View>
+
+            <View style={styles.modalActionsRow}>
+              <Pressable
+                onPress={() => setShowRestModal(false)}
+                style={styles.modalCancelBtn}
+              >
+                <Text style={styles.modalCancelBtnText}>
+                  {language === 'uk' ? 'Скасувати' : 'Cancel'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  const parsed = parseInt(customSecondsText, 10);
+                  if (!isNaN(parsed) && parsed >= 10 && parsed <= 600) {
+                    hapticLight();
+                    updateExerciseRest(session.currentExerciseIndex, parsed);
+                    useWorkoutSessionStore.setState({ restEndsAt: Date.now() + parsed * 1000 });
+                  }
+                  setShowRestModal(false);
+                }}
+                style={styles.modalSaveBtn}
+              >
+                <Text style={styles.modalSaveBtnText}>
+                  {language === 'uk' ? 'Застосувати' : 'Apply'}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -486,5 +610,156 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 20,
+  },
+  timerSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  restConfigBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+  },
+  restConfigText: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  subTimeBtn: {
+    width: 60,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#161B24',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 350,
+    backgroundColor: '#15191F',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#242B35',
+    padding: 22,
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  modalHeaderTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  modalHeaderSubtitle: {
+    color: '#8E959F',
+    fontSize: 13,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalPresetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  modalPresetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#1A202A',
+    borderWidth: 1,
+    borderColor: '#283242',
+  },
+  modalPresetChipActive: {
+    backgroundColor: 'rgba(200, 255, 61, 0.15)',
+    borderColor: colors.primary,
+    borderWidth: 1.5,
+  },
+  modalPresetText: {
+    color: '#8E959F',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  modalPresetTextActive: {
+    color: colors.primary,
+    fontWeight: '900',
+  },
+  customRestInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    gap: 8,
+  },
+  customRestInput: {
+    width: 100,
+    height: 48,
+    backgroundColor: '#0F1217',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  customRestInputUnit: {
+    color: '#8E959F',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalCancelBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#1F2631',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelBtnText: {
+    color: '#CBD5E1',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalSaveBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSaveBtnText: {
+    color: '#0B0D0F',
+    fontSize: 14,
+    fontWeight: '900',
   },
 });

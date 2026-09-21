@@ -62,6 +62,7 @@ type WorkoutSessionState = {
   completeCurrentSet: () => void;
   setPersonalRecords: (personalRecords: PersonalRecord[]) => void;
   updateCurrentSet: (values: { weight?: number; reps?: number }) => void;
+  updateExerciseRest: (exerciseIndex: number, restSeconds: number) => void;
   addRestTime: (seconds: number) => void;
   skipRest: () => void;
   swapExercise: (newExercise: { name: string; muscleGroup: string; defaultWeight?: number }) => void;
@@ -317,6 +318,31 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
     });
     const state = useWorkoutSessionStore.getState();
     if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
+  },
+
+  updateExerciseRest: (exerciseIndex, restSeconds) => {
+    set((state) => {
+      if (!state.session) return state;
+      const boundedRest = Math.max(10, Math.min(600, restSeconds));
+      const updatedExercises = state.session.exercises.map((ex, idx) =>
+        idx === exerciseIndex ? { ...ex, restSeconds: boundedRest } : ex
+      );
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          exercises: updatedExercises,
+        },
+      };
+    });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session && !state.session.completed) {
+      persistSnapshot({
+        session: state.session,
+        restEndsAt: state.restEndsAt,
+        restNextType: state.restNextType,
+      });
+    }
   },
 
   addRestTime: (seconds) => {

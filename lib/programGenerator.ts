@@ -379,10 +379,10 @@ export function resolveRestSeconds(
     }
   })();
 
-  return profileRest
-    ?? exercise?.restSeconds
+  return exercise?.restSeconds
     ?? workout?.defaultRestSeconds
     ?? program?.defaultRestSeconds
+    ?? profileRest
     ?? 150;
 }
 
