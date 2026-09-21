@@ -32,6 +32,7 @@ type ProgramProgressState = {
   loadProgress: (program: UserProgram | GeneratedProgram) => Promise<ProgramProgress>;
   advanceProgress: (program: UserProgram | GeneratedProgram, completedWorkoutId: string, sessionId?: string) => Promise<ProgramProgress>;
   resetProgress: (programId: string, initialWorkoutId?: string) => Promise<ProgramProgress>;
+  setNextWorkout: (workoutId: string) => Promise<ProgramProgress | undefined>;
   dismissWeeklyReview: (weekKey: string) => Promise<void>;
 };
 
@@ -225,6 +226,23 @@ export const useProgramProgressStore = create<ProgramProgressState>((set, get) =
       // Continue even if local storage temporarily failed
     }
     set({ progress: updated });
+  },
+
+  setNextWorkout: async (workoutId: string) => {
+    const current = get().progress;
+    if (!current) return;
+    const updated: ProgramProgress = {
+      ...current,
+      nextWorkoutId: workoutId,
+      updatedAt: new Date().toISOString(),
+    };
+    try {
+      await AsyncStorage.setItem(PROGRAM_PROGRESS_STORAGE_KEY, JSON.stringify(updated));
+    } catch {
+      // Continue
+    }
+    set({ progress: updated });
+    return updated;
   },
 
   resetProgress: async (programId: string, initialWorkoutId?: string) => {

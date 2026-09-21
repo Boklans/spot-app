@@ -2,12 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { hapticLight } from '@/lib/haptics';
 import { countWorkoutsThisWeek, getStartOfWeek } from '@/lib/progressCalculator';
 import { calculateMuscleRecovery } from '@/lib/recoveryEngine';
 import { translateExercise, useI18n } from '@/lib/i18n';
@@ -131,7 +132,9 @@ export default function Home() {
   const activeSession = useWorkoutSessionStore((state) => state.session);
   const restEndsAt = useWorkoutSessionStore((state) => state.restEndsAt);
   const progress = useProgramProgressStore((state) => state.progress);
+  const setNextWorkout = useProgramProgressStore((state) => state.setNextWorkout);
   const history = useWorkoutHistoryStore((state) => state.workouts);
+  const [switchModalVisible, setSwitchModalVisible] = useState(false);
 
   // Focus synchronization
   useFocusEffect(
@@ -280,7 +283,26 @@ export default function Home() {
 
       {/* 3. Today's Workout Card with Deep Slate Elevation */}
       <View style={styles.workoutCard}>
-        <Text style={styles.workoutCardLabel}>{t('todaysWorkout')}</Text>
+        <View style={styles.workoutCardHeaderRow}>
+          <Text style={styles.workoutCardLabel}>{t('todaysWorkout')}</Text>
+          {program.workouts && program.workouts.length > 1 && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Switch workout"
+              onPress={() => {
+                hapticLight();
+                setSwitchModalVisible(true);
+              }}
+              hitSlop={8}
+              style={styles.switchWorkoutBtn}
+            >
+              <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
+              <Text style={styles.switchWorkoutBtnText}>
+                {language === 'uk' ? 'ЗМІНИТИ' : 'SWITCH'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
 
         <Pressable
           accessibilityRole="button"
@@ -373,6 +395,73 @@ export default function Home() {
           <Text style={styles.insightMessage}>{spotInsight}</Text>
         </View>
       </View>
+
+      {/* Workout Switch Modal */}
+      <Modal
+        visible={switchModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSwitchModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setSwitchModalVisible(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {language === 'uk' ? 'Вибрати тренування' : 'Select Workout'}
+              </Text>
+              <Pressable
+                onPress={() => setSwitchModalVisible(false)}
+                hitSlop={10}
+                style={styles.modalCloseBtn}
+              >
+                <Ionicons name="close" size={22} color="#8E959F" />
+              </Pressable>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              {program.workouts.map((w, idx) => {
+                const isSelected = w.id === nextWorkout.id;
+                const muscles = w.muscleGroups?.slice(0, 3).map((m) => tm(m)).join(' • ') || '';
+                return (
+                  <Pressable
+                    key={w.id}
+                    style={[styles.switchItem, isSelected && styles.switchItemActive]}
+                    onPress={async () => {
+                      hapticLight();
+                      await setNextWorkout(w.id);
+                      setSwitchModalVisible(false);
+                    }}
+                  >
+                    <View style={styles.switchItemLeft}>
+                      <View style={[styles.switchItemBadge, isSelected && styles.switchItemBadgeActive]}>
+                        <Text style={[styles.switchItemBadgeText, isSelected && styles.switchItemBadgeTextActive]}>
+                          {String.fromCharCode(65 + idx)}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.switchItemName, isSelected && styles.switchItemNameActive]}>
+                          {tw(w.name)}
+                        </Text>
+                        {muscles ? (
+                          <Text style={styles.switchItemMuscles}>{muscles}</Text>
+                        ) : null}
+                      </View>
+                    </View>
+                    {isSelected ? (
+                      <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                    ) : (
+                      <Ionicons name="chevron-forward" size={18} color="#6C7685" />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
@@ -623,5 +712,121 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: '#F0F3F8',
     fontWeight: '500',
+  },
+  workoutCardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  switchWorkoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+  },
+  switchWorkoutBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#C8FF3D',
+    letterSpacing: 0.8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#15191F',
+    borderRadius: 22,
+    borderColor: '#242B35',
+    borderWidth: 1,
+    padding: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#242B35',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  switchItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: '#12161D',
+    borderWidth: 1,
+    borderColor: '#1E2530',
+    marginBottom: 10,
+  },
+  switchItemActive: {
+    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    borderColor: '#C8FF3D',
+  },
+  switchItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginRight: 8,
+  },
+  switchItemBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#1E2530',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  switchItemBadgeActive: {
+    backgroundColor: '#C8FF3D',
+  },
+  switchItemBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#8E959F',
+  },
+  switchItemBadgeTextActive: {
+    color: '#0B0D0F',
+  },
+  switchItemName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  switchItemNameActive: {
+    color: '#C8FF3D',
+  },
+  switchItemMuscles: {
+    fontSize: 12,
+    color: '#8E959F',
+    marginTop: 2,
   },
 });
