@@ -93,6 +93,7 @@ export function ExerciseLibraryModal({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.categoryScroll}
             contentContainerStyle={styles.categoryRow}
           >
             {CATEGORIES.map((cat) => {
@@ -255,18 +256,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+  categoryScroll: {
+    flexGrow: 0,
+    height: 38,
+    marginBottom: 12,
+  },
   categoryRow: {
     paddingHorizontal: 20,
     gap: 8,
-    paddingBottom: 12,
+    alignItems: 'center',
+    height: 38,
   },
   categoryChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    height: 34,
     borderRadius: 10,
     backgroundColor: '#161B22',
     borderWidth: 1,
     borderColor: '#242C38',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   categoryChipSelected: {
     backgroundColor: 'rgba(200, 255, 61, 0.15)',
