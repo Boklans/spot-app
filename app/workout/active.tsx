@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
@@ -70,6 +70,17 @@ function getExerciseIcon(name: string): keyof typeof MaterialCommunityIcons.glyp
   return 'dumbbell';
 }
 
+function formatElapsed(totalSec: number): string {
+  const hrs = Math.floor(totalSec / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
+  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+  if (hrs > 0) {
+    return `${hrs}:${pad(mins)}:${pad(secs)}`;
+  }
+  return `${pad(mins)}:${pad(secs)}`;
+}
+
 export default function Active() {
   const { t, tm, td, te, tw, language } = useI18n();
   const { unitLabel, format, formatWithUnit } = useWeightUnit();
@@ -78,6 +89,16 @@ export default function Active() {
   const swapExercise = useWorkoutSessionStore((state) => state.swapExercise);
   const [finishing, setFinishing] = useState(false);
   const [showSwapModal, setShowSwapModal] = useState(false);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const elapsedSeconds = session?.startedAt
+    ? Math.max(0, Math.floor((now - new Date(session.startedAt).getTime()) / 1000))
+    : 0;
 
   if (!session) {
     return (
@@ -170,7 +191,13 @@ export default function Active() {
           <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
         </Pressable>
 
-        <Text style={styles.topWorkoutName}>{tw(session.workoutName)}</Text>
+        <View style={styles.topWorkoutCenter}>
+          <Text numberOfLines={1} style={styles.topWorkoutName}>{tw(session.workoutName)}</Text>
+          <View style={styles.stopwatchPill}>
+            <Ionicons name="timer-outline" size={12} color={colors.primary} />
+            <Text style={styles.stopwatchText}>{formatElapsed(elapsedSeconds)}</Text>
+          </View>
+        </View>
 
         <Text style={styles.topPercent}>{percent}%</Text>
       </View>
@@ -443,11 +470,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  topWorkoutCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
   topWorkoutName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.2,
+  },
+  stopwatchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.2)',
+  },
+  stopwatchText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#C8FF3D',
+    fontVariant: ['tabular-nums'],
   },
   topPercent: {
     fontSize: 14,

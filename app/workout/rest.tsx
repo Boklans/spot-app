@@ -26,6 +26,17 @@ import { useWeightUnit } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 
+function formatElapsed(totalSec: number): string {
+  const hrs = Math.floor(totalSec / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
+  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+  if (hrs > 0) {
+    return `${hrs}:${pad(mins)}:${pad(secs)}`;
+  }
+  return `${pad(mins)}:${pad(secs)}`;
+}
+
 export default function Rest() {
   const { t, te, language } = useI18n();
   const { formatWithUnit } = useWeightUnit();
@@ -40,6 +51,9 @@ export default function Rest() {
   const [customSecondsText, setCustomSecondsText] = useState('');
   const [now, setNow] = useState(Date.now());
   const seconds = Math.max(0, Math.ceil(((restEndsAt ?? Date.now()) - now) / 1000));
+  const elapsedSeconds = session?.startedAt
+    ? Math.max(0, Math.floor((now - new Date(session.startedAt).getTime()) / 1000))
+    : 0;
   const lastHapticSecond = useRef<number | null>(null);
 
   useEffect(() => {
@@ -164,8 +178,11 @@ export default function Rest() {
           <Text style={styles.statusPillText}>{t('setComplete')}</Text>
         </View>
 
-        {/* Placeholder to keep statusPill centered */}
-        <View style={styles.topBarSpacer} />
+        {/* Total Workout Stopwatch */}
+        <View style={styles.stopwatchPill}>
+          <Ionicons name="timer-outline" size={13} color={colors.primary} />
+          <Text style={styles.stopwatchText}>{formatElapsed(elapsedSeconds)}</Text>
+        </View>
       </View>
 
       <ScrollView
@@ -642,6 +659,23 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stopwatchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.2)',
+  },
+  stopwatchText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#C8FF3D',
+    fontVariant: ['tabular-nums'],
   },
   modalOverlay: {
     flex: 1,
