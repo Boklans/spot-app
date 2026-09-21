@@ -126,13 +126,14 @@ export default function Frequency() {
       trainingDays: selectedDays,
       sessionDurationMinutes: selectedDuration,
       splitPreference: autoSplit,
+      equipment: ['full_gym'],
     });
-    router.push('/onboarding/equipment');
+    router.push('/onboarding/program-ready');
   };
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* 1. Top Bar with 4/5 Progress */}
+      {/* 1. Top Bar with 3/3 Progress */}
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
@@ -143,7 +144,7 @@ export default function Frequency() {
         >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
-        <Text style={styles.stepText}>4/5</Text>
+        <Text style={styles.stepText}>3/3</Text>
         <View style={styles.topBarPlaceholder} />
       </View>
 

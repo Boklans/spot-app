@@ -18,6 +18,7 @@ import { WorkoutEditorModal } from '@/components/program/WorkoutEditorModal';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { generateUUID } from '@/lib/programMigration';
 import { getWorkoutDayLabel } from '@/lib/programGenerator';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
@@ -325,8 +326,8 @@ export default function Program() {
                 {[
                   { id: 'full_body', label: language === 'uk' ? 'Фулбоді' : 'Full Body' },
                   { id: 'upper_lower', label: language === 'uk' ? 'Верх / Низ' : 'Upper / Lower' },
-                  { id: 'push_pull_legs', label: language === 'uk' ? 'Штовхай / Тягни / Ноги' : 'Push / Pull / Legs' },
-                  { id: 'custom', label: language === 'uk' ? 'Власний' : 'Custom' },
+                  { id: 'push_pull_legs', label: language === 'uk' ? 'Спліт (PPL)' : 'Split (PPL)' },
+                  { id: 'custom', label: language === 'uk' ? 'Кастом (Свій)' : 'Custom Plan' },
                 ].map((item) => {
                   const isActive = program.splitType === item.id;
                   return (
@@ -352,6 +353,35 @@ export default function Program() {
                   );
                 })}
               </ScrollView>
+
+              {program.splitType === 'custom' && (
+                <View style={styles.customProgramHeaderBanner}>
+                  <View style={styles.customProgramLeft}>
+                    <MaterialCommunityIcons name="tune-vertical" size={20} color={colors.primary} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.customProgramTitle}>
+                        {language === 'uk' ? 'Власний план тренувань' : 'Custom Routine'}
+                      </Text>
+                      <Text style={styles.customProgramSubtitle}>
+                        {language === 'uk'
+                          ? 'Складайте програму під себе, додавайте та змінюйте дні'
+                          : 'Build your routine, add days and customize exercises'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Open program editor"
+                    onPress={() => router.push('/program/edit')}
+                    style={styles.openBuilderBtn}
+                  >
+                    <Ionicons name="create-outline" size={14} color="#0B0D0F" />
+                    <Text style={styles.openBuilderBtnText}>
+                      {language === 'uk' ? 'Конструктор' : 'Builder'}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
 
             {program.workouts.map((workout, index) => {
@@ -431,6 +461,40 @@ export default function Program() {
                 </Pressable>
               );
             })}
+
+            {program.splitType === 'custom' && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add workout day"
+                onPress={() => {
+                  hapticMedium();
+                  const count = program.workouts.length;
+                  const letter = String.fromCharCode(65 + count);
+                  const newWorkout: UserWorkout = {
+                    id: generateUUID(),
+                    name: language === 'uk' ? `Тренування ${letter}` : `Workout ${letter}`,
+                    dayLabel: `Day ${count + 1}`,
+                    muscleGroups: [],
+                    estimatedMinutes: 45,
+                    defaultRestSeconds: 90,
+                    exercises: [],
+                  };
+                  const updatedProg = {
+                    ...program,
+                    daysPerWeek: Math.min(7, program.workouts.length + 1),
+                    workouts: [...program.workouts, newWorkout],
+                  };
+                  useProgramStore.getState().updateUserProgram(updatedProg);
+                  setEditingWorkout(newWorkout);
+                }}
+                style={styles.addCustomWorkoutBtn}
+              >
+                <Ionicons name="add-circle" size={20} color={colors.primary} />
+                <Text style={styles.addCustomWorkoutBtnText}>
+                  {language === 'uk' ? '+ Додати тренування' : '+ Add Workout Day'}
+                </Text>
+              </Pressable>
+            )}
           </ScrollView>
         )}
       </KeyboardAvoidingView>
@@ -852,5 +916,67 @@ const styles = StyleSheet.create({
   splitChipTextActive: {
     color: colors.primary,
     fontWeight: '800',
+  },
+  customProgramHeaderBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(200, 255, 61, 0.06)',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+    gap: 10,
+  },
+  customProgramLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  customProgramTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  customProgramSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#8E9BAE',
+    marginTop: 1,
+  },
+  openBuilderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  openBuilderBtnText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#0B0D0F',
+  },
+  addCustomWorkoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#151A22',
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(200, 255, 61, 0.3)',
+    borderStyle: 'dashed',
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  addCustomWorkoutBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.primary,
   },
 });

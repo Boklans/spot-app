@@ -24,29 +24,24 @@ export default function CreationMode() {
 
   const splitOptions: Array<{ key: WorkoutSplitPreference; label: string; sub: string }> = [
     {
-      key: 'upper_lower',
-      label: 'Upper / Lower',
-      sub: language === 'uk' ? 'Класичний збалансований спліт (4 дні)' : 'Balanced upper & lower split',
-    },
-    {
       key: 'full_body',
       label: 'Full Body',
-      sub: language === 'uk' ? 'Тренування всього тіла (2–3 дні)' : 'High recovery full-body training',
+      sub: language === 'uk' ? 'Тренування всього тіла (1–3 дні)' : 'High recovery full-body training',
+    },
+    {
+      key: 'upper_lower',
+      label: 'Upper / Lower',
+      sub: language === 'uk' ? 'Класичний збалансований спліт (3–4 дні)' : 'Balanced upper & lower split',
     },
     {
       key: 'push_pull_legs',
-      label: 'Push / Pull / Legs (PPL)',
+      label: 'Push / Pull / Legs (Спліт)',
       sub: language === 'uk' ? 'Спеціалізований спліт (3–6 днів)' : 'Synergistic muscle group focus',
     },
     {
       key: 'custom',
-      label: language === 'uk' ? 'Вільний спліт (Custom)' : 'Custom Athlete Routine',
-      sub: language === 'uk' ? 'Групи мʼязів на вибір із можливістю редагування' : 'Targeted muscle group focus with customization',
-    },
-    {
-      key: 'blank',
-      label: language === 'uk' ? 'Чистий аркуш (З нуля)' : 'Blank Canvas (From Scratch)',
-      sub: language === 'uk' ? 'Порожні тренування, додавайте тільки свої вправи' : 'Empty workouts, add only your own exercises',
+      label: language === 'uk' ? 'Кастом (Свій план)' : 'Custom Routine',
+      sub: language === 'uk' ? 'Складіть власний розклад та оберіть свої вправи' : 'Build your own schedule and pick exercises',
     },
   ];
 

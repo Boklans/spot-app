@@ -94,7 +94,7 @@ export default function Experience() {
         >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
-        <Text style={styles.stepText}>3/5</Text>
+        <Text style={styles.stepText}>2/3</Text>
         <View style={styles.topBarPlaceholder} />
       </View>
 

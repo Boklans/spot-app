@@ -67,7 +67,7 @@ export default function ParamsSetup() {
         >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
-        <Text style={styles.stepText}>2/5</Text>
+        <Text style={styles.stepText}>1/3</Text>
         <View style={styles.topBarPlaceholder} />
       </View>
 
@@ -276,3 +276,4 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 });
+
