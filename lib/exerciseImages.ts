@@ -3,6 +3,7 @@ import { ImageSourcePropType } from 'react-native';
 const EXERCISE_IMAGES: Record<string, ImageSourcePropType> = {
   'bench press': require('@/assets/exercises/bench_press.jpg'),
   'incline dumbbell press': require('@/assets/exercises/incline_dumbbell_press.jpg'),
+  'incline dumbbell': require('@/assets/exercises/incline_dumbbell_press.jpg'),
   'barbell row': require('@/assets/exercises/barbell_row.jpg'),
   'lat pulldown': require('@/assets/exercises/lat_pulldown.jpg'),
   'overhead press': require('@/assets/exercises/shoulder_press.jpg'),
