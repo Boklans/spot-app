@@ -1,3 +1,4 @@
+import { syncCompletedWorkout } from '@/lib/cloudSync';
 import { createCompletedWorkoutSnapshot } from '@/lib/completedWorkout';
 import { hapticSuccess } from '@/lib/haptics';
 import { detectPersonalRecords } from '@/lib/personalRecords';
@@ -30,5 +31,6 @@ export async function finalizeWorkoutSession(session: WorkoutSession): Promise<C
   await useProgramProgressStore.getState().advanceProgress(program, session.programWorkoutId, session.id);
 
   await hapticSuccess();
+  syncCompletedWorkout(snapshot).catch(() => undefined);
   return snapshot;
 }

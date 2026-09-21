@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -13,13 +14,16 @@ import {
   Text,
   View,
 } from 'react-native';
+import { AuthModal } from '@/components/auth/AuthModal';
 import { EditProfileModal } from '@/components/profile/EditProfileModal';
 import { PreferencePickerModal } from '@/components/profile/PreferencePickerModal';
 import { RestTimePickerModal } from '@/components/profile/RestTimePickerModal';
 import { LanguagePickerModal } from '@/components/profile/LanguagePickerModal';
 import { colors } from '@/constants/colors';
+import { getSyncStatus, subscribeSyncStatus, syncUp, type SyncStatus } from '@/lib/cloudSync';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { useAuthStore } from '@/store/authStore';
 import { useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
 import {
@@ -72,10 +76,53 @@ export default function Profile() {
   const [restModalVisible, setRestModalVisible] = useState(false);
   const [langModalVisible, setLangModalVisible] = useState(false);
   const [proModalVisible, setProModalVisible] = useState(false);
+  const [authModalVisible, setAuthModalVisible] = useState(false);
+
+  // Auth & Sync State
+  const user = useAuthStore((state) => state.user);
+  const signOut = useAuthStore((state) => state.signOut);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(getSyncStatus());
 
   useEffect(() => {
     useUserProfileStore.getState().loadProfile();
+    return subscribeSyncStatus(setSyncStatus);
   }, []);
+
+  const isAuthenticated = Boolean(user);
+
+  const handleManualSync = async () => {
+    hapticMedium();
+    const res = await syncUp();
+    if (res.success) {
+      hapticSuccess();
+    } else {
+      Alert.alert(
+        language === 'uk' ? 'Помилка синхронізації' : 'Sync Error',
+        res.error || (language === 'uk' ? 'Перевірте інтернет-зв’язок' : 'Check network connection')
+      );
+    }
+  };
+
+  const handleSignOut = () => {
+    hapticMedium();
+    Alert.alert(
+      language === 'uk' ? 'Вийти з акаунта?' : 'Sign Out?',
+      language === 'uk'
+        ? 'Ваші тренування залишаться на цьому телефоні і будуть збережені в хмарі.'
+        : 'Your workouts will remain on this device and saved in the cloud.',
+      [
+        { text: language === 'uk' ? 'Скасувати' : 'Cancel', style: 'cancel' },
+        {
+          text: language === 'uk' ? 'Вийти' : 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            hapticLight();
+          },
+        },
+      ]
+    );
+  };
 
   const currentBeast = BEAST_AVATARS[profile.avatar] ?? BEAST_AVATARS.gorilla;
   const heightM = profile.heightCm / 100;
@@ -233,6 +280,77 @@ export default function Profile() {
             <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
           </View>
         </Pressable>
+
+        {/* Cloud Account & Backup Section */}
+        <View style={styles.cloudCard}>
+          <View style={styles.cloudCardLeft}>
+            <View style={[styles.cloudIconWrap, isAuthenticated && styles.cloudIconWrapActive]}>
+              <Ionicons
+                name={isAuthenticated ? 'cloud-done' : 'cloud-outline'}
+                size={22}
+                color={isAuthenticated ? colors.primary : '#8E9BAE'}
+              />
+            </View>
+            <View style={styles.cloudInfo}>
+              <Text style={styles.cloudTitle}>
+                {isAuthenticated
+                  ? user?.email || (language === 'uk' ? 'Хмарний акаунт' : 'Cloud Account')
+                  : language === 'uk'
+                  ? 'Хмарна синхронізація'
+                  : 'Cloud Backup & Sync'}
+              </Text>
+              <Text style={styles.cloudSubtitle}>
+                {isAuthenticated
+                  ? syncStatus.isSyncing
+                    ? language === 'uk' ? 'Синхронізація...' : 'Syncing...'
+                    : syncStatus.lastSyncedAt
+                    ? (language === 'uk' ? 'Оновлено: ' : 'Synced: ') +
+                      new Date(syncStatus.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : language === 'uk' ? 'Дані синхронізовано' : 'Data is up to date'
+                  : language === 'uk'
+                  ? 'Увійдіть, щоб зберігати прогрес'
+                  : 'Sign in to keep workouts safe'}
+              </Text>
+            </View>
+          </View>
+
+          {isAuthenticated ? (
+            <View style={styles.cloudActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Sync now"
+                onPress={handleManualSync}
+                disabled={syncStatus.isSyncing}
+                style={({ pressed }) => [styles.cloudSyncBtn, pressed && { opacity: 0.7 }]}
+              >
+                {syncStatus.isSyncing ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Ionicons name="sync" size={18} color={colors.primary} />
+                )}
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Sign out"
+                onPress={handleSignOut}
+                style={({ pressed }) => [styles.cloudSignOutBtn, pressed && { opacity: 0.7 }]}
+              >
+                <Ionicons name="log-out-outline" size={18} color="#F87171" />
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Sign in"
+              onPress={() => setAuthModalVisible(true)}
+              style={({ pressed }) => [styles.cloudLoginBtn, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.cloudLoginBtnText}>
+                {language === 'uk' ? 'УВІЙТИ' : 'SIGN IN'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
 
         {/* 2. TRAINING Section */}
         <Text style={styles.sectionTitle}>{t('training')}</Text>
@@ -689,6 +807,11 @@ export default function Profile() {
         visible={editProfileVisible}
         onClose={() => setEditProfileVisible(false)}
       />
+
+      <AuthModal
+        visible={authModalVisible}
+        onClose={() => setAuthModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -711,7 +834,89 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 12,
+  },
+  cloudCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#12161D',
+    borderRadius: 18,
+    padding: 14,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  cloudCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  cloudIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#161B22',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  cloudIconWrapActive: {
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    borderColor: 'rgba(200, 255, 61, 0.3)',
+  },
+  cloudInfo: {
+    flex: 1,
+  },
+  cloudTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  cloudSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#8E9BAE',
+    marginTop: 2,
+  },
+  cloudActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cloudSyncBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+  },
+  cloudSignOutBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(248, 113, 113, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.25)',
+  },
+  cloudLoginBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 12,
+  },
+  cloudLoginBtnText: {
+    color: '#0B0D0F',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   avatarWrap: {
     position: 'relative',
