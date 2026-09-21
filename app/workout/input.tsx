@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
@@ -17,7 +17,12 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
-import { WheelPicker } from '@/components/ui/WheelPicker';
+import {
+  ITEM_HEIGHT,
+  PADDING_COUNT,
+  PICKER_HEIGHT,
+  WheelPicker,
+} from '@/components/ui/WheelPicker';
 
 // ─── Data sets ───────────────────────────────────────────────────────────────
 
@@ -67,7 +72,7 @@ export default function Input() {
   const weightStep = unit === 'lbs' ? 5 : (increment ?? 2.5);
   const maxWeight = unit === 'lbs' ? 660 : 300;
 
-  // Base list only recomputes when unit or increment changes
+  // Stable base list that only recomputes when unit or step changes
   const baseWeightList = useMemo(() => {
     const list: number[] = [0];
     for (let w = weightStep; w <= maxWeight; w += weightStep) {
@@ -171,7 +176,7 @@ export default function Input() {
 
   const isUk = language === 'uk';
 
-  // Find the exact or closest value in weightList
+  // Find exact or nearest value in weightList
   const pickerWeight = useMemo(() => {
     const rounded = Math.round(currentDisplayWeight * 10) / 10;
     const exact = weightList.find((w) => Math.abs(w - rounded) < 0.05);
@@ -191,7 +196,7 @@ export default function Input() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Top Nav */}
+      {/* 1. Top Navigation Bar */}
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
@@ -205,7 +210,6 @@ export default function Input() {
         <Text style={styles.topBarTitle}>
           {t('setOf')} {session.currentSetIndex + 1} {t('of')} {exercise?.sets.length ?? 3}
         </Text>
-        {/* Done button top-right */}
         <Pressable
           accessibilityRole="button"
           onPress={handleDone}
@@ -215,101 +219,87 @@ export default function Input() {
         </Pressable>
       </View>
 
-      {/* ── Pickers row ──────────────────────────────────────────────────── */}
-      <View style={styles.pickersRow}>
-
-        {/* WEIGHT */}
-        <View style={styles.pickerCol}>
-          <WheelPicker
-            data={weightList}
-            selectedValue={pickerWeight}
-            onValueChange={handleSelectWeight}
-            label={isUk ? 'ВАГА' : 'WEIGHT'}
-            unit={unitLabel}
-            formatLabel={(v) =>
-              v === 0 ? (isUk ? 'ВВ' : 'BW') : formatWeight(v)
-            }
-          />
-          {/* Custom entry shortcut */}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              hapticLight();
-              setCustomWeightText(formatWeight(currentDisplayWeight));
-              setWeightModalVisible(true);
-            }}
-            style={styles.customEntryBtn}
-          >
-            <MaterialCommunityIcons
-              name={unit === 'lbs' ? 'weight-pound' : 'weight-kilogram'}
-              size={13}
-              color={colors.primary}
-            />
-            <Text style={styles.customEntryText}>
-              {isUk ? 'вручну' : 'manual'}
-            </Text>
-          </Pressable>
+      {/* 2. Vertically Centered Pickers Section */}
+      <View style={styles.centerContainer}>
+        {/* Column Headers */}
+        <View style={styles.columnsHeaderRow}>
+          <Text style={styles.columnHeaderLabel}>{isUk ? 'ВАГА' : 'WEIGHT'}</Text>
+          <Text style={styles.columnHeaderLabel}>{isUk ? 'ПОВТОРИ' : 'REPS'}</Text>
+          <Text style={styles.columnHeaderLabel}>{isUk ? 'ВІДПОЧИНОК' : 'REST'}</Text>
         </View>
 
-        {/* Divider */}
-        <View style={styles.pickerDivider} />
+        {/* Cohesive Wheel Container with Single Horizontal Highlight Bar */}
+        <View style={styles.pickersFrame}>
+          {/* Subtle Shared Highlight Bar across all 3 columns */}
+          <View style={styles.sharedHighlightBar} pointerEvents="none" />
 
-        {/* REPS */}
-        <View style={styles.pickerCol}>
-          <WheelPicker
-            data={repsList}
-            selectedValue={currentReps}
-            onValueChange={handleSelectReps}
-            label={isUk ? 'ПОВТОРИ' : 'REPS'}
-            unit={isUk ? 'повт.' : 'reps'}
-            formatLabel={(v) => String(v)}
-          />
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              hapticLight();
-              setCustomRepsText(String(currentReps));
-              setRepsModalVisible(true);
-            }}
-            style={styles.customEntryBtn}
-          >
-            <Ionicons name="keypad-outline" size={13} color={colors.primary} />
-            <Text style={styles.customEntryText}>
-              {isUk ? 'вручну' : 'manual'}
-            </Text>
-          </Pressable>
+          {/* Seamless Top & Bottom Fades */}
+          <View style={styles.sharedFadeTop} pointerEvents="none" />
+          <View style={styles.sharedFadeBottom} pointerEvents="none" />
+
+          <View style={styles.pickersColumnsRow}>
+            {/* COLUMN 1: WEIGHT */}
+            <View style={styles.pickerColumn}>
+              <WheelPicker
+                data={weightList}
+                selectedValue={pickerWeight}
+                onValueChange={handleSelectWeight}
+                unit={unitLabel}
+                formatLabel={(v) => (v === 0 ? (isUk ? 'ВВ' : 'BW') : formatWeight(v))}
+                onActivePress={() => {
+                  hapticLight();
+                  setCustomWeightText(formatWeight(currentDisplayWeight));
+                  setWeightModalVisible(true);
+                }}
+              />
+            </View>
+
+            <View style={styles.columnDivider} />
+
+            {/* COLUMN 2: REPS */}
+            <View style={styles.pickerColumn}>
+              <WheelPicker
+                data={repsList}
+                selectedValue={currentReps}
+                onValueChange={handleSelectReps}
+                unit={isUk ? 'повт' : 'reps'}
+                formatLabel={(v) => String(v)}
+                onActivePress={() => {
+                  hapticLight();
+                  setCustomRepsText(String(currentReps));
+                  setRepsModalVisible(true);
+                }}
+              />
+            </View>
+
+            <View style={styles.columnDivider} />
+
+            {/* COLUMN 3: REST */}
+            <View style={styles.pickerColumn}>
+              <WheelPicker
+                data={restList}
+                selectedValue={currentRestSeconds}
+                onValueChange={handleSelectRest}
+                formatLabel={(v) => formatRestLabel(v)}
+                onActivePress={() => {
+                  hapticLight();
+                  setCustomRestText(String(currentRestSeconds));
+                  setRestModalVisible(true);
+                }}
+              />
+            </View>
+          </View>
         </View>
 
-        {/* Divider */}
-        <View style={styles.pickerDivider} />
-
-        {/* REST */}
-        <View style={styles.pickerCol}>
-          <WheelPicker
-            data={restList}
-            selectedValue={currentRestSeconds}
-            onValueChange={handleSelectRest}
-            label={isUk ? 'ВІДПОЧИНОК' : 'REST'}
-            formatLabel={(v) => formatRestLabel(v)}
-          />
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              hapticLight();
-              setCustomRestText(String(currentRestSeconds));
-              setRestModalVisible(true);
-            }}
-            style={styles.customEntryBtn}
-          >
-            <Ionicons name="timer-outline" size={13} color={colors.primary} />
-            <Text style={styles.customEntryText}>
-              {isUk ? 'вручну' : 'manual'}
-            </Text>
-          </Pressable>
-        </View>
+        {/* Minimalist Hint for Manual Numeric Entry */}
+        <Text style={styles.hintText}>
+          {isUk
+            ? 'Торкніться значення для прямого вводу'
+            : 'Tap center value for direct keypad input'}
+        </Text>
       </View>
 
-      {/* ── Big Done CTA ─────────────────────────────────────────────────── */}
+      {/* 3. Bottom Pinned Save Button */}
       <View style={styles.bottomBar}>
         <Pressable
           accessibilityRole="button"
@@ -508,50 +498,95 @@ const styles = StyleSheet.create({
     color: colors.primary,
     letterSpacing: 1,
   },
-  // ── Pickers row ──────────────────────────────────────────────────────────
-  pickersRow: {
+  // ── Centered Pickers Container ───────────────────────────────────────────
+  centerContainer: {
     flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  columnsHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 12,
     paddingHorizontal: 8,
-    paddingTop: 16,
-    paddingBottom: 8,
   },
-  pickerCol: {
+  columnHeaderLabel: {
     flex: 1,
-    alignItems: 'center',
+    textAlign: 'center',
+    color: '#717B8A',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
   },
-  pickerDivider: {
-    width: 1,
-    height: 120,
-    backgroundColor: '#242B35',
+  pickersFrame: {
+    height: PICKER_HEIGHT,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  customEntryBtn: {
-    marginTop: 12,
+  sharedHighlightBar: {
+    position: 'absolute',
+    top: ITEM_HEIGHT * PADDING_COUNT,
+    left: 4,
+    right: 4,
+    height: ITEM_HEIGHT,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.28)',
+    backgroundColor: 'rgba(200, 255, 61, 0.04)',
+    borderRadius: 8,
+    zIndex: 1,
+  },
+  sharedFadeTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: ITEM_HEIGHT * PADDING_COUNT,
+    backgroundColor: 'rgba(11, 13, 15, 0.72)',
+    zIndex: 2,
+  },
+  sharedFadeBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: ITEM_HEIGHT * PADDING_COUNT,
+    backgroundColor: 'rgba(11, 13, 15, 0.72)',
+    zIndex: 2,
+  },
+  pickersColumnsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: 'rgba(200, 255, 61, 0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.18)',
+    height: PICKER_HEIGHT,
+    zIndex: 3,
   },
-  customEntryText: {
+  pickerColumn: {
+    flex: 1,
+    height: PICKER_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  columnDivider: {
+    width: 1,
+    height: PICKER_HEIGHT - 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  hintText: {
+    textAlign: 'center',
+    color: '#555C65',
     fontSize: 11,
-    fontWeight: '700',
-    color: colors.primary,
+    fontWeight: '600',
     letterSpacing: 0.3,
+    marginTop: 18,
   },
   // ── Bottom bar ───────────────────────────────────────────────────────────
   bottomBar: {
     paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingBottom: 28,
     paddingTop: 12,
   },
   doneBtn: {
-    height: 58,
+    height: 56,
     borderRadius: 24,
     backgroundColor: colors.primary,
     alignItems: 'center',
