@@ -1,11 +1,21 @@
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useRef } from 'react';
-import { FlatList, Platform, StyleSheet, Text, View, ViewToken } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { colors } from '@/constants/colors';
 
-const ITEM_HEIGHT = 52;
+const ITEM_HEIGHT = 56;
 const VISIBLE_ITEMS = 5;
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
+const PADDING_COUNT = Math.floor(VISIBLE_ITEMS / 2); // 2 padding slots
 
 interface WheelPickerProps<T extends number | string> {
   data: T[];
@@ -14,11 +24,7 @@ interface WheelPickerProps<T extends number | string> {
   formatLabel?: (value: T) => string;
   label?: string;
   unit?: string;
-  keyExtractor?: (value: T, index: number) => string;
 }
-
-// Padding items so selected value is always centered
-const PADDING_COUNT = Math.floor(VISIBLE_ITEMS / 2);
 
 export function WheelPicker<T extends number | string>({
   data,
@@ -27,96 +33,129 @@ export function WheelPicker<T extends number | string>({
   formatLabel,
   label,
   unit,
-  keyExtractor,
 }: WheelPickerProps<T>) {
-  const listRef = useRef<FlatList<T>>(null);
-  const lastReportedIndex = useRef<number>(-1);
-  const isScrollingProgrammatically = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const isUserInteractingRef = useRef(false);
+  const lastEmittedIndexRef = useRef<number>(-1);
+  const lastHapticIndexRef = useRef<number>(-1);
 
-  // Build padded data: empty slots at start & end for centering
-  const paddedData: Array<T | null> = [
-    ...Array(PADDING_COUNT).fill(null),
-    ...data,
-    ...Array(PADDING_COUNT).fill(null),
-  ];
+  const initialIndex = Math.max(0, data.findIndex((item) => item === selectedValue));
+  const [activeIndex, setActiveIndex] = useState(initialIndex >= 0 ? initialIndex : 0);
 
-  const selectedIndex = data.findIndex((item) => item === selectedValue);
-
-  // Scroll to selected on mount / when selectedValue changes externally
+  // Sync scroll position when selectedValue changes externally (not by user dragging)
   useEffect(() => {
-    if (selectedIndex < 0 || !listRef.current) return;
-    isScrollingProgrammatically.current = true;
-    listRef.current.scrollToOffset({
-      offset: selectedIndex * ITEM_HEIGHT,
-      animated: true,
-    });
-    setTimeout(() => {
-      isScrollingProgrammatically.current = false;
-    }, 400);
-  }, [selectedValue]); // eslint-disable-line react-hooks/exhaustive-deps
+    const targetIdx = data.findIndex((item) => item === selectedValue);
+    if (targetIdx < 0) return;
 
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (isScrollingProgrammatically.current) return;
-      // The center visible item corresponds to the selected value
-      const centerItems = viewableItems.filter(
-        (item) => item.index !== null && item.index >= PADDING_COUNT
-      );
-      if (centerItems.length === 0) return;
+    setActiveIndex(targetIdx);
+    lastEmittedIndexRef.current = targetIdx;
+    lastHapticIndexRef.current = targetIdx;
 
-      // Pick the middle viewable item
-      const midItem = centerItems[Math.floor(centerItems.length / 2)];
-      if (!midItem || midItem.index === null) return;
+    // Do NOT fight user interaction or re-scroll if already at the right spot
+    if (!isUserInteractingRef.current && scrollRef.current) {
+      scrollRef.current.scrollTo({
+        y: targetIdx * ITEM_HEIGHT,
+        animated: false,
+      });
+    }
+  }, [selectedValue, data]);
 
-      const dataIndex = midItem.index - PADDING_COUNT;
-      if (dataIndex < 0 || dataIndex >= data.length) return;
-      if (dataIndex === lastReportedIndex.current) return;
+  // Initial scroll position on mount
+  useEffect(() => {
+    const targetIdx = Math.max(0, data.findIndex((item) => item === selectedValue));
+    lastEmittedIndexRef.current = targetIdx;
+    lastHapticIndexRef.current = targetIdx;
+    if (scrollRef.current) {
+      // Small timeout to guarantee layout is ready
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({
+          y: targetIdx * ITEM_HEIGHT,
+          animated: false,
+        });
+      }, 50);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-      lastReportedIndex.current = dataIndex;
-      const value = data[dataIndex];
-      if (value !== selectedValue) {
-        onValueChange(value);
+  // Live tracking during scroll for real-time visual highlight and mechanical haptics
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offsetY = e.nativeEvent.contentOffset.y;
+      const rawIndex = Math.round(offsetY / ITEM_HEIGHT);
+      const clamped = Math.max(0, Math.min(data.length - 1, rawIndex));
+
+      if (clamped !== activeIndex) {
+        setActiveIndex(clamped);
+      }
+
+      if (clamped !== lastHapticIndexRef.current) {
+        lastHapticIndexRef.current = clamped;
         if (Platform.OS !== 'web') {
-          Haptics.selectionAsync();
+          Haptics.selectionAsync().catch(() => {});
         }
       }
     },
-    [data, selectedValue, onValueChange]
+    [data.length, activeIndex]
   );
 
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  });
+  // Commit selected value when motion stops
+  const commitSelection = useCallback(
+    (offsetY: number) => {
+      isUserInteractingRef.current = false;
+      const rawIndex = Math.round(offsetY / ITEM_HEIGHT);
+      const clamped = Math.max(0, Math.min(data.length - 1, rawIndex));
 
-  const renderItem = ({ item, index }: { item: T | null; index: number }) => {
-    if (item === null) {
-      return <View style={styles.item} />;
+      setActiveIndex(clamped);
+
+      // Snap cleanly into position
+      scrollRef.current?.scrollTo({
+        y: clamped * ITEM_HEIGHT,
+        animated: true,
+      });
+
+      if (clamped !== lastEmittedIndexRef.current) {
+        lastEmittedIndexRef.current = clamped;
+        const newVal = data[clamped];
+        onValueChange(newVal);
+      }
+    },
+    [data, onValueChange]
+  );
+
+  const handleScrollBeginDrag = () => {
+    isUserInteractingRef.current = true;
+  };
+
+  const handleScrollEndDrag = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const velocity = Math.abs(e.nativeEvent.velocity?.y ?? 0);
+    // If user gently released without momentum, commit right away
+    if (velocity < 0.1) {
+      commitSelection(e.nativeEvent.contentOffset.y);
     }
-    const dataIndex = index - PADDING_COUNT;
-    const distance = Math.abs(dataIndex - selectedIndex);
-    const isSelected = distance === 0;
-    const isMid = distance === 1;
+  };
 
-    const opacity = isSelected ? 1 : isMid ? 0.45 : 0.18;
-    const fontSize = isSelected ? 34 : isMid ? 24 : 18;
-    const fontWeight: '900' | '700' | '400' = isSelected ? '900' : isMid ? '700' : '400';
-    const textColor = isSelected ? colors.primary : '#FFFFFF';
+  const handleMomentumScrollBegin = () => {
+    isUserInteractingRef.current = true;
+  };
 
-    const label = formatLabel ? formatLabel(item) : String(item);
+  const handleMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    commitSelection(e.nativeEvent.contentOffset.y);
+  };
 
-    return (
-      <View style={styles.item}>
-        <Text
-          style={[
-            styles.itemText,
-            { opacity, fontSize, fontWeight, color: textColor },
-          ]}
-          numberOfLines={1}
-        >
-          {label}
-        </Text>
-      </View>
-    );
+  const handleItemPress = (index: number) => {
+    isUserInteractingRef.current = false;
+    setActiveIndex(index);
+    lastEmittedIndexRef.current = index;
+    lastHapticIndexRef.current = index;
+
+    scrollRef.current?.scrollTo({
+      y: index * ITEM_HEIGHT,
+      animated: true,
+    });
+
+    if (Platform.OS !== 'web') {
+      Haptics.selectionAsync().catch(() => {});
+    }
+    onValueChange(data[index]);
   };
 
   return (
@@ -124,37 +163,74 @@ export function WheelPicker<T extends number | string>({
       {label ? <Text style={styles.label}>{label}</Text> : null}
 
       <View style={styles.pickerContainer}>
-        {/* Top & bottom fade overlays */}
+        {/* Center selection highlight band */}
+        <View style={styles.selectionBand} pointerEvents="none" />
+
+        {/* Top and bottom gradient fade overlays */}
         <View style={styles.topFade} pointerEvents="none" />
         <View style={styles.bottomFade} pointerEvents="none" />
 
-        {/* Selection highlight lines */}
-        <View style={styles.selectionTop} pointerEvents="none" />
-        <View style={styles.selectionBottom} pointerEvents="none" />
-
-        <FlatList
-          ref={listRef}
-          data={paddedData as T[]}
-          keyExtractor={(item, index) => {
-            if (item === null) return `pad-${index}`;
-            if (keyExtractor) return keyExtractor(item, index);
-            return `item-${String(item)}-${index}`;
-          }}
-          renderItem={renderItem}
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
           snapToInterval={ITEM_HEIGHT}
           snapToAlignment="start"
-          decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.85}
-          showsVerticalScrollIndicator={false}
-          getItemLayout={(_, index) => ({
-            length: ITEM_HEIGHT,
-            offset: ITEM_HEIGHT * index,
-            index,
+          decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.95}
+          scrollEventThrottle={16}
+          onScroll={handleScroll}
+          onScrollBeginDrag={handleScrollBeginDrag}
+          onScrollEndDrag={handleScrollEndDrag}
+          onMomentumScrollBegin={handleMomentumScrollBegin}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
+          nestedScrollEnabled
+          bounces={true}
+        >
+          {/* Top padding to center the first element */}
+          {Array.from({ length: PADDING_COUNT }).map((_, i) => (
+            <View key={`pad-top-${i}`} style={styles.item} />
+          ))}
+
+          {data.map((item, index) => {
+            const distance = Math.abs(index - activeIndex);
+            const isSelected = distance === 0;
+            const isAdjacent = distance === 1;
+
+            const opacity = isSelected ? 1 : isAdjacent ? 0.45 : 0.18;
+            const fontSize = isSelected ? 32 : isAdjacent ? 22 : 16;
+            const fontWeight: '900' | '700' | '500' = isSelected
+              ? '900'
+              : isAdjacent
+              ? '700'
+              : '500';
+            const color = isSelected ? colors.primary : '#FFFFFF';
+            const displayLabel = formatLabel ? formatLabel(item) : String(item);
+
+            return (
+              <Pressable
+                key={`item-${String(item)}-${index}`}
+                onPress={() => handleItemPress(index)}
+                style={styles.item}
+              >
+                <Text
+                  style={[
+                    styles.itemText,
+                    { opacity, fontSize, fontWeight, color },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {displayLabel}
+                </Text>
+              </Pressable>
+            );
           })}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig.current}
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-        />
+
+          {/* Bottom padding to center the last element */}
+          {Array.from({ length: PADDING_COUNT }).map((_, i) => (
+            <View key={`pad-bot-${i}`} style={styles.item} />
+          ))}
+        </ScrollView>
       </View>
 
       {unit ? <Text style={styles.unit}>{unit}</Text> : null}
@@ -168,10 +244,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     color: '#717B8A',
-    letterSpacing: 1.6,
+    letterSpacing: 1.4,
     marginBottom: 8,
   },
   pickerContainer: {
@@ -180,11 +256,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  list: {
+  scroll: {
     height: PICKER_HEIGHT,
   },
-  listContent: {
-    // no extra padding — padding items handle centering
+  scrollContent: {
+    // padding slots handle alignment
   },
   item: {
     height: ITEM_HEIGHT,
@@ -194,6 +270,21 @@ const styles = StyleSheet.create({
   itemText: {
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  // Glowing lime frame around center item
+  selectionBand: {
+    position: 'absolute',
+    top: ITEM_HEIGHT * PADDING_COUNT,
+    left: 8,
+    right: 8,
+    height: ITEM_HEIGHT,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.28)',
+    backgroundColor: 'rgba(200, 255, 61, 0.03)',
+    borderRadius: 8,
+    zIndex: 3,
   },
   topFade: {
     position: 'absolute',
@@ -201,10 +292,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: ITEM_HEIGHT * PADDING_COUNT,
+    backgroundColor: 'rgba(11, 13, 15, 0.72)',
     zIndex: 2,
-    // We'll just use backgroundColor with low alpha — no LinearGradient dep needed
-    // because the bg is solid #0B0D0F
-    backgroundColor: 'rgba(11, 13, 15, 0.55)',
   },
   bottomFade: {
     position: 'absolute',
@@ -212,29 +301,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: ITEM_HEIGHT * PADDING_COUNT,
+    backgroundColor: 'rgba(11, 13, 15, 0.72)',
     zIndex: 2,
-    backgroundColor: 'rgba(11, 13, 15, 0.55)',
-  },
-  selectionTop: {
-    position: 'absolute',
-    top: ITEM_HEIGHT * PADDING_COUNT,
-    left: 16,
-    right: 16,
-    height: 1,
-    backgroundColor: 'rgba(200, 255, 61, 0.25)',
-    zIndex: 3,
-  },
-  selectionBottom: {
-    position: 'absolute',
-    top: ITEM_HEIGHT * (PADDING_COUNT + 1),
-    left: 16,
-    right: 16,
-    height: 1,
-    backgroundColor: 'rgba(200, 255, 61, 0.25)',
-    zIndex: 3,
   },
   unit: {
-    marginTop: 6,
+    marginTop: 8,
     fontSize: 12,
     fontWeight: '700',
     color: '#717B8A',

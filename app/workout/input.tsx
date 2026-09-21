@@ -67,17 +67,28 @@ export default function Input() {
   const weightStep = unit === 'lbs' ? 5 : (increment ?? 2.5);
   const maxWeight = unit === 'lbs' ? 660 : 300;
 
-  const weightList = useMemo(() => {
+  // Base list only recomputes when unit or increment changes
+  const baseWeightList = useMemo(() => {
     const list: number[] = [0];
     for (let w = weightStep; w <= maxWeight; w += weightStep) {
       list.push(Math.round(w * 10) / 10);
     }
-    const rounded = Math.round(currentDisplayWeight * 10) / 10;
-    if (!list.some((w) => Math.abs(w - rounded) < 0.05) && rounded > 0) {
-      return [...list, rounded].sort((a, b) => a - b);
-    }
     return list;
-  }, [weightStep, maxWeight, currentDisplayWeight]);
+  }, [weightStep, maxWeight]);
+
+  const [extraWeights, setExtraWeights] = useState<number[]>(() => {
+    const rounded = Math.round(currentDisplayWeight * 10) / 10;
+    if (rounded > 0 && rounded % weightStep !== 0) {
+      return [rounded];
+    }
+    return [];
+  });
+
+  const weightList = useMemo(() => {
+    if (extraWeights.length === 0) return baseWeightList;
+    const combined = [...baseWeightList, ...extraWeights];
+    return Array.from(new Set(combined)).sort((a, b) => a - b);
+  }, [baseWeightList, extraWeights]);
 
   const repsList = useMemo(() => {
     if (!BASE_REPS.includes(currentReps) && currentReps >= 1 && currentReps <= 1000) {
@@ -116,7 +127,7 @@ export default function Input() {
 
   const handleSelectWeight = (displayVal: number) => {
     const kg = toKg(Math.max(0, displayVal));
-    updateCurrentSet({ weight: kg });
+    updateCurrentSet({ weight: Math.round(kg * 100) / 100 });
   };
 
   const handleSelectReps = (r: number) => {
@@ -131,7 +142,13 @@ export default function Input() {
 
   const handleSaveCustomWeight = () => {
     const parsed = parseFloat(customWeightText.replace(',', '.'));
-    if (!isNaN(parsed) && parsed >= 0 && parsed <= 999) handleSelectWeight(parsed);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 999) {
+      const rounded = Math.round(parsed * 10) / 10;
+      if (!weightList.includes(rounded)) {
+        setExtraWeights((prev) => [...prev, rounded]);
+      }
+      handleSelectWeight(rounded);
+    }
     setWeightModalVisible(false);
   };
 
@@ -154,12 +171,23 @@ export default function Input() {
 
   const isUk = language === 'uk';
 
-  // Nearest valid weight value for the picker
-  const pickerWeight = (() => {
+  // Find the exact or closest value in weightList
+  const pickerWeight = useMemo(() => {
     const rounded = Math.round(currentDisplayWeight * 10) / 10;
-    const found = weightList.find((w) => Math.abs(w - rounded) < 0.05);
-    return found !== undefined ? found : weightList[0];
-  })();
+    const exact = weightList.find((w) => Math.abs(w - rounded) < 0.05);
+    if (exact !== undefined) return exact;
+
+    let closest = weightList[0];
+    let minDiff = Math.abs(closest - rounded);
+    for (const w of weightList) {
+      const diff = Math.abs(w - rounded);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = w;
+      }
+    }
+    return closest;
+  }, [weightList, currentDisplayWeight]);
 
   return (
     <SafeAreaView style={styles.safe}>
