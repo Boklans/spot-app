@@ -4,28 +4,19 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
-import { hapticImpact, hapticLight, hapticMedium } from '@/lib/haptics';
+import { hapticLight } from '@/lib/haptics';
 import { countWorkoutsThisWeek, getStartOfWeek } from '@/lib/progressCalculator';
 import { calculateMuscleRecovery } from '@/lib/recoveryEngine';
 import { translateExercise, useI18n } from '@/lib/i18n';
-import {
-  generateFocusWorkout,
-  WORKOUT_FOCUS_OPTIONS,
-  type WorkoutFocus,
-} from '@/lib/programGenerator';
-import { generateUUID } from '@/lib/programMigration';
 import { formatWeightWithUnit } from '@/lib/weightUtils';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
 import type { AppLanguage } from '@/store/userProfileStore';
 import { WORKOUT_HISTORY_STORAGE_KEY, useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
-import { defaultOnboarding, loadOnboarding, type OnboardingData } from '@/store/workoutStore';
-import type { UserWorkout } from '@/types/userProgram';
+import { loadOnboarding } from '@/store/workoutStore';
 import type { CompletedWorkout } from '@/types/workout';
 
 import { ReadinessRing } from '@/components/ui/ReadinessRing';
@@ -132,7 +123,7 @@ function computeSpotInsight(history: CompletedWorkout[], lang: AppLanguage = 'en
 
 export default function Home() {
   const { t, tm, td, te, tw, language } = useI18n();
-  const [name, setName] = useState(defaultOnboarding.name);
+  const [name, setName] = useState('');
   const [focusKey, setFocusKey] = useState(0);
 
   const program = useProgramStore((state) => state.program);
@@ -172,109 +163,16 @@ export default function Home() {
     }, [])
   );
 
-  const [selectedFocus, setSelectedFocus] = useState<WorkoutFocus | null>(null);
-  const [focusCycle, setFocusCycle] = useState(0);
-  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
 
   useEffect(() => {
     loadOnboarding().then((data) => {
       if (data?.name) setName(data.name);
-      if (data) setOnboardingData(data);
     });
     useProgramStore.getState().loadProgram();
     useWorkoutHistoryStore.getState().loadHistory();
   }, []);
 
   const nextWorkout = program && program.workouts?.length ? getScheduledWorkout(program, progress) : null;
-
-  const handleSelectFocus = async (focus: WorkoutFocus) => {
-    hapticImpact();
-    setSelectedFocus(focus);
-    setFocusCycle(0);
-    const data = onboardingData ?? (await loadOnboarding()) ?? defaultOnboarding;
-    const generated = generateFocusWorkout(focus, data, 0);
-
-    const userWorkout: UserWorkout = {
-      id: generateUUID(),
-      name: generated.name,
-      dayLabel: language === 'uk' ? 'СЬОГОДНІ' : 'TODAY',
-      muscleGroups: generated.muscleGroups,
-      estimatedMinutes: generated.estimatedMinutes,
-      defaultRestSeconds: generated.defaultRestSeconds,
-      exercises: generated.exercises.map((e) => ({
-        id: generateUUID(),
-        name: e.name,
-        muscleGroup: e.muscleGroup,
-        sets: e.sets,
-        recommendedWeight: e.recommendedWeight,
-        targetRepRange: e.targetRepRange,
-        equipment: e.equipment,
-        weightIncrement: e.weightIncrement,
-        restSeconds: e.restSeconds,
-      })),
-    };
-
-    const currentProg = useProgramStore.getState().program;
-    const currentIndex = currentProg.workouts.findIndex((w) => w.id === nextWorkout?.id);
-    const updatedWorkouts = [...currentProg.workouts];
-    if (currentIndex >= 0) {
-      updatedWorkouts[currentIndex] = userWorkout;
-    } else {
-      updatedWorkouts[0] = userWorkout;
-    }
-
-    await useProgramStore.getState().updateUserProgram({
-      ...currentProg,
-      workouts: updatedWorkouts,
-    });
-    await setNextWorkout(userWorkout.id);
-  };
-
-  const handleShuffleWorkout = async () => {
-    hapticMedium();
-    const activeFocus: WorkoutFocus = selectedFocus || 'full_body';
-    const nextCycle = focusCycle + 1;
-    setFocusCycle(nextCycle);
-    if (!selectedFocus) setSelectedFocus(activeFocus);
-
-    const data = onboardingData ?? (await loadOnboarding()) ?? defaultOnboarding;
-    const generated = generateFocusWorkout(activeFocus, data, nextCycle);
-
-    const userWorkout: UserWorkout = {
-      id: generateUUID(),
-      name: generated.name,
-      dayLabel: language === 'uk' ? 'СЬОГОДНІ' : 'TODAY',
-      muscleGroups: generated.muscleGroups,
-      estimatedMinutes: generated.estimatedMinutes,
-      defaultRestSeconds: generated.defaultRestSeconds,
-      exercises: generated.exercises.map((e) => ({
-        id: generateUUID(),
-        name: e.name,
-        muscleGroup: e.muscleGroup,
-        sets: e.sets,
-        recommendedWeight: e.recommendedWeight,
-        targetRepRange: e.targetRepRange,
-        equipment: e.equipment,
-        weightIncrement: e.weightIncrement,
-        restSeconds: e.restSeconds,
-      })),
-    };
-
-    const currentProg = useProgramStore.getState().program;
-    const currentIndex = currentProg.workouts.findIndex((w) => w.id === nextWorkout?.id);
-    const updatedWorkouts = [...currentProg.workouts];
-    if (currentIndex >= 0) {
-      updatedWorkouts[currentIndex] = userWorkout;
-    } else {
-      updatedWorkouts[0] = userWorkout;
-    }
-
-    await useProgramStore.getState().updateUserProgram({
-      ...currentProg,
-      workouts: updatedWorkouts,
-    });
-    await setNextWorkout(userWorkout.id);
-  };
 
   // Dynamic Readiness Score
   const readiness = useMemo(
@@ -382,55 +280,8 @@ export default function Home() {
         </View>
       </View>
 
-      {/* 3. Daily Gym Focus Selector */}
-      <View style={styles.focusSection}>
-        <View style={styles.focusHeaderRow}>
-          <Text style={styles.focusSectionTitle}>
-            {language === 'uk' ? 'ЩО РОБИМО СЬОГОДНІ В ЗАЛІ?' : 'WHAT ARE WE TRAINING TODAY?'}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Shuffle workout"
-            onPress={handleShuffleWorkout}
-            style={({ pressed }) => [styles.shuffleBtn, pressed && { opacity: 0.7 }]}
-          >
-            <Ionicons name="shuffle" size={13} color={colors.primary} />
-            <Text style={styles.shuffleBtnText}>
-              {language === 'uk' ? 'ІНШИЙ ВАРІАНТ' : 'SHUFFLE'}
-            </Text>
-          </Pressable>
-        </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.focusScrollContent}
-        >
-          {WORKOUT_FOCUS_OPTIONS.map((opt) => {
-            const isSelected = selectedFocus === opt.id;
-            return (
-              <Pressable
-                key={opt.id}
-                accessibilityRole="button"
-                accessibilityLabel={opt.labelUk}
-                onPress={() => handleSelectFocus(opt.id)}
-                style={({ pressed }) => [
-                  styles.focusChip,
-                  isSelected && styles.focusChipActive,
-                  pressed && { opacity: 0.8 },
-                ]}
-              >
-                <Text style={styles.focusChipIcon}>{opt.icon}</Text>
-                <Text style={[styles.focusChipLabel, isSelected && styles.focusChipLabelActive]}>
-                  {language === 'uk' ? opt.labelUk : opt.labelEn}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* 4. Today's Workout Card with Deep Slate Elevation */}
+      {/* 3. Today's Workout Card */}
       <View style={styles.workoutCard}>
         <View style={styles.workoutCardHeaderRow}>
           <Text style={styles.workoutCardLabel}>{t('todaysWorkout')}</Text>
