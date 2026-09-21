@@ -1,11 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { getExerciseImage } from '@/lib/exerciseImages';
 import { useI18n } from '@/lib/i18n';
 import { formatVolume } from '@/lib/progressCalculator';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
@@ -88,8 +89,19 @@ export default function HistoryDetail() {
       <Text style={styles.section}>{t('exercises').toUpperCase()}</Text>
       {workout.exercises.map((exercise) => (
         <Card key={exercise.exerciseId} style={styles.exercise}>
-          <Text style={styles.exerciseName}>{te(exercise.exerciseName)}</Text>
-          <Text style={styles.muscle}>{tm(exercise.muscleGroup)}</Text>
+          <View style={styles.exerciseHeaderRow}>
+            <View style={styles.exerciseThumbWrap}>
+              <Image
+                source={getExerciseImage(exercise.exerciseName)}
+                style={styles.exerciseThumb}
+                resizeMode="cover"
+              />
+            </View>
+            <View style={styles.exerciseHeaderInfo}>
+              <Text style={styles.exerciseName}>{te(exercise.exerciseName)}</Text>
+              <Text style={styles.muscle}>{tm(exercise.muscleGroup)}</Text>
+            </View>
+          </View>
           {exercise.sets.map((set, index) => (
             <View key={`${exercise.exerciseId}-${set.completedAt}-${index}`} style={styles.set}>
               <Text style={styles.setLabel}>
@@ -130,8 +142,31 @@ const styles = StyleSheet.create({
   },
   prValue: { color: colors.primary, fontWeight: '800', textAlign: 'right' },
   exercise: { marginBottom: spacing.md },
-  exerciseName: { color: colors.text, fontSize: 17, fontWeight: '800', flex: 1 },
-  muscle: { color: colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1, marginTop: 5 },
+  exerciseHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  exerciseThumbWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#0E1115',
+    borderWidth: 1,
+    borderColor: '#242C38',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exerciseThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  exerciseHeaderInfo: {
+    flex: 1,
+  },
+  exerciseName: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  muscle: { color: colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1, marginTop: 3 },
   set: {
     flexDirection: 'row',
     alignItems: 'center',

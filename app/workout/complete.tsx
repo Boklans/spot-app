@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -10,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { colors } from '@/constants/colors';
+import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useWeightUnit } from '@/lib/weightUtils';
@@ -135,8 +137,12 @@ export default function Complete() {
                 key={record.id}
                 style={[styles.prRow, index < prs.length - 1 && styles.prRowBorder]}
               >
-                <View style={styles.prIconWrap}>
-                  <MaterialCommunityIcons name="dumbbell" size={16} color={colors.primary} />
+                <View style={styles.prThumbWrap}>
+                  <Image
+                    source={getExerciseImage(record.exerciseName)}
+                    style={styles.prThumb}
+                    resizeMode="cover"
+                  />
                 </View>
                 <Text numberOfLines={1} style={styles.prExerciseName}>
                   {te(record.exerciseName)}
@@ -309,14 +315,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
-  prIconWrap: {
-    width: 28,
-    height: 28,
+  prThumbWrap: {
+    width: 36,
+    height: 36,
     borderRadius: 8,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    backgroundColor: '#0E1115',
+    borderWidth: 1,
+    borderColor: '#242C38',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
+  },
+  prThumb: {
+    width: '100%',
+    height: '100%',
   },
   prExerciseName: {
     color: '#FFFFFF',

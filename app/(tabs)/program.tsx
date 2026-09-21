@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import { colors } from '@/constants/colors';
 import { WorkoutEditorModal } from '@/components/program/WorkoutEditorModal';
+import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { getWorkoutDayLabel } from '@/lib/programGenerator';
@@ -410,12 +412,18 @@ export default function Program() {
                   <View style={styles.exerciseList}>
                     {workout.exercises.map((exercise) => (
                       <View key={exercise.name} style={styles.exerciseRow}>
-                        <Text style={styles.exerciseNameText}>{te(exercise.name)}</Text>
+                        <View style={styles.exerciseRowLeft}>
+                          <View style={styles.exerciseThumbMini}>
+                            <Image
+                              source={getExerciseImage(exercise.name)}
+                              style={styles.exerciseThumb}
+                              resizeMode="cover"
+                            />
+                          </View>
+                          <Text style={styles.exerciseNameText}>{te(exercise.name)}</Text>
+                        </View>
                         <Text style={styles.exerciseMetaText}>
-                          {exercise.sets} {t('sets').toLowerCase()} • {exercise.targetRepRange} •{' '}
-                          {exercise.recommendedWeight
-                            ? formatWithUnit(exercise.recommendedWeight)
-                            : t('bodyweight')}
+                          {exercise.sets} {t('sets').toLowerCase()} • {exercise.targetRepRange}
                         </Text>
                       </View>
                     ))}
@@ -746,11 +754,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
+  },
+  exerciseRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+  },
+  exerciseThumbMini: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#0E1115',
+    borderWidth: 1,
+    borderColor: '#242C38',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exerciseThumb: {
+    width: '100%',
+    height: '100%',
   },
   exerciseNameText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     flex: 1,
   },
   exerciseMetaText: {

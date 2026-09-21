@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   Alert,
+  Image,
   Modal,
   Pressable,
   SafeAreaView,
@@ -14,6 +15,7 @@ import {
 import { ExerciseLibraryModal } from './ExerciseLibraryModal';
 import { colors } from '@/constants/colors';
 import { type CatalogExercise } from '@/lib/exerciseCatalog';
+import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticImpact, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import type { UserExercise, UserWorkout } from '@/types/userProgram';
@@ -143,6 +145,13 @@ export function WorkoutEditorModal({
                   <View style={styles.exerciseRowLeft}>
                     <View style={styles.orderBadge}>
                       <Text style={styles.orderBadgeText}>{index + 1}</Text>
+                    </View>
+                    <View style={styles.exerciseThumbWrap}>
+                      <Image
+                        source={getExerciseImage(ex.name)}
+                        style={styles.exerciseThumb}
+                        resizeMode="cover"
+                      />
                     </View>
                     <View style={styles.exerciseRowInfo}>
                       <Text style={styles.exerciseRowName}>{te(ex.name)}</Text>
@@ -317,6 +326,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '800',
+  },
+  exerciseThumbWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#0E1115',
+    borderWidth: 1,
+    borderColor: '#242C38',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exerciseThumb: {
+    width: '100%',
+    height: '100%',
   },
   exerciseRowInfo: {
     flex: 1,

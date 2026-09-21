@@ -1,0 +1,1437 @@
+<USER_REQUEST>
+🏋️ Проєкт: SPOT
+
+Tagline:
+
+
+
+Train smarter. Progress automatically.
+
+Альтернативи назви: Repwise, Liftly, Forge, Setly, GymOS, RepFlow, Strive.
+
+
+
+Але концептуально мені найбільше подобається SPOT — коротко, легко запам'ятовується і асоціюється із залом та “spotter”.
+
+1. 🎯 Проблема
+
+Зараз люди в залі використовують хаотичну комбінацію:
+
+
+
+
+
+нотатки в телефоні;
+
+
+
+Strong / Hevy / JEFIT;
+
+
+
+Excel;
+
+
+
+скріншоти тренувань;
+
+
+
+пам'ять;
+
+
+
+ChatGPT;
+
+
+
+калькулятор ваги;
+
+
+
+таймер.
+
+А головне — людина сама повинна приймати рішення:
+
+
+
+Яку вагу сьогодні поставити?
+
+
+
+Скільки повторень?
+
+
+
+Чи збільшувати вагу?
+
+
+
+Чому я вже місяць не прогресую?
+
+
+
+Коли тренувати груди знову?
+
+SPOT вирішує саме це.
+
+Не:
+
+
+
+"Ось тобі журнал тренувань."
+
+А:
+
+
+
+"Ось твій план на сьогодні. Просто тренуйся."
+
+2. 🧠 Основна концепція
+
+Уявімо, що користувач відкриває застосунок.
+
+Він бачить:
+
+
+
+Good afternoon, Ihor 👋
+
+UPPER A
+
+🔥 58 min
+
+
+
+💪 7 exercises
+
+
+
+🎯 Focus: Chest + Arms
+
+TODAY
+
+1. Bench Press
+
+Last:
+
+70 kg × 8 / 8 / 7
+
+Recommended
+
+72.5 kg
+
+Target:
+
+6–8 reps × 3
+
+
+
+You hit 10 reps last workout.
+
+
+
+Time to increase weight.
+
+[ START WORKOUT ]
+
+І все.
+
+Не треба думати.
+
+3. 🤖 Головна фішка — AI Training Engine
+
+AI тут не має бути просто чатиком:
+
+
+
+"What exercises should I do?"
+
+Це занадто банально.
+
+AI має бути двигуном програми.
+
+Він аналізує:
+
+
+
+Training data
+
+
+
+вагу;
+
+
+
+повторення;
+
+
+
+сети;
+
+
+
+RIR/RPE;
+
+
+
+об'єм;
+
+
+
+частоту;
+
+
+
+прогрес;
+
+
+
+exercise history;
+
+
+
+muscle groups.
+
+І приймає рішення:
+
+
+
+Next Workout
+
+Bench Press
+
+72.5 kg × 6–8
+
+Incline DB Press
+
+24 kg × 8–10
+
+Cable Fly
+
+17.5 kg × 10–12
+
+4. 🔥 Auto Progressive Overload
+
+Це може бути killer feature.
+
+Наприклад:
+
+
+
+Bench Press
+
+WorkoutWeightReps#170 kg8, 8, 7#270 kg9, 8, 8#370 kg10, 9, 9#470 kg10, 10, 10#572.5 kg6–8
+
+SPOT автоматично каже:
+
+
+
+🚀 Weight increased
+
+You completed all target reps last time.
+
+Це дуже зрозуміло навіть новачку.
+
+5. 📱 Workout Mode
+
+Тут я б зробив дуже мінімалістичний UI.
+
+На екрані лише потрібне:
+
+
+
+BENCH PRESS
+
+
+
+72.5 KG
+
+
+
+− +
+
+
+
+
+
+SET 1
+
+
+
+8 reps
+
+
+
+[ COMPLETE SET ]
+
+
+
+
+
+Rest
+
+
+
+01:42
+
+
+
+Після натискання:
+
+Complete Set
+
+автоматично:
+
+
+
+
+
+записує результат;
+
+
+
+запускає rest timer;
+
+
+
+переходить до наступного сету.
+
+6. ⏱️ Smart Rest Timer
+
+І тут можна зробити цікаву систему.
+
+Замість:
+
+
+
+Rest: 90 sec
+
+SPOT поступово вивчає користувача.
+
+Наприклад:
+
+
+
+You usually perform better after 2:30 rest.
+
+І рекомендує:
+
+
+
+REST — 2:30
+
+Для важкого Bench:
+
+2:30
+
+Для lateral raises:
+
+1:15
+
+Для isolation:
+
+1:00
+
+7. 🧬 Recovery Engine
+
+Одна з найцікавіших фіч.
+
+Застосунок створює карту м'язів.
+
+
+
+YOUR BODY
+
+🟢 Chest — Ready
+
+
+
+🟢 Back — Ready
+
+
+
+🟡 Biceps — 78%
+
+
+
+🔴 Legs — 42%
+
+І:
+
+
+
+Recommendation
+
+Your legs may still be recovering.
+
+💡 Upper Body workout recommended today.
+
+Це не медична діагностика, а training readiness estimate на основі тренувального навантаження.
+
+8. 🧠 Adaptive Program
+
+Ось тут продукт стає набагато цікавішим за звичайний tracker.
+
+Користувач спочатку каже:
+
+
+
+Goal
+
+
+
+💪 Build muscle
+
+
+
+🔥 Lose fat
+
+
+
+🏋️ Get stronger
+
+
+
+⚖️ Recomposition
+
+Потім:
+
+
+
+Experience
+
+
+
+Beginner
+
+
+
+Intermediate
+
+
+
+Advanced
+
+Schedule
+
+How often can you train?
+
+2 / 3 / 4 / 5 / 6
+
+
+
+Equipment
+
+
+
+Full gym
+
+
+
+Home gym
+
+
+
+Limited equipment
+
+І SPOT генерує програму.
+
+9. Але програма НЕ статична
+
+Це принципово.
+
+Звичайний застосунок:
+
+
+
+Monday — Chest
+
+
+
+Wednesday — Back
+
+SPOT:
+
+
+
+Ти погано прогресуєш у Bench Press → змінюємо навантаження.
+
+Трицепс відновлюється добре → додаємо 1 set.
+
+Legs пропущені двічі → перебудовуємо тиждень.
+
+Тобто:
+
+
+
+Program adapts to you.
+
+10. 📊 Progress — не просто графіки
+
+Не хочу робити dashboard із 25 графіків.
+
+Користувачу потрібні інсайти.
+
+Наприклад:
+
+
+
+🔥 Your Progress
+
+Bench Press
+
+70 → 75 kg
+
++7.1%
+
+💪 Chest
+
+Weekly volume:
+
+8,400 kg → 10,200 kg
+
++21%
+
+🏆 Personal Records
+
+Bench Press — 75 kg
+
+
+
+Squat — 120 kg
+
+
+
+Pull-up — +10 kg
+
+11. AI Weekly Review
+
+Раз на тиждень:
+
+
+
+Your Week
+
+🔥 4 workouts
+
+💪 23 exercises
+
+🏋️ 42,800 kg volume
+
+🏆 3 PRs
+
+
+
+AI Summary
+
+Great week.
+
+Your chest volume increased by 14%, while your Bench Press improved from 70kg to 72.5kg.
+
+Your biceps haven't progressed for 3 weeks.
+
+Next week I'll slightly adjust your arm volume.
+
+Оце вже відчувається як персональний тренер.
+
+12. 💬 AI Coach
+
+Окремий чат можна залишити.
+
+Але не робити його центром продукту.
+
+Користувач може запитати:
+
+
+
+"Why am I not progressing on bench?"
+
+AI бачить його реальні дані.
+
+І відповідає:
+
+
+
+You've been stuck around 70–72.5kg for 4 workouts.
+
+Your average rest is only 1:25.
+
+Let's increase rest to 2:30 and reduce your first working set by 1 rep.
+
+Це набагато сильніше, ніж просто ChatGPT із загальними порадами.
+
+13. 🏆 Gamification
+
+Не хочу перетворювати це на Duolingo.
+
+Тільки те, що реально мотивує.
+
+
+
+PRs
+
+🏆 New Bench PR
+
+
+
+Consistency
+
+🔥 4 weeks
+
+
+
+Milestones
+
+100 workouts
+
+10,000 kg Bench volume
+
+1,000 total sets
+
+14. 👥 Social
+
+Я б не робив social feed на першому етапі.
+
+Ніяких:
+
+
+
+"Ігор виклав фото біцепса."
+
+Це роздуває продукт.
+
+Краще:
+
+
+
+Training Partners
+
+Додати друга.
+
+І:
+
+
+
+You vs. Alex
+
+This week:
+
+Ihor — 4 workouts
+
+
+
+Alex — 3 workouts
+
+🔥 You're ahead.
+
+15. 📸 Exercise Camera — Phase 2
+
+А ось це вже цікаво.
+
+Користувач ставить телефон.
+
+SPOT аналізує техніку:
+
+
+
+Squat
+
+⚠️ Your depth decreased in the last 2 reps.
+
+або:
+
+
+
+Your knee tracking looks consistent.
+
+Але це не MVP. Computer vision складний і може створити багато проблем із якістю рекомендацій.
+
+16. 🍗 Nutrition — Phase 2
+
+Не робив би повний MyFitnessPal.
+
+Замість цього:
+
+
+
+Training + Nutrition
+
+Після тренування:
+
+
+
+Today's estimated training volume: high.
+
+Suggested protein target: 150g/day
+
+І простий food tracking.
+
+Можна навіть:
+
+📸 сфотографувати їжу
+
+→ AI приблизно визначає:
+
+Chicken pasta
+
+~650 kcal
+
+Protein ~45g
+
+Але теж не в MVP.
+
+17. 🏠 Home / Gym mode
+
+Застосунок може розуміти обладнання.
+
+
+
+Your Gym
+
+
+
+Bench
+
+
+
+Smith machine
+
+
+
+Cable
+
+
+
+Leg press
+
+
+
+Hammer Strength
+
+
+
+Dumbbells up to 40kg
+
+Якщо користувач приходить в інший зал:
+
+
+
+Can't find Bench Press?
+
+SPOT:
+
+
+
+Replace with Smith Machine Press.
+
+18. 💰 Монетизація
+
+Я б робив Freemium.
+
+
+
+FREE
+
+
+
+Workout tracking
+
+
+
+Exercises
+
+
+
+Basic history
+
+
+
+Basic programs
+
+
+
+Rest timer
+
+
+
+PRs
+
+PRO
+
+$7.99/month
+
+або
+
+$49.99/year
+
+PRO:
+
+
+
+
+
+AI Coach
+
+
+
+Adaptive programs
+
+
+
+Smart progressive overload
+
+
+
+Recovery
+
+
+
+Advanced analytics
+
+
+
+AI weekly review
+
+
+
+Nutrition
+
+
+
+Exercise substitutions
+
+І обов'язково:
+
+
+
+7-day free trial
+
+19. 🎯 Target Audience
+
+Я б не намагався охопити всіх.
+
+Основний ICP:
+
+
+
+18–35 років, регулярно ходить у зал, хоче набирати м'язи/силу, але не має персонального тренера.
+
+Особливо:
+
+
+
+Intermediate lifters
+
+Тому що:
+
+Новачок часто не розуміє, навіщо йому tracker.
+
+А людина, яка вже тренується 6–24 місяці:
+
+
+
+"Я знаю вправи. Але я не знаю, як системно прогресувати."
+
+Це ідеальний користувач SPOT.
+
+20. 🚀 Positioning
+
+Не:
+
+
+
+Workout Tracker
+
+Не:
+
+
+
+AI Fitness App
+
+А:
+
+
+
+Your AI Training Partner
+
+або:
+
+
+
+The gym app that tells you what to do next.
+
+Останній мені подобається найбільше.
+
+21. 🧩 Основна структура застосунку
+
+Я б зробив лише 4 вкладки.
+
+
+
+🏠 Home
+
+Good afternoon
+
+
+
+Today's workout
+
+
+
+UPPER A
+
+7 exercises
+
+~55 min
+
+
+
+[ START ]
+
+
+
+🏋️ Workout
+
+Поточне тренування.
+
+
+
+📈 Progress
+
+PR / volume / strength / muscles.
+
+
+
+👤 You
+
+Profile / goals / program / settings.
+
+AI не обов'язково окремою вкладкою.
+
+Можна зробити floating ✨ Coach.
+
+22. 🔄 User Journey
+
+Ось як має виглядати перший день.
+
+
+
+Step 1
+
+What's your goal?
+
+💪 Build Muscle
+
+
+
+Step 2
+
+How many days?
+
+3 days
+
+
+
+Step 3
+
+Experience?
+
+Intermediate
+
+
+
+Step 4
+
+Equipment?
+
+Full Gym
+
+SPOT генерує:
+
+
+
+Your Program
+
+Upper / Lower / Upper
+
+Наступного дня:
+
+
+
+Your first workout is ready.
+
+Користувач натискає Start.
+
+Після тренування:
+
+
+
+🔥 Workout complete
+
+6 exercises
+
+
+
+21 sets
+
+
+
+8,450 kg volume
+
++2 PRs
+
+Через 4 тижні:
+
+
+
+Your program has been updated.
+
+І користувач розуміє:
+
+
+
+"Ця програма реально адаптується під мене."
+
+23. 💎 Найважливіше — продуктова петля
+
+Я б будував весь стартап навколо:
+
+Train → Record → Analyze → Adapt → Train
+
+
+
+┌──────────┐
+
+│ TRAIN │
+
+└────┬─────┘
+
+↓
+
+┌──────────┐
+
+│ RECORD │
+
+└────┬─────┘
+
+↓
+
+┌──────────┐
+
+│ ANALYZE │
+
+└────┬─────┘
+
+↓
+
+┌──────────┐
+
+│ ADAPT │
+
+└────┬─────┘
+
+↓
+
+TRAIN
+
+
+
+Чим більше людина тренується, тим більше даних отримує SPOT.
+
+Чим більше даних → тим кращі рекомендації.
+
+Чим кращі рекомендації → тим більше користувач довіряє застосунку.
+
+Це створює data moat.
+
+24. 🛠️ Як я б зробив MVP
+
+Враховуючи, що ти вже працював із React Native + Expo + NestJS + MongoDB + RevenueCat, цей продукт дуже добре лягає на твій стек.
+
+
+
+Mobile
+
+Expo + React Native + TypeScript
+
+
+
+Backend
+
+NestJS
+
+
+
+DB
+
+MongoDB
+
+
+
+Auth
+
+Clerk
+
+
+
+Subscription
+
+RevenueCat
+
+
+
+AI
+
+OpenAI API
+
+
+
+Analytics
+
+PostHog
+
+
+
+Push
+
+Expo Notifications
+
+25. MVP architecture
+
+React Native
+
+│
+
+▼
+
+NestJS API
+
+│
+
+┌─────────────┼─────────────┐
+
+▼ ▼ ▼
+
+MongoDB AI Engine RevenueCat
+
+│ │
+
+│ ▼
+
+│ Training Logic
+
+│ │
+
+└─────────────┤
+
+▼
+
+User Recommendations
+
+
+
+26. MVP database
+
+Основні entities:
+
+
+
+User
+
+Profile
+
+Goal
+
+Program
+
+Workout
+
+Exercise
+
+WorkoutExercise
+
+Set
+
+PersonalRecord
+
+ProgressSnapshot
+
+Recommendation
+
+
+
+Наприклад:
+
+
+
+Workout
+
+├── Bench Press
+
+│ ├── 70kg × 8
+
+│ ├── 70kg × 8
+
+│ └── 70kg × 7
+
+│
+
+├── Lat Pulldown
+
+│ ├── 65kg × 10
+
+│ └── 65kg × 9
+
+│
+
+└── Biceps Curl
+
+├── 12kg × 9
+
+└── 12kg × 8
+
+
+
+27. 🚨 Але є дуже важливий нюанс
+
+Я не починав би з AI.
+
+Це типова помилка.
+
+Не:
+
+
+
+"Давайте зробимо AI fitness app."
+
+Спочатку:
+
+
+
+Найкращий workout tracker, який існує.
+
+А AI поступово додається поверх якісних даних.
+
+Тому MVP:
+
+Tracking → Progression → Insights
+
+AI — третій шар.
+
+28. 🏁 Roadmap
+
+V0.1 — 6–8 тижнів
+
+
+
+Auth
+
+
+
+Profile
+
+
+
+Goals
+
+
+
+Exercise library
+
+
+
+Workout builder
+
+
+
+Workout mode
+
+
+
+Sets/reps/weight
+
+
+
+Rest timer
+
+
+
+History
+
+
+
+PR
+
+
+
+Basic statistics
+
+V0.2
+
+
+
+Progressive overload
+
+
+
+Automatic weight recommendation
+
+
+
+Adaptive program
+
+
+
+Weekly review
+
+V0.3
+
+
+
+AI Coach
+
+
+
+Recovery
+
+
+
+Exercise substitutions
+
+
+
+Advanced analytics
+
+V1.0
+
+
+
+Nutrition
+
+
+
+Camera/form analysis
+
+
+
+Social / training partners
+
+
+
+Apple Health / Google Health Connect
+
+
+
+Wearables
+
+29. 💰 Як це може стати бізнесом
+
+Я б не ставив мету:
+
+
+
+"Зробити застосунок і заробити на підписках."
+
+Я б будував:
+
+
+
+Fitness SaaS / Consumer subscription
+
+Наприклад:
+
+100k users
+
+5% paid:
+
+5,000 × $50/year
+
+= $250k ARR
+
+При:
+
+1M users × 5% × $50
+
+= $2.5M ARR
+
+А далі можна додавати:
+
+
+
+
+
+gym partnerships;
+
+
+
+coaches;
+
+
+
+personalized plans;
+
+
+
+supplements/equipment marketplace;
+
+
+
+corporate wellness;
+
+
+
+B2B gym software.
+
+30. 🔥 І найголовніше
+
+У тебе вже є дуже хороший тестовий користувач — ти сам.
+
+Ти можеш буквально протягом наступних 2–3 місяців використовувати SPOT на кожному тренуванні.
+
+Наприклад, якщо зараз ти записуєш:
+
+
+
+Bench 70 × 8
+
+
+
+Incline DB 22 × 8
+
+
+
+Lat pulldown 65 × 10
+
+то перша версія SPOT повинна зробити цей процес настільки зручним, щоб тобі більше не хотілося повертатися до нотаток.
+
+А потім поступово з'являється:
+
+
+
+"Наступного разу постав 72.5 кг."
+
+І ось тоді виникає справжній продукт.
+
+
+
+Я б сформулював всю ідею одним реченням:
+
+SPOT is an adaptive workout app that remembers every set, understands your progress, and tells you exactly what to do next.
+
+Це вже не просто gym tracker. Це потенційно AI personal trainer у кишені, але з дуже вузьким і зрозумілим MVP.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-20T12:35:53+03:00.
+
+The user's current state is as follows:
+Active Document: d:\work\VanzaLabs\spot-app\spot-app\app\index.tsx (LANGUAGE_UNSPECIFIED)
+Cursor is on line: 33
+Other open documents:
+- d:\work\VanzaLabs\spot-app\spot-app\app\workout\preview.tsx (LANGUAGE_UNSPECIFIED)
+- d:\work\VanzaLabs\spot-app\spot-app\app\(tabs)\index.tsx (LANGUAGE_UNSPECIFIED)
+
+The user has uploaded 1 image(s):
+- C:/Users/igorb/.gemini/antigravity/brain/63d34331-0850-4cb1-82b8-bb73ced89c2a/.user_uploaded/media_1789896952055.jpg
+You can embed this image in an artifact if you need the USER to review it.
+</ADDITIONAL_METADATA>

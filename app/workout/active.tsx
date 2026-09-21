@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
+  Image,
   Modal,
   Pressable,
   SafeAreaView,
@@ -13,6 +14,7 @@ import {
 } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
+import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
@@ -185,11 +187,11 @@ export default function Active() {
       >
         {/* 2. Exercise Header */}
         <View style={styles.exerciseHeader}>
-          <View style={styles.exerciseIconBadge}>
-            <MaterialCommunityIcons
-              name={getExerciseIcon(exercise.name)}
-              size={24}
-              color="#FFFFFF"
+          <View style={styles.exerciseThumbWrap}>
+            <Image
+              source={getExerciseImage(exercise.name)}
+              style={styles.exerciseThumb}
+              resizeMode="cover"
             />
           </View>
           <View style={styles.exerciseInfoCol}>
@@ -379,11 +381,11 @@ export default function Active() {
                     ]}
                   >
                     <View style={styles.swapItemLeft}>
-                      <View style={styles.swapItemIcon}>
-                        <MaterialCommunityIcons
-                          name={getExerciseIcon(alt.name)}
-                          size={20}
-                          color={isCurrent ? colors.primary : '#8E9BAE'}
+                      <View style={styles.swapItemThumbWrap}>
+                        <Image
+                          source={getExerciseImage(alt.name)}
+                          style={styles.swapItemThumb}
+                          resizeMode="cover"
                         />
                       </View>
                       <View>
@@ -474,13 +476,20 @@ const styles = StyleSheet.create({
     gap: 14,
     marginBottom: 20,
   },
-  exerciseIconBadge: {
-    width: 48,
-    height: 48,
+  exerciseThumbWrap: {
+    width: 52,
+    height: 52,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: '#0E1115',
+    borderWidth: 1,
+    borderColor: '#242B35',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  exerciseThumb: {
+    width: '100%',
+    height: '100%',
   },
   exerciseInfoCol: {
     flex: 1,
@@ -789,13 +798,20 @@ const styles = StyleSheet.create({
     gap: 12,
     flex: 1,
   },
-  swapItemIcon: {
-    width: 38,
-    height: 38,
+  swapItemThumbWrap: {
+    width: 44,
+    height: 44,
     borderRadius: 10,
-    backgroundColor: '#1E2633',
+    backgroundColor: '#0E1115',
+    borderWidth: 1,
+    borderColor: '#202834',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  swapItemThumb: {
+    width: '100%',
+    height: '100%',
   },
   swapItemName: {
     fontSize: 15,

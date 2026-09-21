@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
 import {
+  Image,
   Modal,
   Pressable,
   SafeAreaView,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { colors } from '@/constants/colors';
 import { EXERCISE_CATALOG, type CatalogExercise } from '@/lib/exerciseCatalog';
+import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 
@@ -142,14 +144,14 @@ export function ExerciseLibraryModal({
                 ]}
               >
                 <View style={styles.exerciseCardLeft}>
-                  <View style={styles.iconWrap}>
-                    <MaterialCommunityIcons
-                      name="dumbbell"
-                      size={20}
-                      color={colors.primary}
+                  <View style={styles.exerciseThumbWrap}>
+                    <Image
+                      source={getExerciseImage(item.name)}
+                      style={styles.exerciseThumb}
+                      resizeMode="cover"
                     />
                   </View>
-                  <View>
+                  <View style={{ flex: 1 }}>
                     <Text style={styles.exerciseName}>{te(item.name)}</Text>
                     <Text style={styles.exerciseMeta}>
                       {tm(item.muscleGroup)} • {item.equipment} • {t('base')} {item.defaultWeight} {t('kg')}
@@ -281,13 +283,20 @@ const styles = StyleSheet.create({
     gap: 12,
     flex: 1,
   },
-  iconWrap: {
-    width: 38,
-    height: 38,
+  exerciseThumbWrap: {
+    width: 46,
+    height: 46,
     borderRadius: 10,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    backgroundColor: '#0E1115',
+    borderWidth: 1,
+    borderColor: '#242C38',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  exerciseThumb: {
+    width: '100%',
+    height: '100%',
   },
   exerciseName: {
     fontSize: 15,

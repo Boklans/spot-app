@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   FlatList,
+  Image,
   Modal,
   Pressable,
   SafeAreaView,
@@ -12,6 +13,7 @@ import {
 import { Card } from '@/components/ui/Card';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { getExerciseImage } from '@/lib/exerciseImages';
 import { EXERCISE_LIBRARY, type LibraryExercise } from '@/lib/exerciseLibrary';
 
 const MUSCLE_GROUPS = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'] as const;
@@ -145,11 +147,20 @@ export function ExercisePickerModal({
                 style={({ pressed }) => [styles.itemPressable, pressed && styles.pressed]}
               >
                 <Card style={styles.exerciseCard}>
-                  <View style={styles.cardInfo}>
-                    <Text style={styles.exerciseName}>{item.name}</Text>
-                    <Text style={styles.exerciseMeta}>
-                      {item.muscleGroup}  •  {item.equipment}
-                    </Text>
+                  <View style={styles.exerciseCardLeft}>
+                    <View style={styles.exerciseThumbWrap}>
+                      <Image
+                        source={getExerciseImage(item.name)}
+                        style={styles.exerciseThumb}
+                        resizeMode="cover"
+                      />
+                    </View>
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.exerciseName}>{item.name}</Text>
+                      <Text style={styles.exerciseMeta}>
+                        {item.muscleGroup}  •  {item.equipment}
+                      </Text>
+                    </View>
                   </View>
                   <View style={styles.addButtonBadge}>
                     <Text style={styles.addButtonText}>+ ADD</Text>
@@ -273,6 +284,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
+  },
+  exerciseCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  exerciseThumbWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#0E1115',
+    borderWidth: 1,
+    borderColor: '#242C38',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exerciseThumb: {
+    width: '100%',
+    height: '100%',
   },
   cardInfo: {
     flex: 1,

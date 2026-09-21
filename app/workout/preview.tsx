@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo } from 'react';
 import {
   Alert,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
+import { getExerciseImage } from '@/lib/exerciseImages';
 import { useI18n } from '@/lib/i18n';
 import { calculateMuscleRecovery } from '@/lib/recoveryEngine';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
@@ -172,11 +174,11 @@ export default function WorkoutPreview() {
 
             return (
               <View key={exercise.id || `${exercise.name}-${index}`} style={styles.exerciseCard}>
-                <View style={styles.exerciseIconBadge}>
-                  <MaterialCommunityIcons
-                    name={getExerciseIcon(exercise.name)}
-                    size={22}
-                    color="#FFFFFF"
+                <View style={styles.exerciseThumbWrap}>
+                  <Image
+                    source={getExerciseImage(exercise.name)}
+                    style={styles.exerciseThumb}
+                    resizeMode="cover"
                   />
                 </View>
                 <View style={styles.exerciseInfoCol}>
@@ -299,13 +301,20 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  exerciseIconBadge: {
-    width: 44,
-    height: 44,
+  exerciseThumbWrap: {
+    width: 48,
+    height: 48,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: '#0E1115',
+    borderWidth: 1,
+    borderColor: '#242B35',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  exerciseThumb: {
+    width: '100%',
+    height: '100%',
   },
   exerciseInfoCol: {
     flex: 1,
