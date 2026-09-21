@@ -173,7 +173,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   getStartedBtn: {
-    width: '100%',
+    width: '85%',
+    maxWidth: 320,
     height: 52,
     borderRadius: 26,
     backgroundColor: colors.primary,
