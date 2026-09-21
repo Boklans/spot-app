@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -97,31 +97,14 @@ export default function Active() {
     return () => clearInterval(timer);
   }, []);
 
-  const elapsedSeconds = session?.startedAt
-    ? Math.max(0, Math.floor((now - new Date(session.startedAt).getTime()) / 1000))
-    : 0;
+  const progress = session ? getSessionProgress(session) : { completedSets: 0, totalSets: 0, percentage: 0 };
 
-  if (!session || !session.exercises || session.exercises.length === 0 || !session.exercises[session.currentExerciseIndex]) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>{t('noActiveWorkout')}</Text>
-          <Button onPress={() => router.replace('/(tabs)')}>{t('backToHome')}</Button>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const exitWorkout = useCallback(() => {
+    router.replace('/(tabs)');
+  }, []);
 
-  const exercise = session.exercises[session.currentExerciseIndex];
-  const activeSet = exercise?.sets[session.currentSetIndex];
-  const progress = getSessionProgress(session);
-  const isFinalSet = session.currentSetIndex === (exercise?.sets.length ?? 0) - 1;
-  const isFinalExercise = session.currentExerciseIndex === session.exercises.length - 1;
-
-  const exitWorkout = () => router.replace('/(tabs)');
-
-  const handleClose = () => {
-    if (progress.completedSets === 0) {
+  const handleClose = useCallback(() => {
+    if (!session || progress.completedSets === 0) {
       exitWorkout();
       return;
     }
@@ -151,7 +134,7 @@ export default function Active() {
         },
       ]
     );
-  };
+  }, [session, progress.completedSets, language, exitWorkout]);
 
   useEffect(() => {
     const onBackPress = () => {
@@ -161,6 +144,26 @@ export default function Active() {
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
   }, [handleClose]);
+
+  if (!session || !session.exercises || session.exercises.length === 0 || !session.exercises[session.currentExerciseIndex]) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyTitle}>{t('noActiveWorkout')}</Text>
+          <Button onPress={() => router.replace('/(tabs)')}>{t('backToHome')}</Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const elapsedSeconds = session.startedAt
+    ? Math.max(0, Math.floor((now - new Date(session.startedAt).getTime()) / 1000))
+    : 0;
+
+  const exercise = session.exercises[session.currentExerciseIndex];
+  const activeSet = exercise?.sets[session.currentSetIndex];
+  const isFinalSet = session.currentSetIndex === (exercise?.sets.length ?? 0) - 1;
+  const isFinalExercise = session.currentExerciseIndex === session.exercises.length - 1;
 
   const finishSet = async () => {
     if (finishing) return;

@@ -22,6 +22,19 @@ interface AuthState {
   clearError: () => void;
 }
 
+function formatAuthError(err: any): string {
+  const msg = err?.message || '';
+  if (
+    msg.includes('hostname could not be found') ||
+    msg.includes('Could not resolve host') ||
+    msg.includes('Network request failed') ||
+    msg.includes('fetch failed')
+  ) {
+    return 'Неможливо знайти сервер Supabase. Перевірте EXPO_PUBLIC_SUPABASE_URL у файлі .env та перезапустіть Expo (npx expo start -c).';
+  }
+  return msg || 'Помилка мережі або сервера. Спробуйте ще раз.';
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   session: null,
@@ -89,7 +102,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       return { success: true };
     } catch (err: any) {
-      const msg = err?.message || 'Login failed. Please check your network connection.';
+      const msg = formatAuthError(err);
       set({ loading: false, error: msg });
       return { success: false, error: msg };
     }
@@ -132,7 +145,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       return { success: true };
     } catch (err: any) {
-      const msg = err?.message || 'Registration failed. Please try again.';
+      const msg = formatAuthError(err);
       set({ loading: false, error: msg });
       return { success: false, error: msg };
     }
@@ -167,8 +180,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       return { success: true };
     } catch (err: any) {
+      const msg = formatAuthError(err);
       set({ loading: false });
-      return { success: false, error: err?.message || 'Password reset request failed.' };
+      return { success: false, error: msg };
     }
   },
 
