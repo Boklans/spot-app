@@ -1,13 +1,12 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,24 +17,25 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
+import { WheelPicker } from '@/components/ui/WheelPicker';
+
+// ─── Data sets ───────────────────────────────────────────────────────────────
 
 const BASE_REPS = [
-  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 25, 30, 40, 50, 75, 100, 150, 200, 300, 500, 1000,
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 25, 30, 40, 50, 75, 100,
 ];
 
 const BASE_REST_OPTIONS = [15, 30, 45, 60, 90, 120, 150, 180, 240, 300];
 
-function formatRestDuration(sec: number, isUk: boolean): string {
+function formatRestLabel(sec: number): string {
   const mins = Math.floor(sec / 60);
-  const remainingSec = sec % 60;
-  if (mins === 0) {
-    return `${sec} ${isUk ? 'с' : 's'}`;
-  }
-  if (remainingSec === 0) {
-    return `${mins} ${isUk ? 'хв' : 'm'}`;
-  }
-  return `${mins}:${remainingSec < 10 ? '0' : ''}${remainingSec}`;
+  const remaining = sec % 60;
+  if (mins === 0) return `${sec}s`;
+  if (remaining === 0) return `${mins}m`;
+  return `${mins}:${remaining < 10 ? '0' : ''}${remaining}`;
 }
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function Input() {
   const { t, language } = useI18n();
@@ -44,11 +44,7 @@ export default function Input() {
   const updateCurrentSet = useWorkoutSessionStore((state) => state.updateCurrentSet);
   const updateExerciseRest = useWorkoutSessionStore((state) => state.updateExerciseRest);
 
-  const weightScrollRef = useRef<ScrollView>(null);
-  const repsScrollRef = useRef<ScrollView>(null);
-  const restScrollRef = useRef<ScrollView>(null);
-
-  // Modal states for direct typing
+  // Custom-entry modals
   const [weightModalVisible, setWeightModalVisible] = useState(false);
   const [customWeightText, setCustomWeightText] = useState('');
   const [repsModalVisible, setRepsModalVisible] = useState(false);
@@ -63,30 +59,25 @@ export default function Input() {
       ? exercise.weightIncrement
       : 2.5;
 
-  const currentWeightKg = activeSet?.weight ?? 70;
+  const currentWeightKg = activeSet?.weight ?? 0;
   const currentReps = activeSet?.reps ?? 8;
   const currentRestSeconds = exercise?.restSeconds ?? 90;
   const currentDisplayWeight = fromKg(currentWeightKg);
 
   const weightStep = unit === 'lbs' ? 5 : (increment ?? 2.5);
-  const largeStep = unit === 'lbs' ? 20 : 10;
   const maxWeight = unit === 'lbs' ? 660 : 300;
 
-  const BASE_WEIGHTS = useMemo(() => {
+  const weightList = useMemo(() => {
     const list: number[] = [0];
     for (let w = weightStep; w <= maxWeight; w += weightStep) {
       list.push(Math.round(w * 10) / 10);
     }
-    return list;
-  }, [weightStep, maxWeight]);
-
-  const weightList = useMemo(() => {
-    const roundedDisplay = Math.round(currentDisplayWeight * 10) / 10;
-    if (!BASE_WEIGHTS.some((w) => Math.abs(w - roundedDisplay) < 0.05)) {
-      return [...BASE_WEIGHTS, roundedDisplay].sort((a, b) => a - b);
+    const rounded = Math.round(currentDisplayWeight * 10) / 10;
+    if (!list.some((w) => Math.abs(w - rounded) < 0.05) && rounded > 0) {
+      return [...list, rounded].sort((a, b) => a - b);
     }
-    return BASE_WEIGHTS;
-  }, [BASE_WEIGHTS, currentDisplayWeight]);
+    return list;
+  }, [weightStep, maxWeight, currentDisplayWeight]);
 
   const repsList = useMemo(() => {
     if (!BASE_REPS.includes(currentReps) && currentReps >= 1 && currentReps <= 1000) {
@@ -96,47 +87,13 @@ export default function Input() {
   }, [currentReps]);
 
   const restList = useMemo(() => {
-    if (!BASE_REST_OPTIONS.includes(currentRestSeconds) && currentRestSeconds >= 10 && currentRestSeconds <= 600) {
+    if (!BASE_REST_OPTIONS.includes(currentRestSeconds)) {
       return [...BASE_REST_OPTIONS, currentRestSeconds].sort((a, b) => a - b);
     }
     return BASE_REST_OPTIONS;
   }, [currentRestSeconds]);
 
-  // Auto-scroll weight wheel into view
-  useEffect(() => {
-    const idx = weightList.findIndex((w) => Math.abs(w - currentDisplayWeight) < 0.05);
-    if (idx >= 0 && weightScrollRef.current) {
-      const chipTotalWidth = 66;
-      weightScrollRef.current.scrollTo({
-        x: Math.max(0, idx * chipTotalWidth - 130),
-        animated: true,
-      });
-    }
-  }, [currentDisplayWeight, weightList]);
-
-  // Auto-scroll reps wheel into view
-  useEffect(() => {
-    const idx = repsList.indexOf(currentReps);
-    if (idx >= 0 && repsScrollRef.current) {
-      const chipTotalWidth = 58;
-      repsScrollRef.current.scrollTo({
-        x: Math.max(0, idx * chipTotalWidth - 130),
-        animated: true,
-      });
-    }
-  }, [currentReps, repsList]);
-
-  // Auto-scroll rest wheel into view
-  useEffect(() => {
-    const idx = restList.indexOf(currentRestSeconds);
-    if (idx >= 0 && restScrollRef.current) {
-      const chipTotalWidth = 66;
-      restScrollRef.current.scrollTo({
-        x: Math.max(0, idx * chipTotalWidth - 130),
-        animated: true,
-      });
-    }
-  }, [currentRestSeconds, restList]);
+  // ─── Guard ───────────────────────────────────────────────────────────────
 
   if (!session) {
     return (
@@ -155,45 +112,38 @@ export default function Input() {
     );
   }
 
+  // ─── Handlers ────────────────────────────────────────────────────────────
+
   const handleSelectWeight = (displayVal: number) => {
-    hapticLight();
     const kg = toKg(Math.max(0, displayVal));
     updateCurrentSet({ weight: kg });
   };
 
   const handleSelectReps = (r: number) => {
-    hapticLight();
     const bounded = Math.min(1000, Math.max(1, r));
     updateCurrentSet({ reps: bounded });
   };
 
   const handleSelectRest = (sec: number) => {
-    hapticLight();
     const bounded = Math.min(600, Math.max(10, sec));
     updateExerciseRest(session.currentExerciseIndex, bounded);
   };
 
   const handleSaveCustomWeight = () => {
     const parsed = parseFloat(customWeightText.replace(',', '.'));
-    if (!isNaN(parsed) && parsed >= 0 && parsed <= 999) {
-      handleSelectWeight(parsed);
-    }
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 999) handleSelectWeight(parsed);
     setWeightModalVisible(false);
   };
 
   const handleSaveCustomReps = () => {
     const parsed = parseInt(customRepsText, 10);
-    if (!isNaN(parsed) && parsed >= 1 && parsed <= 1000) {
-      handleSelectReps(parsed);
-    }
+    if (!isNaN(parsed) && parsed >= 1 && parsed <= 1000) handleSelectReps(parsed);
     setRepsModalVisible(false);
   };
 
   const handleSaveCustomRest = () => {
     const parsed = parseInt(customRestText, 10);
-    if (!isNaN(parsed) && parsed >= 10 && parsed <= 600) {
-      handleSelectRest(parsed);
-    }
+    if (!isNaN(parsed) && parsed >= 10 && parsed <= 600) handleSelectRest(parsed);
     setRestModalVisible(false);
   };
 
@@ -204,9 +154,16 @@ export default function Input() {
 
   const isUk = language === 'uk';
 
+  // Nearest valid weight value for the picker
+  const pickerWeight = (() => {
+    const rounded = Math.round(currentDisplayWeight * 10) / 10;
+    const found = weightList.find((w) => Math.abs(w - rounded) < 0.05);
+    return found !== undefined ? found : weightList[0];
+  })();
+
   return (
     <SafeAreaView style={styles.safe}>
-      {/* 1. Top Navigation Bar */}
+      {/* Top Nav */}
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
@@ -220,302 +177,123 @@ export default function Input() {
         <Text style={styles.topBarTitle}>
           {t('setOf')} {session.currentSetIndex + 1} {t('of')} {exercise?.sets.length ?? 3}
         </Text>
-        <View style={styles.topBarPlaceholder} />
+        {/* Done button top-right */}
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleDone}
+          style={styles.topDoneBtn}
+        >
+          <Text style={styles.topDoneBtnText}>{isUk ? 'ГОТОВО' : 'DONE'}</Text>
+        </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 2. Weight Section */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeaderLabel}>
-            {isUk ? 'ВАГА' : 'WEIGHT'} ({unitLabel})
-          </Text>
+      {/* ── Pickers row ──────────────────────────────────────────────────── */}
+      <View style={styles.pickersRow}>
 
-          {/* Hero Weight Display */}
+        {/* WEIGHT */}
+        <View style={styles.pickerCol}>
+          <WheelPicker
+            data={weightList}
+            selectedValue={pickerWeight}
+            onValueChange={handleSelectWeight}
+            label={isUk ? 'ВАГА' : 'WEIGHT'}
+            unit={unitLabel}
+            formatLabel={(v) =>
+              v === 0 ? (isUk ? 'ВВ' : 'BW') : formatWeight(v)
+            }
+          />
+          {/* Custom entry shortcut */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Enter custom weight"
             onPress={() => {
               hapticLight();
               setCustomWeightText(formatWeight(currentDisplayWeight));
               setWeightModalVisible(true);
             }}
-            style={styles.heroRow}
+            style={styles.customEntryBtn}
           >
-            <View style={styles.weightIconWrap}>
-              <MaterialCommunityIcons
-                name={unit === 'lbs' ? 'weight-pound' : 'weight-kilogram'}
-                size={26}
-                color={colors.primary}
-              />
-            </View>
-            <Text style={styles.heroWeightText}>
-              {currentDisplayWeight === 0 ? (isUk ? 'Власна вага' : 'Bodyweight') : formatWeight(currentDisplayWeight)}
+            <MaterialCommunityIcons
+              name={unit === 'lbs' ? 'weight-pound' : 'weight-kilogram'}
+              size={13}
+              color={colors.primary}
+            />
+            <Text style={styles.customEntryText}>
+              {isUk ? 'вручну' : 'manual'}
             </Text>
-            {currentDisplayWeight > 0 && <Text style={styles.heroUnitText}>{unitLabel}</Text>}
-            <Ionicons name="pencil" size={16} color="#8E959F" style={{ marginLeft: 6 }} />
           </Pressable>
-
-          {/* Quick Step Buttons for Weight */}
-          <View style={styles.quickStepRow}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleSelectWeight(Math.max(0, currentDisplayWeight - largeStep))}
-              style={styles.quickStepBtn}
-            >
-              <Text style={styles.quickStepBtnText}>-{largeStep}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleSelectWeight(Math.max(0, currentDisplayWeight - weightStep))}
-              style={styles.quickStepBtn}
-            >
-              <Text style={styles.quickStepBtnText}>-{weightStep}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleSelectWeight(currentDisplayWeight + weightStep)}
-              style={styles.quickStepBtn}
-            >
-              <Text style={styles.quickStepBtnText}>+{weightStep}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleSelectWeight(currentDisplayWeight + largeStep)}
-              style={styles.quickStepBtn}
-            >
-              <Text style={styles.quickStepBtnText}>+{largeStep}</Text>
-            </Pressable>
-          </View>
-
-          {/* Scrollable Weight Wheel */}
-          <ScrollView
-            ref={weightScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.scrollStrip}
-          >
-            {weightList.map((val) => {
-              const isSelected = Math.abs(val - currentDisplayWeight) < 0.05;
-              return (
-                <Pressable
-                  key={val}
-                  accessibilityRole="button"
-                  onPress={() => handleSelectWeight(val)}
-                  style={[styles.weightChip, isSelected && styles.weightChipSelected]}
-                >
-                  <Text style={[styles.weightChipText, isSelected && styles.weightChipTextSelected]}>
-                    {val === 0 ? (isUk ? '0 (ВВ)' : '0 (BW)') : formatWeight(val)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
         </View>
 
-        {/* 3. Reps Section */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.repsHeaderRow}>
-            <Text style={styles.sectionHeaderLabel}>{t('reps')}</Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                hapticLight();
-                setCustomRepsText(String(currentReps));
-                setRepsModalVisible(true);
-              }}
-              style={styles.customKeypadBtn}
-            >
-              <Ionicons name="keypad-outline" size={14} color={colors.primary} />
-              <Text style={styles.customKeypadBtnText}>
-                {isUk ? 'Ввести (1–1000)' : 'Type (1–1000)'}
-              </Text>
-            </Pressable>
-          </View>
+        {/* Divider */}
+        <View style={styles.pickerDivider} />
 
-          {/* Hero Reps Display */}
+        {/* REPS */}
+        <View style={styles.pickerCol}>
+          <WheelPicker
+            data={repsList}
+            selectedValue={currentReps}
+            onValueChange={handleSelectReps}
+            label={isUk ? 'ПОВТОРИ' : 'REPS'}
+            unit={isUk ? 'повт.' : 'reps'}
+            formatLabel={(v) => String(v)}
+          />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Enter custom reps"
             onPress={() => {
               hapticLight();
               setCustomRepsText(String(currentReps));
               setRepsModalVisible(true);
             }}
-            style={styles.heroRow}
+            style={styles.customEntryBtn}
           >
-            <Text style={styles.heroRepsText}>{currentReps}</Text>
-            <Text style={styles.heroRepsUnitText}>{isUk ? 'повт.' : 'reps'}</Text>
-            <Ionicons name="pencil" size={16} color="#8E959F" style={{ marginLeft: 6 }} />
+            <Ionicons name="keypad-outline" size={13} color={colors.primary} />
+            <Text style={styles.customEntryText}>
+              {isUk ? 'вручну' : 'manual'}
+            </Text>
           </Pressable>
-
-          {/* Quick Step Buttons for Reps */}
-          <View style={styles.quickStepRow}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleSelectReps(Math.max(1, currentReps - 5))}
-              style={styles.quickStepBtn}
-            >
-              <Text style={styles.quickStepBtnText}>-5</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleSelectReps(Math.max(1, currentReps - 1))}
-              style={styles.quickStepBtn}
-            >
-              <Text style={styles.quickStepBtnText}>-1</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleSelectReps(Math.min(1000, currentReps + 1))}
-              style={styles.quickStepBtn}
-            >
-              <Text style={styles.quickStepBtnText}>+1</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleSelectReps(Math.min(1000, currentReps + 5))}
-              style={styles.quickStepBtn}
-            >
-              <Text style={styles.quickStepBtnText}>+5</Text>
-            </Pressable>
-          </View>
-
-          {/* Scrollable Reps List (1 to 1000) */}
-          <ScrollView
-            ref={repsScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.scrollStrip}
-          >
-            {repsList.map((rep) => {
-              const isSelected = rep === currentReps;
-              return (
-                <Pressable
-                  key={rep}
-                  accessibilityRole="button"
-                  onPress={() => handleSelectReps(rep)}
-                  style={[styles.repChip, isSelected && styles.repChipSelected]}
-                >
-                  <Text style={[styles.repChipText, isSelected && styles.repChipTextSelected]}>
-                    {rep}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
         </View>
 
-        {/* 4. Rest Duration for this Exercise */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.repsHeaderRow}>
-            <Text style={styles.sectionHeaderLabel}>
-              {isUk ? 'ВІДПОЧИНОК ДЛЯ ЦІЄЇ ВПРАВИ' : 'REST FOR THIS EXERCISE'}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                hapticLight();
-                setCustomRestText(String(currentRestSeconds));
-                setRestModalVisible(true);
-              }}
-              style={styles.customKeypadBtn}
-            >
-              <Ionicons name="time-outline" size={14} color={colors.primary} />
-              <Text style={styles.customKeypadBtnText}>
-                {isUk ? 'Ввести час' : 'Set custom'}
-              </Text>
-            </Pressable>
-          </View>
+        {/* Divider */}
+        <View style={styles.pickerDivider} />
 
-          {/* Hero Rest Display */}
+        {/* REST */}
+        <View style={styles.pickerCol}>
+          <WheelPicker
+            data={restList}
+            selectedValue={currentRestSeconds}
+            onValueChange={handleSelectRest}
+            label={isUk ? 'ВІДПОЧИНОК' : 'REST'}
+            formatLabel={(v) => formatRestLabel(v)}
+          />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Enter custom rest duration"
             onPress={() => {
               hapticLight();
               setCustomRestText(String(currentRestSeconds));
               setRestModalVisible(true);
             }}
-            style={styles.heroRow}
+            style={styles.customEntryBtn}
           >
-            <Ionicons name="timer-outline" size={26} color={colors.primary} style={{ marginRight: 8 }} />
-            <Text style={styles.heroRepsText}>{currentRestSeconds}</Text>
-            <Text style={styles.heroRepsUnitText}>{isUk ? 'с' : 's'}</Text>
-            <Text style={styles.heroRestSubtext}>({formatRestDuration(currentRestSeconds, isUk)})</Text>
-            <Ionicons name="pencil" size={16} color="#8E959F" style={{ marginLeft: 6 }} />
-          </Pressable>
-
-          {/* Quick Step Buttons for Rest */}
-          <View style={styles.quickStepRow}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleSelectRest(Math.max(10, currentRestSeconds - 30))}
-              style={styles.quickStepBtn}
-            >
-              <Text style={styles.quickStepBtnText}>-30s</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleSelectRest(Math.max(10, currentRestSeconds - 15))}
-              style={styles.quickStepBtn}
-            >
-              <Text style={styles.quickStepBtnText}>-15s</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleSelectRest(Math.min(600, currentRestSeconds + 15))}
-              style={styles.quickStepBtn}
-            >
-              <Text style={styles.quickStepBtnText}>+15s</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => handleSelectRest(Math.min(600, currentRestSeconds + 30))}
-              style={styles.quickStepBtn}
-            >
-              <Text style={styles.quickStepBtnText}>+30s</Text>
-            </Pressable>
-          </View>
-
-          {/* Scrollable Rest List */}
-          <ScrollView
-            ref={restScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.scrollStrip}
-          >
-            {restList.map((sec) => {
-              const isSelected = sec === currentRestSeconds;
-              return (
-                <Pressable
-                  key={sec}
-                  accessibilityRole="button"
-                  onPress={() => handleSelectRest(sec)}
-                  style={[styles.repChip, isSelected && styles.repChipSelected, { minWidth: 58 }]}
-                >
-                  <Text style={[styles.repChipText, isSelected && styles.repChipTextSelected]}>
-                    {sec}s
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        {/* 5. Bottom Pinned Save / Done Button */}
-        <View style={styles.bottomBar}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Save and return"
-            onPress={handleDone}
-            style={styles.nextBtn}
-          >
-            <Text style={styles.nextBtnText}>{t('done')}</Text>
+            <Ionicons name="timer-outline" size={13} color={colors.primary} />
+            <Text style={styles.customEntryText}>
+              {isUk ? 'вручну' : 'manual'}
+            </Text>
           </Pressable>
         </View>
-      </ScrollView>
+      </View>
 
-      {/* Modal: Direct Weight Input */}
+      {/* ── Big Done CTA ─────────────────────────────────────────────────── */}
+      <View style={styles.bottomBar}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Save and return"
+          onPress={handleDone}
+          style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.88 }]}
+        >
+          <Text style={styles.doneBtnText}>{isUk ? 'ЗБЕРЕГТИ' : 'SAVE'}</Text>
+        </Pressable>
+      </View>
+
+      {/* ── Modal: Custom Weight ──────────────────────────────────────────── */}
       <Modal
         visible={weightModalVisible}
         transparent
@@ -531,9 +309,8 @@ export default function Input() {
               {isUk ? 'Введіть точну вагу' : 'Enter Exact Weight'}
             </Text>
             <Text style={styles.modalHeaderSubtitle}>
-              {isUk ? `Одиниця вимірювання: ${unitLabel}` : `Unit: ${unitLabel}`}
+              {isUk ? `Одиниця: ${unitLabel}` : `Unit: ${unitLabel}`}
             </Text>
-
             <TextInput
               style={styles.modalInput}
               keyboardType="decimal-pad"
@@ -544,30 +321,19 @@ export default function Input() {
               placeholderTextColor="#5A6472"
               selectTextOnFocus
             />
-
             <View style={styles.modalActionsRow}>
-              <Pressable
-                onPress={() => setWeightModalVisible(false)}
-                style={styles.modalCancelBtn}
-              >
-                <Text style={styles.modalCancelBtnText}>
-                  {isUk ? 'Скасувати' : 'Cancel'}
-                </Text>
+              <Pressable onPress={() => setWeightModalVisible(false)} style={styles.modalCancelBtn}>
+                <Text style={styles.modalCancelBtnText}>{isUk ? 'Скасувати' : 'Cancel'}</Text>
               </Pressable>
-              <Pressable
-                onPress={handleSaveCustomWeight}
-                style={styles.modalSaveBtn}
-              >
-                <Text style={styles.modalSaveBtnText}>
-                  {isUk ? 'Зберегти' : 'Save'}
-                </Text>
+              <Pressable onPress={handleSaveCustomWeight} style={styles.modalSaveBtn}>
+                <Text style={styles.modalSaveBtnText}>{isUk ? 'Зберегти' : 'Save'}</Text>
               </Pressable>
             </View>
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Modal: Direct Reps Input (1-1000) */}
+      {/* ── Modal: Custom Reps ────────────────────────────────────────────── */}
       <Modal
         visible={repsModalVisible}
         transparent
@@ -583,9 +349,8 @@ export default function Input() {
               {isUk ? 'Кількість повторень' : 'Repetitions Count'}
             </Text>
             <Text style={styles.modalHeaderSubtitle}>
-              {isUk ? 'Від 1 до 1000 (наприклад для скакалки)' : 'From 1 to 1000 (e.g. for jump rope)'}
+              {isUk ? 'Від 1 до 1000' : 'From 1 to 1000'}
             </Text>
-
             <TextInput
               style={styles.modalInput}
               keyboardType="number-pad"
@@ -596,30 +361,19 @@ export default function Input() {
               placeholderTextColor="#5A6472"
               selectTextOnFocus
             />
-
             <View style={styles.modalActionsRow}>
-              <Pressable
-                onPress={() => setRepsModalVisible(false)}
-                style={styles.modalCancelBtn}
-              >
-                <Text style={styles.modalCancelBtnText}>
-                  {isUk ? 'Скасувати' : 'Cancel'}
-                </Text>
+              <Pressable onPress={() => setRepsModalVisible(false)} style={styles.modalCancelBtn}>
+                <Text style={styles.modalCancelBtnText}>{isUk ? 'Скасувати' : 'Cancel'}</Text>
               </Pressable>
-              <Pressable
-                onPress={handleSaveCustomReps}
-                style={styles.modalSaveBtn}
-              >
-                <Text style={styles.modalSaveBtnText}>
-                  {isUk ? 'Зберегти' : 'Save'}
-                </Text>
+              <Pressable onPress={handleSaveCustomReps} style={styles.modalSaveBtn}>
+                <Text style={styles.modalSaveBtnText}>{isUk ? 'Зберегти' : 'Save'}</Text>
               </Pressable>
             </View>
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Modal: Direct Rest Input (10-600) */}
+      {/* ── Modal: Custom Rest ────────────────────────────────────────────── */}
       <Modal
         visible={restModalVisible}
         transparent
@@ -632,12 +386,11 @@ export default function Input() {
         >
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalHeaderTitle}>
-              {isUk ? 'Час відпочинку для вправи' : 'Rest Duration for Exercise'}
+              {isUk ? 'Час відпочинку' : 'Rest Duration'}
             </Text>
             <Text style={styles.modalHeaderSubtitle}>
               {isUk ? 'Введіть секунди (10–600)' : 'Enter seconds (10–600)'}
             </Text>
-
             <TextInput
               style={styles.modalInput}
               keyboardType="number-pad"
@@ -648,23 +401,12 @@ export default function Input() {
               placeholderTextColor="#5A6472"
               selectTextOnFocus
             />
-
             <View style={styles.modalActionsRow}>
-              <Pressable
-                onPress={() => setRestModalVisible(false)}
-                style={styles.modalCancelBtn}
-              >
-                <Text style={styles.modalCancelBtnText}>
-                  {isUk ? 'Скасувати' : 'Cancel'}
-                </Text>
+              <Pressable onPress={() => setRestModalVisible(false)} style={styles.modalCancelBtn}>
+                <Text style={styles.modalCancelBtnText}>{isUk ? 'Скасувати' : 'Cancel'}</Text>
               </Pressable>
-              <Pressable
-                onPress={handleSaveCustomRest}
-                style={styles.modalSaveBtn}
-              >
-                <Text style={styles.modalSaveBtnText}>
-                  {isUk ? 'Зберегти' : 'Save'}
-                </Text>
+              <Pressable onPress={handleSaveCustomRest} style={styles.modalSaveBtn}>
+                <Text style={styles.modalSaveBtnText}>{isUk ? 'Зберегти' : 'Save'}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -674,17 +416,43 @@ export default function Input() {
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: '#0B0D0F',
   },
+  emptyWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 20,
+  },
+  emptyBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  emptyBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0B0D0F',
+  },
+  // ── Top bar ───────────────────────────────────────────────────────────────
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    height: 48,
+    paddingHorizontal: 16,
+    height: 52,
   },
   backButton: {
     width: 40,
@@ -698,305 +466,148 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  topBarPlaceholder: {
-    width: 40,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: 32,
-    paddingTop: 10,
-    alignItems: 'center',
-  },
-  sectionContainer: {
-    width: '100%',
-    backgroundColor: '#12161D',
-    borderRadius: 20,
+  topDoneBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
     borderWidth: 1,
-    borderColor: '#1E2530',
-    padding: 18,
-    marginBottom: 18,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
   },
-  sectionHeaderLabel: {
-    color: '#717B8A',
+  topDoneBtnText: {
     fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.5,
+    fontWeight: '900',
+    color: colors.primary,
+    letterSpacing: 1,
   },
-  repsHeaderRow: {
+  // ── Pickers row ──────────────────────────────────────────────────────────
+  pickersRow: {
+    flex: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  pickerCol: {
+    flex: 1,
     alignItems: 'center',
   },
-  customKeypadBtn: {
+  pickerDivider: {
+    width: 1,
+    height: 120,
+    backgroundColor: '#242B35',
+  },
+  customEntryBtn: {
+    marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 8,
+    backgroundColor: 'rgba(200, 255, 61, 0.07)',
     borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.2)',
+    borderColor: 'rgba(200, 255, 61, 0.18)',
   },
-  customKeypadBtnText: {
-    color: colors.primary,
+  customEntryText: {
     fontSize: 11,
     fontWeight: '700',
-  },
-  heroRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-    marginBottom: 12,
-    paddingVertical: 6,
-  },
-  weightIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  heroWeightText: {
-    color: '#FFFFFF',
-    fontSize: 34,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  heroUnitText: {
     color: colors.primary,
-    fontSize: 16,
-    fontWeight: '800',
-    marginLeft: 6,
-    alignSelf: 'flex-end',
-    marginBottom: 4,
+    letterSpacing: 0.3,
   },
-  heroRepsText: {
-    color: '#FFFFFF',
-    fontSize: 36,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  heroRepsUnitText: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: '800',
-    marginLeft: 6,
-    alignSelf: 'flex-end',
-    marginBottom: 5,
-  },
-  heroRestSubtext: {
-    color: '#8E959F',
-    fontSize: 15,
-    fontWeight: '600',
-    marginLeft: 8,
-    alignSelf: 'flex-end',
-    marginBottom: 5,
-  },
-  quickStepRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 10,
-    marginBottom: 14,
-  },
-  quickStepBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: '#1B212B',
-    borderWidth: 1,
-    borderColor: '#26303E',
-  },
-  quickStepBtnText: {
-    color: '#CBD5E1',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  scrollStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  weightChip: {
-    minWidth: 58,
-    height: 44,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    backgroundColor: '#181D26',
-    borderWidth: 1,
-    borderColor: '#242D3A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  weightChipSelected: {
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
-    borderColor: colors.primary,
-    borderWidth: 2,
-  },
-  weightChipText: {
-    color: '#717B8A',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  weightChipTextSelected: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  repChip: {
-    minWidth: 50,
-    height: 44,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    backgroundColor: '#181D26',
-    borderWidth: 1,
-    borderColor: '#242D3A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  repChipSelected: {
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
-    borderColor: colors.primary,
-    borderWidth: 2,
-  },
-  repChipText: {
-    color: '#717B8A',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  repChipTextSelected: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: '900',
-  },
+  // ── Bottom bar ───────────────────────────────────────────────────────────
   bottomBar: {
-    width: '100%',
-    maxWidth: 340,
-    marginTop: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    paddingTop: 12,
   },
-  nextBtn: {
-    height: 52,
-    borderRadius: 26,
+  doneBtn: {
+    height: 58,
+    borderRadius: 24,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 6,
   },
-  nextBtnText: {
-    color: '#0B0D0F',
+  doneBtnText: {
     fontSize: 16,
     fontWeight: '900',
+    color: '#0B0D0F',
+    letterSpacing: 1.2,
   },
-  emptyWrap: {
+  // ── Modals ───────────────────────────────────────────────────────────────
+  modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
-  emptyTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 20,
-  },
-  emptyBtn: {
-    height: 48,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyBtnText: {
-    color: '#0B0D0F',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
   modalCard: {
     width: '100%',
-    maxWidth: 340,
-    backgroundColor: '#15191F',
+    backgroundColor: '#12161D',
     borderRadius: 22,
+    padding: 24,
     borderWidth: 1,
     borderColor: '#242B35',
-    padding: 22,
-    alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 8,
   },
   modalHeaderTitle: {
-    color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '900',
+    color: '#FFFFFF',
     marginBottom: 4,
-    textAlign: 'center',
   },
   modalHeaderSubtitle: {
-    color: '#8E959F',
     fontSize: 13,
-    marginBottom: 18,
-    textAlign: 'center',
+    color: '#717B8A',
+    marginBottom: 20,
   },
   modalInput: {
-    width: '100%',
-    height: 60,
-    backgroundColor: '#0F1217',
+    height: 56,
     borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+    backgroundColor: '#0B0D0F',
+    borderWidth: 1,
+    borderColor: '#2A3140',
     color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '900',
+    fontSize: 26,
+    fontWeight: '800',
     textAlign: 'center',
     marginBottom: 20,
   },
   modalActionsRow: {
     flexDirection: 'row',
     gap: 12,
-    width: '100%',
   },
   modalCancelBtn: {
     flex: 1,
-    height: 46,
+    height: 48,
     borderRadius: 14,
-    backgroundColor: '#1F2631',
+    borderWidth: 1,
+    borderColor: '#2A3140',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCancelBtnText: {
-    color: '#CBD5E1',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
+    color: '#8E959F',
   },
   modalSaveBtn: {
     flex: 1,
-    height: 46,
+    height: 48,
     borderRadius: 14,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalSaveBtnText: {
-    color: '#0B0D0F',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '900',
+    color: '#0B0D0F',
   },
 });
