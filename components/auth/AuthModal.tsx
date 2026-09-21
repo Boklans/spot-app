@@ -7,7 +7,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,22 +20,42 @@ import { useI18n } from '@/lib/i18n';
 import { useAuthStore } from '@/store/authStore';
 import { useUserProfileStore } from '@/store/userProfileStore';
 
+import { supabase } from '@/lib/supabase';
+
 interface AuthModalProps {
   visible: boolean;
   onClose: () => void;
+  initialMode?: 'signin' | 'signup';
+  onSuccess?: () => void;
 }
 
-export function AuthModal({ visible, onClose }: AuthModalProps) {
+export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess }: AuthModalProps) {
   const { language } = useI18n();
   const isUk = language === 'uk';
 
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successState, setSuccessState] = useState<'signin' | 'signup' | null>(null);
+  const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
+  const [resendSuccessMsg, setResendSuccessMsg] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (visible) {
+      setMode(initialMode);
+      setErrorMessage(null);
+      setSuccessState(null);
+      setEmailNotConfirmed(false);
+      setResendSuccessMsg(null);
+      setInfoMessage(null);
+    }
+  }, [visible, initialMode]);
 
   const signInWithPassword = useAuthStore((state) => state.signInWithPassword);
   const signUpWithPassword = useAuthStore((state) => state.signUpWithPassword);
@@ -46,10 +65,14 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
     hapticLight();
     setMode(newMode);
     setErrorMessage(null);
+    setEmailNotConfirmed(false);
+    setResendSuccessMsg(null);
+    setInfoMessage(null);
   };
 
   const handleSubmit = async () => {
     setErrorMessage(null);
+    setResendSuccessMsg(null);
 
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
@@ -69,13 +92,24 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
       if (mode === 'signin') {
         const res = await signInWithPassword(cleanEmail, password);
         if (!res.success) {
-          setErrorMessage(
-            res.error?.includes('Invalid login credentials')
-              ? isUk
+          if (res.error?.includes('Email not confirmed')) {
+            setEmailNotConfirmed(true);
+            setErrorMessage(
+              isUk
+                ? 'Електронна пошта ще не підтверджена. Перевірте поштову скриньку (також папку Спам) або надішліть новий лист для підтвердження.'
+                : 'Email address is not confirmed yet. Please check your inbox (including Spam) or resend the confirmation link.'
+            );
+          } else if (res.error?.includes('Invalid login credentials')) {
+            setEmailNotConfirmed(false);
+            setErrorMessage(
+              isUk
                 ? 'Невірний email або пароль'
                 : 'Invalid email or password'
-              : res.error || (isUk ? 'Помилка входу' : 'Login failed')
-          );
+            );
+          } else {
+            setEmailNotConfirmed(false);
+            setErrorMessage(res.error || (isUk ? 'Помилка входу' : 'Login failed'));
+          }
           setLoading(false);
           return;
         }
@@ -84,13 +118,7 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
         hapticSuccess();
         await syncDown();
         setLoading(false);
-        onClose();
-        Alert.alert(
-          isUk ? 'Успішний вхід!' : 'Welcome back!',
-          isUk
-            ? 'Ваш прогрес та історію тренувань синхронізовано з хмарою.'
-            : 'Your workouts and progress are synced with the cloud.'
-        );
+        setSuccessState('signin');
       } else {
         // Sign Up
         const userName = name.trim() || useUserProfileStore.getState().profile.name || 'Athlete';
@@ -112,17 +140,62 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
         // Upload initial local data to newly registered cloud account
         await syncUp();
         setLoading(false);
-        onClose();
-        Alert.alert(
-          isUk ? 'Акаунт створено!' : 'Account Created!',
-          isUk
-            ? 'Ваш прогрес надійно збережено в хмарі SPOT.'
-            : 'Your progress is securely backed up in SPOT cloud.'
-        );
+        setSuccessState('signup');
       }
     } catch (err: any) {
       setLoading(false);
       setErrorMessage(err?.message || (isUk ? 'Сталася помилка' : 'An error occurred'));
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setErrorMessage(isUk ? 'Введіть коректну адресу пошти' : 'Please enter a valid email address');
+      return;
+    }
+
+    setResendingEmail(true);
+    setResendSuccessMsg(null);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: cleanEmail,
+      });
+
+      if (error) {
+        setErrorMessage(error.message);
+      } else {
+        setResendSuccessMsg(
+          isUk
+            ? 'Лист для підтвердження надіслано! Перевірте папку Вхідні або Спам.'
+            : 'Confirmation email sent! Please check your inbox or spam folder.'
+        );
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || (isUk ? 'Помилка відправки листа' : 'Failed to resend confirmation email'));
+    } finally {
+      setResendingEmail(false);
+    }
+  };
+
+  const handleFinishSuccess = () => {
+    setSuccessState(null);
+    setErrorMessage(null);
+    setEmailNotConfirmed(false);
+    setResendSuccessMsg(null);
+    onClose();
+    onSuccess?.();
+  };
+
+  const handleClose = () => {
+    if (successState) {
+      handleFinishSuccess();
+    } else {
+      setErrorMessage(null);
+      setEmailNotConfirmed(false);
+      setResendSuccessMsg(null);
+      onClose();
     }
   };
 
@@ -170,205 +243,303 @@ export function AuthModal({ visible, onClose }: AuthModalProps) {
       visible={visible}
       animationType="slide"
       transparent
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
+      statusBarTranslucent
     >
-      <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardWrap}
-        >
-          <SafeAreaView style={styles.sheetContainer}>
-            {/* Top Bar */}
-            <View style={styles.header}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidContainer}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <Pressable
+          style={styles.backdrop}
+          onPress={handleClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close modal"
+        />
+        <View style={styles.sheetContainer}>
+          {/* Top Bar */}
+          <View style={styles.header}>
               <View>
                 <Text style={styles.headerTitle}>
-                  {mode === 'signin'
-                    ? isUk
-                      ? 'Вхід у SPOT'
-                      : 'Sign In to SPOT'
-                    : isUk
-                    ? 'Створити акаунт'
-                    : 'Create SPOT Account'}
+                  {successState
+                    ? (successState === 'signup'
+                        ? (isUk ? 'Хмарний акаунт' : 'Cloud Account')
+                        : (isUk ? 'Авторизація' : 'Authorization'))
+                    : (mode === 'signin'
+                        ? (isUk ? 'Вхід у SPOT' : 'Sign In to SPOT')
+                        : (isUk ? 'Створити акаунт' : 'Create SPOT Account'))}
                 </Text>
                 <Text style={styles.headerSubtitle}>
-                  {isUk
-                    ? 'Зберігайте прогрес та тренування в хмарі'
-                    : 'Sync your workouts and PRs across devices'}
+                  {successState
+                    ? (isUk ? 'Синхронізація активна' : 'Sync is active')
+                    : (isUk
+                        ? 'Зберігайте прогрес та тренування в хмарі'
+                        : 'Sync your workouts and PRs across devices')}
                 </Text>
               </View>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Close"
                 hitSlop={12}
-                onPress={onClose}
+                onPress={handleClose}
                 style={styles.closeBtn}
               >
                 <Ionicons name="close" size={22} color="#FFFFFF" />
               </Pressable>
             </View>
 
-            {/* Mode Switcher Tabs */}
-            <View style={styles.tabContainer}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => handleModeSwitch('signin')}
-                style={[styles.tabBtn, mode === 'signin' && styles.tabBtnActive]}
-              >
-                <Text style={[styles.tabBtnText, mode === 'signin' && styles.tabBtnTextActive]}>
-                  {isUk ? 'Вхід' : 'Sign In'}
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => handleModeSwitch('signup')}
-                style={[styles.tabBtn, mode === 'signup' && styles.tabBtnActive]}
-              >
-                <Text style={[styles.tabBtnText, mode === 'signup' && styles.tabBtnTextActive]}>
-                  {isUk ? 'Реєстрація' : 'Sign Up'}
-                </Text>
-              </Pressable>
-            </View>
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.scrollContent}
-              keyboardShouldPersistTaps="handled"
-            >
-              {/* Error Box */}
-              {errorMessage && (
-                <View style={styles.errorBox}>
-                  <Ionicons name="alert-circle" size={18} color="#F87171" />
-                  <Text style={styles.errorText}>{errorMessage}</Text>
-                </View>
-              )}
-
-              {/* Name Field (Only in Sign Up) */}
-              {mode === 'signup' && (
-                <View style={styles.fieldWrap}>
-                  <Text style={styles.fieldLabel}>{isUk ? "ІМ'Я" : 'YOUR NAME'}</Text>
-                  <View style={styles.inputBox}>
-                    <Ionicons name="person-outline" size={20} color="#8E9BAE" style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder={isUk ? 'Ваше ім’я' : 'Your name'}
-                      placeholderTextColor="#64748B"
-                      value={name}
-                      onChangeText={setName}
-                      autoCapitalize="words"
+            {successState ? (
+              /* Custom SPOT Success View */
+              <View style={styles.successContainer}>
+                <View style={styles.successGlowWrap}>
+                  <View style={styles.successIconCircle}>
+                    <Ionicons
+                      name={successState === 'signup' ? 'cloud-done' : 'checkmark-sharp'}
+                      size={44}
+                      color="#0B0D0F"
                     />
                   </View>
                 </View>
-              )}
 
-              {/* Email Field */}
-              <View style={styles.fieldWrap}>
-                <Text style={styles.fieldLabel}>{isUk ? 'ЕЛЕКТРОННА ПОШТА' : 'EMAIL ADDRESS'}</Text>
-                <View style={styles.inputBox}>
-                  <Ionicons name="mail-outline" size={20} color="#8E9BAE" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="athlete@example.com"
-                    placeholderTextColor="#64748B"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
+                <Text style={styles.successTitle}>
+                  {successState === 'signup'
+                    ? (isUk ? 'Акаунт створено!' : 'Account Created!')
+                    : (isUk ? 'З поверненням!' : 'Welcome back!')}
+                </Text>
+
+                <Text style={styles.successDesc}>
+                  {successState === 'signup'
+                    ? (isUk
+                        ? 'Ваш прогрес та персональні рекорди надійно збережено в хмарі SPOT.'
+                        : 'Your workouts and progress are safely backed up in SPOT cloud.')
+                    : (isUk
+                        ? 'Ваші тренувальні дані успішно завантажено та синхронізовано.'
+                        : 'Your workouts and profile have been successfully loaded.')}
+                </Text>
+
+                <View style={styles.accountBadge}>
+                  <Ionicons name="cloud" size={16} color={colors.primary} />
+                  <Text style={styles.accountBadgeEmail} numberOfLines={1}>
+                    {email.trim().toLowerCase()}
+                  </Text>
+                  <View style={styles.onlinePill}>
+                    <View style={styles.onlineDot} />
+                    <Text style={styles.onlinePillText}>{isUk ? 'Онлайн' : 'Online'}</Text>
+                  </View>
                 </View>
-              </View>
 
-              {/* Password Field */}
-              <View style={styles.fieldWrap}>
-                <Text style={styles.fieldLabel}>{isUk ? 'ПАРОЛЬ' : 'PASSWORD'}</Text>
-                <View style={styles.inputBox}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#8E9BAE" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="••••••••"
-                    placeholderTextColor="#64748B"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                  />
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Toggle password visibility"
-                    onPress={() => setShowPassword(!showPassword)}
-                    hitSlop={10}
-                    style={styles.eyeBtn}
-                  >
-                    <Ionicons
-                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                      size={20}
-                      color="#8E9BAE"
-                    />
-                  </Pressable>
-                </View>
-              </View>
-
-              {/* Forgot Password Link */}
-              {mode === 'signin' && (
                 <Pressable
                   accessibilityRole="button"
-                  onPress={handleForgotPassword}
-                  style={styles.forgotBtn}
+                  onPress={handleFinishSuccess}
+                  style={({ pressed }) => [
+                    styles.submitBtn,
+                    styles.successBtn,
+                    pressed && { opacity: 0.88, transform: [{ scale: 0.985 }] },
+                  ]}
                 >
-                  <Text style={styles.forgotText}>
-                    {isUk ? 'Забули пароль?' : 'Forgot password?'}
+                  <Text style={styles.submitBtnText}>
+                    {isUk ? 'ПРОДОВЖИТИ' : 'CONTINUE'}
                   </Text>
                 </Pressable>
-              )}
+              </View>
+            ) : (
+              <>
+                {/* Mode Switcher Tabs */}
+                <View style={styles.tabContainer}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => handleModeSwitch('signin')}
+                    style={[styles.tabBtn, mode === 'signin' && styles.tabBtnActive]}
+                  >
+                    <Text style={[styles.tabBtnText, mode === 'signin' && styles.tabBtnTextActive]}>
+                      {isUk ? 'Вхід' : 'Sign In'}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => handleModeSwitch('signup')}
+                    style={[styles.tabBtn, mode === 'signup' && styles.tabBtnActive]}
+                  >
+                    <Text style={[styles.tabBtnText, mode === 'signup' && styles.tabBtnTextActive]}>
+                      {isUk ? 'Реєстрація' : 'Sign Up'}
+                    </Text>
+                  </Pressable>
+                </View>
 
-              {/* Submit CTA Button */}
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleSubmit}
-                disabled={loading}
-                style={({ pressed }) => [
-                  styles.submitBtn,
-                  pressed && { opacity: 0.85 },
-                  loading && { opacity: 0.7 },
-                ]}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#0B0D0F" size="small" />
-                ) : (
-                  <Text style={styles.submitBtnText}>
-                    {mode === 'signin'
-                      ? isUk
-                        ? 'УВІЙТИ'
-                        : 'SIGN IN'
-                      : isUk
-                      ? 'СТВОРИТИ АКАУНТ'
-                      : 'CREATE ACCOUNT'}
+                <ScrollView
+                  style={styles.scrollView}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.scrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode="on-drag"
+                  bounces={false}
+                >
+                  {/* Resend Success Banner */}
+                  {resendSuccessMsg && (
+                    <View style={styles.infoBox}>
+                      <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                      <Text style={styles.infoText}>{resendSuccessMsg}</Text>
+                    </View>
+                  )}
+
+                  {/* Error Box */}
+                  {errorMessage && (
+                    <View style={styles.errorBox}>
+                      <Ionicons name="alert-circle" size={18} color="#F87171" style={{ marginTop: 2 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.errorText}>{errorMessage}</Text>
+                        {emailNotConfirmed && (
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={handleResendConfirmation}
+                            disabled={resendingEmail}
+                            style={styles.resendBtn}
+                          >
+                            {resendingEmail ? (
+                              <ActivityIndicator size="small" color={colors.primary} />
+                            ) : (
+                              <>
+                                <Ionicons name="mail-unread-outline" size={15} color={colors.primary} />
+                                <Text style={styles.resendBtnText}>
+                                  {isUk ? 'Надіслати лист для активації ще раз' : 'Resend confirmation email'}
+                                </Text>
+                              </>
+                            )}
+                          </Pressable>
+                        )}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Name Field (Only in Sign Up) */}
+                  {mode === 'signup' && (
+                    <View style={styles.fieldWrap}>
+                      <Text style={styles.fieldLabel}>{isUk ? "ІМ'Я" : 'YOUR NAME'}</Text>
+                      <View style={styles.inputBox}>
+                        <Ionicons name="person-outline" size={20} color="#8E9BAE" style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder={isUk ? 'Ваше ім’я' : 'Your name'}
+                          placeholderTextColor="#64748B"
+                          value={name}
+                          onChangeText={setName}
+                          autoCapitalize="words"
+                        />
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Email Field */}
+                  <View style={styles.fieldWrap}>
+                    <Text style={styles.fieldLabel}>{isUk ? 'ЕЛЕКТРОННА ПОШТА' : 'EMAIL ADDRESS'}</Text>
+                    <View style={styles.inputBox}>
+                      <Ionicons name="mail-outline" size={20} color="#8E9BAE" style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="athlete@example.com"
+                        placeholderTextColor="#64748B"
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Password Field */}
+                  <View style={styles.fieldWrap}>
+                    <Text style={styles.fieldLabel}>{isUk ? 'ПАРОЛЬ' : 'PASSWORD'}</Text>
+                    <View style={styles.inputBox}>
+                      <Ionicons name="lock-closed-outline" size={20} color="#8E9BAE" style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="••••••••"
+                        placeholderTextColor="#64748B"
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry={!showPassword}
+                        autoCapitalize="none"
+                      />
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Toggle password visibility"
+                        onPress={() => setShowPassword(!showPassword)}
+                        hitSlop={10}
+                        style={styles.eyeBtn}
+                      >
+                        <Ionicons
+                          name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                          size={20}
+                          color="#8E9BAE"
+                        />
+                      </Pressable>
+                    </View>
+                  </View>
+
+                  {/* Forgot Password Link */}
+                  {mode === 'signin' && (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={handleForgotPassword}
+                      style={styles.forgotBtn}
+                    >
+                      <Text style={styles.forgotText}>
+                        {isUk ? 'Забули пароль?' : 'Forgot password?'}
+                      </Text>
+                    </Pressable>
+                  )}
+
+                  {/* Submit CTA Button */}
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleSubmit}
+                    disabled={loading}
+                    style={({ pressed }) => [
+                      styles.submitBtn,
+                      pressed && { opacity: 0.85 },
+                      loading && { opacity: 0.7 },
+                    ]}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#0B0D0F" size="small" />
+                    ) : (
+                      <Text style={styles.submitBtnText}>
+                        {mode === 'signin'
+                          ? isUk
+                            ? 'УВІЙТИ'
+                            : 'SIGN IN'
+                          : isUk
+                          ? 'СТВОРИТИ АКАУНТ'
+                          : 'CREATE ACCOUNT'}
+                      </Text>
+                    )}
+                  </Pressable>
+
+                  {/* Offline note */}
+                  <Text style={styles.offlineNote}>
+                    {isUk
+                      ? '🔒 Ваші дані зберігаються офлайн та автоматично синхронізуються за наявності зв’язку.'
+                      : '🔒 Your data is stored locally and syncs automatically when online.'}
                   </Text>
-                )}
-              </Pressable>
-
-              {/* Offline note */}
-              <Text style={styles.offlineNote}>
-                {isUk
-                  ? '🔒 Ваші дані зберігаються офлайн та автоматично синхронізуються за наявності зв’язку.'
-                  : '🔒 Your data is stored locally and syncs automatically when online.'}
-              </Text>
-            </ScrollView>
-          </SafeAreaView>
-        </KeyboardAvoidingView>
-      </View>
+                </ScrollView>
+              </>
+            )}
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  keyboardAvoidContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
   },
-  keyboardWrap: {
-    width: '100%',
+  backdrop: {
+    ...StyleSheet.absoluteFill,
   },
   sheetContainer: {
     backgroundColor: '#12161D',
@@ -376,7 +547,12 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: '#242C38',
-    maxHeight: '92%',
+    maxHeight: '85%',
+    width: '100%',
+    overflow: 'hidden',
+  },
+  scrollView: {
+    flexShrink: 1,
   },
   header: {
     flexDirection: 'row',
@@ -440,7 +616,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 28,
+    paddingTop: 4,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
   },
   errorBox: {
     flexDirection: 'row',
@@ -522,6 +699,124 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     lineHeight: 16,
+  },
+  // Resend confirmation & info styles
+  resendBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingVertical: 4,
+  },
+  resendBtnText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  infoText: {
+    color: '#E0E7FF',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  // Custom SPOT Success View styles
+  successContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 36,
+  },
+  successGlowWrap: {
+    marginBottom: 20,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  successIconCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  successDesc: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 20,
+    paddingHorizontal: 12,
+  },
+  accountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161B22',
+    borderWidth: 1,
+    borderColor: '#242C38',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    gap: 8,
+    marginBottom: 12,
+    maxWidth: '92%',
+  },
+  accountBadgeEmail: {
+    color: '#E2E8F0',
+    fontSize: 13,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  onlinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    gap: 5,
+  },
+  onlineDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22C55E',
+  },
+  onlinePillText: {
+    color: '#22C55E',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  successBtn: {
+    width: '100%',
+    marginTop: 12,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 4,
   },
 });
 

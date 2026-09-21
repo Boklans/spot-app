@@ -274,19 +274,19 @@ export default function Experience() {
               </View>
             </View>
           )}
-
-          {/* 5. Bottom Continue Button */}
-          <View style={styles.bottomBar}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Continue"
-              onPress={handleContinue}
-              style={styles.continueBtn}
-            >
-              <Text style={styles.continueBtnText}>{t('continue')}</Text>
-            </Pressable>
-          </View>
         </ScrollView>
+
+        {/* 5. Pinned Bottom Continue Button */}
+        <View style={styles.bottomBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Continue"
+            onPress={handleContinue}
+            style={styles.continueBtn}
+          >
+            <Text style={styles.continueBtnText}>{t('continue')}</Text>
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    height: 48,
+    height: 44,
   },
   backBtn: {
     width: 40,
@@ -319,11 +319,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 36,
-    paddingTop: 12,
+    paddingBottom: 24,
+    paddingTop: 6,
   },
   titleSection: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   title: {
     color: '#FFFFFF',
@@ -456,7 +456,12 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     width: '100%',
-    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 24,
+    backgroundColor: '#0B0D0F',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   continueBtn: {
     width: '100%',

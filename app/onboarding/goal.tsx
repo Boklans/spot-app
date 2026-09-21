@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  Platform,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -120,18 +121,18 @@ export default function Goal() {
             );
           })}
         </View>
+      </View>
 
-        {/* 4. Bottom Continue Button */}
-        <View style={styles.bottomBar}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Continue"
-            onPress={handleContinue}
-            style={styles.continueBtn}
-          >
-            <Text style={styles.continueBtnText}>{t('continue')}</Text>
-          </Pressable>
-        </View>
+      {/* 4. Bottom Continue Button */}
+      <View style={styles.bottomBar}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Continue"
+          onPress={handleContinue}
+          style={styles.continueBtn}
+        >
+          <Text style={styles.continueBtnText}>{t('continue')}</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -147,7 +148,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    height: 48,
+    height: 44,
   },
   backBtn: {
     width: 40,
@@ -165,12 +166,11 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    justifyContent: 'space-between',
-    paddingBottom: 32,
-    paddingTop: 16,
+    paddingTop: 6,
+    paddingBottom: 24,
   },
   titleSection: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   title: {
     color: '#FFFFFF',
@@ -240,6 +240,12 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     width: '100%',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 24,
+    backgroundColor: '#0B0D0F',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   continueBtn: {
     width: '100%',

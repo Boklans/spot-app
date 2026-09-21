@@ -163,6 +163,7 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
         defaultRestSeconds: Number(profileRow.default_rest_seconds) || 90,
         language: profileRow.language || 'uk',
         notifications: true,
+        notificationTime: '09:00',
         soundEnabled: true,
       };
 
@@ -174,6 +175,7 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
         experience: mergedProfile.experience as any,
         trainingFrequency: mergedProfile.workoutsPerWeek,
         equipment: ['full_gym'],
+        completed: true,
       });
     }
 

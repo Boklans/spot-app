@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import { colors } from '@/constants/colors';
 import { hapticImpact, hapticMedium } from '@/lib/haptics';
+import { useI18n } from '@/lib/i18n';
 import {
   loadOnboarding,
   saveOnboarding,
@@ -70,6 +72,7 @@ const SCHEDULE_PATTERNS: Record<number, string[]> = {
 };
 
 export default function Frequency() {
+  const { t } = useI18n();
   const [selectedDays, setSelectedDays] = useState<string[]>(['MON', 'WED', 'FRI']);
   const [selectedDuration, setSelectedDuration] = useState<number>(45);
 
@@ -311,14 +314,14 @@ export default function Frequency() {
       <View style={styles.bottomBar}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Продовжити"
+          accessibilityLabel={t('continue')}
           onPress={handleContinue}
           style={({ pressed }) => [
             styles.continueBtn,
             pressed && styles.continueBtnPressed,
           ]}
         >
-          <Text style={styles.continueText}>Продовжити</Text>
+          <Text style={styles.continueText}>{t('continue')}</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -335,8 +338,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    height: 44,
   },
   backBtn: {
     width: 40,
@@ -347,7 +349,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#161B22',
   },
   stepText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
     color: '#8E9BAE',
     letterSpacing: 0.5,
@@ -360,11 +362,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingTop: 6,
+    paddingBottom: 24,
   },
   titleSection: {
-    marginTop: 16,
-    marginBottom: 20,
+    marginTop: 8,
+    marginBottom: 14,
   },
   title: {
     fontSize: 28,
@@ -576,12 +579,13 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   bottomBar: {
+    width: '100%',
     paddingHorizontal: 20,
-    paddingBottom: 24,
-    paddingTop: 10,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 24,
     backgroundColor: '#0B0D0F',
     borderTopWidth: 1,
-    borderTopColor: '#161B22',
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   continueBtn: {
     backgroundColor: colors.primary,

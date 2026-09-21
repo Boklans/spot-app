@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -497,8 +498,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    height: 44,
   },
   backBtn: {
     width: 40,
@@ -533,11 +533,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 100,
+    paddingTop: 6,
+    paddingBottom: 24,
   },
   header: {
-    marginTop: 16,
-    marginBottom: 20,
+    marginTop: 8,
+    marginBottom: 16,
   },
   eyebrow: {
     fontSize: 11,
@@ -839,12 +840,13 @@ const styles = StyleSheet.create({
     paddingLeft: 10,
   },
   bottomBar: {
+    width: '100%',
     paddingHorizontal: 20,
-    paddingBottom: 24,
-    paddingTop: 10,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 24,
     backgroundColor: '#0B0D0F',
     borderTopWidth: 1,
-    borderTopColor: '#161B22',
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   startBtn: {
     flexDirection: 'row',

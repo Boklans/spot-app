@@ -156,22 +156,22 @@ export default function ParamsSetup() {
               </View>
             </View>
           </View>
-
-          {/* 4. Continue Button */}
-          <View style={styles.bottomBar}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Continue"
-              disabled={!isFormValid}
-              onPress={handleContinue}
-              style={[styles.continueBtn, !isFormValid && styles.continueBtnDisabled]}
-            >
-              <Text style={[styles.continueBtnText, !isFormValid && styles.continueBtnTextDisabled]}>
-                {t('continue')}
-              </Text>
-            </Pressable>
-          </View>
         </ScrollView>
+
+        {/* 4. Pinned Continue Button */}
+        <View style={styles.bottomBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Continue"
+            disabled={!isFormValid}
+            onPress={handleContinue}
+            style={[styles.continueBtn, !isFormValid && styles.continueBtnDisabled]}
+          >
+            <Text style={[styles.continueBtnText, !isFormValid && styles.continueBtnTextDisabled]}>
+              {t('continue')}
+            </Text>
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    height: 48,
+    height: 44,
   },
   backBtn: {
     width: 40,
@@ -204,13 +204,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 32,
-    flexGrow: 1,
-    justifyContent: 'space-between',
+    paddingTop: 6,
+    paddingBottom: 16,
   },
   titleSection: {
-    marginBottom: 28,
+    marginBottom: 18,
   },
   title: {
     color: '#FFFFFF',
@@ -266,7 +264,12 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     width: '100%',
-    marginTop: 'auto',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 24,
+    backgroundColor: '#0B0D0F',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   continueBtn: {
     width: '100%',

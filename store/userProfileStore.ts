@@ -51,6 +51,7 @@ export type UserProfile = {
   defaultRestSeconds: number;
   language: AppLanguage;
   notifications: boolean;
+  notificationTime: string;
   soundEnabled: boolean;
 };
 
@@ -67,6 +68,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   defaultRestSeconds: 150,
   language: 'en',
   notifications: true,
+  notificationTime: '09:00',
   soundEnabled: true,
 };
 
@@ -101,6 +103,10 @@ function normalizeLoadedProfile(parsed: unknown): UserProfile {
     defaultRestSeconds: typeof p.defaultRestSeconds === 'number' ? p.defaultRestSeconds : 150,
     language: p.language === 'uk' ? 'uk' : 'en',
     notifications: typeof p.notifications === 'boolean' ? p.notifications : true,
+    notificationTime:
+      typeof p.notificationTime === 'string' && /^\d{1,2}:\d{2}$/.test(p.notificationTime)
+        ? p.notificationTime
+        : DEFAULT_USER_PROFILE.notificationTime,
     soundEnabled: typeof p.soundEnabled === 'boolean' ? p.soundEnabled : true,
   };
 }
@@ -206,6 +212,17 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
     } catch {
       // Continue
     }
+
+    if (
+      updates.notifications !== undefined ||
+      updates.notificationTime !== undefined ||
+      updates.language !== undefined ||
+      updates.workoutsPerWeek !== undefined
+    ) {
+      import('@/lib/notificationService')
+        .then(({ scheduleWorkoutDayReminders }) => scheduleWorkoutDayReminders())
+        .catch(() => undefined);
+    }
   },
 
   resetProfile: async () => {
@@ -215,5 +232,9 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
     } catch {
       // Continue
     }
+
+    import('@/lib/notificationService')
+      .then(({ cancelAllWorkoutReminders }) => cancelAllWorkoutReminders())
+      .catch(() => undefined);
   },
 }));

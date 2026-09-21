@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dimensions,
   Image,
@@ -16,12 +16,14 @@ import { colors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useUserProfileStore } from '@/store/userProfileStore';
+import { AuthModal } from '@/components/auth/AuthModal';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function Welcome() {
   const { t, language } = useI18n();
   const updateProfile = useUserProfileStore((state) => state.updateProfile);
+  const [authModalVisible, setAuthModalVisible] = useState(false);
 
   const handleGetStarted = () => {
     hapticMedium();
@@ -30,6 +32,11 @@ export default function Welcome() {
 
   const handleLogin = () => {
     hapticMedium();
+    setAuthModalVisible(true);
+  };
+
+  const handleAuthSuccess = () => {
+    setAuthModalVisible(false);
     router.replace('/(tabs)');
   };
 
@@ -132,6 +139,14 @@ export default function Welcome() {
           </Pressable>
         </View>
       </SafeAreaView>
+
+      {/* Cloud Auth / Sign In Modal */}
+      <AuthModal
+        visible={authModalVisible}
+        initialMode="signin"
+        onClose={() => setAuthModalVisible(false)}
+        onSuccess={handleAuthSuccess}
+      />
     </View>
   );
 }
@@ -196,7 +211,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     paddingHorizontal: 20,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 32,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 24,
   },
   centerBlock: {
     alignItems: 'center',
@@ -240,8 +255,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   getStartedBtn: {
-    width: '85%',
-    maxWidth: 320,
+    width: '100%',
     height: 52,
     borderRadius: 26,
     backgroundColor: colors.primary,

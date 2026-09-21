@@ -14,6 +14,13 @@ export default function RootLayout() {
 
   useEffect(() => {
     useAuthStore.getState().init();
+    import('@/lib/notificationService')
+      .then(({ initNotifications, scheduleWorkoutDayReminders }) => {
+        initNotifications().then(() => {
+          scheduleWorkoutDayReminders().catch(() => undefined);
+        });
+      })
+      .catch(() => undefined);
   }, []);
 
   return (

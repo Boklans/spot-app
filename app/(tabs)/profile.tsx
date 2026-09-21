@@ -18,10 +18,15 @@ import { AuthModal } from '@/components/auth/AuthModal';
 import { EditProfileModal } from '@/components/profile/EditProfileModal';
 import { PreferencePickerModal } from '@/components/profile/PreferencePickerModal';
 import { RestTimePickerModal } from '@/components/profile/RestTimePickerModal';
+import { ReminderTimePickerModal } from '@/components/profile/ReminderTimePickerModal';
 import { LanguagePickerModal } from '@/components/profile/LanguagePickerModal';
 import { colors } from '@/constants/colors';
 import { getSyncStatus, subscribeSyncStatus, syncUp, type SyncStatus } from '@/lib/cloudSync';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
+import {
+  requestNotificationPermissions,
+  sendTestNotification,
+} from '@/lib/notificationService';
 import { useI18n } from '@/lib/i18n';
 import { useAuthStore } from '@/store/authStore';
 import { useProgramProgressStore } from '@/store/programProgressStore';
@@ -74,9 +79,11 @@ export default function Profile() {
   // Modals
   const [editProfileVisible, setEditProfileVisible] = useState(false);
   const [restModalVisible, setRestModalVisible] = useState(false);
+  const [reminderModalVisible, setReminderModalVisible] = useState(false);
   const [langModalVisible, setLangModalVisible] = useState(false);
   const [proModalVisible, setProModalVisible] = useState(false);
   const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [isSendingTest, setIsSendingTest] = useState(false);
 
   // Auth & Sync State
   const user = useAuthStore((state) => state.user);
@@ -221,6 +228,55 @@ export default function Profile() {
       : program.splitType === 'custom'
       ? 'Custom Routine'
       : 'Upper / Lower';
+
+  const handleToggleNotifications = async (val: boolean) => {
+    hapticLight();
+    if (val) {
+      const granted = await requestNotificationPermissions();
+      if (!granted) {
+        Alert.alert(
+          language === 'uk' ? 'Потрібен дозвіл' : 'Permission Required',
+          language === 'uk'
+            ? 'Будь ласка, увімкніть дозвіл на сповіщення в системних налаштуваннях телефона.'
+            : 'Please allow notification permissions in your device settings.'
+        );
+      }
+    }
+    await updateProfile({ notifications: val });
+  };
+
+  const handleSendTestNotification = async () => {
+    hapticMedium();
+    setIsSendingTest(true);
+    try {
+      const res = await sendTestNotification();
+      if (res.success) {
+        hapticSuccess();
+        Alert.alert(
+          language === 'uk' ? '⚡ Тестове сповіщення' : '⚡ Test Notification',
+          language === 'uk'
+            ? `Сповіщення спрацює за 1-2 секунди:\n\n"${res.message}"`
+            : `Notification will arrive in 1-2 seconds:\n\n"${res.message}"`
+        );
+      } else if (res.error === 'permission_denied') {
+        Alert.alert(
+          language === 'uk' ? 'Потрібен дозвіл' : 'Permission Required',
+          language === 'uk'
+            ? 'Будь ласка, дозвольте сповіщення для SPOT у налаштуваннях пристрою.'
+            : 'Please enable notifications for SPOT in system settings.'
+        );
+      } else {
+        Alert.alert(
+          language === 'uk' ? 'Помилка' : 'Error',
+          res.error || t('testNotificationError')
+        );
+      }
+    } catch {
+      Alert.alert(language === 'uk' ? 'Помилка' : 'Error', t('testNotificationError'));
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -567,31 +623,91 @@ export default function Profile() {
             </View>
           </Pressable>
 
-          {/* Notifications */}
+          {/* Notifications Toggle */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Toggle Notifications"
-            onPress={() => {
-              hapticLight();
-              updateProfile({ notifications: !profile.notifications });
-            }}
+            onPress={() => handleToggleNotifications(!profile.notifications)}
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
           >
             <View style={styles.rowLeftWithIcon}>
               <Ionicons name="notifications-outline" size={20} color="#8E9BAE" />
-              <Text style={styles.rowTitle}>{t('notifications')}</Text>
+              <View>
+                <Text style={styles.rowTitle}>{t('notifications')}</Text>
+                <Text style={styles.rowSubtitle}>
+                  {profile.notifications
+                    ? (language === 'uk' ? 'Розумні нагадування в день тренування' : 'Smart workout day reminders')
+                    : (language === 'uk' ? 'Вимкнено' : 'Disabled')}
+                </Text>
+              </View>
             </View>
             <Switch
               trackColor={{ false: '#1A212B', true: colors.primary }}
               thumbColor={profile.notifications ? '#0B0D0F' : '#8E9BAE'}
               ios_backgroundColor="#1A212B"
-              onValueChange={(val) => {
-                hapticLight();
-                updateProfile({ notifications: val });
-              }}
+              onValueChange={handleToggleNotifications}
               value={profile.notifications}
             />
           </Pressable>
+
+          {/* Reminder Time & Test Notification (when enabled) */}
+          {profile.notifications && (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Set Reminder Time"
+                onPress={() => {
+                  hapticLight();
+                  setReminderModalVisible(true);
+                }}
+                style={({ pressed }) => [styles.row, styles.subRow, pressed && styles.rowPressed]}
+              >
+                <View style={styles.rowLeftWithIcon}>
+                  <Ionicons name="time-outline" size={18} color={colors.primary} />
+                  <View>
+                    <Text style={styles.rowTitle}>{t('reminderTime')}</Text>
+                    <Text style={styles.rowSubtitle}>{t('reminderTimeDesc')}</Text>
+                  </View>
+                </View>
+                <View style={styles.valueRow}>
+                  <Text style={styles.valuePill}>{profile.notificationTime || '09:00'}</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#8E9BAE" />
+                </View>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Send Test Notification"
+                disabled={isSendingTest}
+                onPress={handleSendTestNotification}
+                style={({ pressed }) => [
+                  styles.row,
+                  styles.subRow,
+                  pressed && styles.rowPressed,
+                  isSendingTest && { opacity: 0.6 },
+                ]}
+              >
+                <View style={styles.rowLeftWithIcon}>
+                  <Ionicons name="paper-plane-outline" size={18} color={colors.primary} />
+                  <View>
+                    <Text style={[styles.rowTitle, { color: colors.primary }]}>
+                      {t('sendTestNotification')}
+                    </Text>
+                    <Text style={styles.rowSubtitle}>
+                      {language === 'uk'
+                        ? 'Перевірити вигляд сповіщення зараз'
+                        : 'Preview notification message right now'}
+                    </Text>
+                  </View>
+                </View>
+                {isSendingTest ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Ionicons name="send" size={15} color={colors.primary} />
+                )}
+              </Pressable>
+            </>
+          )}
 
           {/* Sound Effects */}
           <Pressable
@@ -828,6 +944,13 @@ export default function Profile() {
         onClose={() => setRestModalVisible(false)}
       />
 
+      <ReminderTimePickerModal
+        visible={reminderModalVisible}
+        currentTime={profile.notificationTime || '09:00'}
+        onSelect={(time) => updateProfile({ notificationTime: time })}
+        onClose={() => setReminderModalVisible(false)}
+      />
+
       <LanguagePickerModal
         visible={langModalVisible}
         currentLanguage={profile.language}
@@ -855,7 +978,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 6,
     paddingBottom: 40,
   },
   headerCard: {
@@ -1062,6 +1185,10 @@ const styles = StyleSheet.create({
   },
   rowPressed: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  subRow: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    paddingLeft: 22,
   },
   rowLeftWithIcon: {
     flexDirection: 'row',

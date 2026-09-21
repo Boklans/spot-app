@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    height: 48,
+    height: 44,
   },
   backBtn: {
     width: 40,
@@ -267,11 +268,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 110,
+    paddingTop: 6,
+    paddingBottom: 24,
   },
   header: {
-    marginBottom: 20,
+    marginTop: 8,
+    marginBottom: 16,
   },
   title: {
     color: '#FFFFFF',
@@ -450,18 +452,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    width: '100%',
     paddingHorizontal: 20,
-    paddingBottom: 28,
     paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 24,
     backgroundColor: '#0B0D0F',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   continueBtn: {
+    width: '100%',
     height: 52,
     borderRadius: 26,
     backgroundColor: colors.primary,
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 4,
   },

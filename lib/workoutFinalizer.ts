@@ -32,5 +32,10 @@ export async function finalizeWorkoutSession(session: WorkoutSession): Promise<C
 
   await hapticSuccess();
   syncCompletedWorkout(snapshot).catch(() => undefined);
+
+  import('@/lib/notificationService')
+    .then(({ scheduleWorkoutDayReminders }) => scheduleWorkoutDayReminders())
+    .catch(() => undefined);
+
   return snapshot;
 }

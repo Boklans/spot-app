@@ -250,7 +250,7 @@ export default function Home() {
       : 'Chest • Back • Arms';
 
   return (
-    <Screen>
+    <Screen style={styles.screenContent}>
       {/* 1. Header */}
       <View style={styles.header}>
         <Text style={styles.greetingTitle}>
@@ -497,23 +497,27 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
+  screenContent: {
+    paddingTop: 6,
+    paddingHorizontal: 20,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
-    marginTop: 4,
+    marginBottom: 14,
+    marginTop: 0,
   },
   greetingTitle: {
-    fontSize: 24,
+    fontSize: 23,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.4,
   },
   headerIconBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -521,8 +525,8 @@ const styles = StyleSheet.create({
   readinessRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 28,
-    gap: 18,
+    marginBottom: 16,
+    gap: 16,
   },
   readinessPercentText: {
     fontSize: 21,
