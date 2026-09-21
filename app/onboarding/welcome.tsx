@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   safeContent: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingHorizontal: 28,
+    paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 24 : 32,
   },
   centerBlock: {
@@ -173,9 +173,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   getStartedBtn: {
-    width: '74%',
-    maxWidth: 270,
-    minWidth: 220,
+    width: '100%',
     height: 52,
     borderRadius: 26,
     backgroundColor: colors.primary,
