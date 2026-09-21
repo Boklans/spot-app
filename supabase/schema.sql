@@ -60,24 +60,30 @@ ALTER TABLE public.workout_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.body_weight_logs ENABLE ROW LEVEL SECURITY;
 
 -- Profiles Policies
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile" ON public.profiles
   FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- User Programs Policies
+DROP POLICY IF EXISTS "Users can manage own programs" ON public.user_programs;
 CREATE POLICY "Users can manage own programs" ON public.user_programs
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- Workout History Policies
+DROP POLICY IF EXISTS "Users can manage own workout history" ON public.workout_history;
 CREATE POLICY "Users can manage own workout history" ON public.workout_history
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- Body Weight Logs Policies
+DROP POLICY IF EXISTS "Users can manage own weight logs" ON public.body_weight_logs;
 CREATE POLICY "Users can manage own weight logs" ON public.body_weight_logs
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
