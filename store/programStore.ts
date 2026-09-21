@@ -7,6 +7,7 @@ import { defaultOnboarding, loadOnboarding, type OnboardingData } from '@/store/
 import type { UserProgram } from '@/types/userProgram';
 
 export const USER_PROGRAM_STORAGE_KEY = 'spot-user-program';
+export const CUSTOM_PROGRAM_STORAGE_KEY = 'spot-custom-program';
 export const LEGACY_PROGRAM_STORAGE_KEY = 'spot-active-program';
 export const ACTIVE_PROGRAM_STORAGE_KEY = USER_PROGRAM_STORAGE_KEY;
 
@@ -16,6 +17,7 @@ type ProgramState = {
   loadProgram: () => Promise<UserProgram>;
   refreshProgram: (onboarding?: OnboardingData) => Promise<UserProgram>;
   updateUserProgram: (updatedProgram: UserProgram) => Promise<void>;
+  setCustomProgram: (customProgram: UserProgram) => Promise<void>;
   getOrLoadProgram: () => Promise<UserProgram>;
 };
 
@@ -82,6 +84,15 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         return parsedUserProgram;
       }
 
+      const storedCustom = await AsyncStorage.getItem(CUSTOM_PROGRAM_STORAGE_KEY);
+      const parsedCustom = parseStoredUserProgram(storedCustom);
+      if (parsedCustom) {
+        await AsyncStorage.setItem(USER_PROGRAM_STORAGE_KEY, JSON.stringify(parsedCustom));
+        set({ program: parsedCustom, hydrated: true });
+        await useProgramProgressStore.getState().loadProgress(parsedCustom);
+        return parsedCustom;
+      }
+
       const storedLegacyProgram = await AsyncStorage.getItem(LEGACY_PROGRAM_STORAGE_KEY);
       const parsedLegacyProgram = parseStoredLegacyProgram(storedLegacyProgram);
 
@@ -111,6 +122,23 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
 
   refreshProgram: async (onboarding?: OnboardingData) => {
     const data = onboarding ?? (await loadOnboarding()) ?? defaultOnboarding;
+
+    // If split preference is 'custom', check if we have a saved custom program first
+    if (data.splitPreference === 'custom') {
+      try {
+        const savedCustom = await AsyncStorage.getItem(CUSTOM_PROGRAM_STORAGE_KEY);
+        const parsedCustom = parseStoredUserProgram(savedCustom);
+        if (parsedCustom) {
+          await AsyncStorage.setItem(USER_PROGRAM_STORAGE_KEY, JSON.stringify(parsedCustom));
+          set({ program: parsedCustom, hydrated: true });
+          await useProgramProgressStore.getState().loadProgress(parsedCustom);
+          return parsedCustom;
+        }
+      } catch {
+        // Fallback to generate
+      }
+    }
+
     const generated = generateProgram(data);
     const userProgram = migrateGeneratedToUserProgram(generated);
 
@@ -127,19 +155,37 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
   },
 
   updateUserProgram: async (updatedProgram: UserProgram) => {
-    const updated: UserProgram = {
-      ...updatedProgram,
-      updatedAt: new Date().toISOString(),
-    };
+    const cloned: UserProgram = JSON.parse(JSON.stringify(updatedProgram));
+    cloned.updatedAt = new Date().toISOString();
 
     try {
-      await AsyncStorage.setItem(USER_PROGRAM_STORAGE_KEY, JSON.stringify(updated));
+      await AsyncStorage.setItem(USER_PROGRAM_STORAGE_KEY, JSON.stringify(cloned));
+      if (cloned.splitType === 'custom') {
+        await AsyncStorage.setItem(CUSTOM_PROGRAM_STORAGE_KEY, JSON.stringify(cloned));
+      }
     } catch {
       // Storage write error ignored
     }
 
-    set({ program: updated, hydrated: true });
-    await useProgramProgressStore.getState().loadProgress(updated);
+    set({ program: cloned, hydrated: true });
+    await useProgramProgressStore.getState().loadProgress(cloned);
+  },
+
+  setCustomProgram: async (customProgram: UserProgram) => {
+    const cloned: UserProgram = JSON.parse(JSON.stringify(customProgram));
+    cloned.splitType = 'custom';
+    cloned.updatedAt = new Date().toISOString();
+
+    try {
+      await AsyncStorage.setItem(CUSTOM_PROGRAM_STORAGE_KEY, JSON.stringify(cloned));
+      await AsyncStorage.setItem(USER_PROGRAM_STORAGE_KEY, JSON.stringify(cloned));
+      await AsyncStorage.removeItem(LEGACY_PROGRAM_STORAGE_KEY);
+    } catch {
+      // Storage write error ignored
+    }
+
+    set({ program: cloned, hydrated: true });
+    await useProgramProgressStore.getState().loadProgress(cloned);
   },
 
   getOrLoadProgram: async () => {

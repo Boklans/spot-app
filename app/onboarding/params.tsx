@@ -25,30 +25,38 @@ export default function ParamsSetup() {
   const [name, setName] = useState('');
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
+  const hasHydratedRef = React.useRef(false);
 
   const isUk = language === 'uk';
 
   useEffect(() => {
+    if (hasHydratedRef.current) return;
+    hasHydratedRef.current = true;
+
     loadOnboarding().then((data) => {
       if (data?.name) setName(data.name);
       if (data?.weightKg) setWeight(String(fromKg(data.weightKg)));
       if (data?.heightCm) setHeight(String(data.heightCm));
     });
-  }, [fromKg]);
+  }, []);
+
+  const isNameValid = name.trim().length >= 2;
+  const parsedWeight = parseFloat(weight.replace(',', '.'));
+  const weightInKg = !isNaN(parsedWeight) ? toKg(parsedWeight) : 0;
+  const isWeightValid = weightInKg >= 20 && weightInKg <= 300;
+  const parsedHeight = parseFloat(height.replace(',', '.'));
+  const isHeightValid = !isNaN(parsedHeight) && parsedHeight >= 100 && parsedHeight <= 250;
+
+  const isFormValid = isNameValid && isWeightValid && isHeightValid;
 
   const handleContinue = async () => {
+    if (!isFormValid) return;
     hapticMedium();
 
-    const parsedWeight = parseFloat(weight.replace(',', '.'));
-    const parsedHeight = parseFloat(height.replace(',', '.'));
-
-    const weightKg = !isNaN(parsedWeight) && parsedWeight > 20 ? toKg(parsedWeight) : 75;
-    const heightCm = !isNaN(parsedHeight) && parsedHeight > 100 ? parsedHeight : 178;
-
     await saveOnboarding({
-      name: name.trim() || (isUk ? 'Атлет' : 'Athlete'),
-      weightKg,
-      heightCm,
+      name: name.trim(),
+      weightKg: Math.round(weightInKg * 10) / 10,
+      heightCm: Math.round(parsedHeight),
     });
 
     router.push('/onboarding/experience');
@@ -154,10 +162,13 @@ export default function ParamsSetup() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Continue"
+              disabled={!isFormValid}
               onPress={handleContinue}
-              style={styles.continueBtn}
+              style={[styles.continueBtn, !isFormValid && styles.continueBtnDisabled]}
             >
-              <Text style={styles.continueBtnText}>{t('continue')}</Text>
+              <Text style={[styles.continueBtnText, !isFormValid && styles.continueBtnTextDisabled]}>
+                {t('continue')}
+              </Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -270,10 +281,19 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 4,
   },
+  continueBtnDisabled: {
+    backgroundColor: '#1E2530',
+    opacity: 0.45,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   continueBtnText: {
     color: '#0B0D0F',
     fontSize: 16,
     fontWeight: '900',
+  },
+  continueBtnTextDisabled: {
+    color: '#717B8A',
   },
 });
 

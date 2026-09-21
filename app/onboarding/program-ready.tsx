@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Pressable,
@@ -27,7 +27,7 @@ import {
   type OnboardingData,
   type WorkoutSplitPreference,
 } from '@/store/workoutStore';
-import type { UserWorkout } from '@/types/userProgram';
+import type { UserProgram, UserWorkout } from '@/types/userProgram';
 
 interface SplitChoice {
   id: WorkoutSplitPreference;
@@ -84,13 +84,28 @@ export default function ProgramReady() {
   // Track whether user manually edited the program so we persist edits instead of regenerating
   const [hasEdits, setHasEdits] = useState(false);
 
-  useEffect(() => {
-    loadOnboarding().then((data) => {
-      const next = data ?? defaultOnboarding;
-      setOnboarding(next);
-      setProgram(generateProgram(next));
-    });
+  const syncProgramState = React.useCallback(async () => {
+    const data = (await loadOnboarding()) ?? defaultOnboarding;
+    setOnboarding(data);
+
+    const storeProg = useProgramStore.getState().program;
+    if (data.splitPreference === 'custom' && storeProg && storeProg.splitType === 'custom') {
+      setProgram(storeProg as unknown as GeneratedProgram);
+      setHasEdits(true);
+    } else {
+      setProgram(generateProgram(data));
+    }
   }, []);
+
+  useEffect(() => {
+    syncProgramState();
+  }, [syncProgramState]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      syncProgramState();
+    }, [syncProgramState])
+  );
 
   const handleSelectSplit = async (splitId: WorkoutSplitPreference) => {
     hapticMedium();
@@ -99,7 +114,18 @@ export default function ProgramReady() {
       splitPreference: splitId,
     };
     setOnboarding(updated);
-    setProgram(generateProgram(updated));
+    if (splitId === 'custom') {
+      const storeProg = useProgramStore.getState().program;
+      if (storeProg && storeProg.splitType === 'custom') {
+        setProgram(storeProg as unknown as GeneratedProgram);
+        setHasEdits(true);
+      } else {
+        setProgram(generateProgram(updated));
+      }
+    } else {
+      setProgram(generateProgram(updated));
+      setHasEdits(false);
+    }
     await saveOnboarding(updated);
   };
 
@@ -148,7 +174,7 @@ export default function ProgramReady() {
     description: program.description ?? '',
     daysPerWeek: program.daysPerWeek,
     estimatedWorkoutMinutes: program.estimatedWorkoutMinutes,
-    splitType: (isCustom ? 'custom' : program.splitType) as typeof program.splitType,
+    splitType: 'custom' as const,
     workouts: program.workouts.map((w) => ({
       id: w.id,
       name: w.name,
@@ -164,7 +190,7 @@ export default function ProgramReady() {
         recommendedWeight: ex.recommendedWeight,
         targetRepRange: ex.targetRepRange ?? '8-12',
         equipment: ex.equipment,
-        weightIncrement: ex.weightIncrement,
+        weightIncrement: ex.weightIncrement ?? 2.5,
         restSeconds: ex.restSeconds,
       })),
     })),
@@ -174,10 +200,11 @@ export default function ProgramReady() {
     hapticMedium();
     const updated = { ...onboarding, completed: true, splitPreference: 'custom' as WorkoutSplitPreference };
     await saveOnboarding(updated);
-    if (hasEdits) {
-      await useProgramStore.getState().updateUserProgram(buildUserProgramFromLocal());
+    const storeProg = useProgramStore.getState().program;
+    if (storeProg?.splitType === 'custom' && !hasEdits) {
+      // Custom program already in store
     } else {
-      await useProgramStore.getState().refreshProgram(updated);
+      await useProgramStore.getState().setCustomProgram(buildUserProgramFromLocal() as unknown as UserProgram);
     }
     router.push('/program/edit');
   };
@@ -186,8 +213,11 @@ export default function ProgramReady() {
     hapticSuccess();
     const updated = { ...onboarding, completed: true };
     await saveOnboarding(updated);
-    if (hasEdits) {
-      await useProgramStore.getState().updateUserProgram(buildUserProgramFromLocal());
+    const storeProgram = useProgramStore.getState().program;
+    if (onboarding.splitPreference === 'custom' || storeProgram?.splitType === 'custom') {
+      if (hasEdits) {
+        await useProgramStore.getState().setCustomProgram(buildUserProgramFromLocal() as unknown as UserProgram);
+      }
     } else {
       await useProgramStore.getState().refreshProgram(updated);
     }

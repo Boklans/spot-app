@@ -21,6 +21,7 @@ import { generateUUID } from '@/lib/programMigration';
 import { getWorkoutDayLabel } from '@/lib/programGenerator';
 import { useI18n } from '@/lib/i18n';
 import { useProgramStore } from '@/store/programStore';
+import { loadOnboarding, saveOnboarding } from '@/store/workoutStore';
 import type { UserExercise, UserProgram, UserWorkout } from '@/types/userProgram';
 
 export default function ProgramEdit() {
@@ -260,10 +261,26 @@ export default function ProgramEdit() {
       return;
     }
 
-    await updateUserProgram({
+    const customProgram: UserProgram = {
       ...draft,
       name: trimmed,
-    });
+      splitType: 'custom',
+    };
+
+    await updateUserProgram(customProgram);
+
+    try {
+      const currentOnboarding = await loadOnboarding();
+      if (currentOnboarding) {
+        await saveOnboarding({
+          ...currentOnboarding,
+          splitPreference: 'custom',
+        });
+      }
+    } catch {
+      // Storage error ignored
+    }
+
     hapticSuccess();
     router.back();
   };

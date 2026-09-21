@@ -441,65 +441,111 @@ export function calibrateInitialWeight(
   if (baselineLifts && exerciseName) {
     const lower = exerciseName.toLowerCase();
 
-    // Bench Press related (working weight ~75% of 1RM for 8 reps)
+    // Bench Press related
     if (baselineLifts.benchPressKg && baselineLifts.benchPressKg > 0) {
       const bench = baselineLifts.benchPressKg;
-      if (lower.includes('bench press') && lower.includes('barbell') && !lower.includes('incline')) {
+      if (
+        lower === 'bench press' ||
+        (lower.includes('bench press') &&
+          !lower.includes('incline') &&
+          !lower.includes('dumbbell') &&
+          !lower.includes('close-grip') &&
+          !lower.includes('machine'))
+      ) {
+        return Math.max(20, Math.round(bench / 2.5) * 2.5);
+      }
+      if (lower.includes('incline') && lower.includes('bench')) {
+        return Math.max(20, Math.round((bench * 0.85) / 2.5) * 2.5);
+      }
+      if (
+        lower.includes('dumbbell') &&
+        (lower.includes('bench') || (lower.includes('press') && lower.includes('incline')))
+      ) {
+        return Math.max(4, Math.round((bench * 0.38) / 2) * 2);
+      }
+      if (lower.includes('close-grip')) {
         return Math.max(20, Math.round((bench * 0.75) / 2.5) * 2.5);
       }
-      if (lower.includes('incline') && lower.includes('barbell')) {
-        return Math.max(20, Math.round((bench * 0.62) / 2.5) * 2.5);
-      }
-      if (lower.includes('dumbbell') && lower.includes('press') && lower.includes('bench')) {
-        return Math.max(4, Math.round((bench * 0.32) / 2) * 2);
-      }
-      if (lower.includes('chest fly') || lower.includes('machine chest')) {
-        return Math.max(10, Math.round((bench * 0.5) / 2.5) * 2.5);
+      if (lower.includes('chest fly') || lower.includes('chest press')) {
+        return Math.max(10, Math.round((bench * 0.7) / 2.5) * 2.5);
       }
     }
 
     // Squat related
     if (baselineLifts.squatKg && baselineLifts.squatKg > 0) {
       const squat = baselineLifts.squatKg;
-      if (lower.includes('squat') && lower.includes('barbell') && !lower.includes('bulgarian')) {
-        return Math.max(20, Math.round((squat * 0.75) / 2.5) * 2.5);
+      if (
+        lower === 'squat' ||
+        (lower.includes('squat') &&
+          !lower.includes('bulgarian') &&
+          !lower.includes('goblet') &&
+          !lower.includes('bodyweight'))
+      ) {
+        return Math.max(20, Math.round(squat / 2.5) * 2.5);
       }
       if (lower.includes('leg press')) {
-        return Math.max(20, Math.round((squat * 1.3) / 5) * 5);
+        return Math.max(40, Math.round((squat * 1.5) / 5) * 5);
       }
-      if (lower.includes('leg extension') || lower.includes('leg curl')) {
-        return Math.max(10, Math.round((squat * 0.35) / 2.5) * 2.5);
+      if (lower.includes('goblet squat')) {
+        return Math.max(6, Math.round((squat * 0.35) / 2) * 2);
       }
-      if (lower.includes('bulgarian')) {
-        return Math.max(4, Math.round((squat * 0.15) / 2) * 2);
+      if (lower.includes('leg extension')) {
+        return Math.max(10, Math.round((squat * 0.45) / 2.5) * 2.5);
+      }
+      if (lower.includes('bulgarian') || lower.includes('step-up')) {
+        return Math.max(4, Math.round((squat * 0.2) / 2) * 2);
+      }
+      if (lower.includes('barbell lunges') || (lower.includes('lunges') && equipment === 'barbell')) {
+        return Math.max(20, Math.round((squat * 0.5) / 2.5) * 2.5);
+      }
+      if (lower.includes('lunges')) {
+        return Math.max(4, Math.round((squat * 0.2) / 2) * 2);
       }
     }
 
     // Deadlift related
     if (baselineLifts.deadliftKg && baselineLifts.deadliftKg > 0) {
       const deadlift = baselineLifts.deadliftKg;
-      if (lower.includes('deadlift')) {
+      if (lower === 'deadlift') {
+        return Math.max(20, Math.round(deadlift / 2.5) * 2.5);
+      }
+      if (lower.includes('romanian deadlift')) {
+        if (equipment === 'dumbbells') {
+          return Math.max(4, Math.round((deadlift * 0.3) / 2) * 2);
+        }
         return Math.max(20, Math.round((deadlift * 0.75) / 2.5) * 2.5);
       }
       if (lower.includes('barbell row') || lower.includes('bent over row')) {
-        return Math.max(20, Math.round((deadlift * 0.55) / 2.5) * 2.5);
+        return Math.max(20, Math.round((deadlift * 0.6) / 2.5) * 2.5);
       }
-      if (lower.includes('lat pulldown') || lower.includes('seated cable row')) {
-        return Math.max(15, Math.round((deadlift * 0.45) / 2.5) * 2.5);
+      if (lower.includes('dumbbell row')) {
+        return Math.max(4, Math.round((deadlift * 0.25) / 2) * 2);
+      }
+      if (lower.includes('lat pulldown') || lower.includes('seated row')) {
+        return Math.max(15, Math.round((deadlift * 0.5) / 2.5) * 2.5);
+      }
+      if (lower.includes('leg curl')) {
+        return Math.max(10, Math.round((deadlift * 0.35) / 2.5) * 2.5);
       }
     }
 
     // Overhead Press related
     if (baselineLifts.overheadPressKg && baselineLifts.overheadPressKg > 0) {
       const ohp = baselineLifts.overheadPressKg;
-      if (lower.includes('overhead') || lower.includes('shoulder press')) {
+      if (lower === 'overhead press' || (lower.includes('overhead') && !lower.includes('extension'))) {
         if (equipment === 'dumbbells') {
-          return Math.max(4, Math.round((ohp * 0.35) / 2) * 2);
+          return Math.max(4, Math.round((ohp * 0.42) / 2) * 2);
         }
-        return Math.max(20, Math.round((ohp * 0.75) / 2.5) * 2.5);
+        return Math.max(20, Math.round(ohp / 2.5) * 2.5);
+      }
+      if (lower.includes('shoulder press')) {
+        if (equipment === 'dumbbells') {
+          return Math.max(4, Math.round((ohp * 0.42) / 2) * 2);
+        }
+        return Math.max(10, Math.round((ohp * 0.75) / 2.5) * 2.5);
       }
       if (lower.includes('lateral raise')) {
-        return Math.max(2, Math.round((ohp * 0.18) / 1) * 1);
+        return Math.max(2, Math.round((ohp * 0.2) / 1) * 1);
       }
     }
   }

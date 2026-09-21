@@ -543,10 +543,10 @@ export default function Profile() {
           {/* Language Selector */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Change Language"
+            accessibilityLabel="Toggle Language"
             onPress={() => {
               hapticLight();
-              setLangModalVisible(true);
+              updateProfile({ language: profile.language === 'uk' ? 'en' : 'uk' });
             }}
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
           >
@@ -563,7 +563,7 @@ export default function Profile() {
               <Text style={styles.valuePill}>
                 {profile.language === 'uk' ? '🇺🇦 UK' : '🇺🇸 EN'}
               </Text>
-              <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+              <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
             </View>
           </Pressable>
 

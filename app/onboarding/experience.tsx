@@ -30,8 +30,12 @@ export default function Experience() {
   const [ohpText, setOhpText] = useState('');
 
   const isUk = language === 'uk';
+  const hasHydratedRef = React.useRef(false);
 
   React.useEffect(() => {
+    if (hasHydratedRef.current) return;
+    hasHydratedRef.current = true;
+
     loadOnboarding().then((data) => {
       if (data?.experience) {
         setSelected(data.experience);
@@ -44,7 +48,7 @@ export default function Experience() {
         if (typeof overheadPressKg === 'number') setOhpText(String(fromKg(overheadPressKg)));
       }
     });
-  }, [fromKg]);
+  }, []);
 
   const experienceOptions: Array<{
     value: OnboardingExperience;
