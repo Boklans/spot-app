@@ -83,7 +83,8 @@ export default function Input() {
 
   const [extraWeights, setExtraWeights] = useState<number[]>(() => {
     const rounded = Math.round(currentDisplayWeight * 10) / 10;
-    if (rounded > 0 && rounded % weightStep !== 0) {
+    const inBase = baseWeightList.some((w) => Math.abs(w - rounded) < 0.05);
+    if (rounded > 0 && !inBase) {
       return [rounded];
     }
     return [];
@@ -92,7 +93,14 @@ export default function Input() {
   const weightList = useMemo(() => {
     if (extraWeights.length === 0) return baseWeightList;
     const combined = [...baseWeightList, ...extraWeights];
-    return Array.from(new Set(combined)).sort((a, b) => a - b);
+    // Filter duplicates using epsilon
+    const unique: number[] = [];
+    for (const val of combined.sort((a, b) => a - b)) {
+      if (!unique.some((u) => Math.abs(u - val) < 0.05)) {
+        unique.push(val);
+      }
+    }
+    return unique;
   }, [baseWeightList, extraWeights]);
 
   const repsList = useMemo(() => {
@@ -160,7 +168,8 @@ export default function Input() {
     const parsed = parseFloat(customWeightText.replace(',', '.'));
     if (!isNaN(parsed) && parsed >= 0 && parsed <= 999) {
       const rounded = Math.round(parsed * 10) / 10;
-      if (!weightList.includes(rounded)) {
+      const alreadyInList = weightList.some((w) => Math.abs(w - rounded) < 0.05);
+      if (!alreadyInList) {
         setExtraWeights((prev) => [...prev, rounded]);
       }
       handleSelectWeight(rounded);
