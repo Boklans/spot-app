@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type OnboardingGoal = 'build_muscle' | 'get_stronger' | 'lose_fat' | 'recomposition';
 export type OnboardingExperience = 'beginner' | 'intermediate' | 'advanced';
-export type WorkoutSplitPreference = 'full_body' | 'upper_lower' | 'push_pull_legs' | 'custom';
+export type WorkoutSplitPreference = 'full_body' | 'upper_lower' | 'push_pull_legs' | 'custom' | 'blank';
 
 export type OnboardingData = {
   name: string;

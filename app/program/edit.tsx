@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -20,7 +21,7 @@ import { generateUUID } from '@/lib/programMigration';
 import { getWorkoutDayLabel } from '@/lib/programGenerator';
 import { useI18n } from '@/lib/i18n';
 import { useProgramStore } from '@/store/programStore';
-import type { UserExercise, UserProgram } from '@/types/userProgram';
+import type { UserExercise, UserProgram, UserWorkout } from '@/types/userProgram';
 
 export default function ProgramEdit() {
   const { t, tm, td, language } = useI18n();
@@ -101,6 +102,29 @@ export default function ProgramEdit() {
     if (selectedWorkoutId === workoutId) {
       setSelectedWorkoutId(null);
     }
+  };
+
+  const handleAddNewWorkout = () => {
+    hapticMedium();
+    const count = draft.workouts.length;
+    const letter = String.fromCharCode(65 + count);
+    const newWorkout: UserWorkout = {
+      id: generateUUID(),
+      name: language === 'uk' ? `Тренування ${letter}` : `Workout ${letter}`,
+      dayLabel: `Day ${count + 1}`,
+      muscleGroups: [],
+      estimatedMinutes: 45,
+      defaultRestSeconds: 90,
+      exercises: [],
+    };
+
+    setDraft((prev) => ({
+      ...prev,
+      daysPerWeek: Math.min(7, prev.workouts.length + 1),
+      workouts: [...prev.workouts, newWorkout],
+    }));
+
+    setSelectedWorkoutId(newWorkout.id);
   };
 
   // Workout Level Handlers
@@ -514,6 +538,20 @@ export default function ProgramEdit() {
             );
           })}
 
+          {selectedWorkout.exercises.length === 0 && (
+            <View style={styles.emptyWorkoutCard}>
+              <Ionicons name="barbell-outline" size={36} color="#6C7A8E" style={{ marginBottom: 8 }} />
+              <Text style={styles.emptyWorkoutTitle}>
+                {language === 'uk' ? 'У тренуванні ще немає вправ' : 'No exercises yet'}
+              </Text>
+              <Text style={styles.emptyWorkoutSubtitle}>
+                {language === 'uk'
+                  ? 'Натисніть кнопку нижче, щоб додати вправи з каталогу'
+                  : 'Tap the button below to add exercises from library'}
+              </Text>
+            </View>
+          )}
+
           {/* Add Exercise Button */}
           <Pressable
             accessibilityRole="button"
@@ -656,6 +694,18 @@ export default function ProgramEdit() {
             </Card>
           );
         })}
+
+        {/* Add Workout Button */}
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleAddNewWorkout}
+          style={({ pressed }) => [styles.addWorkoutButton, pressed && styles.buttonPressed]}
+        >
+          <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+          <Text style={styles.addWorkoutText}>
+            {language === 'uk' ? 'ДОДАТИ НОВЕ ТРЕНУВАННЯ' : 'ADD NEW WORKOUT'}
+          </Text>
+        </Pressable>
       </View>
 
       {/* Bottom Save / Cancel Controls */}
@@ -1003,5 +1053,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.8,
+  },
+  addWorkoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    backgroundColor: 'rgba(200, 255, 61, 0.05)',
+    marginTop: spacing.md,
+  },
+  addWorkoutText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  emptyWorkoutCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+    borderRadius: 16,
+    backgroundColor: '#12161D',
+    borderWidth: 1,
+    borderColor: '#1E2530',
+    marginBottom: spacing.md,
+  },
+  emptyWorkoutTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  emptyWorkoutSubtitle: {
+    color: '#8E959F',
+    fontSize: 13,
+    textAlign: 'center',
+    maxWidth: 280,
   },
 });

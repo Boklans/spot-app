@@ -1,7 +1,7 @@
 import { useUserProfileStore } from '@/store/userProfileStore';
 import type { OnboardingData } from '@/store/workoutStore';
 
-export type WorkoutSplitType = 'upper_lower' | 'full_body' | 'push_pull_legs' | 'custom';
+export type WorkoutSplitType = 'upper_lower' | 'full_body' | 'push_pull_legs' | 'custom' | 'blank';
 export type EquipmentId = 'full_gym' | 'dumbbells' | 'barbell' | 'machines' | 'bodyweight';
 export type GoalId = OnboardingData['goal'];
 
@@ -65,6 +65,8 @@ export function formatSplitLabel(splitType: WorkoutSplitType): string {
       return 'Push · Pull · Legs';
     case 'custom':
       return 'Custom Split';
+    case 'blank':
+      return 'Custom Routine';
   }
 }
 
@@ -545,6 +547,15 @@ export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
     templates = customSplitTemplates(equipment);
     name = 'Custom Athlete Split';
     description = 'Targeted muscle group split with freedom to customize exercises.';
+  } else if (onboarding.splitPreference === 'blank') {
+    splitType = 'blank';
+    templates = Array.from({ length: frequency }, (_, idx) => ({
+      name: `Workout ${String.fromCharCode(65 + idx)}`,
+      exercises: [],
+      estimatedMinutes: 45,
+    }));
+    name = 'Custom Routine';
+    description = 'Your custom workouts built from scratch.';
   } else if (onboarding.goal === 'get_stronger') {
     const isPpl = frequency >= 5;
     splitType = isPpl ? 'push_pull_legs' : 'upper_lower';

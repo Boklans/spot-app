@@ -40,8 +40,13 @@ export default function CreationMode() {
     },
     {
       key: 'custom',
-      label: language === 'uk' ? 'Вільний розклад (Custom)' : 'Custom Athlete Routine',
-      sub: language === 'uk' ? 'Повна свобода додавання вправ' : 'Build every workout from scratch',
+      label: language === 'uk' ? 'Вільний спліт (Custom)' : 'Custom Athlete Routine',
+      sub: language === 'uk' ? 'Групи мʼязів на вибір із можливістю редагування' : 'Targeted muscle group focus with customization',
+    },
+    {
+      key: 'blank',
+      label: language === 'uk' ? 'Чистий аркуш (З нуля)' : 'Blank Canvas (From Scratch)',
+      sub: language === 'uk' ? 'Порожні тренування, додавайте тільки свої вправи' : 'Empty workouts, add only your own exercises',
     },
   ];
 
@@ -49,11 +54,10 @@ export default function CreationMode() {
     hapticMedium();
     if (mode === 'ai') {
       await saveOnboarding({ splitPreference: undefined });
-      router.push('/onboarding/experience');
     } else {
       await saveOnboarding({ splitPreference: selectedSplit });
-      router.push('/onboarding/frequency');
     }
+    router.push('/onboarding/experience');
   };
 
   return (
