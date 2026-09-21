@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useRef } from 'react';
 import {
+  Animated,
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -9,16 +10,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import Animated, {
-  Extrapolation,
-  interpolate,
-  interpolateColor,
-  runOnJS,
-  type SharedValue,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
 import { colors } from '@/constants/colors';
 
 export const ITEM_HEIGHT = 44;
@@ -30,7 +21,7 @@ export const PADDING_OFFSET = PADDING_COUNT * ITEM_HEIGHT; // 88
 interface WheelItemProps<T> {
   item: T;
   index: number;
-  scrollOffset: SharedValue<number>;
+  scrollY: Animated.Value;
   label: string;
   unit?: string;
   onPress: () => void;
@@ -38,72 +29,88 @@ interface WheelItemProps<T> {
 
 const WheelItem = React.memo(function WheelItem<T>({
   index,
-  scrollOffset,
+  scrollY,
   label,
   unit,
   onPress,
 }: WheelItemProps<T>) {
-  const animatedTextStyle = useAnimatedStyle(() => {
-    'worklet';
-    const itemOffset = index * ITEM_HEIGHT;
-    const distance = Math.abs(scrollOffset.value - itemOffset);
+  const itemOffset = index * ITEM_HEIGHT;
 
-    const opacity = interpolate(
-      distance,
-      [0, ITEM_HEIGHT, ITEM_HEIGHT * 2],
-      [1, 0.4, 0.16],
-      Extrapolation.CLAMP
-    );
-
-    const scale = interpolate(
-      distance,
-      [0, ITEM_HEIGHT, ITEM_HEIGHT * 2],
-      [1.06, 0.94, 0.85],
-      Extrapolation.CLAMP
-    );
-
-    const color = interpolateColor(
-      distance,
-      [0, ITEM_HEIGHT],
-      [colors.primary, '#637083']
-    );
-
-    return {
-      opacity,
-      transform: [{ scale }],
-      color,
-    };
+  // Scale: 1.06 at center, down to 0.85 when 2 items away (native driver)
+  const scale = scrollY.interpolate({
+    inputRange: [
+      itemOffset - ITEM_HEIGHT * 2,
+      itemOffset - ITEM_HEIGHT,
+      itemOffset,
+      itemOffset + ITEM_HEIGHT,
+      itemOffset + ITEM_HEIGHT * 2,
+    ],
+    outputRange: [0.85, 0.94, 1.06, 0.94, 0.85],
+    extrapolate: 'clamp',
   });
 
-  const animatedUnitStyle = useAnimatedStyle(() => {
-    'worklet';
-    const itemOffset = index * ITEM_HEIGHT;
-    const distance = Math.abs(scrollOffset.value - itemOffset);
+  // Active layer: SPOT Lime (#D4FF00), fades in at center
+  const activeOpacity = scrollY.interpolate({
+    inputRange: [
+      itemOffset - ITEM_HEIGHT * 0.7,
+      itemOffset,
+      itemOffset + ITEM_HEIGHT * 0.7,
+    ],
+    outputRange: [0, 1, 0],
+    extrapolate: 'clamp',
+  });
 
-    const opacity = interpolate(
-      distance,
-      [0, ITEM_HEIGHT * 0.5],
-      [1, 0],
-      Extrapolation.CLAMP
-    );
+  // Inactive layer: Muted Grey (#6B7684), fades out at center
+  const inactiveOpacity = scrollY.interpolate({
+    inputRange: [
+      itemOffset - ITEM_HEIGHT * 2,
+      itemOffset - ITEM_HEIGHT,
+      itemOffset - ITEM_HEIGHT * 0.5,
+      itemOffset,
+      itemOffset + ITEM_HEIGHT * 0.5,
+      itemOffset + ITEM_HEIGHT,
+      itemOffset + ITEM_HEIGHT * 2,
+    ],
+    outputRange: [0.18, 0.42, 0.05, 0, 0.05, 0.42, 0.18],
+    extrapolate: 'clamp',
+  });
 
-    return {
-      opacity,
-    };
+  // Unit suffix: visible only when at center
+  const unitOpacity = scrollY.interpolate({
+    inputRange: [
+      itemOffset - ITEM_HEIGHT * 0.5,
+      itemOffset,
+      itemOffset + ITEM_HEIGHT * 0.5,
+    ],
+    outputRange: [0, 1, 0],
+    extrapolate: 'clamp',
   });
 
   return (
     <Pressable onPress={onPress} style={styles.item} accessibilityRole="button">
-      <View style={styles.itemRow}>
-        <Animated.Text style={[styles.itemText, animatedTextStyle]} numberOfLines={1}>
-          {label}
-        </Animated.Text>
-        {unit ? (
-          <Animated.Text style={[styles.itemUnit, animatedUnitStyle]} numberOfLines={1}>
-            {' '}{unit}
+      <Animated.View style={[styles.itemRow, { transform: [{ scale }] }]}>
+        {/* Active Layer: SPOT Lime */}
+        <Animated.View style={[styles.layerWrap, { opacity: activeOpacity }]}>
+          <Animated.Text style={[styles.itemText, styles.itemTextActive]} numberOfLines={1}>
+            {label}
           </Animated.Text>
-        ) : null}
-      </View>
+          {unit ? (
+            <Animated.Text style={[styles.itemUnit, { opacity: unitOpacity }]} numberOfLines={1}>
+              {' '}{unit}
+            </Animated.Text>
+          ) : null}
+        </Animated.View>
+
+        {/* Inactive Layer: Muted Grey */}
+        <Animated.View
+          style={[styles.layerWrap, styles.inactiveLayerWrap, { opacity: inactiveOpacity }]}
+          pointerEvents="none"
+        >
+          <Animated.Text style={[styles.itemText, styles.itemTextInactive]} numberOfLines={1}>
+            {label}
+          </Animated.Text>
+        </Animated.View>
+      </Animated.View>
     </Pressable>
   );
 });
@@ -128,17 +135,34 @@ export function WheelPicker<T extends number | string>({
   const listRef = useRef<FlatList<T>>(null);
   const initialIndex = Math.max(0, data.findIndex((item) => item === selectedValue));
 
-  // UI-thread shared values: NO React state updates during scroll
-  const scrollOffset = useSharedValue(initialIndex * ITEM_HEIGHT);
-  const lastHapticIndex = useSharedValue(initialIndex);
+  // Native driver scroll tracking: ZERO JS thread overhead during scroll
+  const scrollY = useRef(new Animated.Value(initialIndex * ITEM_HEIGHT)).current;
   const lastCommittedIndexRef = useRef<number>(initialIndex);
+  const lastVibratedIndexRef = useRef<number>(initialIndex);
   const dataLength = data.length;
+
+  // Haptic feedback listener triggered natively on item index changes
+  useEffect(() => {
+    const listenerId = scrollY.addListener(({ value }) => {
+      const rawIdx = Math.round(value / ITEM_HEIGHT);
+      if (rawIdx !== lastVibratedIndexRef.current && rawIdx >= 0 && rawIdx < dataLength) {
+        lastVibratedIndexRef.current = rawIdx;
+        if (Platform.OS !== 'web') {
+          Haptics.selectionAsync().catch(() => {});
+        }
+      }
+    });
+
+    return () => {
+      scrollY.removeListener(listenerId);
+    };
+  }, [dataLength, scrollY]);
 
   // Initial scroll position on mount
   useEffect(() => {
     lastCommittedIndexRef.current = initialIndex;
-    lastHapticIndex.value = initialIndex;
-    scrollOffset.value = initialIndex * ITEM_HEIGHT;
+    lastVibratedIndexRef.current = initialIndex;
+    scrollY.setValue(initialIndex * ITEM_HEIGHT);
     const timeout = setTimeout(() => {
       listRef.current?.scrollToOffset({
         offset: initialIndex * ITEM_HEIGHT,
@@ -155,35 +179,14 @@ export function WheelPicker<T extends number | string>({
 
     if (targetIdx !== lastCommittedIndexRef.current) {
       lastCommittedIndexRef.current = targetIdx;
-      lastHapticIndex.value = targetIdx;
-      scrollOffset.value = targetIdx * ITEM_HEIGHT;
+      lastVibratedIndexRef.current = targetIdx;
+      scrollY.setValue(targetIdx * ITEM_HEIGHT);
       listRef.current?.scrollToOffset({
         offset: targetIdx * ITEM_HEIGHT,
         animated: true,
       });
     }
-  }, [selectedValue, data, lastHapticIndex, scrollOffset]);
-
-  // Haptic trigger executed on JS thread via runOnJS only when mathematical index increments
-  const triggerHaptic = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.selectionAsync().catch(() => {});
-    }
-  }, []);
-
-  // Reanimated scroll handler strictly runs on UI thread
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      'worklet';
-      scrollOffset.value = event.contentOffset.y;
-
-      const rawIdx = Math.round(event.contentOffset.y / ITEM_HEIGHT);
-      if (rawIdx !== lastHapticIndex.value && rawIdx >= 0 && rawIdx < dataLength) {
-        lastHapticIndex.value = rawIdx;
-        runOnJS(triggerHaptic)();
-      }
-    },
-  });
+  }, [selectedValue, data, scrollY]);
 
   // Commit value update ONLY when the wheel comes to a complete rest
   const commitIndex = useCallback(
@@ -222,6 +225,13 @@ export function WheelPicker<T extends number | string>({
     [commitIndex]
   );
 
+  // 100% Native Driver scroll event
+  const handleScroll = useRef(
+    Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+      useNativeDriver: true,
+    })
+  ).current;
+
   const renderItem = useCallback(
     ({ item, index }: { item: T; index: number }) => {
       const displayLabel = formatLabel ? formatLabel(item) : String(item);
@@ -244,14 +254,14 @@ export function WheelPicker<T extends number | string>({
           key={`${item}-${index}`}
           item={item}
           index={index}
-          scrollOffset={scrollOffset}
+          scrollY={scrollY}
           label={displayLabel}
           unit={unit}
           onPress={handlePress}
         />
       );
     },
-    [formatLabel, onActivePress, scrollOffset, unit, commitIndex]
+    [formatLabel, onActivePress, scrollY, unit, commitIndex]
   );
 
   return (
@@ -269,7 +279,7 @@ export function WheelPicker<T extends number | string>({
           offset: ITEM_HEIGHT * index,
           index,
         })}
-        onScroll={scrollHandler}
+        onScroll={handleScroll}
         scrollEventThrottle={16}
         onMomentumScrollEnd={handleMomentumScrollEnd}
         onScrollEndDrag={handleScrollEndDrag}
@@ -317,10 +327,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   itemRow: {
+    width: '100%',
+    height: ITEM_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  layerWrap: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'center',
     height: ITEM_HEIGHT,
+  },
+  inactiveLayerWrap: {
+    position: 'absolute',
   },
   itemText: {
     fontSize: 26,
@@ -328,6 +348,12 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
     lineHeight: ITEM_HEIGHT,
+  },
+  itemTextActive: {
+    color: colors.primary,
+  },
+  itemTextInactive: {
+    color: '#8E959F',
   },
   itemUnit: {
     fontSize: 12,
