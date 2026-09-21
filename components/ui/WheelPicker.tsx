@@ -1,23 +1,15 @@
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
   Pressable,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
-import Animated, {
-  Extrapolation,
-  interpolate,
-  interpolateColor,
-  runOnJS,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  type SharedValue,
-} from 'react-native-reanimated';
 import { colors } from '@/constants/colors';
 
 export const ITEM_HEIGHT = 44;
@@ -26,86 +18,35 @@ export const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS; // 220
 export const PADDING_COUNT = Math.floor(VISIBLE_ITEMS / 2); // 2
 export const PADDING_OFFSET = PADDING_COUNT * ITEM_HEIGHT; // 88
 
-interface AnimatedItemProps {
+interface WheelItemProps {
   label: string;
   unit?: string;
-  index: number;
-  scrollOffset: SharedValue<number>;
-  itemHeight: number;
+  isSelected: boolean;
   onPress: () => void;
 }
 
-const AnimatedWheelItem = React.memo(
-  function AnimatedWheelItem({
-    label,
-    unit,
-    index,
-    scrollOffset,
-    itemHeight,
-    onPress,
-  }: AnimatedItemProps) {
-    const itemTargetOffset = index * itemHeight;
-
-    const animatedTextStyle = useAnimatedStyle(() => {
-      const distance = Math.abs(scrollOffset.value - itemTargetOffset);
-
-      const opacity = interpolate(
-        distance,
-        [0, itemHeight * 0.8, itemHeight * 1.8],
-        [1, 0.45, 0.18],
-        Extrapolation.CLAMP
-      );
-
-      const color = interpolateColor(
-        distance,
-        [0, itemHeight * 0.9, itemHeight * 1.8],
-        [colors.primary, '#8E959F', '#555C65']
-      );
-
-      const scale = interpolate(
-        distance,
-        [0, itemHeight],
-        [1.05, 0.9],
-        Extrapolation.CLAMP
-      );
-
-      return {
-        opacity,
-        color,
-        transform: [{ scale }],
-      };
-    });
-
-    const animatedUnitStyle = useAnimatedStyle(() => {
-      const distance = Math.abs(scrollOffset.value - itemTargetOffset);
-      const opacity = interpolate(
-        distance,
-        [0, itemHeight * 0.4, itemHeight * 0.8],
-        [1, 0.25, 0],
-        Extrapolation.CLAMP
-      );
-
-      return {
-        opacity,
-      };
-    });
-
+const WheelItem = React.memo(
+  function WheelItem({ label, unit, isSelected, onPress }: WheelItemProps) {
     return (
-      <Pressable onPress={onPress} style={styles.item} accessibilityRole="button">
+      <Pressable
+        onPress={onPress}
+        style={styles.item}
+        accessibilityRole="button"
+      >
         <View style={styles.itemRow}>
-          <Animated.Text
-            style={[styles.itemText, animatedTextStyle]}
+          <Text
+            style={[
+              styles.itemText,
+              isSelected ? styles.itemTextSelected : styles.itemTextFaded,
+            ]}
             numberOfLines={1}
           >
             {label}
-          </Animated.Text>
-          {unit ? (
-            <Animated.Text
-              style={[styles.itemUnitSelected, animatedUnitStyle]}
-              numberOfLines={1}
-            >
+          </Text>
+          {isSelected && unit ? (
+            <Text style={styles.itemUnitSelected} numberOfLines={1}>
               {' '}{unit}
-            </Animated.Text>
+            </Text>
           ) : null}
         </View>
       </Pressable>
@@ -114,8 +55,7 @@ const AnimatedWheelItem = React.memo(
   (prev, next) =>
     prev.label === next.label &&
     prev.unit === next.unit &&
-    prev.index === next.index &&
-    prev.itemHeight === next.itemHeight
+    prev.isSelected === next.isSelected
 );
 
 export interface WheelPickerProps<T extends number | string> {
@@ -135,18 +75,23 @@ export function WheelPicker<T extends number | string>({
   unit,
   onActivePress,
 }: WheelPickerProps<T>) {
-  const listRef = useRef<any>(null);
-  const initialIndex = Math.max(0, data.findIndex((item) => item === selectedValue));
-  const dataLength = data.length;
+  const listRef = useRef<FlatList<T>>(null);
+  const isInteractingRef = useRef(false);
+  const lastReportedIndexRef = useRef<number>(-1);
+  const lastVibratedIndexRef = useRef<number>(-1);
+  const lastHapticTimeRef = useRef<number>(0);
+  const isHapticBusyRef = useRef<boolean>(false);
+  const lastOffsetRef = useRef<number>(0);
+  const settleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // UI-thread shared values for smooth 60/120 FPS animations without JS overhead
-  const scrollOffset = useSharedValue(initialIndex * ITEM_HEIGHT);
-  const lastHapticIndex = useSharedValue(initialIndex);
+  const initialIndex = Math.max(0, data.findIndex((item) => item === selectedValue));
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
 
   // Initial scroll position on mount
   useEffect(() => {
-    scrollOffset.value = initialIndex * ITEM_HEIGHT;
-    lastHapticIndex.value = initialIndex;
+    lastReportedIndexRef.current = initialIndex;
+    lastVibratedIndexRef.current = initialIndex;
+    lastOffsetRef.current = initialIndex * ITEM_HEIGHT;
     const timeout = setTimeout(() => {
       listRef.current?.scrollToOffset({
         offset: initialIndex * ITEM_HEIGHT,
@@ -161,78 +106,127 @@ export function WheelPicker<T extends number | string>({
     const targetIdx = data.findIndex((item) => item === selectedValue);
     if (targetIdx < 0) return;
 
-    const targetOffset = targetIdx * ITEM_HEIGHT;
-    if (Math.abs(scrollOffset.value - targetOffset) > 1) {
-      scrollOffset.value = targetOffset;
-      lastHapticIndex.value = targetIdx;
+    setActiveIndex(targetIdx);
+
+    if (!isInteractingRef.current && targetIdx !== lastReportedIndexRef.current) {
+      lastReportedIndexRef.current = targetIdx;
+      lastVibratedIndexRef.current = targetIdx;
+      lastOffsetRef.current = targetIdx * ITEM_HEIGHT;
       listRef.current?.scrollToOffset({
-        offset: targetOffset,
+        offset: targetIdx * ITEM_HEIGHT,
         animated: false,
       });
     }
   }, [selectedValue, data]);
 
-  const triggerHaptic = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.selectionAsync().catch(() => {});
-    }
-  }, []);
-
-  // Strict UI-thread animated scroll handler:
-  // - ZERO React state updates
-  // - Updates scrollOffset directly on UI thread
-  // - Triggers Haptics strictly once when mathematical index increments/decrements
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollOffset.value = event.contentOffset.y;
-      const rawIdx = Math.round(event.contentOffset.y / ITEM_HEIGHT);
-      const clamped = Math.max(0, Math.min(dataLength - 1, rawIdx));
-
-      if (clamped !== lastHapticIndex.value) {
-        lastHapticIndex.value = clamped;
-        runOnJS(triggerHaptic)();
-      }
-    },
-  });
-
-  // State update ONLY when wheel motion stops
-  const commitSelection = useCallback(
+  // Snap into clean geometric alignment and commit value (ZERO React state during scroll)
+  const commitIndex = useCallback(
     (offsetY: number) => {
+      if (settleTimeoutRef.current) {
+        clearTimeout(settleTimeoutRef.current);
+        settleTimeoutRef.current = null;
+      }
+      isInteractingRef.current = false;
       const rawIdx = Math.round(offsetY / ITEM_HEIGHT);
       const clamped = Math.max(0, Math.min(data.length - 1, rawIdx));
+
+      setActiveIndex(clamped);
 
       listRef.current?.scrollToOffset({
         offset: clamped * ITEM_HEIGHT,
         animated: true,
       });
 
-      if (data[clamped] !== selectedValue) {
+      lastOffsetRef.current = clamped * ITEM_HEIGHT;
+
+      if (clamped !== lastReportedIndexRef.current) {
+        lastReportedIndexRef.current = clamped;
+        lastVibratedIndexRef.current = clamped;
         onValueChange(data[clamped]);
       }
     },
-    [data, onValueChange, selectedValue]
+    [data, onValueChange]
   );
 
-  const handleScrollEndDrag = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const velocityY = Math.abs(e.nativeEvent.velocity?.y ?? 0);
-    if (velocityY < 0.1) {
-      commitSelection(e.nativeEvent.contentOffset.y);
+  // 60 FPS scroll handler:
+  // - ZERO setState calls while scrolling
+  // - Haptics ONLY when mathematical index increments/decrements (with time throttle)
+  // - Idle timeout fallback if finger stops abruptly
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offsetY = e.nativeEvent.contentOffset.y;
+      lastOffsetRef.current = offsetY;
+      const rawIdx = Math.round(offsetY / ITEM_HEIGHT);
+      const clamped = Math.max(0, Math.min(data.length - 1, rawIdx));
+
+      // Haptics fire strictly once per integer step
+      if (clamped !== lastVibratedIndexRef.current) {
+        const now = Date.now();
+        if (!isHapticBusyRef.current && now - lastHapticTimeRef.current >= 65) {
+          lastVibratedIndexRef.current = clamped;
+          lastHapticTimeRef.current = now;
+          if (Platform.OS !== 'web') {
+            isHapticBusyRef.current = true;
+            Haptics.selectionAsync()
+              .catch(() => {})
+              .finally(() => {
+                isHapticBusyRef.current = false;
+              });
+          }
+        }
+      }
+
+      // Safety Idle Timer for abrupt finger stops
+      if (settleTimeoutRef.current) {
+        clearTimeout(settleTimeoutRef.current);
+      }
+      settleTimeoutRef.current = setTimeout(() => {
+        commitIndex(lastOffsetRef.current);
+      }, 110);
+    },
+    [data.length, commitIndex]
+  );
+
+  const handleScrollBeginDrag = () => {
+    isInteractingRef.current = true;
+    if (settleTimeoutRef.current) {
+      clearTimeout(settleTimeoutRef.current);
     }
   };
 
+  // Immediate snap for finger stops when momentum velocity is 0
+  const handleScrollEndDrag = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const velocityY = Math.abs(e.nativeEvent.velocity?.y ?? 0);
+    if (velocityY < 0.1) {
+      commitIndex(e.nativeEvent.contentOffset.y);
+    }
+  };
+
+  const handleMomentumScrollBegin = () => {
+    isInteractingRef.current = true;
+  };
+
   const handleMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    commitSelection(e.nativeEvent.contentOffset.y);
+    commitIndex(e.nativeEvent.contentOffset.y);
   };
 
   const renderItem = useCallback(
     ({ item, index }: { item: T; index: number }) => {
+      const isSelected = index === activeIndex;
       const displayLabel = formatLabel ? formatLabel(item) : String(item);
 
       const handlePress = () => {
-        const currentActiveIdx = Math.round(scrollOffset.value / ITEM_HEIGHT);
-        if (index === currentActiveIdx) {
+        if (isSelected) {
           onActivePress?.();
         } else {
+          isInteractingRef.current = false;
+          if (settleTimeoutRef.current) {
+            clearTimeout(settleTimeoutRef.current);
+          }
+          setActiveIndex(index);
+          lastReportedIndexRef.current = index;
+          lastVibratedIndexRef.current = index;
+          lastOffsetRef.current = index * ITEM_HEIGHT;
           listRef.current?.scrollToOffset({
             offset: index * ITEM_HEIGHT,
             animated: true,
@@ -245,17 +239,15 @@ export function WheelPicker<T extends number | string>({
       };
 
       return (
-        <AnimatedWheelItem
+        <WheelItem
           label={displayLabel}
           unit={unit}
-          index={index}
-          scrollOffset={scrollOffset}
-          itemHeight={ITEM_HEIGHT}
+          isSelected={isSelected}
           onPress={handlePress}
         />
       );
     },
-    [data, formatLabel, onActivePress, onValueChange, scrollOffset, unit]
+    [activeIndex, formatLabel, unit, onActivePress, data, onValueChange]
   );
 
   const getItemLayout = useCallback(
@@ -269,24 +261,26 @@ export function WheelPicker<T extends number | string>({
 
   return (
     <View style={styles.container}>
-      <Animated.FlatList
+      <FlatList
         ref={listRef}
         data={data}
         keyExtractor={(item) => String(item)}
         renderItem={renderItem}
         getItemLayout={getItemLayout}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
         snapToInterval={ITEM_HEIGHT}
         snapToAlignment="center"
         decelerationRate="fast"
         disableIntervalMomentum={true}
         showsVerticalScrollIndicator={false}
-        initialNumToRender={10}
-        windowSize={5}
+        initialNumToRender={12}
+        windowSize={9}
         maxToRenderPerBatch={10}
         removeClippedSubviews={false}
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
+        onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={handleScrollEndDrag}
+        onMomentumScrollBegin={handleMomentumScrollBegin}
         onMomentumScrollEnd={handleMomentumScrollEnd}
         style={styles.list}
         contentContainerStyle={styles.listContent}
@@ -329,10 +323,19 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
     letterSpacing: -0.4,
-    fontSize: 24,
-    fontWeight: '900',
     lineHeight: ITEM_HEIGHT,
     includeFontPadding: false,
+  },
+  itemTextSelected: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: colors.primary,
+  },
+  itemTextFaded: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#8E959F',
+    opacity: 0.22,
   },
   itemUnitSelected: {
     fontSize: 13,
