@@ -14,7 +14,7 @@ if (!fs.existsSync(distDir) || !fs.existsSync(htmlFile)) {
 fs.writeFileSync(redirectsFile, '/*    /index.html   200\n', 'utf8');
 console.log('✓ Created dist/_redirects for SPA routing');
 
-// 2. Scan for icon font files in dist
+// 2. Find font files
 const fontsBaseDir = path.join(
   distDir,
   'assets',
@@ -27,64 +27,123 @@ const fontsBaseDir = path.join(
   'Fonts'
 );
 
-let fontFaces = [];
+const cleanFontsDir = path.join(distDir, 'fonts');
+if (!fs.existsSync(cleanFontsDir)) {
+  fs.mkdirSync(cleanFontsDir, { recursive: true });
+}
+
+let ioniconsFile = null;
+let mciFile = null;
 
 if (fs.existsSync(fontsBaseDir)) {
-  const files = fs.readdirSync(fontsBaseDir);
-  for (const file of files) {
-    if (!file.endsWith('.ttf')) continue;
-
-    const baseName = file.split('.')[0]; // e.g. "Ionicons"
-    const publicUrl = `/assets/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/${file}`;
-    const assetPathWithoutExt = publicUrl.replace(/\.ttf$/, '');
-
-    // List of aliases to cover every possible way react-native-vector-icons or web requests this font
-    const familyAliases = new Set([
-      baseName,
-      baseName.toLowerCase(),
-      assetPathWithoutExt,
-    ]);
-
-    if (baseName === 'Ionicons') {
-      familyAliases.add('ionicons');
-      familyAliases.add('Ionicons');
-    } else if (baseName === 'MaterialCommunityIcons') {
-      familyAliases.add('material-community');
-      familyAliases.add('MaterialCommunityIcons');
-      familyAliases.add('Material Community Icons');
-      familyAliases.add('MaterialDesignIcons');
-    } else if (baseName === 'MaterialIcons') {
-      familyAliases.add('material');
-      familyAliases.add('MaterialIcons');
-      familyAliases.add('Material Icons');
-    } else if (baseName === 'FontAwesome') {
-      familyAliases.add('FontAwesome');
-      familyAliases.add('fontawesome');
-    } else if (baseName === 'Feather') {
-      familyAliases.add('feather');
-      familyAliases.add('Feather');
+  for (const f of fs.readdirSync(fontsBaseDir)) {
+    if (f.startsWith('Ionicons.') && f.endsWith('.ttf')) {
+      ioniconsFile = path.join(fontsBaseDir, f);
+      fs.copyFileSync(ioniconsFile, path.join(cleanFontsDir, 'Ionicons.ttf'));
     }
-
-    for (const family of familyAliases) {
-      fontFaces.push(`@font-face {
-  font-family: ${JSON.stringify(family)};
-  src: url(${JSON.stringify(publicUrl)}) format('truetype');
-  font-display: swap;
-}`);
+    if (f.startsWith('MaterialCommunityIcons.') && f.endsWith('.ttf')) {
+      mciFile = path.join(fontsBaseDir, f);
+      fs.copyFileSync(mciFile, path.join(cleanFontsDir, 'MaterialCommunityIcons.ttf'));
     }
   }
 }
 
-console.log(`✓ Generated ${fontFaces.length} @font-face rules`);
+// Fallback to node_modules directly if not found in dist
+if (!ioniconsFile) {
+  ioniconsFile = path.resolve(
+    __dirname,
+    '..',
+    'node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf'
+  );
+  if (fs.existsSync(ioniconsFile)) {
+    fs.copyFileSync(ioniconsFile, path.join(cleanFontsDir, 'Ionicons.ttf'));
+  }
+}
+if (!mciFile) {
+  mciFile = path.resolve(
+    __dirname,
+    '..',
+    'node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf'
+  );
+  if (fs.existsSync(mciFile)) {
+    fs.copyFileSync(mciFile, path.join(cleanFontsDir, 'MaterialCommunityIcons.ttf'));
+  }
+}
 
-// 3. Inject into index.html
+if (!fs.existsSync(ioniconsFile) || !fs.existsSync(mciFile)) {
+  console.error('Could not locate Ionicons or MaterialCommunityIcons TTF files!');
+  process.exit(1);
+}
+
+const ioniconsBase64 = fs.readFileSync(ioniconsFile).toString('base64');
+const mciBase64 = fs.readFileSync(mciFile).toString('base64');
+
+const ioniconsDataUri = `data:font/truetype;charset=utf-8;base64,${ioniconsBase64}`;
+const mciDataUri = `data:font/truetype;charset=utf-8;base64,${mciBase64}`;
+
+const fontRules = [];
+
+// Ionicons aliases
+const ioniconsFamilies = [
+  'ionicons',
+  'Ionicons',
+  'Ionicons, "Helvetica Neue", Arial',
+];
+
+// MaterialCommunityIcons aliases
+const mciFamilies = [
+  'material-community',
+  'MaterialCommunityIcons',
+  'Material Community Icons',
+  'MaterialDesignIcons',
+  'MaterialCommunityIcons, "Helvetica Neue", Arial',
+];
+
+for (const fam of ioniconsFamilies) {
+  fontRules.push(`@font-face {
+  font-family: ${JSON.stringify(fam)};
+  src: url("${ioniconsDataUri}") format('truetype'),
+       url("/fonts/Ionicons.ttf") format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}`);
+}
+
+for (const fam of mciFamilies) {
+  fontRules.push(`@font-face {
+  font-family: ${JSON.stringify(fam)};
+  src: url("${mciDataUri}") format('truetype'),
+       url("/fonts/MaterialCommunityIcons.ttf") format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}`);
+}
+
+// Also add a universal fallback class for React Native Web icon elements
+fontRules.push(`
+[style*="font-family: ionicons"],
+[style*="font-family: Ionicons"],
+[style*="font-family: 'ionicons'"],
+[style*="font-family: 'Ionicons'"] {
+  font-family: ionicons, Ionicons !important;
+}
+
+[style*="font-family: material-community"],
+[style*="font-family: MaterialCommunityIcons"],
+[style*="font-family: 'material-community'"],
+[style*="font-family: 'MaterialCommunityIcons'"] {
+  font-family: material-community, MaterialCommunityIcons !important;
+}
+`);
+
 let html = fs.readFileSync(htmlFile, 'utf8');
-
-// Remove any previous injection if present
 html = html.replace(/<style id="expo-vector-icons-fonts">[\s\S]*?<\/style>/, '');
 
-const styleBlock = `\n    <style id="expo-vector-icons-fonts">\n${fontFaces.join('\n')}\n    </style>`;
+const styleTag = `\n    <style id="expo-vector-icons-fonts">\n${fontRules.join('\n')}\n    </style>`;
+html = html.replace('</head>', `${styleTag}\n  </head>`);
 
-html = html.replace('</head>', `${styleBlock}\n  </head>`);
 fs.writeFileSync(htmlFile, html, 'utf8');
-console.log('✓ Successfully injected icon fonts into dist/index.html');
+console.log('✓ Successfully embedded Base64 Data URIs for Ionicons & MaterialCommunityIcons into dist/index.html');
+console.log('✓ Copied font files to dist/fonts/ as fallback');
