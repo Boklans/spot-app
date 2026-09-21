@@ -13,6 +13,7 @@ import { colors } from '@/constants/colors';
 import { WorkoutEditorModal } from '@/components/program/WorkoutEditorModal';
 import { hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { useWeightUnit } from '@/lib/weightUtils';
 import {
   generateProgram,
   getWorkoutDayLabel,
@@ -74,6 +75,7 @@ const SPLIT_CHOICES: SplitChoice[] = [
 
 export default function ProgramReady() {
   const { t, tm, td, te, tw, language } = useI18n();
+  const { formatWithUnit } = useWeightUnit();
   const [onboarding, setOnboarding] = useState<OnboardingData>(defaultOnboarding);
   const [program, setProgram] = useState<GeneratedProgram>(() =>
     generateProgram(defaultOnboarding)
@@ -408,7 +410,7 @@ export default function ProgramReady() {
                           {te(ex.name)}
                         </Text>
                         <Text style={styles.exPreviewSets}>
-                          {ex.sets} × {ex.recommendedWeight ? `${ex.recommendedWeight} кг` : 'ВТ'}
+                          {ex.sets} × {ex.recommendedWeight ? formatWithUnit(ex.recommendedWeight) : (language === 'uk' ? 'ВТ' : 'BW')}
                         </Text>
                       </View>
                     ))}

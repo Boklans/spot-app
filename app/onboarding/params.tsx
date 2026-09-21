@@ -20,7 +20,7 @@ import { loadOnboarding, saveOnboarding } from '@/store/workoutStore';
 
 export default function ParamsSetup() {
   const { t, language } = useI18n();
-  const { unitLabel, toKg } = useWeightUnit();
+  const { unitLabel, toKg, fromKg } = useWeightUnit();
 
   const [name, setName] = useState('');
   const [weight, setWeight] = useState('');
@@ -31,10 +31,10 @@ export default function ParamsSetup() {
   useEffect(() => {
     loadOnboarding().then((data) => {
       if (data?.name) setName(data.name);
-      if (data?.weightKg) setWeight(String(data.weightKg));
+      if (data?.weightKg) setWeight(String(fromKg(data.weightKg)));
       if (data?.heightCm) setHeight(String(data.heightCm));
     });
-  }, []);
+  }, [fromKg]);
 
   const handleContinue = async () => {
     hapticMedium();
@@ -42,7 +42,7 @@ export default function ParamsSetup() {
     const parsedWeight = parseFloat(weight.replace(',', '.'));
     const parsedHeight = parseFloat(height.replace(',', '.'));
 
-    const weightKg = !isNaN(parsedWeight) && parsedWeight > 30 ? toKg(parsedWeight) : 75;
+    const weightKg = !isNaN(parsedWeight) && parsedWeight > 20 ? toKg(parsedWeight) : 75;
     const heightCm = !isNaN(parsedHeight) && parsedHeight > 100 ? parsedHeight : 178;
 
     await saveOnboarding({

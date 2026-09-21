@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   Dimensions,
   Image,
   KeyboardAvoidingView,
@@ -139,6 +140,15 @@ export default function Rest() {
       ]
     );
   };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleBack]);
 
   const handleAdd30 = () => {
     hapticLight();

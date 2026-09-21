@@ -16,11 +16,11 @@ import { colors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useWeightUnit } from '@/lib/weightUtils';
-import { type OnboardingExperience, saveOnboarding } from '@/store/workoutStore';
+import { type OnboardingExperience, saveOnboarding, loadOnboarding } from '@/store/workoutStore';
 
 export default function Experience() {
   const { t, language } = useI18n();
-  const { unitLabel, toKg } = useWeightUnit();
+  const { unitLabel, toKg, fromKg } = useWeightUnit();
   const [selected, setSelected] = useState<OnboardingExperience>('intermediate');
 
   // Baseline Strength Inputs for experienced lifters
@@ -30,6 +30,21 @@ export default function Experience() {
   const [ohpText, setOhpText] = useState('');
 
   const isUk = language === 'uk';
+
+  React.useEffect(() => {
+    loadOnboarding().then((data) => {
+      if (data?.experience) {
+        setSelected(data.experience);
+      }
+      if (data?.baselineLifts) {
+        const { benchPressKg, squatKg, deadliftKg, overheadPressKg } = data.baselineLifts;
+        if (typeof benchPressKg === 'number') setBenchText(String(fromKg(benchPressKg)));
+        if (typeof squatKg === 'number') setSquatText(String(fromKg(squatKg)));
+        if (typeof deadliftKg === 'number') setDeadliftText(String(fromKg(deadliftKg)));
+        if (typeof overheadPressKg === 'number') setOhpText(String(fromKg(overheadPressKg)));
+      }
+    });
+  }, [fromKg]);
 
   const experienceOptions: Array<{
     value: OnboardingExperience;

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { generateProgram, resolveRestSeconds, type GeneratedExercise, type GeneratedWorkout } from '@/lib/programGenerator';
+import { generateProgram, resolveRestSeconds, type EquipmentId, type GeneratedExercise, type GeneratedWorkout } from '@/lib/programGenerator';
 import { findLatestExerciseSets, recommendWeight, type WeightRecommendation } from '@/lib/adaptiveProgression';
 import type { CompletedWorkout, PersonalRecord } from '@/types/workout';
 import { defaultOnboarding } from './workoutStore';
@@ -62,6 +62,7 @@ type WorkoutSessionState = {
   completeCurrentSet: () => void;
   setPersonalRecords: (personalRecords: PersonalRecord[]) => void;
   updateCurrentSet: (values: { weight?: number; reps?: number }) => void;
+  updateSet: (exerciseIndex: number, setIndex: number, values: { weight?: number; reps?: number }) => void;
   updateExerciseRest: (exerciseIndex: number, restSeconds: number) => void;
   addRestTime: (seconds: number) => void;
   skipRest: () => void;
@@ -296,20 +297,25 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
   },
 
   updateCurrentSet: (values) => {
+    const session = useWorkoutSessionStore.getState().session;
+    if (!session) return;
+    useWorkoutSessionStore.getState().updateSet(session.currentExerciseIndex, session.currentSetIndex, values);
+  },
+
+  updateSet: (exerciseIndex, setIndex, values) => {
     set((state) => {
       if (!state.session) return state;
-      const { currentExerciseIndex, currentSetIndex } = state.session;
       return {
         ...state,
         session: {
           ...state.session,
-          exercises: state.session.exercises.map((exercise, exerciseIndex) =>
-            exerciseIndex !== currentExerciseIndex
+          exercises: state.session.exercises.map((exercise, exIdx) =>
+            exIdx !== exerciseIndex
               ? exercise
               : {
                   ...exercise,
-                  sets: exercise.sets.map((workoutSet, setIndex) =>
-                    setIndex !== currentSetIndex ? workoutSet : { ...workoutSet, ...values },
+                  sets: exercise.sets.map((workoutSet, sIdx) =>
+                    sIdx !== setIndex ? workoutSet : { ...workoutSet, ...values },
                   ),
                 },
           ),
@@ -365,11 +371,12 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       const { currentExerciseIndex } = state.session;
       const currentEx = state.session.exercises[currentExerciseIndex];
       const history = useWorkoutHistoryStore.getState().workouts;
+      const isBw = typeof newExercise.defaultWeight === 'number' && newExercise.defaultWeight === 0;
       const generatedEx: GeneratedExercise = {
         id: currentEx?.id ?? `swapped-${Date.now()}`,
         name: newExercise.name,
         muscleGroup: newExercise.muscleGroup,
-        equipment: 'barbell',
+        equipment: (isBw ? 'bodyweight' : 'barbell') as EquipmentId,
         sets: currentEx?.sets.length ?? 3,
         targetRepRange: currentEx?.sets[0]?.targetReps ?? '8-12',
         recommendedWeight: newExercise.defaultWeight ?? 20,

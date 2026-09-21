@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -45,9 +45,17 @@ function formatRestLabel(sec: number): string {
 export default function Input() {
   const { t, language } = useI18n();
   const { unit, unitLabel, toKg, fromKg } = useWeightUnit();
+  const { setIndex: setIndexParam } = useLocalSearchParams<{ setIndex?: string }>();
   const session = useWorkoutSessionStore((state) => state.session);
-  const updateCurrentSet = useWorkoutSessionStore((state) => state.updateCurrentSet);
+  const updateSet = useWorkoutSessionStore((state) => state.updateSet);
   const updateExerciseRest = useWorkoutSessionStore((state) => state.updateExerciseRest);
+
+  const parsedSetIndex = setIndexParam !== undefined ? parseInt(setIndexParam, 10) : undefined;
+  const currentEx = session?.exercises[session.currentExerciseIndex];
+  const targetSetIndex =
+    parsedSetIndex !== undefined && !isNaN(parsedSetIndex)
+      ? Math.max(0, Math.min((currentEx?.sets.length ?? 1) - 1, parsedSetIndex))
+      : (session?.currentSetIndex ?? 0);
 
   // Custom-entry modals
   const [weightModalVisible, setWeightModalVisible] = useState(false);
@@ -57,8 +65,8 @@ export default function Input() {
   const [restModalVisible, setRestModalVisible] = useState(false);
   const [customRestText, setCustomRestText] = useState('');
 
-  const exercise = session?.exercises[session.currentExerciseIndex];
-  const activeSet = exercise?.sets[session?.currentSetIndex ?? 0];
+  const exercise = currentEx;
+  const activeSet = exercise?.sets[targetSetIndex];
   const increment =
     typeof exercise?.weightIncrement === 'number' && exercise.weightIncrement > 0
       ? exercise.weightIncrement
@@ -141,17 +149,21 @@ export default function Input() {
   const handleSelectWeight = useCallback(
     (displayVal: number) => {
       const kg = toKg(Math.max(0, displayVal));
-      updateCurrentSet({ weight: Math.round(kg * 100) / 100 });
+      if (session) {
+        updateSet(session.currentExerciseIndex, targetSetIndex, { weight: Math.round(kg * 100) / 100 });
+      }
     },
-    [toKg, updateCurrentSet]
+    [session, targetSetIndex, toKg, updateSet]
   );
 
   const handleSelectReps = useCallback(
     (r: number) => {
       const bounded = Math.min(1000, Math.max(1, r));
-      updateCurrentSet({ reps: bounded });
+      if (session) {
+        updateSet(session.currentExerciseIndex, targetSetIndex, { reps: bounded });
+      }
     },
-    [updateCurrentSet]
+    [session, targetSetIndex, updateSet]
   );
 
   const handleSelectRest = useCallback(
@@ -228,7 +240,7 @@ export default function Input() {
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
         <Text style={styles.topBarTitle}>
-          {t('setOf')} {session.currentSetIndex + 1} {t('of')} {exercise?.sets.length ?? 3}
+          {t('setOf')} {targetSetIndex + 1} {t('of')} {exercise?.sets.length ?? 3}
         </Text>
         <Pressable
           accessibilityRole="button"

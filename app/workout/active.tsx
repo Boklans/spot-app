@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   Image,
   Modal,
   Pressable,
@@ -100,7 +101,7 @@ export default function Active() {
     ? Math.max(0, Math.floor((now - new Date(session.startedAt).getTime()) / 1000))
     : 0;
 
-  if (!session) {
+  if (!session || !session.exercises || session.exercises.length === 0 || !session.exercises[session.currentExerciseIndex]) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.emptyWrap}>
@@ -151,6 +152,15 @@ export default function Active() {
       ]
     );
   };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleClose();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleClose]);
 
   const finishSet = async () => {
     if (finishing) return;
@@ -280,6 +290,7 @@ export default function Active() {
           {/* Table Header */}
           <View style={styles.tableHeaderRow}>
             <Text style={styles.tableHeadText}>{t('set')}</Text>
+            <Text style={styles.tableHeadTextCenter}>{unitLabel}</Text>
             <Text style={styles.tableHeadTextCenter}>{t('reps')}</Text>
             <Text style={styles.tableHeadTextRight}>{t('status')}</Text>
           </View>
@@ -289,11 +300,17 @@ export default function Active() {
             {exercise.sets.map((set, index) => {
               const isCurrent = index === session.currentSetIndex;
               const isDone = set.completed;
+              const weightDisplay = set.weight ? format(set.weight) : (language === 'uk' ? 'ВТ' : 'BW');
 
               return (
                 <Pressable
                   key={set.id || index}
-                  onPress={() => router.push('/workout/input')}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/workout/input',
+                      params: { setIndex: String(index) },
+                    })
+                  }
                   style={({ pressed }) => [
                     styles.setRow,
                     isCurrent && styles.setRowActive,
@@ -302,6 +319,10 @@ export default function Active() {
                 >
                   <Text style={[styles.setColNum, isCurrent && styles.textHighlight]}>
                     {index + 1}
+                  </Text>
+
+                  <Text style={[styles.setColWeight, isCurrent && styles.textHighlight]}>
+                    {weightDisplay}
                   </Text>
 
                   <Text style={[styles.setColReps, isCurrent && styles.textHighlight]}>
@@ -673,6 +694,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#8E959F',
     width: 44,
+  },
+  setColWeight: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#8E959F',
+    flex: 1,
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
   setColReps: {
     fontSize: 16,

@@ -142,6 +142,30 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         if (typeof ob.avatar === 'string' && ob.avatar in BEAST_AVATARS) {
           normalized.avatar = ob.avatar as BeastAvatarId;
         }
+        const goalMap: Record<string, UserGoal> = {
+          build_muscle: 'Build Muscle',
+          'Build Muscle': 'Build Muscle',
+          get_stronger: 'Get Stronger',
+          'Get Stronger': 'Get Stronger',
+          lose_fat: 'Lose Fat',
+          'Lose Fat': 'Lose Fat',
+          recomposition: 'Recomposition',
+          Recomposition: 'Recomposition',
+        };
+        if (typeof ob.goal === 'string' && goalMap[ob.goal]) {
+          normalized.goal = goalMap[ob.goal];
+        }
+        const expMap: Record<string, UserExperience> = {
+          beginner: 'Beginner',
+          Beginner: 'Beginner',
+          intermediate: 'Intermediate',
+          Intermediate: 'Intermediate',
+          advanced: 'Advanced',
+          Advanced: 'Advanced',
+        };
+        if (typeof ob.experience === 'string' && expMap[ob.experience]) {
+          normalized.experience = expMap[ob.experience];
+        }
       }
     } catch {
       // Continue
