@@ -435,12 +435,15 @@ export default function Program() {
         )}
       </KeyboardAvoidingView>
 
-      <WorkoutEditorModal
-        visible={editingWorkout !== null}
-        workout={editingWorkout}
-        onSaveWorkout={handleSaveWorkout}
-        onClose={() => setEditingWorkout(null)}
-      />
+      {editingWorkout && (
+        <WorkoutEditorModal
+          key={editingWorkout.id}
+          visible={editingWorkout !== null}
+          workout={editingWorkout}
+          onSaveWorkout={handleSaveWorkout}
+          onClose={() => setEditingWorkout(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }

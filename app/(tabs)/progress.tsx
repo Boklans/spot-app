@@ -52,9 +52,11 @@ export default function Progress() {
   const [activeTab, setActiveTab] = useState<ActiveViewTab>('overview');
   const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | 'ALL'>('1M');
   const [selectedMuscle, setSelectedMuscle] = useState('Chest');
+  const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
   const [logWeightModalVisible, setLogWeightModalVisible] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const program = useProgramStore((state) => state.program);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -137,9 +139,7 @@ export default function Progress() {
     )
     .slice(0, 10);
 
-  const program = useProgramStore((state) => state.program);
   const availableExercises = getAvailableExercisesForProgress(program, history);
-  const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
 
   const selectedExercise =
     availableExercises.find(

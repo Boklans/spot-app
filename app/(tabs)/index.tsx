@@ -170,7 +170,21 @@ export default function Home() {
     useWorkoutHistoryStore.getState().loadHistory();
   }, []);
 
-  if (!program || !program.workouts || program.workouts.length === 0) {
+  const nextWorkout = program && program.workouts?.length ? getScheduledWorkout(program, progress) : null;
+
+  // Dynamic Readiness Score
+  const readiness = useMemo(
+    () => computeReadinessScore(history, nextWorkout, language),
+    [history, nextWorkout, focusKey, language]
+  );
+
+  // Dynamic SPOT Insight
+  const spotInsight = useMemo(
+    () => computeSpotInsight(history, language),
+    [history, focusKey, language]
+  );
+
+  if (!program || !program.workouts || program.workouts.length === 0 || !nextWorkout) {
     return null;
   }
 
@@ -191,23 +205,6 @@ export default function Home() {
       : currentHour >= 18 && currentHour < 23
       ? 'Good evening'
       : 'Good night';
-
-  const nextWorkout = getScheduledWorkout(program, progress);
-  if (!nextWorkout) {
-    return null;
-  }
-
-  // Dynamic Readiness Score
-  const readiness = useMemo(
-    () => computeReadinessScore(history, nextWorkout, language),
-    [history, nextWorkout, focusKey, language]
-  );
-
-  // Dynamic SPOT Insight
-  const spotInsight = useMemo(
-    () => computeSpotInsight(history, language),
-    [history, focusKey, language]
-  );
 
   // Weekly tracker data
   const completedWorkoutsThisWeek = countWorkoutsThisWeek(history);

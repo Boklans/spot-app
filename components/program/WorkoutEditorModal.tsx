@@ -33,12 +33,19 @@ export function WorkoutEditorModal({
   onSaveWorkout,
   onClose,
 }: WorkoutEditorModalProps) {
-  if (!workout) return null;
-
   const { t, tm, td, te, tw } = useI18n();
-  const [workoutName, setWorkoutName] = useState(tw(workout.name));
-  const [exercises, setExercises] = useState<UserExercise[]>(workout.exercises);
+  const [workoutName, setWorkoutName] = useState(workout ? tw(workout.name) : '');
+  const [exercises, setExercises] = useState<UserExercise[]>(workout?.exercises ?? []);
   const [libraryVisible, setLibraryVisible] = useState(false);
+
+  React.useEffect(() => {
+    if (workout) {
+      setWorkoutName(tw(workout.name));
+      setExercises(workout.exercises);
+    }
+  }, [workout, tw]);
+
+  if (!workout) return null;
 
   const handleRemoveExercise = (index: number) => {
     if (exercises.length <= 1) {
