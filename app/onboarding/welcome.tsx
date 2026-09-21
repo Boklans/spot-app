@@ -128,8 +128,8 @@ const styles = StyleSheet.create({
   safeContent: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingHorizontal: 24,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 28,
+    paddingHorizontal: 28,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 32,
   },
   centerBlock: {
     alignItems: 'center',
@@ -174,16 +174,16 @@ const styles = StyleSheet.create({
   },
   getStartedBtn: {
     width: '100%',
-    height: 56,
-    borderRadius: 24,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 4,
   },
   btnPressed: {
     opacity: 0.9,
