@@ -687,3 +687,300 @@ export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
     workouts: buildWorkouts(templates, frequency, defaultRestSeconds, onboarding.trainingDays, onboarding),
   };
 }
+
+export type WorkoutFocus = 'upper' | 'lower' | 'full_body' | 'push' | 'pull' | 'arms_core';
+
+export interface FocusOption {
+  id: WorkoutFocus;
+  labelUk: string;
+  labelEn: string;
+  icon: string;
+  subtitleUk: string;
+  subtitleEn: string;
+}
+
+export const WORKOUT_FOCUS_OPTIONS: FocusOption[] = [
+  { id: 'upper', labelUk: 'Верх', labelEn: 'Upper', icon: '💪', subtitleUk: 'Груди, спина, руки', subtitleEn: 'Chest, back, arms' },
+  { id: 'lower', labelUk: 'Низ', labelEn: 'Lower', icon: '🦵', subtitleUk: 'Ноги, сідниці, литки', subtitleEn: 'Quads, hamstrings, calves' },
+  { id: 'full_body', labelUk: 'Все тіло', labelEn: 'Full Body', icon: '🔥', subtitleUk: 'Базові рухи на все тіло', subtitleEn: 'Full body compound lifts' },
+  { id: 'push', labelUk: 'Груди / Плечі', labelEn: 'Push', icon: '⚡', subtitleUk: 'Груди, дельти, трицепс', subtitleEn: 'Chest, delts, triceps' },
+  { id: 'pull', labelUk: 'Спина / Біцепс', labelEn: 'Pull', icon: '🏋️', subtitleUk: 'Спина, тяга, біцепс', subtitleEn: 'Back, rows, biceps' },
+  { id: 'arms_core', labelUk: 'Руки / Прес', labelEn: 'Arms & Core', icon: '💥', subtitleUk: 'Біцепс, трицепс, кор', subtitleEn: 'Biceps, triceps, abs' },
+];
+
+export function generateFocusWorkout(
+  focus: WorkoutFocus,
+  onboarding?: OnboardingData,
+  cycle = 0
+): GeneratedWorkout {
+  const selectedEquipment = onboarding?.equipment?.filter(isEquipmentId) ?? defaultEquipment;
+  const equipment = selectedEquipment.length > 0 ? selectedEquipment : defaultEquipment;
+  const duration = onboarding?.sessionDurationMinutes ?? 45;
+
+  let variants: { name: string; pools: ExerciseOption[][] }[];
+
+  switch (focus) {
+    case 'upper':
+      variants = [
+        {
+          name: 'Верх тіла · Варіант A',
+          pools: [
+            exerciseOptions.horizontalPush,
+            exerciseOptions.row,
+            exerciseOptions.verticalPull,
+            exerciseOptions.shoulderPush,
+            exerciseOptions.biceps,
+            exerciseOptions.triceps,
+          ],
+        },
+        {
+          name: 'Верх тіла · Варіант B',
+          pools: [
+            exerciseOptions.inclinePush,
+            exerciseOptions.verticalPull,
+            exerciseOptions.row,
+            exerciseOptions.shoulderPush,
+            exerciseOptions.biceps,
+            exerciseOptions.triceps,
+          ],
+        },
+      ];
+      break;
+
+    case 'lower':
+      variants = [
+        {
+          name: 'Низ тіла · Варіант A',
+          pools: [
+            exerciseOptions.squat,
+            exerciseOptions.hinge,
+            exerciseOptions.lunges,
+            exerciseOptions.legAccessory,
+            exerciseOptions.calves,
+            exerciseOptions.core,
+          ],
+        },
+        {
+          name: 'Низ тіла · Варіант B',
+          pools: [
+            exerciseOptions.hinge,
+            exerciseOptions.squat,
+            exerciseOptions.lunges,
+            exerciseOptions.legAccessory,
+            exerciseOptions.calves,
+            exerciseOptions.core,
+          ],
+        },
+      ];
+      break;
+
+    case 'full_body':
+      variants = [
+        {
+          name: 'Все тіло · Варіант A',
+          pools: [
+            exerciseOptions.squat,
+            exerciseOptions.horizontalPush,
+            exerciseOptions.verticalPull,
+            exerciseOptions.hinge,
+            exerciseOptions.core,
+            exerciseOptions.biceps,
+          ],
+        },
+        {
+          name: 'Все тіло · Варіант B',
+          pools: [
+            exerciseOptions.hinge,
+            exerciseOptions.shoulderPush,
+            exerciseOptions.row,
+            exerciseOptions.lunges,
+            exerciseOptions.core,
+            exerciseOptions.triceps,
+          ],
+        },
+        {
+          name: 'Все тіло · Варіант C',
+          pools: [
+            exerciseOptions.squat,
+            exerciseOptions.inclinePush,
+            exerciseOptions.row,
+            exerciseOptions.shoulderPush,
+            exerciseOptions.biceps,
+            exerciseOptions.triceps,
+          ],
+        },
+      ];
+      break;
+
+    case 'push':
+      variants = [
+        {
+          name: 'Жимовий день · Варіант A',
+          pools: [
+            exerciseOptions.horizontalPush,
+            exerciseOptions.inclinePush,
+            exerciseOptions.shoulderPush,
+            exerciseOptions.triceps,
+            exerciseOptions.core,
+          ],
+        },
+        {
+          name: 'Жимовий день · Варіант B',
+          pools: [
+            exerciseOptions.inclinePush,
+            exerciseOptions.horizontalPush,
+            exerciseOptions.shoulderPush,
+            exerciseOptions.triceps,
+            exerciseOptions.core,
+          ],
+        },
+      ];
+      break;
+
+    case 'pull':
+      variants = [
+        {
+          name: 'Тяговий день · Варіант A',
+          pools: [
+            exerciseOptions.verticalPull,
+            exerciseOptions.row,
+            exerciseOptions.biceps,
+            exerciseOptions.shoulderPush,
+            exerciseOptions.core,
+          ],
+        },
+        {
+          name: 'Тяговий день · Варіант B',
+          pools: [
+            exerciseOptions.row,
+            exerciseOptions.verticalPull,
+            exerciseOptions.biceps,
+            exerciseOptions.core,
+            exerciseOptions.shoulderPush,
+          ],
+        },
+      ];
+      break;
+
+    case 'arms_core':
+      variants = [
+        {
+          name: 'Руки та Прес · Варіант A',
+          pools: [
+            exerciseOptions.biceps,
+            exerciseOptions.triceps,
+            exerciseOptions.biceps,
+            exerciseOptions.triceps,
+            exerciseOptions.core,
+          ],
+        },
+        {
+          name: 'Руки та Прес · Варіант B',
+          pools: [
+            exerciseOptions.triceps,
+            exerciseOptions.biceps,
+            exerciseOptions.shoulderPush,
+            exerciseOptions.triceps,
+            exerciseOptions.core,
+          ],
+        },
+      ];
+      break;
+  }
+
+  const selectedVariant = variants[Math.abs(cycle) % variants.length];
+
+  // Adjust exercise count based on chosen session duration
+  const targetExerciseCount = duration <= 30 ? 4 : duration <= 45 ? 5 : 6;
+  const poolsToUse = selectedVariant.pools.slice(0, targetExerciseCount);
+
+  // Pick suitable exercise for available equipment, cycling through options if multiple exist
+  const selectedOptions = poolsToUse.map((pool, poolIdx) => {
+    const valid = pool.filter((item) => isAvailable(item.equipment, equipment));
+    if (valid.length === 0) return pool[pool.length - 1];
+    // Rotate alternative exercise inside the pool based on cycle
+    const itemIdx = (Math.floor(cycle / variants.length) + poolIdx) % valid.length;
+    return valid[itemIdx] ?? valid[0];
+  });
+
+  const exercises: GeneratedExercise[] = selectedOptions.map((exercise) => {
+    const calibratedWeight = onboarding
+      ? calibrateInitialWeight(
+          exercise.recommendedWeight,
+          exercise.equipment,
+          onboarding.experience,
+          onboarding.goal,
+          { weightKg: onboarding.weightKg, heightCm: onboarding.heightCm },
+          exercise.name,
+          onboarding.baselineLifts
+        )
+      : exercise.recommendedWeight;
+
+    const calibratedRest = onboarding
+      ? calculateRecommendedRest(
+          exercise.name,
+          exercise.equipment,
+          onboarding.goal,
+          { weightKg: onboarding.weightKg }
+        )
+      : exercise.restSeconds ?? 120;
+
+    const calibratedReps = exercise.targetRepRange ?? (
+      onboarding?.experience === 'beginner'
+        ? '12-15'
+        : onboarding?.experience === 'advanced'
+        ? '6-10'
+        : '8-12'
+    );
+
+    return {
+      ...exercise,
+      recommendedWeight: calibratedWeight,
+      restSeconds: calibratedRest,
+      sets: exercise.muscleGroup === 'Core' ? 2 : 3,
+      targetRepRange: calibratedReps,
+      name: exercise.name,
+      weightIncrement: exercise.weightIncrement ?? defaultWeightIncrement(exercise.equipment),
+    };
+  });
+
+  return {
+    id: `focus-${focus}-${cycle}`,
+    name: selectedVariant.name,
+    dayLabel: 'СЬОГОДНІ',
+    muscleGroups: [...new Set(exercises.map((e) => e.muscleGroup))],
+    estimatedMinutes: duration,
+    defaultRestSeconds: 120,
+    exercises,
+  };
+}
+
+export function getExerciseAlternatives(
+  currentExerciseName: string,
+  equipment: EquipmentId[] = defaultEquipment
+): ExerciseOption[] {
+  // Find which pool current exercise belongs to
+  for (const pool of Object.values(exerciseOptions)) {
+    const found = pool.some((e) => e.name.toLowerCase() === currentExerciseName.toLowerCase());
+    if (found) {
+      return pool.filter(
+        (e) =>
+          e.name.toLowerCase() !== currentExerciseName.toLowerCase() &&
+          isAvailable(e.equipment, equipment)
+      );
+    }
+  }
+
+  // Fallback: match by general equipment
+  return [
+    ...exerciseOptions.horizontalPush,
+    ...exerciseOptions.verticalPull,
+    ...exerciseOptions.squat,
+    ...exerciseOptions.shoulderPush,
+  ].filter(
+    (e) =>
+      e.name.toLowerCase() !== currentExerciseName.toLowerCase() &&
+      isAvailable(e.equipment, equipment)
+  );
+}
+

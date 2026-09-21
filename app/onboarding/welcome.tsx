@@ -23,7 +23,7 @@ export default function Welcome() {
 
   const handleGetStarted = () => {
     hapticMedium();
-    router.push('/onboarding/goal');
+    router.push('/onboarding/params');
   };
 
   const handleLogin = () => {

@@ -1,9 +1,10 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
+  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -14,13 +15,21 @@ import {
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
 import { getExerciseImage } from '@/lib/exerciseImages';
+import { hapticImpact, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import {
+  calibrateInitialWeight,
+  getExerciseAlternatives,
+  type EquipmentId,
+} from '@/lib/programGenerator';
 import { calculateMuscleRecovery } from '@/lib/recoveryEngine';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
+import { loadOnboarding, type OnboardingData } from '@/store/workoutStore';
+import type { UserExercise } from '@/types/userProgram';
 
 function getExerciseIcon(name: string): keyof typeof MaterialCommunityIcons.glyphMap {
   const lower = name.toLowerCase();
@@ -42,15 +51,84 @@ export default function WorkoutPreview() {
   const program = useProgramStore((state) => state.program);
   const history = useWorkoutHistoryStore((state) => state.workouts);
 
+  const updateUserProgram = useProgramStore((state) => state.updateUserProgram);
+  const [onboarding, setOnboarding] = useState<OnboardingData | null>(null);
+  const [swapModalVisible, setSwapModalVisible] = useState(false);
+  const [exerciseToSwap, setExerciseToSwap] = useState<UserExercise | null>(null);
+
   useEffect(() => {
     useProgramStore.getState().loadProgram();
     useWorkoutHistoryStore.getState().loadHistory();
+    loadOnboarding().then((data) => {
+      if (data) setOnboarding(data);
+    });
   }, []);
 
   const selectedId = typeof workoutId === 'string' ? workoutId : undefined;
   const scheduledWorkout = getScheduledWorkout(program, progress);
   const workout =
     program?.workouts?.find((item) => item.id === selectedId) ?? scheduledWorkout;
+
+  const handleOpenSwapModal = (exercise: UserExercise) => {
+    hapticImpact();
+    setExerciseToSwap(exercise);
+    setSwapModalVisible(true);
+  };
+
+  const alternatives = useMemo(() => {
+    if (!exerciseToSwap) return [];
+    const equipment = (onboarding?.equipment as EquipmentId[]) || ['full_gym'];
+    return getExerciseAlternatives(exerciseToSwap.name, equipment);
+  }, [exerciseToSwap, onboarding]);
+
+  const handleSelectAlternative = async (altExercise: {
+    id: string;
+    name: string;
+    muscleGroup: string;
+    recommendedWeight: number;
+    equipment: EquipmentId;
+    weightIncrement: number;
+    targetRepRange?: string;
+  }) => {
+    if (!exerciseToSwap || !workout || !program) return;
+    hapticMedium();
+
+    const calibratedWeight = onboarding
+      ? calibrateInitialWeight(
+          altExercise.recommendedWeight,
+          altExercise.equipment,
+          onboarding.experience,
+          onboarding.goal,
+          { weightKg: onboarding.weightKg, heightCm: onboarding.heightCm },
+          altExercise.name,
+          onboarding.baselineLifts
+        )
+      : altExercise.recommendedWeight;
+
+    const updatedExercises: UserExercise[] = workout.exercises.map((ex) =>
+      ex.id === exerciseToSwap.id
+        ? {
+            ...ex,
+            name: altExercise.name,
+            muscleGroup: altExercise.muscleGroup,
+            equipment: altExercise.equipment,
+            recommendedWeight: calibratedWeight,
+            weightIncrement: altExercise.weightIncrement ?? 2.5,
+            targetRepRange: altExercise.targetRepRange ?? ex.targetRepRange,
+          }
+        : ex
+    );
+
+    const updatedWorkout = { ...workout, exercises: updatedExercises };
+    const updatedProgram = {
+      ...program,
+      workouts: program.workouts.map((w) => (w.id === workout.id ? updatedWorkout : w)),
+    };
+
+    await updateUserProgram(updatedProgram);
+    setSwapModalVisible(false);
+    setExerciseToSwap(null);
+  };
 
   // Calculate readiness percentage for this workout's muscle groups
   const readinessPercent = useMemo(() => {
@@ -187,11 +265,113 @@ export default function WorkoutPreview() {
                     {exercise.sets} {t('sets').toLowerCase()} • {weightLabel}
                   </Text>
                 </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Замінити вправу"
+                  hitSlop={8}
+                  onPress={() => handleOpenSwapModal(exercise)}
+                  style={({ pressed }) => [styles.swapBtn, pressed && { opacity: 0.7 }]}
+                >
+                  <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
+                  <Text style={styles.swapBtnText}>
+                    {language === 'uk' ? 'Замінити' : 'Swap'}
+                  </Text>
+                </Pressable>
               </View>
             );
           })}
         </View>
       </ScrollView>
+
+      {/* Exercise Swap Modal */}
+      <Modal
+        visible={swapModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSwapModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setSwapModalVisible(false)}
+        >
+          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>
+                  {language === 'uk' ? 'Замінити вправу' : 'Swap Exercise'}
+                </Text>
+                {exerciseToSwap && (
+                  <Text style={styles.modalSubtitle} numberOfLines={1}>
+                    {language === 'uk' ? 'Замість' : 'Replacing'}: {te(exerciseToSwap.name)}
+                  </Text>
+                )}
+              </View>
+              <Pressable
+                onPress={() => setSwapModalVisible(false)}
+                hitSlop={10}
+                style={styles.modalCloseBtn}
+              >
+                <Ionicons name="close" size={22} color="#8E959F" />
+              </Pressable>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              {alternatives.length === 0 ? (
+                <View style={{ paddingVertical: 28, alignItems: 'center' }}>
+                  <Text style={{ color: '#8E959F', fontSize: 14 }}>
+                    {language === 'uk'
+                      ? 'Немає альтернативних вправ'
+                      : 'No alternative exercises found'}
+                  </Text>
+                </View>
+              ) : (
+                alternatives.map((alt) => {
+                  const altWeight = onboarding
+                    ? calibrateInitialWeight(
+                        alt.recommendedWeight,
+                        alt.equipment,
+                        onboarding.experience,
+                        onboarding.goal,
+                        { weightKg: onboarding.weightKg, heightCm: onboarding.heightCm },
+                        alt.name,
+                        onboarding.baselineLifts
+                      )
+                    : alt.recommendedWeight;
+                  const weightStr = altWeight > 0 ? formatWithUnit(altWeight) : t('bodyweight');
+
+                  return (
+                    <Pressable
+                      key={alt.id}
+                      style={({ pressed }) => [
+                        styles.altCard,
+                        pressed && { backgroundColor: '#1A212D' },
+                      ]}
+                      onPress={() => handleSelectAlternative(alt)}
+                    >
+                      <View style={styles.altThumbWrap}>
+                        <Image
+                          source={getExerciseImage(alt.name)}
+                          style={styles.altThumb}
+                          resizeMode="cover"
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.altName}>{te(alt.name)}</Text>
+                        <Text style={styles.altMeta}>
+                          {tm(alt.muscleGroup)} • {weightStr}
+                        </Text>
+                      </View>
+                      <View style={styles.altSelectBadge}>
+                        <Ionicons name="checkmark" size={14} color="#0B0D0F" />
+                      </View>
+                    </Pressable>
+                  );
+                })
+              )}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Sticky Bottom CTA Button */}
       <View style={styles.bottomBar}>
@@ -352,5 +532,108 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 14,
     elevation: 5,
+  },
+  swapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+  },
+  swapBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#15191F',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 36,
+    borderWidth: 1,
+    borderColor: '#242B35',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#242B35',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E959F',
+    marginTop: 3,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1E242D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  altCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: '#1A212D',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#242B35',
+  },
+  altThumbWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#0E1115',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  altThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  altName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  altMeta: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#8E959F',
+    marginTop: 2,
+  },
+  altSelectBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

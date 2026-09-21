@@ -8,17 +8,24 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { hapticLight } from '@/lib/haptics';
+import { hapticImpact, hapticLight, hapticMedium } from '@/lib/haptics';
 import { countWorkoutsThisWeek, getStartOfWeek } from '@/lib/progressCalculator';
 import { calculateMuscleRecovery } from '@/lib/recoveryEngine';
 import { translateExercise, useI18n } from '@/lib/i18n';
+import {
+  generateFocusWorkout,
+  WORKOUT_FOCUS_OPTIONS,
+  type WorkoutFocus,
+} from '@/lib/programGenerator';
+import { generateUUID } from '@/lib/programMigration';
 import { formatWeightWithUnit } from '@/lib/weightUtils';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
 import type { AppLanguage } from '@/store/userProfileStore';
 import { WORKOUT_HISTORY_STORAGE_KEY, useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
-import { defaultOnboarding, loadOnboarding } from '@/store/workoutStore';
+import { defaultOnboarding, loadOnboarding, type OnboardingData } from '@/store/workoutStore';
+import type { UserWorkout } from '@/types/userProgram';
 import type { CompletedWorkout } from '@/types/workout';
 
 import { ReadinessRing } from '@/components/ui/ReadinessRing';
@@ -165,15 +172,109 @@ export default function Home() {
     }, [])
   );
 
+  const [selectedFocus, setSelectedFocus] = useState<WorkoutFocus | null>(null);
+  const [focusCycle, setFocusCycle] = useState(0);
+  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
+
   useEffect(() => {
     loadOnboarding().then((data) => {
       if (data?.name) setName(data.name);
+      if (data) setOnboardingData(data);
     });
     useProgramStore.getState().loadProgram();
     useWorkoutHistoryStore.getState().loadHistory();
   }, []);
 
   const nextWorkout = program && program.workouts?.length ? getScheduledWorkout(program, progress) : null;
+
+  const handleSelectFocus = async (focus: WorkoutFocus) => {
+    hapticImpact();
+    setSelectedFocus(focus);
+    setFocusCycle(0);
+    const data = onboardingData ?? (await loadOnboarding()) ?? defaultOnboarding;
+    const generated = generateFocusWorkout(focus, data, 0);
+
+    const userWorkout: UserWorkout = {
+      id: generateUUID(),
+      name: generated.name,
+      dayLabel: language === 'uk' ? 'СЬОГОДНІ' : 'TODAY',
+      muscleGroups: generated.muscleGroups,
+      estimatedMinutes: generated.estimatedMinutes,
+      defaultRestSeconds: generated.defaultRestSeconds,
+      exercises: generated.exercises.map((e) => ({
+        id: generateUUID(),
+        name: e.name,
+        muscleGroup: e.muscleGroup,
+        sets: e.sets,
+        recommendedWeight: e.recommendedWeight,
+        targetRepRange: e.targetRepRange,
+        equipment: e.equipment,
+        weightIncrement: e.weightIncrement,
+        restSeconds: e.restSeconds,
+      })),
+    };
+
+    const currentProg = useProgramStore.getState().program;
+    const currentIndex = currentProg.workouts.findIndex((w) => w.id === nextWorkout?.id);
+    const updatedWorkouts = [...currentProg.workouts];
+    if (currentIndex >= 0) {
+      updatedWorkouts[currentIndex] = userWorkout;
+    } else {
+      updatedWorkouts[0] = userWorkout;
+    }
+
+    await useProgramStore.getState().updateUserProgram({
+      ...currentProg,
+      workouts: updatedWorkouts,
+    });
+    await setNextWorkout(userWorkout.id);
+  };
+
+  const handleShuffleWorkout = async () => {
+    hapticMedium();
+    const activeFocus: WorkoutFocus = selectedFocus || 'full_body';
+    const nextCycle = focusCycle + 1;
+    setFocusCycle(nextCycle);
+    if (!selectedFocus) setSelectedFocus(activeFocus);
+
+    const data = onboardingData ?? (await loadOnboarding()) ?? defaultOnboarding;
+    const generated = generateFocusWorkout(activeFocus, data, nextCycle);
+
+    const userWorkout: UserWorkout = {
+      id: generateUUID(),
+      name: generated.name,
+      dayLabel: language === 'uk' ? 'СЬОГОДНІ' : 'TODAY',
+      muscleGroups: generated.muscleGroups,
+      estimatedMinutes: generated.estimatedMinutes,
+      defaultRestSeconds: generated.defaultRestSeconds,
+      exercises: generated.exercises.map((e) => ({
+        id: generateUUID(),
+        name: e.name,
+        muscleGroup: e.muscleGroup,
+        sets: e.sets,
+        recommendedWeight: e.recommendedWeight,
+        targetRepRange: e.targetRepRange,
+        equipment: e.equipment,
+        weightIncrement: e.weightIncrement,
+        restSeconds: e.restSeconds,
+      })),
+    };
+
+    const currentProg = useProgramStore.getState().program;
+    const currentIndex = currentProg.workouts.findIndex((w) => w.id === nextWorkout?.id);
+    const updatedWorkouts = [...currentProg.workouts];
+    if (currentIndex >= 0) {
+      updatedWorkouts[currentIndex] = userWorkout;
+    } else {
+      updatedWorkouts[0] = userWorkout;
+    }
+
+    await useProgramStore.getState().updateUserProgram({
+      ...currentProg,
+      workouts: updatedWorkouts,
+    });
+    await setNextWorkout(userWorkout.id);
+  };
 
   // Dynamic Readiness Score
   const readiness = useMemo(
@@ -281,27 +382,77 @@ export default function Home() {
         </View>
       </View>
 
-      {/* 3. Today's Workout Card with Deep Slate Elevation */}
+      {/* 3. Daily Gym Focus Selector */}
+      <View style={styles.focusSection}>
+        <View style={styles.focusHeaderRow}>
+          <Text style={styles.focusSectionTitle}>
+            {language === 'uk' ? 'ЩО РОБИМО СЬОГОДНІ В ЗАЛІ?' : 'WHAT ARE WE TRAINING TODAY?'}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Shuffle workout"
+            onPress={handleShuffleWorkout}
+            style={({ pressed }) => [styles.shuffleBtn, pressed && { opacity: 0.7 }]}
+          >
+            <Ionicons name="shuffle" size={13} color={colors.primary} />
+            <Text style={styles.shuffleBtnText}>
+              {language === 'uk' ? 'ІНШИЙ ВАРІАНТ' : 'SHUFFLE'}
+            </Text>
+          </Pressable>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.focusScrollContent}
+        >
+          {WORKOUT_FOCUS_OPTIONS.map((opt) => {
+            const isSelected = selectedFocus === opt.id;
+            return (
+              <Pressable
+                key={opt.id}
+                accessibilityRole="button"
+                accessibilityLabel={opt.labelUk}
+                onPress={() => handleSelectFocus(opt.id)}
+                style={({ pressed }) => [
+                  styles.focusChip,
+                  isSelected && styles.focusChipActive,
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Text style={styles.focusChipIcon}>{opt.icon}</Text>
+                <Text style={[styles.focusChipLabel, isSelected && styles.focusChipLabelActive]}>
+                  {language === 'uk' ? opt.labelUk : opt.labelEn}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* 4. Today's Workout Card with Deep Slate Elevation */}
       <View style={styles.workoutCard}>
         <View style={styles.workoutCardHeaderRow}>
           <Text style={styles.workoutCardLabel}>{t('todaysWorkout')}</Text>
-          {program.workouts && program.workouts.length > 1 && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Switch workout"
-              onPress={() => {
-                hapticLight();
-                setSwitchModalVisible(true);
-              }}
-              hitSlop={8}
-              style={styles.switchWorkoutBtn}
-            >
-              <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
-              <Text style={styles.switchWorkoutBtnText}>
-                {language === 'uk' ? 'ЗМІНИТИ' : 'SWITCH'}
-              </Text>
-            </Pressable>
-          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {program.workouts && program.workouts.length > 1 && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Switch workout"
+                onPress={() => {
+                  hapticLight();
+                  setSwitchModalVisible(true);
+                }}
+                hitSlop={8}
+                style={styles.switchWorkoutBtn}
+              >
+                <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
+                <Text style={styles.switchWorkoutBtnText}>
+                  {language === 'uk' ? 'СПИСОК' : 'LIST'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
         </View>
 
         <Pressable
@@ -316,6 +467,34 @@ export default function Home() {
         </Pressable>
 
         <Text style={styles.workoutMuscles}>{displayMuscles}</Text>
+
+        {/* Exercise Quick Preview on Home Card */}
+        {nextWorkout.exercises && nextWorkout.exercises.length > 0 && (
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: '/workout/preview', params: { workoutId: nextWorkout.id } })
+            }
+            style={styles.exercisePreviewWrap}
+          >
+            {nextWorkout.exercises.slice(0, 3).map((ex, idx) => (
+              <View key={ex.id || `${ex.name}-${idx}`} style={styles.previewExRow}>
+                <View style={styles.previewExDot} />
+                <Text style={styles.previewExName} numberOfLines={1}>
+                  {te(ex.name)}
+                </Text>
+                <Text style={styles.previewExSets}>
+                  {ex.sets} × {ex.recommendedWeight ? `${ex.recommendedWeight} кг` : 'ВТ'}
+                </Text>
+              </View>
+            ))}
+            {nextWorkout.exercises.length > 3 && (
+              <Text style={styles.previewMoreText}>
+                + ще {nextWorkout.exercises.length - 3}{' '}
+                {language === 'uk' ? 'вправи (натисніть для перегляду)' : 'more exercises'}
+              </Text>
+            )}
+          </Pressable>
+        )}
 
         <View style={styles.workoutFooterRow}>
           <View style={styles.metaItem}>
@@ -517,12 +696,76 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     lineHeight: 20,
   },
+  focusSection: {
+    marginBottom: 20,
+  },
+  focusHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  focusSectionTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#8E959F',
+    letterSpacing: 1.2,
+  },
+  shuffleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+  },
+  shuffleBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  focusScrollContent: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  focusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    backgroundColor: '#15191F',
+    borderWidth: 1,
+    borderColor: '#242B35',
+  },
+  focusChipActive: {
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    borderColor: colors.primary,
+  },
+  focusChipIcon: {
+    fontSize: 14,
+  },
+  focusChipLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#8E959F',
+  },
+  focusChipLabelActive: {
+    color: colors.primary,
+    fontWeight: '900',
+  },
   workoutCard: {
     backgroundColor: '#15191F',
     borderColor: '#242B35',
     borderWidth: 1,
     borderRadius: 22,
-    padding: 22,
+    padding: 20,
     marginBottom: 16,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
@@ -535,7 +778,67 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#717B8A',
     letterSpacing: 1.5,
-    marginBottom: 8,
+  },
+  workoutCardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  switchWorkoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+  },
+  switchWorkoutBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  exercisePreviewWrap: {
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 14,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  previewExRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  previewExDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.primary,
+  },
+  previewExName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#D8DEE9',
+  },
+  previewExSets: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#8E959F',
+  },
+  previewMoreText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary,
+    marginTop: 2,
+    paddingLeft: 13,
   },
   workoutMainRow: {
     flexDirection: 'row',
@@ -544,16 +847,16 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   workoutName: {
-    fontSize: 27,
+    fontSize: 24,
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: -0.4,
   },
   workoutMuscles: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#8E959F',
     marginTop: 4,
-    marginBottom: 18,
+    marginBottom: 14,
     fontWeight: '500',
   },
   workoutFooterRow: {
@@ -712,29 +1015,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: '#F0F3F8',
     fontWeight: '500',
-  },
-  workoutCardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  switchWorkoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-  },
-  switchWorkoutBtnText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#C8FF3D',
-    letterSpacing: 0.8,
   },
   modalOverlay: {
     flex: 1,

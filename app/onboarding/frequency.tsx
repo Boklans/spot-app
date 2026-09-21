@@ -17,51 +17,47 @@ import {
   type WorkoutSplitPreference,
 } from '@/store/workoutStore';
 
-interface SplitChoice {
-  id: WorkoutSplitPreference;
+interface DurationChoice {
+  minutes: number;
   title: string;
   subtitle: string;
-  badge: string;
+  badge?: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  daysRecommended: number[];
 }
 
-const SPLIT_CHOICES: SplitChoice[] = [
+const DURATION_CHOICES: DurationChoice[] = [
   {
-    id: 'full_body',
-    title: 'Full Body',
-    subtitle: 'Train your entire body every session. Optimal frequency & recovery.',
-    badge: '1–3 DAYS',
-    icon: 'human',
-    daysRecommended: [1, 2, 3],
+    minutes: 30,
+    title: '30 хв · Швидке',
+    subtitle: 'Коротке й інтенсивне тренування без зайвого відпочинку (~4 вправи)',
+    badge: 'EXPRESS',
+    icon: 'lightning-bolt',
   },
   {
-    id: 'upper_lower',
-    title: 'Upper / Lower',
-    subtitle: 'Alternate between upper body compound movements and lower body power.',
-    badge: '3–4 DAYS',
+    minutes: 45,
+    title: '45 хв · Оптимальне',
+    subtitle: 'Ідеальний баланс сили, обʼєму та відновлення (~5–6 вправ)',
+    badge: 'РЕКОМЕНДОВАНО',
+    icon: 'timer-sand',
+  },
+  {
+    minutes: 60,
+    title: '60 хв · Повне',
+    subtitle: 'Глибоке опрацювання цільових мʼязів та повний відпочинок (~6–7 вправ)',
+    badge: 'POWER',
     icon: 'weight-lifter',
-    daysRecommended: [3, 4],
-  },
-  {
-    id: 'push_pull_legs',
-    title: 'Push / Pull / Legs (PPL)',
-    subtitle: 'Classic athletic split: Chest/Delts/Triceps, Back/Biceps, Quads/Hams.',
-    badge: '3–7 DAYS',
-    icon: 'arm-flex',
-    daysRecommended: [3, 4, 5, 6, 7],
-  },
-  {
-    id: 'custom',
-    title: 'Custom Routine',
-    subtitle: 'Train by your own program with full freedom to swap any exercises.',
-    badge: 'ANY SCHEDULE',
-    icon: 'tune',
-    daysRecommended: [1, 2, 3, 4, 5, 6, 7],
   },
 ];
 
-const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+const WEEKDAYS = [
+  { key: 'MON', label: 'ПН' },
+  { key: 'TUE', label: 'ВТ' },
+  { key: 'WED', label: 'СР' },
+  { key: 'THU', label: 'ЧТ' },
+  { key: 'FRI', label: 'ПТ' },
+  { key: 'SAT', label: 'СБ' },
+  { key: 'SUN', label: 'НД' },
+];
 
 const SCHEDULE_PATTERNS: Record<number, string[]> = {
   1: ['SUN'],
@@ -75,15 +71,12 @@ const SCHEDULE_PATTERNS: Record<number, string[]> = {
 
 export default function Frequency() {
   const [selectedDays, setSelectedDays] = useState<string[]>(['MON', 'WED', 'FRI']);
-  const [selectedSplit, setSelectedSplit] =
-    useState<WorkoutSplitPreference>('full_body');
-  const [hasPresetSplit, setHasPresetSplit] = useState(false);
+  const [selectedDuration, setSelectedDuration] = useState<number>(45);
 
   useEffect(() => {
     loadOnboarding().then((data) => {
-      if (data?.splitPreference) {
-        setSelectedSplit(data.splitPreference);
-        setHasPresetSplit(true);
+      if (data?.sessionDurationMinutes) {
+        setSelectedDuration(data.sessionDurationMinutes);
       }
       if (data?.trainingFrequency && SCHEDULE_PATTERNS[data.trainingFrequency]) {
         setSelectedDays(data.trainingDays || SCHEDULE_PATTERNS[data.trainingFrequency]);
@@ -93,68 +86,53 @@ export default function Frequency() {
 
   const days = selectedDays.length;
 
-  const toggleDay = (day: string) => {
+  const toggleDay = (dayKey: string) => {
     hapticImpact();
-    if (selectedDays.includes(day)) {
+    if (selectedDays.includes(dayKey)) {
       if (selectedDays.length <= 1) return; // Keep minimum 1 day
-      const next = selectedDays.filter((d) => d !== day);
-      setSelectedDays(next);
-      if (next.length <= 2 && selectedSplit === 'push_pull_legs') {
-        setSelectedSplit('full_body');
-      }
+      setSelectedDays(selectedDays.filter((d) => d !== dayKey));
     } else {
       if (selectedDays.length >= 7) return; // Maximum 7 days
-      const next = WEEKDAYS.filter((d) => selectedDays.includes(d) || d === day);
-      setSelectedDays(next);
-      if (next.length >= 5 && selectedSplit === 'full_body') {
-        setSelectedSplit('push_pull_legs');
-      }
+      setSelectedDays(WEEKDAYS.map((w) => w.key).filter((d) => selectedDays.includes(d) || d === dayKey));
     }
   };
 
   const handleDecrease = () => {
     if (selectedDays.length > 1) {
       hapticImpact();
-      const next = selectedDays.slice(0, selectedDays.length - 1);
-      setSelectedDays(next);
-      if (next.length <= 2 && selectedSplit === 'push_pull_legs') {
-        setSelectedSplit('full_body');
-      }
+      setSelectedDays(selectedDays.slice(0, selectedDays.length - 1));
     }
   };
 
   const handleIncrease = () => {
     if (selectedDays.length < 7) {
       hapticImpact();
-      const nextDay = WEEKDAYS.find((d) => !selectedDays.includes(d));
+      const allKeys = WEEKDAYS.map((w) => w.key);
+      const nextDay = allKeys.find((d) => !selectedDays.includes(d));
       if (nextDay) {
-        const next = WEEKDAYS.filter((d) => selectedDays.includes(d) || d === nextDay);
-        setSelectedDays(next);
-        if (next.length >= 5 && selectedSplit === 'full_body') {
-          setSelectedSplit('push_pull_legs');
-        }
+        setSelectedDays(allKeys.filter((d) => selectedDays.includes(d) || d === nextDay));
       }
     }
   };
 
-  const handleSelectSplit = (splitId: WorkoutSplitPreference) => {
-    hapticImpact();
-    setSelectedSplit(splitId);
-  };
-
   const handleContinue = async () => {
     hapticMedium();
+    // Automatically calibrate split according to frequency
+    const autoSplit: WorkoutSplitPreference =
+      days <= 2 ? 'full_body' : days <= 4 ? 'upper_lower' : 'push_pull_legs';
+
     await saveOnboarding({
       trainingFrequency: days,
       trainingDays: selectedDays,
-      splitPreference: selectedSplit,
+      sessionDurationMinutes: selectedDuration,
+      splitPreference: autoSplit,
     });
     router.push('/onboarding/equipment');
   };
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* 1. Top Bar with 3/5 Progress */}
+      {/* 1. Top Bar with 4/5 Progress */}
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
@@ -165,7 +143,7 @@ export default function Frequency() {
         >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
-        <Text style={styles.stepText}>4/6</Text>
+        <Text style={styles.stepText}>4/5</Text>
         <View style={styles.topBarPlaceholder} />
       </View>
 
@@ -176,83 +154,67 @@ export default function Frequency() {
       >
         {/* 2. Title Section */}
         <View style={styles.titleSection}>
-          <Text style={styles.title}>How often can you train?</Text>
-          <Text style={styles.subtitle}>Choose your schedule and preferred split.</Text>
+          <Text style={styles.title}>Графік і час</Text>
+          <Text style={styles.subtitle}>
+            Скільки днів та скільки часу на тренування вам зручно приділяти?
+          </Text>
         </View>
 
-        {/* 3. Stepper Selector */}
+        {/* 3. Days Stepper */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>ДНІ НА ТИЖДЕНЬ</Text>
+          <Text style={styles.sectionSub}>{days} ДНІВ</Text>
+        </View>
+
         <View style={styles.stepperWrap}>
           <View style={styles.stepperRow}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Decrease frequency"
+              accessibilityLabel="Зменшити кількість днів"
               onPress={handleDecrease}
               disabled={days <= 1}
-              style={[
-                styles.stepBtn,
-                days <= 1 && styles.stepBtnDisabled,
-              ]}
+              style={[styles.stepBtn, days <= 1 && styles.stepBtnDisabled]}
             >
-              <Text
-                style={[
-                  styles.stepBtnText,
-                  days <= 1 && styles.stepBtnTextDisabled,
-                ]}
-              >
-                −
-              </Text>
+              <Text style={[styles.stepBtnText, days <= 1 && styles.stepBtnTextDisabled]}>−</Text>
             </Pressable>
 
             <View style={styles.numberWrap}>
               <Text style={styles.numberValue}>{days}</Text>
-              <Text style={styles.numberUnit}>DAYS / WEEK</Text>
+              <Text style={styles.numberUnit}>
+                {days === 1 ? 'ДЕНЬ / ТИЖДЕНЬ' : days < 5 ? 'ДНІ / ТИЖДЕНЬ' : 'ДНІВ / ТИЖДЕНЬ'}
+              </Text>
             </View>
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Increase frequency"
+              accessibilityLabel="Збільшити кількість днів"
               onPress={handleIncrease}
               disabled={days >= 7}
-              style={[
-                styles.stepBtn,
-                days >= 7 && styles.stepBtnDisabled,
-              ]}
+              style={[styles.stepBtn, days >= 7 && styles.stepBtnDisabled]}
             >
-              <Text
-                style={[
-                  styles.stepBtnText,
-                  days >= 7 && styles.stepBtnTextDisabled,
-                ]}
-              >
-                +
-              </Text>
+              <Text style={[styles.stepBtnText, days >= 7 && styles.stepBtnTextDisabled]}>+</Text>
             </Pressable>
           </View>
 
-          {/* 4. Weekly Interactive Day Chips */}
-          <Text style={styles.daysHint}>Tap days to customize your schedule:</Text>
+          {/* Interactive Weekday Chips */}
+          <Text style={styles.daysHint}>Оберіть зручні для вас дні:</Text>
           <View style={styles.weekdayRow}>
             {WEEKDAYS.map((w) => {
-              const isActive = selectedDays.includes(w);
+              const isActive = selectedDays.includes(w.key);
               return (
                 <Pressable
-                  key={w}
+                  key={w.key}
                   accessibilityRole="button"
-                  accessibilityLabel={`Toggle ${w}`}
-                  onPress={() => toggleDay(w)}
+                  accessibilityLabel={`День ${w.label}`}
+                  onPress={() => toggleDay(w.key)}
                   style={({ pressed }) => [
                     styles.dayChip,
                     isActive && styles.dayChipActive,
                     pressed && { opacity: 0.8 },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.dayChipText,
-                      isActive && styles.dayChipTextActive,
-                    ]}
-                  >
-                    {w}
+                  <Text style={[styles.dayChipText, isActive && styles.dayChipTextActive]}>
+                    {w.label}
                   </Text>
                 </Pressable>
               );
@@ -260,148 +222,102 @@ export default function Frequency() {
           </View>
         </View>
 
-        {/* 5. Split Selection Header & Choices */}
-        {hasPresetSplit ? (
-          <View style={{ marginTop: 24, marginBottom: 8 }}>
-            <View style={styles.splitHeaderRow}>
-              <Text style={styles.splitSectionTitle}>TRAINING SPLIT</Text>
+        {/* 4. Session Duration */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>ЧАС НА ТРЕНУВАННЯ</Text>
+          <Text style={styles.sectionSub}>ТРИВАЛІСТЬ СЕСІЇ</Text>
+        </View>
+
+        <View style={styles.durationList}>
+          {DURATION_CHOICES.map((choice) => {
+            const isSelected = selectedDuration === choice.minutes;
+            return (
               <Pressable
+                key={choice.minutes}
                 accessibilityRole="button"
-                accessibilityLabel="Change training split"
+                accessibilityLabel={choice.title}
                 onPress={() => {
                   hapticImpact();
-                  setHasPresetSplit(false);
+                  setSelectedDuration(choice.minutes);
                 }}
-                hitSlop={10}
+                style={[
+                  styles.durationCard,
+                  isSelected && styles.durationCardSelected,
+                ]}
               >
-                <Text style={styles.changeSplitText}>CHANGE</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.presetSplitCard}>
-              <View style={styles.presetSplitLeft}>
-                <View style={styles.presetSplitIconWrap}>
-                  <MaterialCommunityIcons
-                    name={
-                      selectedSplit === 'full_body'
-                        ? 'human'
-                        : selectedSplit === 'upper_lower'
-                        ? 'weight-lifter'
-                        : selectedSplit === 'push_pull_legs'
-                        ? 'arm-flex'
-                        : 'tune'
-                    }
-                    size={22}
-                    color={colors.primary}
-                  />
-                </View>
-                <View style={styles.presetSplitTextWrap}>
-                  <Text style={styles.presetSplitTitle}>
-                    {selectedSplit === 'full_body'
-                      ? 'Full Body'
-                      : selectedSplit === 'upper_lower'
-                      ? 'Upper / Lower'
-                      : selectedSplit === 'push_pull_legs'
-                      ? 'Push / Pull / Legs (PPL)'
-                      : 'Custom Routine'}
-                  </Text>
-                  <Text style={styles.presetSplitSubtitle}>
-                    Selected in previous step · Calibrated for {days} days
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
-            </View>
-          </View>
-        ) : (
-          <>
-            <View style={styles.splitHeaderRow}>
-              <Text style={styles.splitSectionTitle}>TRAINING SPLIT</Text>
-              <Text style={styles.splitSectionSub}>CHOOSE ONE</Text>
-            </View>
-
-            <View style={styles.splitList}>
-              {SPLIT_CHOICES.map((choice) => {
-                const isSelected = selectedSplit === choice.id;
-                const isRecommended = choice.daysRecommended.includes(days);
-
-                return (
-                  <Pressable
-                    key={choice.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={choice.title}
-                    onPress={() => handleSelectSplit(choice.id)}
-                    style={[
-                      styles.splitCard,
-                      isSelected && styles.splitCardSelected,
-                    ]}
-                  >
-                    <View style={styles.splitCardHeader}>
-                      <View style={styles.splitCardLeft}>
-                        <View
+                <View style={styles.durationCardHeader}>
+                  <View style={styles.durationCardLeft}>
+                    <View
+                      style={[
+                        styles.durationIconWrap,
+                        isSelected && styles.durationIconWrapSelected,
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name={choice.icon}
+                        size={22}
+                        color={isSelected ? colors.primary : '#8E9BAE'}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text
                           style={[
-                            styles.splitIconWrap,
-                            isSelected && styles.splitIconWrapSelected,
+                            styles.durationCardTitle,
+                            isSelected && styles.durationCardTitleSelected,
                           ]}
                         >
-                          <MaterialCommunityIcons
-                            name={choice.icon}
-                            size={22}
-                            color={isSelected ? colors.primary : '#8E9BAE'}
-                          />
-                        </View>
-                        <View>
-                          <Text
+                          {choice.title}
+                        </Text>
+                        {choice.badge && (
+                          <View
                             style={[
-                              styles.splitCardTitle,
-                              isSelected && styles.splitCardTitleSelected,
+                              styles.durationBadge,
+                              isSelected && styles.durationBadgeActive,
                             ]}
                           >
-                            {choice.title}
-                          </Text>
-                          {isRecommended && (
-                            <View style={styles.recommendedBadge}>
-                              <Text style={styles.recommendedBadgeText}>
-                                RECOMMENDED FOR {days} DAYS
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-
-                      <View
-                        style={[
-                          styles.checkCircle,
-                          isSelected && styles.checkCircleSelected,
-                        ]}
-                      >
-                        {isSelected && (
-                          <Ionicons name="checkmark" size={15} color="#0B0D0F" />
+                            <Text
+                              style={[
+                                styles.durationBadgeText,
+                                isSelected && styles.durationBadgeTextActive,
+                              ]}
+                            >
+                              {choice.badge}
+                            </Text>
+                          </View>
                         )}
                       </View>
+                      <Text style={styles.durationCardSubtitle}>{choice.subtitle}</Text>
                     </View>
+                  </View>
 
-                    <Text style={styles.splitCardSubtitle}>{choice.subtitle}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </>
-        )}
+                  <View
+                    style={[
+                      styles.checkCircle,
+                      isSelected && styles.checkCircleSelected,
+                    ]}
+                  >
+                    {isSelected && <Ionicons name="checkmark" size={15} color="#0B0D0F" />}
+                  </View>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
       </ScrollView>
 
-      {/* 7. Pinned CTA Button */}
+      {/* 5. CTA Button */}
       <View style={styles.bottomBar}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Continue"
+          accessibilityLabel="Продовжити"
           onPress={handleContinue}
           style={({ pressed }) => [
             styles.continueBtn,
             pressed && styles.continueBtnPressed,
           ]}
         >
-          <Text style={styles.continueText}>Continue</Text>
+          <Text style={styles.continueText}>Продовжити</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -450,11 +366,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: -0.5,
-    lineHeight: 36,
+    lineHeight: 34,
   },
   subtitle: {
     fontSize: 14,
@@ -463,26 +379,44 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 20,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    marginTop: 6,
+  },
+  sectionTitle: {
+    color: '#8E9BAE',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  sectionSub: {
+    color: '#4B5565',
+    fontSize: 11,
+    fontWeight: '700',
+  },
   stepperWrap: {
     alignItems: 'center',
     backgroundColor: '#12161D',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#1D2430',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    marginBottom: 24,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
+    marginBottom: 22,
   },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 24,
+    gap: 20,
   },
   stepBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     backgroundColor: '#161B22',
     borderWidth: 1.5,
     borderColor: '#242C38',
@@ -494,10 +428,10 @@ const styles = StyleSheet.create({
     borderColor: '#1D2430',
   },
   stepBtnText: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: '300',
     color: '#FFFFFF',
-    lineHeight: 34,
+    lineHeight: 32,
   },
   stepBtnTextDisabled: {
     color: '#4B5565',
@@ -507,11 +441,11 @@ const styles = StyleSheet.create({
     minWidth: 120,
   },
   numberValue: {
-    fontSize: 72,
+    fontSize: 64,
     fontWeight: '900',
-    color: colors.primary, // #C8FF3D
+    color: colors.primary,
     letterSpacing: -2,
-    lineHeight: 80,
+    lineHeight: 70,
   },
   numberUnit: {
     fontSize: 11,
@@ -524,7 +458,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#8E9BAE',
-    marginTop: 18,
+    marginTop: 16,
     marginBottom: 8,
     letterSpacing: 0.5,
   },
@@ -533,13 +467,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dayChip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 8,
     borderRadius: 10,
     backgroundColor: '#161B22',
     borderWidth: 1.5,
     borderColor: '#242C38',
-    minWidth: 40,
+    minWidth: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -556,85 +490,76 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '900',
   },
-  splitHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  splitSectionTitle: {
-    color: '#8E9BAE',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  splitSectionSub: {
-    color: '#4B5565',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  splitList: {
+  durationList: {
     gap: 12,
     marginBottom: 16,
   },
-  splitCard: {
+  durationCard: {
     backgroundColor: '#12161D',
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: '#1D2430',
     padding: 16,
   },
-  splitCardSelected: {
+  durationCardSelected: {
     borderColor: colors.primary,
     backgroundColor: 'rgba(200, 255, 61, 0.05)',
   },
-  splitCardHeader: {
+  durationCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
   },
-  splitCardLeft: {
+  durationCardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     flex: 1,
+    paddingRight: 8,
   },
-  splitIconWrap: {
-    width: 42,
-    height: 42,
+  durationIconWrap: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
     backgroundColor: '#161B22',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  splitIconWrapSelected: {
+  durationIconWrapSelected: {
     backgroundColor: 'rgba(200, 255, 61, 0.12)',
   },
-  splitCardTitle: {
+  durationCardTitle: {
     fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  splitCardTitleSelected: {
+  durationCardTitleSelected: {
     color: '#FFFFFF',
   },
-  recommendedBadge: {
-    marginTop: 3,
+  durationBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: '#1C2330',
   },
-  recommendedBadgeText: {
+  durationBadgeActive: {
+    backgroundColor: 'rgba(200, 255, 61, 0.2)',
+  },
+  durationBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 0.6,
+    color: '#8E9BAE',
+    letterSpacing: 0.5,
   },
-  splitCardSubtitle: {
+  durationBadgeTextActive: {
+    color: colors.primary,
+  },
+  durationCardSubtitle: {
     fontSize: 13,
     fontWeight: '500',
     color: '#8E9BAE',
     lineHeight: 18,
     marginTop: 4,
-    paddingLeft: 54,
   },
   checkCircle: {
     width: 22,
@@ -648,52 +573,6 @@ const styles = StyleSheet.create({
   checkCircleSelected: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
-  },
-  changeSplitText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  presetSplitCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#161B22',
-    borderWidth: 1.5,
-    borderColor: 'rgba(200, 255, 61, 0.4)',
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 20,
-  },
-  presetSplitLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    flex: 1,
-  },
-  presetSplitIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-  },
-  presetSplitTextWrap: {
-    flex: 1,
-  },
-  presetSplitTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  presetSplitSubtitle: {
-    fontSize: 12,
-    color: '#8E9BAE',
-    marginTop: 2,
   },
   bottomBar: {
     paddingHorizontal: 20,

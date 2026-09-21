@@ -23,6 +23,7 @@ export type OnboardingData = {
   equipment: string[];
   splitPreference?: WorkoutSplitPreference;
   baselineLifts?: BaselineLifts;
+  sessionDurationMinutes?: number;
   completed: boolean;
 };
 
@@ -41,6 +42,7 @@ export const defaultOnboarding: OnboardingData = {
   trainingDays: ['MON', 'WED', 'FRI'],
   equipment: ['full_gym'],
   splitPreference: 'upper_lower',
+  sessionDurationMinutes: 45,
   completed: false,
 };
 
@@ -89,6 +91,7 @@ function normalizeOnboarding(value: Record<string, unknown>): OnboardingData {
     equipment: normalizeEquipment(value.equipment),
     splitPreference: normalizeSplitPreference(value.splitPreference),
     baselineLifts: typeof value.baselineLifts === 'object' && value.baselineLifts !== null ? (value.baselineLifts as BaselineLifts) : undefined,
+    sessionDurationMinutes: typeof value.sessionDurationMinutes === 'number' ? value.sessionDurationMinutes : defaultOnboarding.sessionDurationMinutes,
     completed: value.completed === true,
   };
 }

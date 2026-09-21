@@ -39,21 +39,15 @@ export default function Experience() {
   }> = [
     {
       value: 'beginner',
-      label: t('beginner'),
-      detail: t('beginnerDetail'),
-      icon: 'account',
+      label: isUk ? 'Ні, я новачок' : "No, I'm a beginner",
+      detail: isUk ? 'Починаю з нуля або була довга перерва' : 'Starting fresh or returning after a break',
+      icon: 'account-outline',
     },
     {
       value: 'intermediate',
-      label: t('intermediate'),
-      detail: t('intermediateDetail'),
+      label: isUk ? 'Так, маю досвід' : 'Yes, I have experience',
+      detail: isUk ? 'Регулярно займаюсь, знаю свої робочі ваги' : 'Train consistently, know my working weights',
       icon: 'weight-lifter',
-    },
-    {
-      value: 'advanced',
-      label: t('advanced'),
-      detail: t('advancedDetail'),
-      icon: 'trophy',
     },
   ];
 
@@ -74,7 +68,7 @@ export default function Experience() {
 
     await saveOnboarding({
       experience: selected,
-      baselineLifts: hasBaseline
+      baselineLifts: selected !== 'beginner' && hasBaseline
         ? {
             benchPressKg: bKg,
             squatKg: sKg,
@@ -89,7 +83,7 @@ export default function Experience() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* 1. Top Bar with 3/6 Progress */}
+      {/* 1. Top Bar with 3/5 Progress */}
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
@@ -100,7 +94,7 @@ export default function Experience() {
         >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
-        <Text style={styles.stepText}>3/6</Text>
+        <Text style={styles.stepText}>3/5</Text>
         <View style={styles.topBarPlaceholder} />
       </View>
 
@@ -115,8 +109,14 @@ export default function Experience() {
         >
           {/* 2. Title Section */}
           <View style={styles.titleSection}>
-            <Text style={styles.title}>{t('experienceLevel')}</Text>
-            <Text style={styles.subtitle}>{t('experienceSubtitle')}</Text>
+            <Text style={styles.title}>
+              {isUk ? 'Чи тренуєтесь зараз?' : 'Do you currently train?'}
+            </Text>
+            <Text style={styles.subtitle}>
+              {isUk
+                ? 'Для новачків ставимо меншу вагу та вищі повторення, для атлетів — робочі навантаження.'
+                : 'Beginners get higher reps & lighter load; lifters get calibrated working weights.'}
+            </Text>
           </View>
 
           {/* 3. Options List */}

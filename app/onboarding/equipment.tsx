@@ -77,7 +77,7 @@ export default function Equipment() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* 1. Top Bar with 4/5 Progress */}
+      {/* 1. Top Bar with 5/5 Progress */}
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
@@ -88,15 +88,15 @@ export default function Equipment() {
         >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
-        <Text style={styles.stepText}>5/6</Text>
+        <Text style={styles.stepText}>5/5</Text>
         <View style={styles.topBarPlaceholder} />
       </View>
 
       <View style={styles.content}>
         {/* 2. Title Section */}
         <View style={styles.titleSection}>
-          <Text style={styles.title}>What equipment do you have?</Text>
-          <Text style={styles.subtitle}>Select everything available to you.</Text>
+          <Text style={styles.title}>Доступне спорядження</Text>
+          <Text style={styles.subtitle}>Оберіть усе, що є у вашому розпорядженні.</Text>
         </View>
 
         {/* 3. Options List */}
