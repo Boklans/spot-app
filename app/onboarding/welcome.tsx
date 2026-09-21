@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   safeContent: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
     paddingBottom: Platform.OS === 'ios' ? 20 : 28,
   },
   centerBlock: {
@@ -173,17 +173,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   getStartedBtn: {
-    width: '82%',
-    maxWidth: 310,
+    width: '100%',
     height: 56,
-    borderRadius: 28,
+    borderRadius: 24,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
     elevation: 5,
   },
   btnPressed: {
@@ -192,9 +191,9 @@ const styles = StyleSheet.create({
   },
   getStartedBtnText: {
     color: '#0B0D0F',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '900',
-    letterSpacing: -0.3,
+    letterSpacing: 0.5,
   },
   loginBtn: {
     paddingVertical: 8,
