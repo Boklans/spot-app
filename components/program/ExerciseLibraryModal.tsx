@@ -30,7 +30,7 @@ export function ExerciseLibraryModal({
   onSelectExercise,
   onClose,
 }: ExerciseLibraryModalProps) {
-  const { t, tm, te } = useI18n();
+  const { t, tm, te, language } = useI18n();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
@@ -125,6 +125,7 @@ export function ExerciseLibraryModal({
 
           {/* Exercise List */}
           <ScrollView
+            style={styles.listScrollView}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
           >
@@ -159,12 +160,33 @@ export function ExerciseLibraryModal({
                   </View>
                 </View>
 
-                <View style={styles.addIconBadge}>
-                  <Ionicons name="add" size={18} color="#0B0D0F" />
+                <View style={styles.addBtnBadge}>
+                  <Ionicons name="add" size={16} color="#0B0D0F" />
+                  <Text style={styles.addBtnBadgeText}>
+                    {language === 'uk' ? 'ДОДАТИ' : 'ADD'}
+                  </Text>
                 </View>
               </Pressable>
             ))}
           </ScrollView>
+
+          {/* Sticky Bottom Close Bar */}
+          <View style={styles.bottomBar}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Back to Workout"
+              onPress={onClose}
+              style={({ pressed }) => [
+                styles.bottomCloseBtn,
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
+              <Text style={styles.bottomCloseBtnText}>
+                {language === 'uk' ? 'Назад до редагування' : 'Back to Workout'}
+              </Text>
+            </Pressable>
+          </View>
         </SafeAreaView>
       </View>
     </Modal>
@@ -183,8 +205,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: '#242C38',
-    maxHeight: '85%',
-    paddingBottom: 24,
+    height: '88%',
+    display: 'flex',
+    flexDirection: 'column',
   },
   header: {
     flexDirection: 'row',
@@ -309,13 +332,48 @@ const styles = StyleSheet.create({
     color: '#8E9BAE',
     marginTop: 2,
   },
-  addIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  listScrollView: {
+    flex: 1,
+  },
+  addBtnBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  addBtnBadgeText: {
+    color: '#0B0D0F',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  bottomBar: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#1E2633',
+    backgroundColor: '#12161D',
+    flexShrink: 0,
+  },
+  bottomCloseBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1E2633',
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#2E3847',
+  },
+  bottomCloseBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
 

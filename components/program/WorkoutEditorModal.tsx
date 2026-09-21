@@ -4,6 +4,7 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -113,6 +114,7 @@ export function WorkoutEditorModal({
           </View>
 
           <ScrollView
+            style={styles.mainScrollView}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
@@ -225,7 +227,12 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: '#242C38',
-    maxHeight: '90%',
+    height: '90%',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  mainScrollView: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -373,11 +380,12 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 20,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#1A212B',
     backgroundColor: '#12161D',
+    flexShrink: 0,
   },
   saveBtn: {
     backgroundColor: colors.primary,
