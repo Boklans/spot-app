@@ -2,46 +2,34 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { colors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { useWeightUnit } from '@/lib/weightUtils';
 import { type OnboardingExperience, saveOnboarding } from '@/store/workoutStore';
 
-const EXPERIENCE_OPTIONS: Array<{
-  value: OnboardingExperience;
-  label: string;
-  detail: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-}> = [
-  {
-    value: 'beginner',
-    label: 'Beginner',
-    detail: 'Less than 6 months',
-    icon: 'account',
-  },
-  {
-    value: 'intermediate',
-    label: 'Intermediate',
-    detail: '6 months – 3 years',
-    icon: 'weight-lifter',
-  },
-  {
-    value: 'advanced',
-    label: 'Advanced',
-    detail: '3+ years',
-    icon: 'trophy',
-  },
-];
-
 export default function Experience() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const { unitLabel, toKg } = useWeightUnit();
   const [selected, setSelected] = useState<OnboardingExperience>('intermediate');
+
+  // Baseline Strength Inputs for experienced lifters
+  const [benchText, setBenchText] = useState('');
+  const [squatText, setSquatText] = useState('');
+  const [deadliftText, setDeadliftText] = useState('');
+  const [ohpText, setOhpText] = useState('');
+
+  const isUk = language === 'uk';
 
   const experienceOptions: Array<{
     value: OnboardingExperience;
@@ -71,7 +59,31 @@ export default function Experience() {
 
   const handleContinue = async () => {
     hapticMedium();
-    await saveOnboarding({ experience: selected });
+
+    const parseVal = (str: string) => {
+      const num = parseFloat(str.replace(',', '.'));
+      return !isNaN(num) && num > 0 ? toKg(num) : undefined;
+    };
+
+    const bKg = parseVal(benchText);
+    const sKg = parseVal(squatText);
+    const dKg = parseVal(deadliftText);
+    const oKg = parseVal(ohpText);
+
+    const hasBaseline = bKg !== undefined || sKg !== undefined || dKg !== undefined || oKg !== undefined;
+
+    await saveOnboarding({
+      experience: selected,
+      baselineLifts: hasBaseline
+        ? {
+            benchPressKg: bKg,
+            squatKg: sKg,
+            deadliftKg: dKg,
+            overheadPressKg: oKg,
+          }
+        : undefined,
+    });
+
     router.push('/onboarding/frequency');
   };
 
@@ -92,71 +104,171 @@ export default function Experience() {
         <View style={styles.topBarPlaceholder} />
       </View>
 
-      <View style={styles.content}>
-        {/* 2. Title Section */}
-        <View style={styles.titleSection}>
-          <Text style={styles.title}>{t('experienceLevel')}</Text>
-          <Text style={styles.subtitle}>{t('experienceSubtitle')}</Text>
-        </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* 2. Title Section */}
+          <View style={styles.titleSection}>
+            <Text style={styles.title}>{t('experienceLevel')}</Text>
+            <Text style={styles.subtitle}>{t('experienceSubtitle')}</Text>
+          </View>
 
-        {/* 3. Options List */}
-        <View style={styles.optionsList}>
-          {experienceOptions.map((opt) => {
-            const isSelected = selected === opt.value;
-            return (
-              <Pressable
-                key={opt.value}
-                accessibilityRole="button"
-                accessibilityLabel={opt.label}
-                onPress={() => {
-                  hapticLight();
-                  setSelected(opt.value);
-                }}
-                style={[
-                  styles.optionCard,
-                  isSelected && styles.optionCardSelected,
-                ]}
-              >
-                <View style={styles.iconWrap}>
-                  <MaterialCommunityIcons
-                    name={opt.icon}
-                    size={24}
-                    color={isSelected ? colors.primary : '#8E9BAE'}
-                  />
-                </View>
-
-                <View style={styles.textWrap}>
-                  <Text style={styles.optionLabel}>{opt.label}</Text>
-                  <Text style={styles.optionDetail}>{opt.detail}</Text>
-                </View>
-
-                <View
+          {/* 3. Options List */}
+          <View style={styles.optionsList}>
+            {experienceOptions.map((opt) => {
+              const isSelected = selected === opt.value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  accessibilityRole="button"
+                  accessibilityLabel={opt.label}
+                  onPress={() => {
+                    hapticLight();
+                    setSelected(opt.value);
+                  }}
                   style={[
-                    styles.checkCircle,
-                    isSelected && styles.checkCircleSelected,
+                    styles.optionCard,
+                    isSelected && styles.optionCardSelected,
                   ]}
                 >
-                  {isSelected && (
-                    <Ionicons name="checkmark" size={16} color="#0B0D0F" />
-                  )}
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
+                  <View style={styles.iconWrap}>
+                    <MaterialCommunityIcons
+                      name={opt.icon}
+                      size={24}
+                      color={isSelected ? colors.primary : '#8E9BAE'}
+                    />
+                  </View>
 
-        {/* 4. Bottom Continue Button */}
-        <View style={styles.bottomBar}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Continue"
-            onPress={handleContinue}
-            style={styles.continueBtn}
-          >
-            <Text style={styles.continueBtnText}>{t('continue')}</Text>
-          </Pressable>
-        </View>
-      </View>
+                  <View style={styles.textWrap}>
+                    <Text style={styles.optionLabel}>{opt.label}</Text>
+                    <Text style={styles.optionDetail}>{opt.detail}</Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.checkCircle,
+                      isSelected && styles.checkCircleSelected,
+                    ]}
+                  >
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={16} color="#0B0D0F" />
+                    )}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* 4. Baseline Strength Calibration Card (for experienced lifters) */}
+          {selected !== 'beginner' && (
+            <View style={styles.baselineCard}>
+              <View style={styles.baselineHeaderRow}>
+                <Ionicons name="flash-outline" size={18} color={colors.primary} />
+                <Text style={styles.baselineTitle}>
+                  {isUk ? 'Ваші робочі ваги (необовʼязково)' : 'Baseline Strength (Optional)'}
+                </Text>
+              </View>
+              <Text style={styles.baselineSubtitle}>
+                {isUk
+                  ? `Введіть вагу в ${unitLabel} для вправ, які знаєте. SPOT одразу підлаштує програму під вашу реальну силу.`
+                  : `Enter weights in ${unitLabel} for lifts you know. SPOT will calibrate your starting working weights.`}
+              </Text>
+
+              <View style={styles.liftsGrid}>
+                {/* Bench Press */}
+                <View style={styles.liftInputCol}>
+                  <Text style={styles.liftLabel}>
+                    {isUk ? 'Жим лежачи' : 'Bench Press'}
+                  </Text>
+                  <View style={styles.inputWrap}>
+                    <TextInput
+                      style={styles.liftInput}
+                      keyboardType="decimal-pad"
+                      placeholder={unitLabel === 'LBS' ? '185' : '80'}
+                      placeholderTextColor="#4E5A6C"
+                      value={benchText}
+                      onChangeText={setBenchText}
+                    />
+                    <Text style={styles.inputUnit}>{unitLabel}</Text>
+                  </View>
+                </View>
+
+                {/* Squat */}
+                <View style={styles.liftInputCol}>
+                  <Text style={styles.liftLabel}>
+                    {isUk ? 'Присідання' : 'Squat'}
+                  </Text>
+                  <View style={styles.inputWrap}>
+                    <TextInput
+                      style={styles.liftInput}
+                      keyboardType="decimal-pad"
+                      placeholder={unitLabel === 'LBS' ? '225' : '100'}
+                      placeholderTextColor="#4E5A6C"
+                      value={squatText}
+                      onChangeText={setSquatText}
+                    />
+                    <Text style={styles.inputUnit}>{unitLabel}</Text>
+                  </View>
+                </View>
+
+                {/* Deadlift */}
+                <View style={styles.liftInputCol}>
+                  <Text style={styles.liftLabel}>
+                    {isUk ? 'Станова тяга' : 'Deadlift'}
+                  </Text>
+                  <View style={styles.inputWrap}>
+                    <TextInput
+                      style={styles.liftInput}
+                      keyboardType="decimal-pad"
+                      placeholder={unitLabel === 'LBS' ? '275' : '120'}
+                      placeholderTextColor="#4E5A6C"
+                      value={deadliftText}
+                      onChangeText={setDeadliftText}
+                    />
+                    <Text style={styles.inputUnit}>{unitLabel}</Text>
+                  </View>
+                </View>
+
+                {/* Overhead Press */}
+                <View style={styles.liftInputCol}>
+                  <Text style={styles.liftLabel}>
+                    {isUk ? 'Жим стоячи' : 'Overhead Press'}
+                  </Text>
+                  <View style={styles.inputWrap}>
+                    <TextInput
+                      style={styles.liftInput}
+                      keyboardType="decimal-pad"
+                      placeholder={unitLabel === 'LBS' ? '115' : '50'}
+                      placeholderTextColor="#4E5A6C"
+                      value={ohpText}
+                      onChangeText={setOhpText}
+                    />
+                    <Text style={styles.inputUnit}>{unitLabel}</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* 5. Bottom Continue Button */}
+          <View style={styles.bottomBar}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Continue"
+              onPress={handleContinue}
+              style={styles.continueBtn}
+            >
+              <Text style={styles.continueBtnText}>{t('continue')}</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -186,15 +298,13 @@ const styles = StyleSheet.create({
   topBarPlaceholder: {
     width: 40,
   },
-  content: {
-    flex: 1,
+  scrollContent: {
     paddingHorizontal: 24,
-    justifyContent: 'space-between',
-    paddingBottom: 32,
-    paddingTop: 16,
+    paddingBottom: 36,
+    paddingTop: 12,
   },
   titleSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   title: {
     color: '#FFFFFF',
@@ -211,14 +321,14 @@ const styles = StyleSheet.create({
   },
   optionsList: {
     gap: 12,
-    flex: 1,
+    marginBottom: 20,
   },
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#12161D',
     borderRadius: 20,
-    padding: 18,
+    padding: 16,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.07)',
   },
@@ -262,8 +372,72 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.primary,
   },
+  baselineCard: {
+    backgroundColor: '#12161D',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+    padding: 18,
+    marginBottom: 24,
+  },
+  baselineHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  baselineTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  baselineSubtitle: {
+    color: '#8E9BAE',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 16,
+  },
+  liftsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  liftInputCol: {
+    width: '47%',
+  },
+  liftLabel: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F1217',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#242C38',
+    paddingHorizontal: 12,
+    height: 46,
+  },
+  liftInput: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    height: '100%',
+  },
+  inputUnit: {
+    color: '#6C7A8E',
+    fontSize: 11,
+    fontWeight: '800',
+    marginLeft: 4,
+  },
   bottomBar: {
     width: '100%',
+    marginTop: 8,
   },
   continueBtn: {
     width: '100%',

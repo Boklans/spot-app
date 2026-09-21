@@ -426,9 +426,83 @@ export function calibrateInitialWeight(
   equipment: EquipmentId,
   experience?: string,
   goal?: string,
-  bodyStats?: { weightKg?: number; heightCm?: number }
+  bodyStats?: { weightKg?: number; heightCm?: number },
+  exerciseName?: string,
+  baselineLifts?: {
+    benchPressKg?: number;
+    squatKg?: number;
+    deadliftKg?: number;
+    overheadPressKg?: number;
+  }
 ): number {
   if (equipment === 'bodyweight' || baseWeight <= 0) return 0;
+
+  // Direct 1RM / Baseline Lifts calibration for experienced lifters
+  if (baselineLifts && exerciseName) {
+    const lower = exerciseName.toLowerCase();
+
+    // Bench Press related (working weight ~75% of 1RM for 8 reps)
+    if (baselineLifts.benchPressKg && baselineLifts.benchPressKg > 0) {
+      const bench = baselineLifts.benchPressKg;
+      if (lower.includes('bench press') && lower.includes('barbell') && !lower.includes('incline')) {
+        return Math.max(20, Math.round((bench * 0.75) / 2.5) * 2.5);
+      }
+      if (lower.includes('incline') && lower.includes('barbell')) {
+        return Math.max(20, Math.round((bench * 0.62) / 2.5) * 2.5);
+      }
+      if (lower.includes('dumbbell') && lower.includes('press') && lower.includes('bench')) {
+        return Math.max(4, Math.round((bench * 0.32) / 2) * 2);
+      }
+      if (lower.includes('chest fly') || lower.includes('machine chest')) {
+        return Math.max(10, Math.round((bench * 0.5) / 2.5) * 2.5);
+      }
+    }
+
+    // Squat related
+    if (baselineLifts.squatKg && baselineLifts.squatKg > 0) {
+      const squat = baselineLifts.squatKg;
+      if (lower.includes('squat') && lower.includes('barbell') && !lower.includes('bulgarian')) {
+        return Math.max(20, Math.round((squat * 0.75) / 2.5) * 2.5);
+      }
+      if (lower.includes('leg press')) {
+        return Math.max(20, Math.round((squat * 1.3) / 5) * 5);
+      }
+      if (lower.includes('leg extension') || lower.includes('leg curl')) {
+        return Math.max(10, Math.round((squat * 0.35) / 2.5) * 2.5);
+      }
+      if (lower.includes('bulgarian')) {
+        return Math.max(4, Math.round((squat * 0.15) / 2) * 2);
+      }
+    }
+
+    // Deadlift related
+    if (baselineLifts.deadliftKg && baselineLifts.deadliftKg > 0) {
+      const deadlift = baselineLifts.deadliftKg;
+      if (lower.includes('deadlift')) {
+        return Math.max(20, Math.round((deadlift * 0.75) / 2.5) * 2.5);
+      }
+      if (lower.includes('barbell row') || lower.includes('bent over row')) {
+        return Math.max(20, Math.round((deadlift * 0.55) / 2.5) * 2.5);
+      }
+      if (lower.includes('lat pulldown') || lower.includes('seated cable row')) {
+        return Math.max(15, Math.round((deadlift * 0.45) / 2.5) * 2.5);
+      }
+    }
+
+    // Overhead Press related
+    if (baselineLifts.overheadPressKg && baselineLifts.overheadPressKg > 0) {
+      const ohp = baselineLifts.overheadPressKg;
+      if (lower.includes('overhead') || lower.includes('shoulder press')) {
+        if (equipment === 'dumbbells') {
+          return Math.max(4, Math.round((ohp * 0.35) / 2) * 2);
+        }
+        return Math.max(20, Math.round((ohp * 0.75) / 2.5) * 2.5);
+      }
+      if (lower.includes('lateral raise')) {
+        return Math.max(2, Math.round((ohp * 0.18) / 1) * 1);
+      }
+    }
+  }
 
   // 1. Experience scaling
   let expMultiplier = 1.0;
@@ -483,7 +557,9 @@ function buildWorkouts(
             exercise.equipment,
             onboarding.experience,
             onboarding.goal,
-            { weightKg: onboarding.weightKg, heightCm: onboarding.heightCm }
+            { weightKg: onboarding.weightKg, heightCm: onboarding.heightCm },
+            exercise.name,
+            onboarding.baselineLifts
           )
         : exercise.recommendedWeight;
 
@@ -496,12 +572,20 @@ function buildWorkouts(
           )
         : exercise.restSeconds ?? defaultRestSeconds;
 
+      const calibratedReps = exercise.targetRepRange ?? (
+        onboarding?.experience === 'beginner'
+          ? '12-15'
+          : onboarding?.experience === 'advanced'
+          ? '6-10'
+          : '8-12'
+      );
+
       return {
         ...exercise,
         recommendedWeight: calibratedWeight,
         restSeconds: calibratedRest,
         sets: exercise.muscleGroup === 'Core' ? 2 : 3,
-        targetRepRange: exercise.targetRepRange ?? '8-12',
+        targetRepRange: calibratedReps,
         name: exercise.name,
         weightIncrement: exercise.weightIncrement ?? defaultWeightIncrement(exercise.equipment),
       };

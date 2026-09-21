@@ -4,6 +4,13 @@ export type OnboardingGoal = 'build_muscle' | 'get_stronger' | 'lose_fat' | 'rec
 export type OnboardingExperience = 'beginner' | 'intermediate' | 'advanced';
 export type WorkoutSplitPreference = 'full_body' | 'upper_lower' | 'push_pull_legs' | 'custom' | 'blank';
 
+export type BaselineLifts = {
+  benchPressKg?: number;
+  squatKg?: number;
+  deadliftKg?: number;
+  overheadPressKg?: number;
+};
+
 export type OnboardingData = {
   name: string;
   avatar?: string;
@@ -15,6 +22,7 @@ export type OnboardingData = {
   trainingDays?: string[];
   equipment: string[];
   splitPreference?: WorkoutSplitPreference;
+  baselineLifts?: BaselineLifts;
   completed: boolean;
 };
 
@@ -53,7 +61,7 @@ function normalizeEquipment(value: unknown): string[] {
 }
 
 function normalizeSplitPreference(value: unknown): WorkoutSplitPreference | undefined {
-  if (value === 'full_body' || value === 'upper_lower' || value === 'push_pull_legs' || value === 'custom') {
+  if (value === 'full_body' || value === 'upper_lower' || value === 'push_pull_legs' || value === 'custom' || value === 'blank') {
     return value;
   }
   return undefined;
@@ -76,10 +84,11 @@ function normalizeOnboarding(value: Record<string, unknown>): OnboardingData {
     heightCm: typeof value.heightCm === 'number' && value.heightCm > 100 ? value.heightCm : defaultOnboarding.heightCm,
     goal: normalizeGoal(value.goal),
     experience: normalizeExperience(value.experience),
-    trainingFrequency: storedFrequency ? Math.min(6, Math.max(2, storedFrequency)) : defaultOnboarding.trainingFrequency,
+    trainingFrequency: storedFrequency ? Math.min(7, Math.max(1, storedFrequency)) : defaultOnboarding.trainingFrequency,
     trainingDays: normalizeTrainingDays(value.trainingDays),
     equipment: normalizeEquipment(value.equipment),
     splitPreference: normalizeSplitPreference(value.splitPreference),
+    baselineLifts: typeof value.baselineLifts === 'object' && value.baselineLifts !== null ? (value.baselineLifts as BaselineLifts) : undefined,
     completed: value.completed === true,
   };
 }
