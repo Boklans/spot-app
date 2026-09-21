@@ -79,6 +79,8 @@ export default function ProgramReady() {
     generateProgram(defaultOnboarding)
   );
   const [editingWorkout, setEditingWorkout] = useState<UserWorkout | null>(null);
+  // Track whether user manually edited the program so we persist edits instead of regenerating
+  const [hasEdits, setHasEdits] = useState(false);
 
   useEffect(() => {
     loadOnboarding().then((data) => {
@@ -119,6 +121,7 @@ export default function ProgramReady() {
     };
 
     setProgram(nextProgram);
+    setHasEdits(true);
     setEditingWorkout(newWorkout as unknown as UserWorkout);
   };
 
@@ -130,13 +133,50 @@ export default function ProgramReady() {
       ...program,
       workouts: nextWorkouts,
     });
+    setHasEdits(true);
   };
+
+  const currentSplit = onboarding.splitPreference ?? program.splitType;
+  const isCustom = currentSplit === 'custom';
+
+  // Build a UserProgram from current local program state (for persisting manual edits)
+  const buildUserProgramFromLocal = () => ({
+    id: program.id,
+    name: program.name,
+    description: program.description ?? '',
+    daysPerWeek: program.daysPerWeek,
+    estimatedWorkoutMinutes: program.estimatedWorkoutMinutes,
+    splitType: (isCustom ? 'custom' : program.splitType) as typeof program.splitType,
+    workouts: program.workouts.map((w) => ({
+      id: w.id,
+      name: w.name,
+      dayLabel: w.dayLabel,
+      muscleGroups: w.muscleGroups,
+      estimatedMinutes: w.estimatedMinutes,
+      defaultRestSeconds: w.defaultRestSeconds ?? 90,
+      exercises: w.exercises.map((ex) => ({
+        id: ex.id,
+        name: ex.name,
+        muscleGroup: ex.muscleGroup,
+        sets: ex.sets,
+        recommendedWeight: ex.recommendedWeight,
+        targetRepRange: ex.targetRepRange ?? '8-12',
+        equipment: ex.equipment,
+        weightIncrement: ex.weightIncrement,
+        restSeconds: ex.restSeconds,
+      })),
+    })),
+  });
 
   const handleOpenFullBuilder = async () => {
     hapticMedium();
     const updated = { ...onboarding, completed: true, splitPreference: 'custom' as WorkoutSplitPreference };
     await saveOnboarding(updated);
-    await useProgramStore.getState().refreshProgram(updated);
+    if (hasEdits) {
+      await useProgramStore.getState().updateUserProgram(buildUserProgramFromLocal());
+    } else {
+      await useProgramStore.getState().refreshProgram(updated);
+    }
     router.push('/program/edit');
   };
 
@@ -144,12 +184,13 @@ export default function ProgramReady() {
     hapticSuccess();
     const updated = { ...onboarding, completed: true };
     await saveOnboarding(updated);
-    await useProgramStore.getState().refreshProgram(updated);
+    if (hasEdits) {
+      await useProgramStore.getState().updateUserProgram(buildUserProgramFromLocal());
+    } else {
+      await useProgramStore.getState().refreshProgram(updated);
+    }
     router.replace('/(tabs)');
   };
-
-  const currentSplit = onboarding.splitPreference ?? program.splitType;
-  const isCustom = currentSplit === 'custom';
 
   return (
     <SafeAreaView style={styles.safe}>
