@@ -392,7 +392,15 @@ export default function Profile() {
         <Text style={styles.sectionTitle}>{t('preferences')}</Text>
         <View style={styles.card}>
           {/* Weight Unit */}
-          <View style={styles.row}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Toggle Weight Unit"
+            onPress={() => {
+              hapticLight();
+              updateProfile({ weightUnit: profile.weightUnit === 'kg' ? 'lbs' : 'kg' });
+            }}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
             <View style={styles.rowLeftWithIcon}>
               <MaterialCommunityIcons name="weight-kilogram" size={20} color="#8E9BAE" />
               <View>
@@ -442,10 +450,18 @@ export default function Profile() {
                 </Text>
               </Pressable>
             </View>
-          </View>
+          </Pressable>
 
           {/* Height / Body Unit */}
-          <View style={styles.row}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Toggle Height Unit"
+            onPress={() => {
+              hapticLight();
+              updateProfile({ heightUnit: profile.heightUnit === 'cm' ? 'ft' : 'cm' });
+            }}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
             <View style={styles.rowLeftWithIcon}>
               <MaterialCommunityIcons name="ruler" size={20} color="#8E9BAE" />
               <View>
@@ -495,7 +511,7 @@ export default function Profile() {
                 </Text>
               </Pressable>
             </View>
-          </View>
+          </Pressable>
 
           {/* Rest Timer */}
           <Pressable
@@ -552,7 +568,15 @@ export default function Profile() {
           </Pressable>
 
           {/* Notifications */}
-          <View style={[styles.row, styles.rowLast]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Toggle Notifications"
+            onPress={() => {
+              hapticLight();
+              updateProfile({ notifications: !profile.notifications });
+            }}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
             <View style={styles.rowLeftWithIcon}>
               <Ionicons name="notifications-outline" size={20} color="#8E9BAE" />
               <Text style={styles.rowTitle}>{t('notifications')}</Text>
@@ -567,10 +591,18 @@ export default function Profile() {
               }}
               value={profile.notifications}
             />
-          </View>
+          </Pressable>
 
           {/* Sound Effects */}
-          <View style={[styles.row, styles.rowLast]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Toggle Sound Effects"
+            onPress={() => {
+              hapticLight();
+              updateProfile({ soundEnabled: !profile.soundEnabled });
+            }}
+            style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
+          >
             <View style={styles.rowLeftWithIcon}>
               <MaterialCommunityIcons name="volume-high" size={20} color="#8E9BAE" />
               <Text style={styles.rowTitle}>{t('soundEffects')}</Text>
@@ -585,7 +617,7 @@ export default function Profile() {
               }}
               value={profile.soundEnabled}
             />
-          </View>
+          </Pressable>
         </View>
 
         {/* 4. ACCOUNT Section */}
