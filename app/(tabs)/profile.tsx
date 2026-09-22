@@ -597,15 +597,7 @@ export default function Profile() {
           </Pressable>
 
           {/* Language Selector */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Toggle Language"
-            onPress={() => {
-              hapticLight();
-              updateProfile({ language: profile.language === 'uk' ? 'en' : 'uk' });
-            }}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
+          <View style={styles.row}>
             <View style={styles.rowLeftWithIcon}>
               <Ionicons name="globe-outline" size={20} color="#8E9BAE" />
               <View>
@@ -615,13 +607,45 @@ export default function Profile() {
                 </Text>
               </View>
             </View>
-            <View style={styles.valueRow}>
-              <Text style={styles.valuePill}>
-                {profile.language === 'uk' ? '🇺🇦 UK' : '🇺🇸 EN'}
-              </Text>
-              <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
+            <View style={styles.segmentWrap}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Set Ukrainian"
+                onPress={() => {
+                  hapticLight();
+                  updateProfile({ language: 'uk' });
+                }}
+                style={[styles.segmentBtn, profile.language === 'uk' && styles.segmentBtnActive]}
+              >
+                <Text
+                  style={[
+                    styles.segmentBtnText,
+                    profile.language === 'uk' && styles.segmentBtnTextActive,
+                  ]}
+                >
+                  🇺🇦 UK
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Set English"
+                onPress={() => {
+                  hapticLight();
+                  updateProfile({ language: 'en' });
+                }}
+                style={[styles.segmentBtn, profile.language === 'en' && styles.segmentBtnActive]}
+              >
+                <Text
+                  style={[
+                    styles.segmentBtnText,
+                    profile.language === 'en' && styles.segmentBtnTextActive,
+                  ]}
+                >
+                  🇺🇸 EN
+                </Text>
+              </Pressable>
             </View>
-          </Pressable>
+          </View>
 
           {/* Notifications Toggle */}
           <Pressable

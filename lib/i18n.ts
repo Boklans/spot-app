@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useUserProfileStore, type AppLanguage } from '@/store/userProfileStore';
 
 export type TranslationKey = keyof typeof en;
@@ -764,10 +765,10 @@ export function translateWorkoutName(name?: string, lang: AppLanguage = 'en'): s
 
 export function useI18n() {
   const language = useUserProfileStore((state) => state.profile.language) ?? 'en';
-  const t = (key: TranslationKey): string => getTranslation(key, language);
-  const tm = (muscle: string): string => translateMuscle(muscle, language);
-  const td = (day?: string): string => formatDayLabel(day, language);
-  const te = (exercise?: string): string => translateExercise(exercise, language);
-  const tw = (workout?: string): string => translateWorkoutName(workout, language);
+  const t = useCallback((key: TranslationKey): string => getTranslation(key, language), [language]);
+  const tm = useCallback((muscle: string): string => translateMuscle(muscle, language), [language]);
+  const td = useCallback((day?: string): string => formatDayLabel(day, language), [language]);
+  const te = useCallback((exercise?: string): string => translateExercise(exercise, language), [language]);
+  const tw = useCallback((workout?: string): string => translateWorkoutName(workout, language), [language]);
   return { t, tm, td, te, tw, language };
 }

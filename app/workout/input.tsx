@@ -30,9 +30,10 @@ const BASE_REPS = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 25, 30, 40, 50, 75, 100,
 ];
 
-const BASE_REST_OPTIONS = [15, 30, 45, 60, 90, 120, 150, 180, 240, 300];
+const BASE_REST_OPTIONS = [0, 15, 30, 45, 60, 90, 120, 150, 180, 240, 300];
 
 function formatRestLabel(sec: number): string {
+  if (sec === 0) return '0s';
   const mins = Math.floor(sec / 60);
   const remaining = sec % 60;
   if (mins === 0) return `${sec}s`;
@@ -168,7 +169,7 @@ export default function Input() {
 
   const handleSelectRest = useCallback(
     (sec: number) => {
-      const bounded = Math.min(600, Math.max(10, sec));
+      const bounded = Math.min(600, Math.max(0, sec));
       if (session) {
         updateExerciseRest(session.currentExerciseIndex, bounded);
       }
@@ -197,7 +198,7 @@ export default function Input() {
 
   const handleSaveCustomRest = () => {
     const parsed = parseInt(customRestText, 10);
-    if (!isNaN(parsed) && parsed >= 10 && parsed <= 600) handleSelectRest(parsed);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 600) handleSelectRest(parsed);
     setRestModalVisible(false);
   };
 
@@ -439,7 +440,7 @@ export default function Input() {
               {isUk ? 'Час відпочинку' : 'Rest Duration'}
             </Text>
             <Text style={styles.modalHeaderSubtitle}>
-              {isUk ? 'Введіть секунди (10–600)' : 'Enter seconds (10–600)'}
+              {isUk ? 'Введіть секунди (0–600)' : 'Enter seconds (0–600)'}
             </Text>
             <TextInput
               style={styles.modalInput}

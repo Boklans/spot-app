@@ -288,8 +288,8 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
           currentExerciseIndex: nextExerciseIndex,
           currentSetIndex: nextSetIndex,
         },
-        restEndsAt: Date.now() + restDuration * 1000,
-        restNextType: isLastSet ? 'exercise' : 'set',
+        restEndsAt: restDuration > 0 ? Date.now() + restDuration * 1000 : null,
+        restNextType: restDuration > 0 ? (isLastSet ? 'exercise' : 'set') : null,
       };
     });
     const state = useWorkoutSessionStore.getState();
@@ -329,7 +329,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
   updateExerciseRest: (exerciseIndex, restSeconds) => {
     set((state) => {
       if (!state.session) return state;
-      const boundedRest = Math.max(10, Math.min(600, restSeconds));
+      const boundedRest = Math.max(0, Math.min(600, restSeconds));
       const updatedExercises = state.session.exercises.map((ex, idx) =>
         idx === exerciseIndex ? { ...ex, restSeconds: boundedRest } : ex
       );

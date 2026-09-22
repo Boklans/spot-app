@@ -350,7 +350,7 @@ export default function Rest() {
 
             {/* Quick preset chips */}
             <View style={styles.modalPresetRow}>
-              {[30, 45, 60, 90, 120, 180, 240].map((presetSec) => {
+              {[0, 15, 30, 45, 60, 90, 120, 180, 240].map((presetSec) => {
                 const isCurrent = (targetExercise?.restSeconds ?? 90) === presetSec;
                 return (
                   <Pressable
@@ -358,13 +358,19 @@ export default function Rest() {
                     onPress={() => {
                       hapticLight();
                       updateExerciseRest(session.currentExerciseIndex, presetSec);
-                      useWorkoutSessionStore.setState({ restEndsAt: Date.now() + presetSec * 1000 });
-                      setShowRestModal(false);
+                      if (presetSec === 0) {
+                        skipRest();
+                        setShowRestModal(false);
+                        router.replace('/workout/active');
+                      } else {
+                        useWorkoutSessionStore.setState({ restEndsAt: Date.now() + presetSec * 1000 });
+                        setShowRestModal(false);
+                      }
                     }}
                     style={[styles.modalPresetChip, isCurrent && styles.modalPresetChipActive]}
                   >
                     <Text style={[styles.modalPresetText, isCurrent && styles.modalPresetTextActive]}>
-                      {presetSec}s
+                      {presetSec === 0 ? (language === 'uk' ? '0s (Суперсет)' : '0s (Superset)') : `${presetSec}s`}
                     </Text>
                   </Pressable>
                 );
@@ -398,12 +404,20 @@ export default function Rest() {
               <Pressable
                 onPress={() => {
                   const parsed = parseInt(customSecondsText, 10);
-                  if (!isNaN(parsed) && parsed >= 10 && parsed <= 600) {
+                  if (!isNaN(parsed) && parsed >= 0 && parsed <= 600) {
                     hapticLight();
                     updateExerciseRest(session.currentExerciseIndex, parsed);
-                    useWorkoutSessionStore.setState({ restEndsAt: Date.now() + parsed * 1000 });
+                    if (parsed === 0) {
+                      skipRest();
+                      setShowRestModal(false);
+                      router.replace('/workout/active');
+                    } else {
+                      useWorkoutSessionStore.setState({ restEndsAt: Date.now() + parsed * 1000 });
+                      setShowRestModal(false);
+                    }
+                  } else {
+                    setShowRestModal(false);
                   }
-                  setShowRestModal(false);
                 }}
                 style={styles.modalSaveBtn}
               >

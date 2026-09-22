@@ -140,7 +140,7 @@ export default function ParamsSetup() {
             {/* Height */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>
-                {isUk ? 'Зріст' : 'Height'} (см / cm)
+                {isUk ? 'Зріст (см)' : 'Height (cm)'}
               </Text>
               <View style={styles.inputWrap}>
                 <Ionicons name="resize-outline" size={20} color="#717B8A" style={styles.inputIcon} />
@@ -152,7 +152,7 @@ export default function ParamsSetup() {
                   value={height}
                   onChangeText={setHeight}
                 />
-                <Text style={styles.unitSuffix}>CM</Text>
+                <Text style={styles.unitSuffix}>{isUk ? 'СМ' : 'CM'}</Text>
               </View>
             </View>
           </View>

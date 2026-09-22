@@ -74,6 +74,34 @@ const SPLIT_CHOICES: SplitChoice[] = [
   },
 ];
 
+interface DurationChoiceOption {
+  minutes: number;
+  labelUk: string;
+  labelEn: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+}
+
+const DURATION_CHOICES: DurationChoiceOption[] = [
+  {
+    minutes: 30,
+    labelUk: '30 хв (4 впр)',
+    labelEn: '30 min (4 ex)',
+    icon: 'lightning-bolt',
+  },
+  {
+    minutes: 45,
+    labelUk: '45 хв (5 впр)',
+    labelEn: '45 min (5 ex)',
+    icon: 'timer-sand',
+  },
+  {
+    minutes: 60,
+    labelUk: '60 хв (6+ впр)',
+    labelEn: '60 min (6+ ex)',
+    icon: 'fire',
+  },
+];
+
 export default function ProgramReady() {
   const { t, tm, td, te, tw, language } = useI18n();
   const { formatWithUnit } = useWeightUnit();
@@ -107,6 +135,28 @@ export default function ProgramReady() {
       syncProgramState();
     }, [syncProgramState])
   );
+
+  const handleSelectDuration = async (minutes: number) => {
+    hapticMedium();
+    const updated: OnboardingData = {
+      ...onboarding,
+      sessionDurationMinutes: minutes,
+    };
+    setOnboarding(updated);
+    if (updated.splitPreference === 'custom' && hasEdits) {
+      setProgram((prev) => ({
+        ...prev,
+        estimatedWorkoutMinutes: minutes,
+        workouts: prev.workouts.map((w) => ({
+          ...w,
+          estimatedMinutes: minutes,
+        })),
+      }));
+    } else {
+      setProgram(generateProgram(updated));
+    }
+    await saveOnboarding(updated);
+  };
 
   const handleSelectSplit = async (splitId: WorkoutSplitPreference) => {
     hapticMedium();
@@ -284,6 +334,53 @@ export default function ProgramReady() {
           </View>
         </View>
 
+        {/* 2.5 Workout Duration Filter */}
+        <View style={styles.durationFilterWrap}>
+          <View style={styles.durationFilterHeader}>
+            <Text style={styles.durationFilterLabel}>
+              {language === 'uk' ? 'БАЖАНА ТРИВАЛІСТЬ' : 'TARGET DURATION'}
+            </Text>
+            <View style={styles.durationFilterActiveBadge}>
+              <Text style={styles.durationFilterActiveBadgeText}>
+                {language === 'uk'
+                  ? `${onboarding.sessionDurationMinutes ?? 45} ХВ · ${(onboarding.sessionDurationMinutes ?? 45) <= 30 ? 4 : (onboarding.sessionDurationMinutes ?? 45) <= 45 ? 5 : 6} ВПРАВ`
+                  : `${onboarding.sessionDurationMinutes ?? 45} MIN · ${(onboarding.sessionDurationMinutes ?? 45) <= 30 ? 4 : (onboarding.sessionDurationMinutes ?? 45) <= 45 ? 5 : 6} EX`}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.durationFilterRow}>
+            {DURATION_CHOICES.map((choice) => {
+              const isSelected = (onboarding.sessionDurationMinutes ?? 45) === choice.minutes;
+              return (
+                <Pressable
+                  key={choice.minutes}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${choice.minutes} min`}
+                  onPress={() => handleSelectDuration(choice.minutes)}
+                  style={[
+                    styles.durationFilterBtn,
+                    isSelected && styles.durationFilterBtnActive,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name={choice.icon}
+                    size={16}
+                    color={isSelected ? '#0B0D0F' : '#8E9BAE'}
+                  />
+                  <Text
+                    style={[
+                      styles.durationFilterBtnText,
+                      isSelected && styles.durationFilterBtnTextActive,
+                    ]}
+                  >
+                    {language === 'uk' ? choice.labelUk : choice.labelEn}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
         {/* 3. Split Switcher Carousel (Фулбоді, Верх/Низ, Спліт, Кастом) */}
         <View style={styles.splitSwitchWrap}>
           <Text style={styles.splitSwitchLabel}>
@@ -394,7 +491,7 @@ export default function ProgramReady() {
                   </View>
                   <View style={styles.cardHeaderRight}>
                     <Text style={styles.exerciseCount}>
-                      {workout.exercises.length} {language === 'uk' ? 'вправ' : 'Exercises'}
+                      ~{workout.estimatedMinutes ?? program.estimatedWorkoutMinutes} {language === 'uk' ? 'хв' : 'min'} · {workout.exercises.length} {language === 'uk' ? 'вправ' : 'exercises'}
                     </Text>
                     <Pressable
                       accessibilityRole="button"
@@ -463,7 +560,7 @@ export default function ProgramReady() {
       <View style={styles.bottomBar}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Розпочати тренування"
+          accessibilityLabel={language === 'uk' ? 'Застосувати план' : 'Apply Plan'}
           onPress={handleStartTraining}
           style={({ pressed }) => [
             styles.startBtn,
@@ -471,7 +568,7 @@ export default function ProgramReady() {
           ]}
         >
           <Text style={styles.startBtnText}>
-            {language === 'uk' ? 'Розпочати тренування' : 'Start Training'}
+            {language === 'uk' ? 'Застосувати план' : 'Apply Plan'}
           </Text>
           <Ionicons name="arrow-forward" size={20} color="#0B0D0F" />
         </Pressable>
@@ -585,6 +682,65 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.primary,
     letterSpacing: 0.5,
+  },
+  durationFilterWrap: {
+    marginBottom: 16,
+  },
+  durationFilterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  durationFilterLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#8E9BAE',
+    letterSpacing: 1.2,
+  },
+  durationFilterActiveBadge: {
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+  },
+  durationFilterActiveBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  durationFilterRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  durationFilterBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    backgroundColor: '#161B22',
+    borderWidth: 1,
+    borderColor: '#242B35',
+  },
+  durationFilterBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  durationFilterBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#8E9BAE',
+  },
+  durationFilterBtnTextActive: {
+    color: '#0B0D0F',
+    fontWeight: '900',
   },
   splitSwitchWrap: {
     marginBottom: 16,

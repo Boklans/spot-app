@@ -199,7 +199,7 @@ export default function ProgramEdit() {
       recommendedWeight: libExercise.defaultWeight ?? 0,
       targetRepRange: libExercise.defaultRepRange ?? '8-10',
       equipment: libExercise.equipment,
-      weightIncrement: libExercise.weightIncrement,
+      weightIncrement: libExercise.weightIncrement ?? 2.5,
       restSeconds: 90,
     };
 
@@ -207,12 +207,17 @@ export default function ProgramEdit() {
       ...prev,
       workouts: prev.workouts.map((w) => {
         if (w.id !== workoutId) return w;
+        const updatedMuscles = w.muscleGroups.includes(libExercise.muscleGroup)
+          ? w.muscleGroups
+          : [...w.muscleGroups, libExercise.muscleGroup];
         return {
           ...w,
+          muscleGroups: updatedMuscles,
           exercises: [...w.exercises, newExercise],
         };
       }),
     }));
+    hapticSuccess();
   };
 
   const handleUpdateExercise = (
@@ -404,7 +409,9 @@ export default function ProgramEdit() {
                 <View style={styles.variablesGrid}>
                   {/* Sets Control */}
                   <View style={styles.variableCol}>
-                    <Text style={styles.variableLabel}>{t('sets').toUpperCase()}</Text>
+                    <View style={styles.variableLabelRow}>
+                      <Text style={styles.variableLabel}>{t('sets').toUpperCase()}</Text>
+                    </View>
                     <View style={styles.stepperContainer}>
                       <Pressable
                         accessibilityRole="button"
@@ -435,7 +442,9 @@ export default function ProgramEdit() {
 
                   {/* Target Rep Range */}
                   <View style={styles.variableCol}>
-                    <Text style={styles.variableLabel}>{t('reps')}</Text>
+                    <View style={styles.variableLabelRow}>
+                      <Text style={styles.variableLabel}>{t('reps').toUpperCase()}</Text>
+                    </View>
                     <TextInput
                       value={exercise.targetRepRange}
                       onChangeText={(text) =>
@@ -453,53 +462,59 @@ export default function ProgramEdit() {
                 <View style={[styles.variablesGrid, { marginTop: spacing.md }]}>
                   {/* Recommended Weight */}
                   <View style={styles.variableCol}>
-                    <View style={styles.weightLabelRow}>
-                      <Text style={styles.variableLabel}>{t('recWeight')}</Text>
-                      <View style={styles.quickWeightRow}>
-                        <Pressable
-                          onPress={() => handleWeightDelta(selectedWorkout.id, exercise, -2.5)}
-                          style={styles.tinyStepBtn}
-                        >
-                          <Text style={styles.tinyStepText}>-2.5</Text>
-                        </Pressable>
-                        <Pressable
-                          onPress={() => handleWeightDelta(selectedWorkout.id, exercise, 2.5)}
-                          style={styles.tinyStepBtn}
-                        >
-                          <Text style={styles.tinyStepText}>+2.5</Text>
-                        </Pressable>
-                      </View>
+                    <View style={styles.variableLabelRow}>
+                      <Text style={styles.variableLabel} numberOfLines={1}>
+                        {language === 'uk' ? 'ВАГА (КГ)' : 'WEIGHT (KG)'}
+                      </Text>
                     </View>
-                    <TextInput
-                      value={weightDisplay}
-                      onChangeText={(text) => {
-                        setRawWeightInputs((prev) => ({ ...prev, [exercise.id]: text }));
-                        const num = parseFloat(text);
-                        if (!isNaN(num) && num >= 0) {
-                          handleUpdateExercise(selectedWorkout.id, exercise.id, {
-                            recommendedWeight: num,
-                          });
-                        }
-                      }}
-                      onBlur={() => {
-                        const num = parseFloat(weightDisplay);
-                        if (isNaN(num)) {
-                          setRawWeightInputs((prev) => ({
-                            ...prev,
-                            [exercise.id]: String(exercise.recommendedWeight),
-                          }));
-                        }
-                      }}
-                      keyboardType="decimal-pad"
-                      placeholder="0"
-                      placeholderTextColor={colors.muted}
-                      style={styles.gridInput}
-                    />
+                    <View style={styles.stepperContainer}>
+                      <Pressable
+                        onPress={() => handleWeightDelta(selectedWorkout.id, exercise, -2.5)}
+                        style={styles.stepperButton}
+                      >
+                        <Text style={styles.stepperButtonText}>-</Text>
+                      </Pressable>
+                      <TextInput
+                        value={weightDisplay}
+                        onChangeText={(text) => {
+                          setRawWeightInputs((prev) => ({ ...prev, [exercise.id]: text }));
+                          const num = parseFloat(text);
+                          if (!isNaN(num) && num >= 0) {
+                            handleUpdateExercise(selectedWorkout.id, exercise.id, {
+                              recommendedWeight: num,
+                            });
+                          }
+                        }}
+                        onBlur={() => {
+                          const num = parseFloat(weightDisplay);
+                          if (isNaN(num)) {
+                            setRawWeightInputs((prev) => ({
+                              ...prev,
+                              [exercise.id]: String(exercise.recommendedWeight),
+                            }));
+                          }
+                        }}
+                        keyboardType="decimal-pad"
+                        placeholder="0"
+                        placeholderTextColor={colors.muted}
+                        style={[styles.gridInput, styles.stepperInputCenter]}
+                      />
+                      <Pressable
+                        onPress={() => handleWeightDelta(selectedWorkout.id, exercise, 2.5)}
+                        style={styles.stepperButton}
+                      >
+                        <Text style={styles.stepperButtonText}>+</Text>
+                      </Pressable>
+                    </View>
                   </View>
 
                   {/* Weight Increment */}
                   <View style={styles.variableCol}>
-                    <Text style={styles.variableLabel}>{t('increment')}</Text>
+                    <View style={styles.variableLabelRow}>
+                      <Text style={styles.variableLabel} numberOfLines={1}>
+                        {language === 'uk' ? 'КРОК ВАГИ' : t('increment')}
+                      </Text>
+                    </View>
                     <TextInput
                       value={incrementDisplay}
                       onChangeText={(text) => {
@@ -531,14 +546,16 @@ export default function ProgramEdit() {
                 <View style={[styles.variablesGrid, { marginTop: spacing.md }]}>
                   {/* Rest Duration */}
                   <View style={styles.variableCol}>
-                    <Text style={styles.variableLabel}>
-                      {language === 'uk' ? 'ВІДПОЧИНОК (СЕК)' : 'REST DURATION (SEC)'}
-                    </Text>
+                    <View style={styles.variableLabelRow}>
+                      <Text style={styles.variableLabel} numberOfLines={1}>
+                        {language === 'uk' ? 'ВІДПОЧИНОК (СЕК)' : 'REST (SEC)'}
+                      </Text>
+                    </View>
                     <TextInput
                       value={String(exercise.restSeconds ?? 90)}
                       onChangeText={(text) => {
                         const num = parseInt(text, 10);
-                        if (!isNaN(num) && num >= 10 && num <= 600) {
+                        if (!isNaN(num) && num >= 0 && num <= 600) {
                           handleUpdateExercise(selectedWorkout.id, exercise.id, {
                             restSeconds: num,
                           });
@@ -549,6 +566,46 @@ export default function ProgramEdit() {
                       placeholderTextColor={colors.muted}
                       style={styles.gridInput}
                     />
+                  </View>
+
+                  {/* Rest Presets */}
+                  <View style={styles.variableCol}>
+                    <View style={styles.variableLabelRow}>
+                      <Text style={styles.variableLabel} numberOfLines={1}>
+                        {language === 'uk' ? 'ПРЕСЕТИ ЧАСУ' : 'PRESETS'}
+                      </Text>
+                    </View>
+                    <View style={styles.presetsRow}>
+                      {[
+                        { sec: 0, label: '0s' },
+                        { sec: 15, label: '15s' },
+                        { sec: 60, label: '60s' },
+                        { sec: 90, label: '90s' },
+                      ].map(({ sec, label }) => {
+                        const isCurrent = (exercise.restSeconds ?? 90) === sec;
+                        return (
+                          <Pressable
+                            key={sec}
+                            onPress={() => {
+                              hapticLight();
+                              handleUpdateExercise(selectedWorkout.id, exercise.id, {
+                                restSeconds: sec,
+                              });
+                            }}
+                            style={[styles.presetBtn, isCurrent && styles.presetBtnActive]}
+                          >
+                            <Text
+                              style={[
+                                styles.presetBtnText,
+                                isCurrent && styles.presetBtnTextActive,
+                              ]}
+                            >
+                              {label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
                   </View>
                 </View>
               </Card>
@@ -986,7 +1043,40 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.8,
+  },
+  variableLabelRow: {
+    height: 22,
+    justifyContent: 'center',
     marginBottom: 6,
+  },
+  presetsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    height: 44,
+    alignItems: 'center',
+  },
+  presetBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: colors.elevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  presetBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  presetBtnText: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  presetBtnTextActive: {
+    color: '#000000',
+    fontWeight: '800',
   },
   weightLabelRow: {
     flexDirection: 'row',
@@ -1051,6 +1141,18 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     color: colors.text,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  stepperInputCenter: {
+    flex: 1,
+    textAlign: 'center',
+    borderWidth: 0,
+    minHeight: 38,
+    height: 38,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    backgroundColor: 'transparent',
     fontSize: 15,
     fontWeight: '800',
   },

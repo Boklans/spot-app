@@ -21,12 +21,14 @@ const CATEGORIES = ['All', 'Chest', 'Back', 'Shoulders', 'Legs', 'Arms', 'Core']
 
 interface ExerciseLibraryModalProps {
   visible: boolean;
+  embedded?: boolean;
   onSelectExercise: (exercise: CatalogExercise) => void;
   onClose: () => void;
 }
 
 export function ExerciseLibraryModal({
   visible,
+  embedded = false,
   onSelectExercise,
   onClose,
 }: ExerciseLibraryModalProps) {
@@ -49,31 +51,26 @@ export function ExerciseLibraryModal({
     });
   }, [search, selectedCategory, tm, te]);
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <SafeAreaView style={styles.sheetContainer}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>{t('exerciseLibrary')}</Text>
-              <Text style={styles.subtitle}>{t('selectExerciseToAdd')}</Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              hitSlop={12}
-              onPress={onClose}
-              style={styles.closeBtn}
-            >
-              <Ionicons name="close" size={22} color="#FFFFFF" />
-            </Pressable>
-          </View>
+  if (!visible) return null;
+
+  const content = (
+    <>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>{t('exerciseLibrary')}</Text>
+          <Text style={styles.subtitle}>{t('selectExerciseToAdd')}</Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          hitSlop={12}
+          onPress={onClose}
+          style={styles.closeBtn}
+        >
+          <Ionicons name={embedded ? 'arrow-back' : 'close'} size={22} color="#FFFFFF" />
+        </Pressable>
+      </View>
 
           {/* Search Input */}
           <View style={styles.searchBar}>
@@ -188,6 +185,23 @@ export function ExerciseLibraryModal({
               </Text>
             </Pressable>
           </View>
+    </>
+  );
+
+  if (embedded) {
+    return <View style={styles.embeddedContainer}>{content}</View>;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <SafeAreaView style={styles.sheetContainer}>
+          {content}
         </SafeAreaView>
       </View>
     </Modal>
@@ -195,6 +209,12 @@ export function ExerciseLibraryModal({
 }
 
 const styles = StyleSheet.create({
+  embeddedContainer: {
+    flex: 1,
+    backgroundColor: '#12161D',
+    display: 'flex',
+    flexDirection: 'column',
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',

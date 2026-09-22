@@ -595,8 +595,16 @@ function buildWorkouts(
   trainingDays?: string[],
   onboarding?: OnboardingData
 ): GeneratedWorkout[] {
+  const targetDuration = onboarding?.sessionDurationMinutes ?? 45;
+  const maxExercises = targetDuration <= 35 ? 4 : targetDuration <= 50 ? 5 : 6;
+
   return repeatTemplates(templates, frequency).map((template, index) => {
-    const exercises: GeneratedExercise[] = template.exercises.map((exercise) => {
+    const candidateExercises =
+      template.exercises.length > maxExercises
+        ? template.exercises.slice(0, maxExercises)
+        : template.exercises;
+
+    const exercises: GeneratedExercise[] = candidateExercises.map((exercise) => {
       const calibratedWeight = onboarding
         ? calibrateInitialWeight(
             exercise.recommendedWeight,
@@ -641,7 +649,7 @@ function buildWorkouts(
       name: template.name,
       dayLabel: getWorkoutDayLabel(undefined, index, trainingDays, frequency),
       muscleGroups: [...new Set(exercises.map((exercise) => exercise.muscleGroup))],
-      estimatedMinutes: template.estimatedMinutes ?? (exercises.length >= 6 ? 55 : 50),
+      estimatedMinutes: targetDuration,
       defaultRestSeconds,
       exercises,
     };
@@ -727,7 +735,7 @@ export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
     name,
     description,
     daysPerWeek: frequency,
-    estimatedWorkoutMinutes: 55,
+    estimatedWorkoutMinutes: onboarding.sessionDurationMinutes ?? 45,
     splitType,
     defaultRestSeconds,
     workouts: buildWorkouts(templates, frequency, defaultRestSeconds, onboarding.trainingDays, onboarding),

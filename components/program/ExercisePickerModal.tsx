@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -15,6 +15,8 @@ import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { EXERCISE_LIBRARY, type LibraryExercise } from '@/lib/exerciseLibrary';
+import { hapticImpact, hapticLight } from '@/lib/haptics';
+import { translateExercise, useI18n } from '@/lib/i18n';
 
 const MUSCLE_GROUPS = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'] as const;
 type MuscleGroupFilter = (typeof MUSCLE_GROUPS)[number];
@@ -30,16 +32,22 @@ export function ExercisePickerModal({
   onClose,
   onSelect,
 }: ExercisePickerModalProps) {
+  const { tm, te, language } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroupFilter>('All');
 
   const filteredExercises = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return EXERCISE_LIBRARY.filter((item) => {
+      const translatedName = translateExercise(item.name, language).toLowerCase();
+      const translatedMuscle = tm(item.muscleGroup).toLowerCase();
+
       const matchesSearch =
         !query ||
         item.name.toLowerCase().includes(query) ||
+        translatedName.includes(query) ||
         item.muscleGroup.toLowerCase().includes(query) ||
+        translatedMuscle.includes(query) ||
         item.equipment.toLowerCase().includes(query);
 
       const matchesMuscle =
@@ -47,9 +55,10 @@ export function ExercisePickerModal({
 
       return matchesSearch && matchesMuscle;
     });
-  }, [searchQuery, selectedMuscle]);
+  }, [searchQuery, selectedMuscle, language, tm]);
 
   const handleSelect = (exercise: LibraryExercise) => {
+    hapticImpact();
     onSelect(exercise);
     setSearchQuery('');
     setSelectedMuscle('All');
@@ -57,6 +66,7 @@ export function ExercisePickerModal({
   };
 
   const handleClose = () => {
+    hapticLight();
     setSearchQuery('');
     setSelectedMuscle('All');
     onClose();
@@ -66,7 +76,7 @@ export function ExercisePickerModal({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      transparent={false}
       onRequestClose={handleClose}
     >
       <SafeAreaView style={styles.safeArea}>
@@ -74,11 +84,16 @@ export function ExercisePickerModal({
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.eyebrow}>EXERCISE LIBRARY</Text>
-              <Text style={styles.title}>Select Exercise</Text>
+              <Text style={styles.eyebrow}>
+                {language === 'uk' ? 'КАТАЛОГ ВПРАВ' : 'EXERCISE LIBRARY'}
+              </Text>
+              <Text style={styles.title}>
+                {language === 'uk' ? 'Оберіть вправу' : 'Select Exercise'}
+              </Text>
             </View>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Close"
               onPress={handleClose}
               style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
               hitSlop={12}
@@ -92,7 +107,11 @@ export function ExercisePickerModal({
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search exercise by name or muscle..."
+              placeholder={
+                language === 'uk'
+                  ? 'Пошук вправи або цільового м’яза...'
+                  : 'Search exercise by name or muscle...'
+              }
               placeholderTextColor={colors.muted}
               style={styles.searchInput}
               clearButtonMode="while-editing"
@@ -110,10 +129,14 @@ export function ExercisePickerModal({
               contentContainerStyle={styles.filterList}
               renderItem={({ item }) => {
                 const isSelected = selectedMuscle === item;
+                const label = item === 'All' ? (language === 'uk' ? 'Всі' : 'All') : tm(item);
                 return (
                   <Pressable
                     accessibilityRole="button"
-                    onPress={() => setSelectedMuscle(item)}
+                    onPress={() => {
+                      hapticLight();
+                      setSelectedMuscle(item);
+                    }}
                     style={({ pressed }) => [
                       styles.filterPill,
                       isSelected && styles.filterPillSelected,
@@ -126,7 +149,7 @@ export function ExercisePickerModal({
                         isSelected && styles.filterTextSelected,
                       ]}
                     >
-                      {item}
+                      {label}
                     </Text>
                   </Pressable>
                 );
@@ -156,23 +179,29 @@ export function ExercisePickerModal({
                       />
                     </View>
                     <View style={styles.cardInfo}>
-                      <Text style={styles.exerciseName}>{item.name}</Text>
+                      <Text style={styles.exerciseName}>{te(item.name)}</Text>
                       <Text style={styles.exerciseMeta}>
-                        {item.muscleGroup}  •  {item.equipment}
+                        {tm(item.muscleGroup)} • {item.equipment}
                       </Text>
                     </View>
                   </View>
                   <View style={styles.addButtonBadge}>
-                    <Text style={styles.addButtonText}>+ ADD</Text>
+                    <Text style={styles.addButtonText}>
+                      {language === 'uk' ? '+ ДОДАТИ' : '+ ADD'}
+                    </Text>
                   </View>
                 </Card>
               </Pressable>
             )}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyTitle}>NO EXERCISES FOUND</Text>
+                <Text style={styles.emptyTitle}>
+                  {language === 'uk' ? 'ВПРАВ НЕ ЗНАЙДЕНО' : 'NO EXERCISES FOUND'}
+                </Text>
                 <Text style={styles.emptySubtitle}>
-                  Try a different search term or category.
+                  {language === 'uk'
+                    ? 'Спробуйте інший пошуковий запит або категорію м’язів.'
+                    : 'Try a different search term or category.'}
                 </Text>
               </View>
             }
@@ -222,9 +251,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   closeText: {
-    color: colors.secondary,
-    fontSize: 16,
-    fontWeight: '800',
+    color: colors.muted,
+    fontSize: 14,
+    fontWeight: '700',
   },
   searchContainer: {
     paddingHorizontal: spacing.xl,
@@ -234,13 +263,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 12,
     color: colors.text,
     fontSize: 15,
-    fontWeight: '600',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    minHeight: 48,
+    paddingVertical: 12,
   },
   filtersWrapper: {
     marginBottom: spacing.md,
@@ -250,57 +277,54 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   filterPill: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
     backgroundColor: colors.surface,
-    borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
+    borderColor: colors.border,
   },
   filterPillSelected: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   filterText: {
-    color: colors.secondary,
-    fontSize: 12,
+    color: colors.muted,
+    fontSize: 13,
     fontWeight: '700',
   },
   filterTextSelected: {
     color: colors.background,
-    fontWeight: '900',
   },
   listContent: {
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.huge,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   itemPressable: {
-    marginBottom: spacing.xs,
+    borderRadius: 16,
   },
   exerciseCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
   },
   exerciseCardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.md,
     flex: 1,
+    marginRight: spacing.sm,
   },
   exerciseThumbWrap: {
-    width: 44,
-    height: 44,
+    width: 52,
+    height: 52,
     borderRadius: 10,
-    backgroundColor: '#0E1115',
-    borderWidth: 1,
-    borderColor: '#242C38',
     overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: colors.elevated,
   },
   exerciseThumb: {
     width: '100%',
@@ -308,35 +332,31 @@ const styles = StyleSheet.create({
   },
   cardInfo: {
     flex: 1,
-    paddingRight: spacing.md,
   },
   exerciseName: {
     color: colors.text,
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: '700',
   },
   exerciseMeta: {
-    color: colors.secondary,
+    color: colors.muted,
     fontSize: 12,
-    fontWeight: '600',
+    marginTop: 2,
+    textTransform: 'capitalize',
   },
   addButtonBadge: {
-    backgroundColor: colors.primaryMuted,
-    borderColor: 'rgba(200, 255, 61, 0.3)',
-    borderWidth: 1,
-    borderRadius: 8,
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
   },
   addButtonText: {
     color: colors.primary,
     fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-  pressed: {
-    opacity: 0.72,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -344,15 +364,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.huge,
   },
   emptyTitle: {
-    color: colors.secondary,
-    fontSize: 12,
+    color: colors.text,
+    fontSize: 14,
     fontWeight: '800',
-    letterSpacing: 1.2,
+    letterSpacing: 1,
+    marginBottom: spacing.xs,
   },
   emptySubtitle: {
     color: colors.muted,
-    fontSize: 14,
-    marginTop: spacing.xs,
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  pressed: {
+    opacity: 0.75,
   },
 });
-

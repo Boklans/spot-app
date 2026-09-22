@@ -29,7 +29,11 @@ import { useProgramStore } from '@/store/programStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { loadOnboarding, type OnboardingData } from '@/store/workoutStore';
-import type { UserExercise } from '@/types/userProgram';
+import type { UserExercise, UserProgram } from '@/types/userProgram';
+import { ExercisePickerModal } from '@/components/program/ExercisePickerModal';
+import type { LibraryExercise } from '@/lib/exerciseLibrary';
+import { generateUUID } from '@/lib/programMigration';
+import { hapticSuccess } from '@/lib/haptics';
 
 function getExerciseIcon(name: string): keyof typeof MaterialCommunityIcons.glyphMap {
   const lower = name.toLowerCase();
@@ -55,6 +59,7 @@ export default function WorkoutPreview() {
   const [onboarding, setOnboarding] = useState<OnboardingData | null>(null);
   const [swapModalVisible, setSwapModalVisible] = useState(false);
   const [exerciseToSwap, setExerciseToSwap] = useState<UserExercise | null>(null);
+  const [isAddPickerVisible, setIsAddPickerVisible] = useState(false);
 
   useEffect(() => {
     useProgramStore.getState().loadProgram();
@@ -128,6 +133,43 @@ export default function WorkoutPreview() {
     await updateUserProgram(updatedProgram);
     setSwapModalVisible(false);
     setExerciseToSwap(null);
+  };
+
+  const handleAddExercise = async (libExercise: LibraryExercise) => {
+    if (!workout || !program) return;
+    hapticMedium();
+
+    const newExercise: UserExercise = {
+      id: generateUUID(),
+      name: libExercise.name,
+      muscleGroup: libExercise.muscleGroup,
+      sets: libExercise.defaultSets ?? 3,
+      recommendedWeight: libExercise.defaultWeight ?? 0,
+      targetRepRange: libExercise.defaultRepRange ?? '8-10',
+      equipment: libExercise.equipment,
+      weightIncrement: libExercise.weightIncrement ?? 2.5,
+      restSeconds: 90,
+    };
+
+    const nextWorkouts = program.workouts.map((w) => {
+      if (w.id !== workout.id) return w;
+      const updatedMuscles = w.muscleGroups.includes(libExercise.muscleGroup)
+        ? w.muscleGroups
+        : [...w.muscleGroups, libExercise.muscleGroup];
+      return {
+        ...w,
+        muscleGroups: updatedMuscles,
+        exercises: [...w.exercises, newExercise],
+      };
+    });
+
+    const updatedProgram: UserProgram = {
+      ...program,
+      workouts: nextWorkouts,
+    };
+
+    await updateUserProgram(updatedProgram);
+    hapticSuccess();
   };
 
   // Calculate readiness percentage for this workout's muscle groups
@@ -204,10 +246,14 @@ export default function WorkoutPreview() {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="More options"
+          accessibilityLabel="Edit routine"
+          onPress={() => {
+            hapticMedium();
+            router.push('/program/edit');
+          }}
           style={({ pressed }) => [styles.navBtn, pressed && { opacity: 0.6 }]}
         >
-          <Ionicons name="reorder-three-outline" size={28} color="#8E959F" />
+          <Ionicons name="create-outline" size={24} color="#FFFFFF" />
         </Pressable>
       </View>
 
@@ -280,6 +326,22 @@ export default function WorkoutPreview() {
               </View>
             );
           })}
+
+          {/* Add Exercise Button */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add Exercise"
+            onPress={() => {
+              hapticMedium();
+              setIsAddPickerVisible(true);
+            }}
+            style={({ pressed }) => [styles.addExerciseBtn, pressed && { opacity: 0.8 }]}
+          >
+            <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+            <Text style={styles.addExerciseBtnText}>
+              {language === 'uk' ? '+ Додати вправу' : '+ Add Exercise'}
+            </Text>
+          </Pressable>
         </View>
       </ScrollView>
 
@@ -372,6 +434,13 @@ export default function WorkoutPreview() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Exercise Picker Modal */}
+      <ExercisePickerModal
+        visible={isAddPickerVisible}
+        onClose={() => setIsAddPickerVisible(false)}
+        onSelect={handleAddExercise}
+      />
 
       {/* Sticky Bottom CTA Button */}
       <View style={styles.bottomBar}>
@@ -635,5 +704,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  addExerciseBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#141A23',
+    borderWidth: 1,
+    borderColor: '#1E2836',
+    borderStyle: 'dashed',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  addExerciseBtnText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

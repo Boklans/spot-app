@@ -182,9 +182,12 @@ export default function Active() {
           t('couldNotSaveDesc')
         );
       }
-    } else {
+    } else if ((exercise?.restSeconds ?? 90) > 0) {
       hapticMedium();
       router.push('/workout/rest');
+    } else {
+      // 0s rest (Superset / Circuit): stay on screen and advance directly
+      hapticMedium();
     }
   };
 
