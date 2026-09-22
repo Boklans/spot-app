@@ -188,10 +188,6 @@ export default function Home() {
     [history, focusKey, language]
   );
 
-  if (!program || !program.workouts || program.workouts.length === 0 || !nextWorkout) {
-    return null;
-  }
-
   const currentHour = new Date().getHours();
   const greetingPrefix =
     language === 'uk'
@@ -212,7 +208,7 @@ export default function Home() {
 
   // Weekly tracker data
   const completedWorkoutsThisWeek = countWorkoutsThisWeek(history);
-  const targetWorkouts = Math.max(1, program.daysPerWeek || 3);
+  const targetWorkouts = Math.max(1, program?.daysPerWeek || 3);
 
   const DAY_LABELS =
     language === 'uk'
@@ -332,6 +328,7 @@ export default function Home() {
   }, [isSessionCompleted, activeSession, todayCompletedHistoryWorkout]);
 
   const displayMuscles = useMemo(() => {
+    if (!nextWorkout) return language === 'uk' ? 'Все тіло' : 'Full Body';
     if (nextWorkout.muscleGroups && nextWorkout.muscleGroups.length > 0) {
       return nextWorkout.muscleGroups.slice(0, 3).map((m) => tm(m)).join(' • ');
     }
@@ -348,6 +345,16 @@ export default function Home() {
   const greetingText = userGreetingName
     ? `${greetingPrefix}, ${userGreetingName} 👋`
     : `${greetingPrefix} 👋`;
+
+  if (!program || !program.workouts || program.workouts.length === 0 || !nextWorkout) {
+    return (
+      <Screen style={styles.screenContent}>
+        <View style={styles.header}>
+          <Text style={styles.greetingTitle}>{greetingText}</Text>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen style={styles.screenContent}>
@@ -512,14 +519,13 @@ export default function Home() {
             {/* Current Active Exercise Info */}
             {inProgressData.currentExerciseName ? (
               <View style={styles.currentExBox}>
-                <View style={styles.currentExHeaderRow}>
-                  <Text style={styles.currentExTag}>{t('currentExercise')}</Text>
-                  {inProgressData.currentExerciseMuscle ? (
-                    <Text style={styles.currentExMuscleTag}>
-                      {tm(inProgressData.currentExerciseMuscle)}
+                {inProgressData.currentExerciseMuscle ? (
+                  <View style={styles.muscleInlineBadge}>
+                    <Text style={styles.muscleInlineBadgeText}>
+                      {tm(inProgressData.currentExerciseMuscle).toUpperCase()}
                     </Text>
-                  ) : null}
-                </View>
+                  </View>
+                ) : null}
                 <Text numberOfLines={1} style={styles.currentExName}>
                   {te(inProgressData.currentExerciseName)}
                 </Text>
@@ -528,24 +534,25 @@ export default function Home() {
                     {t('set')} {(inProgressData.currentSetIndex ?? 0) + 1} / {inProgressData.currentExTotalSets}
                   </Text>
                   <Text style={styles.currentExTarget}>
-                    {inProgressData.targetWeight > 0 ? formatWithUnit(inProgressData.targetWeight) : t('bodyweight')} × {inProgressData.targetReps}
+                    {inProgressData.targetWeight > 0 ? formatWithUnit(inProgressData.targetWeight) : t('bodyweight')} · {inProgressData.targetReps} {t('reps').toLowerCase()}
                   </Text>
                 </View>
               </View>
             ) : null}
           </View>
 
-          {/* Electric Neon Lime [RESUME WORKOUT] CTA */}
+          {/* Electric Neon Lime Dynamic CTA Button */}
           <Button
             style={styles.ctaButton}
             onPress={() => {
               router.replace(restEndsAt !== null ? '/workout/rest' : '/workout/active');
             }}
           >
-            <View style={styles.btnContentRow}>
-              <Ionicons name="play" size={18} color="#0B0D0F" style={{ marginRight: 6 }} />
-              <Text style={styles.ctaButtonText}>{t('resumeWorkout').toUpperCase()}</Text>
-            </View>
+            <Text style={styles.ctaButtonText}>
+              {inProgressData.completedSets > 0 || inProgressData.completedExercises > 0
+                ? (language === 'uk' ? '▶ ПРОДОВЖИТИ ТРЕНУВАННЯ' : '▶ RESUME WORKOUT')
+                : (language === 'uk' ? '▶ ПОЧАТИ ТРЕНУВАННЯ' : '▶ START WORKOUT')}
+            </Text>
           </Button>
         </>
       )}
@@ -634,54 +641,59 @@ export default function Home() {
         </>
       )}
 
-      {/* 5. This Week Tracker (Dots above, labels below) */}
-      <View style={styles.weekSection}>
-        <View style={styles.weekHeader}>
-          <Text style={styles.weekLabel}>{t('thisWeek')}</Text>
-          <Text style={styles.weekCounter}>
-            {completedWorkoutsThisWeek} / {targetWorkouts}
-          </Text>
-        </View>
-        <View style={styles.weekRow}>
-          {weekDayStatuses.map((item, idx) => (
-            <View key={idx} style={styles.weekDayCol}>
-              <View style={styles.weekSlot}>
-                {item.completed ? (
-                  <View style={styles.indicatorCompleted}>
-                    <Ionicons name="checkmark" size={15} color="#0B0D0F" />
-                  </View>
-                ) : item.isToday ? (
-                  <View style={styles.indicatorToday}>
-                    <View style={styles.indicatorTodayDot} />
-                  </View>
-                ) : (
-                  <View style={styles.indicatorFuture} />
-                )}
-              </View>
-              <Text
-                style={[
-                  styles.weekDayLabel,
-                  item.isToday && styles.weekDayLabelToday,
-                  item.completed && styles.weekDayLabelCompleted,
-                ]}
-              >
-                {item.label}
+      {/* 5. This Week Tracker & 6. AI SPOT Insight Card (Hidden when workout is in progress) */}
+      {homeState !== 'IN_PROGRESS' && (
+        <>
+          {/* 5. This Week Tracker (Dots above, labels below) */}
+          <View style={styles.weekSection}>
+            <View style={styles.weekHeader}>
+              <Text style={styles.weekLabel}>{t('thisWeek')}</Text>
+              <Text style={styles.weekCounter}>
+                {completedWorkoutsThisWeek} / {targetWorkouts}
               </Text>
             </View>
-          ))}
-        </View>
-      </View>
+            <View style={styles.weekRow}>
+              {weekDayStatuses.map((item, idx) => (
+                <View key={idx} style={styles.weekDayCol}>
+                  <View style={styles.weekSlot}>
+                    {item.completed ? (
+                      <View style={styles.indicatorCompleted}>
+                        <Ionicons name="checkmark" size={15} color="#0B0D0F" />
+                      </View>
+                    ) : item.isToday ? (
+                      <View style={styles.indicatorToday}>
+                        <View style={styles.indicatorTodayDot} />
+                      </View>
+                    ) : (
+                      <View style={styles.indicatorFuture} />
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.weekDayLabel,
+                      item.isToday && styles.weekDayLabelToday,
+                      item.completed && styles.weekDayLabelCompleted,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
 
-      {/* 6. AI SPOT Insight Card */}
-      <View style={styles.insightCard}>
-        <View style={styles.insightIconBadge}>
-          <Ionicons name="sparkles" size={18} color="#FFFFFF" />
-        </View>
-        <View style={styles.insightTextCol}>
-          <Text style={styles.insightLabel}>{t('spotInsight')}</Text>
-          <Text style={styles.insightMessage}>{spotInsight}</Text>
-        </View>
-      </View>
+          {/* 6. AI SPOT Insight Card */}
+          <View style={styles.insightCard}>
+            <View style={styles.insightIconBadge}>
+              <Ionicons name="sparkles" size={18} color="#FFFFFF" />
+            </View>
+            <View style={styles.insightTextCol}>
+              <Text style={styles.insightLabel}>{t('spotInsight')}</Text>
+              <Text style={styles.insightMessage}>{spotInsight}</Text>
+            </View>
+          </View>
+        </>
+      )}
 
       {/* Workout Switch Modal */}
       <Modal
@@ -1296,48 +1308,52 @@ const styles = StyleSheet.create({
   currentExBox: {
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     borderRadius: 14,
-    padding: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
     marginTop: 4,
   },
-  currentExHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+  muscleInlineBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+    marginBottom: 6,
   },
-  currentExTag: {
+  muscleInlineBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#717B8A',
-    letterSpacing: 1,
-  },
-  currentExMuscleTag: {
-    fontSize: 11,
-    fontWeight: '700',
     color: colors.primary,
+    letterSpacing: 0.8,
   },
   currentExName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
     color: '#FFFFFF',
-    marginBottom: 4,
+    letterSpacing: -0.3,
   },
   currentExDetailsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   currentExSetIndicator: {
     fontSize: 12,
     color: '#8E959F',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   currentExTarget: {
     fontSize: 13,
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   completedBadge: {
     flexDirection: 'row',
