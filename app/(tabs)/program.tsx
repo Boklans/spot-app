@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -71,10 +71,20 @@ export default function Program() {
   const [onboarding, setOnboarding] = useState<OnboardingData | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
-  useEffect(() => {
-    useProgramStore.getState().loadProgram();
+  const syncProgramAndOnboarding = useCallback(() => {
+    useProgramStore.getState().getOrLoadProgram();
     loadOnboarding().then((data) => setOnboarding(data));
   }, []);
+
+  useEffect(() => {
+    syncProgramAndOnboarding();
+  }, [syncProgramAndOnboarding]);
+
+  useFocusEffect(
+    useCallback(() => {
+      syncProgramAndOnboarding();
+    }, [syncProgramAndOnboarding])
+  );
 
   const handleSwitchSplit = async (splitId: WorkoutSplitPreference) => {
     hapticMedium();

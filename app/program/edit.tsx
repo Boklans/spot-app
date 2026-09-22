@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -21,13 +21,16 @@ import { generateUUID } from '@/lib/programMigration';
 import { getWorkoutDayLabel } from '@/lib/programGenerator';
 import { useI18n } from '@/lib/i18n';
 import { useProgramStore } from '@/store/programStore';
-import { loadOnboarding, saveOnboarding } from '@/store/workoutStore';
+import { defaultOnboarding, loadOnboarding, saveOnboarding } from '@/store/workoutStore';
 import type { UserExercise, UserProgram, UserWorkout } from '@/types/userProgram';
 
 export default function ProgramEdit() {
   const { t, tm, td, language } = useI18n();
   const activeProgram = useProgramStore((state) => state.program);
-  const updateUserProgram = useProgramStore((state) => state.updateUserProgram);
+  const setCustomProgram = useProgramStore((state) => state.setCustomProgram);
+
+  // Track if user made modifications in this editing session
+  const isDirtyRef = useRef(false);
 
   // Local draft state holding deep clone of the active program
   const [draft, setDraft] = useState<UserProgram>(() =>
@@ -45,15 +48,20 @@ export default function ProgramEdit() {
   const [rawIncrementInputs, setRawIncrementInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    let isMounted = true;
     useProgramStore.getState().getOrLoadProgram().then((loaded) => {
-      if (loaded && loaded.id !== draft.id) {
+      if (isMounted && loaded && !isDirtyRef.current) {
         setDraft(JSON.parse(JSON.stringify(loaded)));
       }
     });
-  }, [draft.id]);
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Program Level Handlers
   const handleProgramNameChange = (name: string) => {
+    isDirtyRef.current = true;
     setDraft((prev) => ({
       ...prev,
       name,
@@ -63,6 +71,7 @@ export default function ProgramEdit() {
   const handleMoveWorkoutUp = (index: number) => {
     if (index <= 0) return;
     hapticMedium();
+    isDirtyRef.current = true;
     setDraft((prev) => {
       const workouts = [...prev.workouts];
       const temp = workouts[index - 1];
@@ -75,6 +84,7 @@ export default function ProgramEdit() {
   const handleMoveWorkoutDown = (index: number) => {
     if (index >= draft.workouts.length - 1) return;
     hapticMedium();
+    isDirtyRef.current = true;
     setDraft((prev) => {
       if (index >= prev.workouts.length - 1) return prev;
       const workouts = [...prev.workouts];
@@ -91,6 +101,7 @@ export default function ProgramEdit() {
       return;
     }
 
+    isDirtyRef.current = true;
     setDraft((prev) => {
       const filtered = prev.workouts.filter((w) => w.id !== workoutId);
       return {
@@ -107,6 +118,7 @@ export default function ProgramEdit() {
 
   const handleAddNewWorkout = () => {
     hapticMedium();
+    isDirtyRef.current = true;
     const count = draft.workouts.length;
     const letter = String.fromCharCode(65 + count);
     const newWorkout: UserWorkout = {
@@ -130,6 +142,7 @@ export default function ProgramEdit() {
 
   // Workout Level Handlers
   const handleWorkoutNameChange = (workoutId: string, name: string) => {
+    isDirtyRef.current = true;
     setDraft((prev) => ({
       ...prev,
       workouts: prev.workouts.map((w) => (w.id === workoutId ? { ...w, name } : w)),
@@ -140,6 +153,7 @@ export default function ProgramEdit() {
   const handleMoveExerciseUp = (workoutId: string, exerciseIndex: number) => {
     if (exerciseIndex <= 0) return;
     hapticMedium();
+    isDirtyRef.current = true;
     setDraft((prev) => ({
       ...prev,
       workouts: prev.workouts.map((w) => {
@@ -157,6 +171,7 @@ export default function ProgramEdit() {
     const currentWorkout = draft.workouts.find((w) => w.id === workoutId);
     if (!currentWorkout || exerciseIndex >= currentWorkout.exercises.length - 1) return;
     hapticMedium();
+    isDirtyRef.current = true;
     setDraft((prev) => ({
       ...prev,
       workouts: prev.workouts.map((w) => {
@@ -178,19 +193,24 @@ export default function ProgramEdit() {
       return;
     }
 
+    isDirtyRef.current = true;
     setDraft((prev) => ({
       ...prev,
       workouts: prev.workouts.map((w) => {
         if (w.id !== workoutId) return w;
+        const remainingExercises = w.exercises.filter((ex) => ex.id !== exerciseId);
+        const updatedMuscles = [...new Set(remainingExercises.map((e) => e.muscleGroup))];
         return {
           ...w,
-          exercises: w.exercises.filter((ex) => ex.id !== exerciseId),
+          muscleGroups: updatedMuscles,
+          exercises: remainingExercises,
         };
       }),
     }));
   };
 
   const handleAddExercise = (workoutId: string, libExercise: LibraryExercise) => {
+    isDirtyRef.current = true;
     const newExercise: UserExercise = {
       id: generateUUID(),
       name: libExercise.name,
@@ -225,6 +245,7 @@ export default function ProgramEdit() {
     exerciseId: string,
     updates: Partial<UserExercise>
   ) => {
+    isDirtyRef.current = true;
     setDraft((prev) => ({
       ...prev,
       workouts: prev.workouts.map((w) => {
@@ -239,12 +260,14 @@ export default function ProgramEdit() {
 
   const handleSetsDelta = (workoutId: string, exercise: UserExercise, delta: number) => {
     hapticLight();
+    isDirtyRef.current = true;
     const nextSets = Math.max(1, exercise.sets + delta);
     handleUpdateExercise(workoutId, exercise.id, { sets: nextSets });
   };
 
   const handleWeightDelta = (workoutId: string, exercise: UserExercise, delta: number) => {
     hapticLight();
+    isDirtyRef.current = true;
     const next = Math.max(0, parseFloat((exercise.recommendedWeight + delta).toFixed(2)));
     setRawWeightInputs((prev) => ({ ...prev, [exercise.id]: String(next) }));
     handleUpdateExercise(workoutId, exercise.id, { recommendedWeight: next });
@@ -266,22 +289,21 @@ export default function ProgramEdit() {
       return;
     }
 
+    // Pass the full draft object deeply cloned and guaranteed splitType: 'custom'
     const customProgram: UserProgram = {
-      ...draft,
+      ...JSON.parse(JSON.stringify(draft)),
       name: trimmed,
       splitType: 'custom',
     };
 
-    await updateUserProgram(customProgram);
+    await setCustomProgram(customProgram);
 
     try {
       const currentOnboarding = await loadOnboarding();
-      if (currentOnboarding) {
-        await saveOnboarding({
-          ...currentOnboarding,
-          splitPreference: 'custom',
-        });
-      }
+      await saveOnboarding({
+        ...(currentOnboarding ?? defaultOnboarding),
+        splitPreference: 'custom',
+      });
     } catch {
       // Storage error ignored
     }

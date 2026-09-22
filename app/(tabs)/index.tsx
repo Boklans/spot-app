@@ -151,14 +151,11 @@ export default function Home() {
         .catch(() => undefined);
 
       useWorkoutHistoryStore.getState().loadHistory();
-      const currentProgram = useProgramStore.getState().program;
-      if (currentProgram) {
-        useProgramProgressStore.getState().loadProgress(currentProgram);
-      } else {
-        useProgramStore.getState().loadProgram().then((p) => {
-          if (p) useProgramProgressStore.getState().loadProgress(p);
-        });
-      }
+      useProgramStore.getState().getOrLoadProgram().then((p) => {
+        if (p) {
+          useProgramProgressStore.getState().loadProgress(p);
+        }
+      });
       setFocusKey((prev) => prev + 1);
     }, [])
   );

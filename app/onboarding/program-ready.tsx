@@ -117,12 +117,13 @@ export default function ProgramReady() {
     const data = (await loadOnboarding()) ?? defaultOnboarding;
     setOnboarding(data);
 
-    const storeProg = useProgramStore.getState().program;
-    if (data.splitPreference === 'custom' && storeProg && storeProg.splitType === 'custom') {
+    const storeProg = await useProgramStore.getState().getOrLoadProgram();
+    if (storeProg && storeProg.splitType === 'custom') {
       setProgram(storeProg as unknown as GeneratedProgram);
-      setHasEdits(true);
+      setHasEdits(false);
     } else {
       setProgram(generateProgram(data));
+      setHasEdits(false);
     }
   }, []);
 
@@ -257,6 +258,7 @@ export default function ProgramReady() {
     } else {
       await useProgramStore.getState().setCustomProgram(buildUserProgramFromLocal() as unknown as UserProgram);
     }
+    setHasEdits(false);
     router.push('/program/edit');
   };
 
