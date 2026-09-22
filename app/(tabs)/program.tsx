@@ -30,7 +30,7 @@ import {
   type OnboardingData,
   type WorkoutSplitPreference,
 } from '@/store/workoutStore';
-import type { UserWorkout } from '@/types/userProgram';
+import type { UserProgram, UserWorkout } from '@/types/userProgram';
 
 type Message = {
   id: string;
@@ -103,10 +103,12 @@ export default function Program() {
     const nextWorkouts = program.workouts.map((w) =>
       w.id === updatedWorkout.id ? updatedWorkout : w
     );
-    await useProgramStore.getState().updateUserProgram({
+    const updatedProgram: UserProgram = {
       ...program,
+      splitType: 'custom',
       workouts: nextWorkouts,
-    });
+    };
+    await useProgramStore.getState().setCustomProgram(updatedProgram);
   };
 
   const scheduledWorkout = getScheduledWorkout(program, progress);

@@ -3,8 +3,11 @@ import { create } from 'zustand';
 import { generateProgram, resolveRestSeconds, type EquipmentId, type GeneratedExercise, type GeneratedWorkout } from '@/lib/programGenerator';
 import { findLatestExerciseSets, recommendWeight, type WeightRecommendation } from '@/lib/adaptiveProgression';
 import type { CompletedWorkout, PersonalRecord } from '@/types/workout';
+import type { UserWorkout } from '@/types/userProgram';
 import { defaultOnboarding } from './workoutStore';
 import { useWorkoutHistoryStore } from './workoutHistoryStore';
+import { useProgramStore } from './programStore';
+import { getScheduledWorkout, useProgramProgressStore } from './programProgressStore';
 
 export type WorkoutSet = {
   id: string;
@@ -58,7 +61,7 @@ type WorkoutSessionState = {
   restNextType: 'set' | 'exercise' | null;
   hydrated: boolean;
   hydrateSession: () => Promise<boolean>;
-  initializeSession: (workout?: GeneratedWorkout) => Promise<void>;
+  initializeSession: (workout?: GeneratedWorkout | UserWorkout) => Promise<void>;
   completeCurrentSet: () => void;
   setPersonalRecords: (personalRecords: PersonalRecord[]) => void;
   updateCurrentSet: (values: { weight?: number; reps?: number }) => void;
@@ -158,13 +161,15 @@ function persistSnapshot(snapshot: ActiveWorkoutStorage | null) {
   });
 }
 
-function createSessionExercises(workout: GeneratedWorkout, history: CompletedWorkout[]): WorkoutExercise[] {
+function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history: CompletedWorkout[]): WorkoutExercise[] {
   return workout.exercises.map((exercise, exerciseIndex) => {
-    const previousSets = findLatestExerciseSets(history, exercise);
-    const recommendation = recommendWeight(exercise, previousSets);
-    const weight = recommendation.recommendedWeight;
+    const previousSets = findLatestExerciseSets(history, exercise as any);
+    const recommendation = recommendWeight(exercise as any, previousSets);
+    const weight = typeof exercise.recommendedWeight === 'number' && exercise.recommendedWeight > 0
+      ? exercise.recommendedWeight
+      : recommendation.recommendedWeight;
     const weightIncrement = typeof exercise.weightIncrement === 'number' ? exercise.weightIncrement : 2.5;
-    const restSeconds = resolveRestSeconds(exercise, workout);
+    const restSeconds = typeof exercise.restSeconds === 'number' ? exercise.restSeconds : resolveRestSeconds(exercise as any, workout as any);
 
     return {
       id: exercise.id,
@@ -174,11 +179,11 @@ function createSessionExercises(workout: GeneratedWorkout, history: CompletedWor
       recommendation,
       weightIncrement,
       restSeconds,
-      sets: Array.from({ length: exercise.sets }, (_, setIndex) => ({
+      sets: Array.from({ length: exercise.sets || 3 }, (_, setIndex) => ({
         id: `exercise-${exerciseIndex + 1}-set-${setIndex + 1}`,
         weight,
-        reps: Number.parseInt(exercise.targetRepRange.split('-')[0], 10),
-        targetReps: exercise.targetRepRange,
+        reps: Number.parseInt(exercise.targetRepRange ? exercise.targetRepRange.split('-')[0] : '10', 10) || 10,
+        targetReps: exercise.targetRepRange || '8-12',
         completed: false,
       })),
     };
@@ -208,18 +213,21 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
     }
   },
 
-  initializeSession: async (workout = generateProgram(defaultOnboarding).workouts[0]) => {
+  initializeSession: async (workout?: GeneratedWorkout | UserWorkout) => {
     const history = await useWorkoutHistoryStore.getState().loadHistory();
+    const activeProgram = useProgramStore.getState().program;
+    const progress = useProgramProgressStore.getState().progress;
+    const targetWorkout = workout ?? (activeProgram?.workouts?.length ? getScheduledWorkout(activeProgram, progress) : generateProgram(defaultOnboarding).workouts[0]);
     const now = new Date().toISOString();
     set({
       session: {
         id: `session-${Date.now()}`,
-        programWorkoutId: workout.id,
-        workoutName: workout.name,
+        programWorkoutId: targetWorkout.id,
+        workoutName: targetWorkout.name,
         startedAt: now,
         currentExerciseIndex: 0,
         currentSetIndex: 0,
-        exercises: createSessionExercises(workout, history),
+        exercises: createSessionExercises(targetWorkout, history),
         personalRecords: [],
         completed: false,
       },

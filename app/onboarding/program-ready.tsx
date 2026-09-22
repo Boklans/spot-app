@@ -118,7 +118,7 @@ export default function ProgramReady() {
     setOnboarding(data);
 
     const storeProg = await useProgramStore.getState().getOrLoadProgram();
-    if (storeProg && storeProg.splitType === 'custom') {
+    if (data.splitPreference === 'custom' && storeProg && storeProg.splitType === 'custom') {
       setProgram(storeProg as unknown as GeneratedProgram);
       setHasEdits(false);
     } else {
@@ -251,6 +251,7 @@ export default function ProgramReady() {
   const handleOpenFullBuilder = async () => {
     hapticMedium();
     const updated = { ...onboarding, completed: true, splitPreference: 'custom' as WorkoutSplitPreference };
+    setOnboarding(updated);
     await saveOnboarding(updated);
     const storeProg = useProgramStore.getState().program;
     if (storeProg?.splitType === 'custom' && !hasEdits) {
@@ -264,12 +265,24 @@ export default function ProgramReady() {
 
   const handleStartTraining = async () => {
     hapticSuccess();
-    const updated = { ...onboarding, completed: true };
+    const isCustom = onboarding.splitPreference === 'custom';
+    const updated = {
+      ...onboarding,
+      completed: true,
+      splitPreference: isCustom ? ('custom' as WorkoutSplitPreference) : onboarding.splitPreference,
+    };
+    setOnboarding(updated);
     await saveOnboarding(updated);
-    const storeProgram = useProgramStore.getState().program;
-    if (onboarding.splitPreference === 'custom' || storeProgram?.splitType === 'custom') {
+    if (isCustom) {
       if (hasEdits) {
         await useProgramStore.getState().setCustomProgram(buildUserProgramFromLocal() as unknown as UserProgram);
+      } else {
+        const storeProg = useProgramStore.getState().program;
+        if (storeProg?.splitType === 'custom') {
+          // Keep current custom program in store
+        } else {
+          await useProgramStore.getState().setCustomProgram(buildUserProgramFromLocal() as unknown as UserProgram);
+        }
       }
     } else {
       await useProgramStore.getState().refreshProgram(updated);

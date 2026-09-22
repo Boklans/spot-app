@@ -26,6 +26,7 @@ interface BodyWeightState {
   entries: BodyWeightEntry[];
   hydrated: boolean;
   loadHistory: () => Promise<BodyWeightEntry[]>;
+  clearHistory: () => Promise<void>;
   addEntry: (weightKg: number, dateStr?: string, note?: string) => Promise<void>;
   deleteEntry: (id: string) => Promise<void>;
   getStats: (days?: number) => BodyWeightStats;
@@ -86,6 +87,15 @@ export const useBodyWeightStore = create<BodyWeightState>((set, get) => ({
     }
 
     return seeded;
+  },
+
+  clearHistory: async () => {
+    try {
+      await AsyncStorage.removeItem(BODY_WEIGHT_STORAGE_KEY);
+    } catch {
+      // Ignore
+    }
+    set({ entries: [], hydrated: false });
   },
 
   addEntry: async (weightKg: number, dateStr?: string, note?: string) => {

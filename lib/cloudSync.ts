@@ -3,7 +3,7 @@ import { isSupabaseConfigured, supabase } from './supabase';
 import { useAuthStore } from '@/store/authStore';
 import { useBodyWeightStore } from '@/store/bodyWeightStore';
 import { useProgramProgressStore } from '@/store/programProgressStore';
-import { useProgramStore } from '@/store/programStore';
+import { useProgramStore, USER_PROGRAM_STORAGE_KEY } from '@/store/programStore';
 import { useUserProfileStore, USER_PROFILE_STORAGE_KEY } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore, WORKOUT_HISTORY_STORAGE_KEY } from '@/store/workoutHistoryStore';
 import { saveOnboarding } from '@/store/workoutStore';
@@ -190,6 +190,7 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
 
     if (programRow && programRow.program_data) {
       useProgramStore.setState({ program: programRow.program_data });
+      await AsyncStorage.setItem(USER_PROGRAM_STORAGE_KEY, JSON.stringify(programRow.program_data));
       await AsyncStorage.setItem('spot-program', JSON.stringify(programRow.program_data));
 
       if (programRow.progress_data) {

@@ -27,8 +27,10 @@ import {
   requestNotificationPermissions,
   sendTestNotification,
 } from '@/lib/notificationService';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useAuthStore } from '@/store/authStore';
+import { useBodyWeightStore } from '@/store/bodyWeightStore';
 import { useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
 import {
@@ -38,6 +40,7 @@ import {
   type UserGoal,
 } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
+import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import {
   defaultOnboarding,
   loadOnboarding,
@@ -159,37 +162,78 @@ export default function Profile() {
   const handleResetPress = () => {
     hapticMedium();
     Alert.alert(
-      'Reset App Data?',
-      'This will permanently delete your workout history, custom programs, and training progress. This action cannot be undone.',
+      language === 'uk' ? 'Скинути всі дані додатку?' : 'Reset App Data?',
+      language === 'uk'
+        ? 'Це назавжди видалить історію тренувань, створені кастомні програми та весь прогрес. Цю дію неможливо скасувати.'
+        : 'This will permanently delete your workout history, custom programs, and training progress. This action cannot be undone.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: language === 'uk' ? 'Скасувати' : 'Cancel', style: 'cancel' },
         {
-          text: 'Reset Everything',
+          text: language === 'uk' ? 'Скинути все' : 'Reset Everything',
           style: 'destructive',
           onPress: async () => {
             try {
+              // 1. Fetch all storage keys and remove every SPOT-related key
+              const allKeys = await AsyncStorage.getAllKeys();
+              const keysToRemove = allKeys.filter(
+                (k) =>
+                  k.startsWith('spot') ||
+                  k.includes('workout') ||
+                  k.includes('program') ||
+                  k.includes('onboarding') ||
+                  k.includes('profile') ||
+                  k.includes('body-weight') ||
+                  k.includes('session')
+              );
+              if (keysToRemove.length > 0) {
+                await AsyncStorage.multiRemove(keysToRemove);
+              }
+
+              // 2. Also explicitly remove known storage keys directly
               await AsyncStorage.multiRemove([
                 'spot-onboarding',
                 'spot-user-program',
+                'spot-custom-program',
                 'spot-active-program',
+                'spot-program',
                 'spot-workout-history',
                 'spot-program-progress',
                 'spot-user-profile',
+                'spot_active_workout_session',
                 'spot-active-workout-session',
+                'spot-body-weight-history',
               ]);
 
+              // 3. Clear cloud data if authenticated
+              if (isSupabaseConfigured()) {
+                const user = useAuthStore.getState().user;
+                if (user) {
+                  try {
+                    await supabase.from('user_programs').delete().eq('user_id', user.id);
+                    await supabase.from('workout_history').delete().eq('user_id', user.id);
+                    await supabase.from('body_weight_logs').delete().eq('user_id', user.id);
+                  } catch {
+                    // Cloud delete error ignored
+                  }
+                }
+              }
+
+              // 4. Reset in-memory stores
+              useWorkoutSessionStore.getState().clearSession();
               await useWorkoutHistoryStore.getState().clearHistory();
               await useUserProfileStore.getState().resetProfile();
-              await useProgramStore.getState().refreshProgram();
-              const freshProgram = useProgramStore.getState().program;
-              await useProgramProgressStore
-                .getState()
-                .resetProgress(freshProgram.id, freshProgram.workouts[0]?.id);
+              await useBodyWeightStore.getState().clearHistory();
+              await useProgramStore.getState().resetProgram();
 
               await hapticSuccess();
               router.replace('/onboarding/welcome');
             } catch {
-              Alert.alert('Error', 'Failed to reset some app data. Please restart the app.');
+              Alert.alert(
+                language === 'uk' ? 'Помилка' : 'Error',
+                language === 'uk'
+                  ? 'Не вдалося скинути деякі дані додатку. Будь ласка, перезапустіть додаток.'
+                  : 'Failed to reset some app data. Please restart the app.'
+              );
             }
           },
         },
@@ -199,7 +243,18 @@ export default function Profile() {
 
   const handleRestartOnboarding = async () => {
     hapticMedium();
-    await AsyncStorage.removeItem('spot-onboarding');
+    try {
+      await AsyncStorage.multiRemove([
+        'spot-onboarding',
+        'spot-custom-program',
+        'spot-user-program',
+        'spot-active-program',
+        'spot-program',
+      ]);
+      await useProgramStore.getState().resetProgram();
+    } catch {
+      // Storage error ignored
+    }
     router.replace('/onboarding/welcome');
   };
 

@@ -10,12 +10,12 @@ import { hapticLight } from '@/lib/haptics';
 import { countWorkoutsThisWeek, getStartOfWeek } from '@/lib/progressCalculator';
 import { calculateMuscleRecovery } from '@/lib/recoveryEngine';
 import { translateExercise, useI18n } from '@/lib/i18n';
-import { formatWeightWithUnit } from '@/lib/weightUtils';
+import { formatWeightWithUnit, useWeightUnit } from '@/lib/weightUtils';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
-import type { AppLanguage } from '@/store/userProfileStore';
+import { useUserProfileStore, type AppLanguage } from '@/store/userProfileStore';
 import { WORKOUT_HISTORY_STORAGE_KEY, useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
-import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
+import { getSessionProgress, getSessionSummary, useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { loadOnboarding } from '@/store/workoutStore';
 import type { CompletedWorkout } from '@/types/workout';
 
@@ -123,9 +123,11 @@ function computeSpotInsight(history: CompletedWorkout[], lang: AppLanguage = 'en
 
 export default function Home() {
   const { t, tm, td, te, tw, language } = useI18n();
+  const { formatVolume, formatWithUnit } = useWeightUnit();
   const [name, setName] = useState('');
   const [focusKey, setFocusKey] = useState(0);
 
+  const profile = useUserProfileStore((state) => state.profile);
   const program = useProgramStore((state) => state.program);
   const activeSession = useWorkoutSessionStore((state) => state.session);
   const restEndsAt = useWorkoutSessionStore((state) => state.restEndsAt);
@@ -150,7 +152,9 @@ export default function Home() {
         })
         .catch(() => undefined);
 
+      useWorkoutSessionStore.getState().hydrateSession();
       useWorkoutHistoryStore.getState().loadHistory();
+      useUserProfileStore.getState().loadProfile();
       useProgramStore.getState().getOrLoadProgram().then((p) => {
         if (p) {
           useProgramProgressStore.getState().loadProgress(p);
@@ -160,11 +164,12 @@ export default function Home() {
     }, [])
   );
 
-
   useEffect(() => {
     loadOnboarding().then((data) => {
       if (data?.name) setName(data.name);
     });
+    useWorkoutSessionStore.getState().hydrateSession();
+    useUserProfileStore.getState().loadProfile();
     useProgramStore.getState().loadProgram();
     useWorkoutHistoryStore.getState().loadHistory();
   }, []);
@@ -238,20 +243,118 @@ export default function Home() {
     };
   });
 
-  const isSessionActive = Boolean(activeSession && !activeSession.completed);
-  const displayMuscles =
-    nextWorkout.muscleGroups && nextWorkout.muscleGroups.length > 0
-      ? nextWorkout.muscleGroups.slice(0, 3).map((m) => tm(m)).join(' • ')
-      : language === 'uk'
-      ? 'Груди • Спина • Руки'
-      : 'Chest • Back • Arms';
+  // Determine user states strictly:
+  // STATE B: Active session exists and is NOT completed
+  const isSessionInProgress = Boolean(activeSession && !activeSession.completed);
+
+  // STATE C: Session completed or a workout was completed today
+  const isSessionCompleted = Boolean(activeSession && activeSession.completed);
+
+  const todayCompletedHistoryWorkout = useMemo(() => {
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const endOfDay = startOfDay + 24 * 60 * 60 * 1000 - 1;
+
+    return (
+      (history || []).find((w) => {
+        const timeStr = w.completedAt || w.startedAt;
+        if (!timeStr) return false;
+        const time = new Date(timeStr).getTime();
+        return time >= startOfDay && time <= endOfDay;
+      }) || null
+    );
+  }, [history, focusKey]);
+
+  const isWorkoutCompletedToday = isSessionCompleted || Boolean(todayCompletedHistoryWorkout);
+
+  // Strict 3-state selector:
+  const homeState: 'IN_PROGRESS' | 'COMPLETED_TODAY' | 'READY_TO_TRAIN' = isSessionInProgress
+    ? 'IN_PROGRESS'
+    : isWorkoutCompletedToday
+    ? 'COMPLETED_TODAY'
+    : 'READY_TO_TRAIN';
+
+  const inProgressData = useMemo(() => {
+    if (!activeSession) return null;
+    const totalExercises = activeSession.exercises.length;
+    const completedExercises = activeSession.exercises.filter(
+      (ex) => ex.sets.length > 0 && ex.sets.every((s) => s.completed)
+    ).length;
+    const sessionProgress = getSessionProgress(activeSession);
+    const percent = Math.round(sessionProgress.percentage);
+    const currentEx = activeSession.exercises[activeSession.currentExerciseIndex] ?? activeSession.exercises[0];
+    const currentSet = currentEx?.sets[activeSession.currentSetIndex] ?? currentEx?.sets[0];
+
+    return {
+      routineName: activeSession.workoutName,
+      totalExercises,
+      completedExercises,
+      progressText: `${completedExercises} / ${totalExercises} ${t('exercises').toLowerCase()}`,
+      percent,
+      completedSets: sessionProgress.completedSets,
+      totalSets: sessionProgress.totalSets,
+      currentExerciseName: currentEx?.name ?? '',
+      currentExerciseMuscle: currentEx?.muscleGroup ?? '',
+      currentSetIndex: activeSession.currentSetIndex,
+      currentExTotalSets: currentEx?.sets.length ?? 0,
+      targetWeight: currentSet?.weight ?? 0,
+      targetReps: currentSet?.targetReps ?? '8-12',
+    };
+  }, [activeSession, t]);
+
+  const completedSummaryData = useMemo(() => {
+    if (isSessionCompleted && activeSession) {
+      const summary = getSessionSummary(activeSession);
+      return {
+        workoutName: activeSession.workoutName,
+        durationMinutes: summary.durationMinutes,
+        volume: summary.volume,
+        exerciseCount: summary.exerciseCount,
+        completedSets: summary.completedSets,
+        prsCount: activeSession.personalRecords?.length ?? 0,
+        isLiveSession: true,
+        id: activeSession.id,
+      };
+    }
+    if (todayCompletedHistoryWorkout) {
+      return {
+        workoutName: todayCompletedHistoryWorkout.workoutName,
+        durationMinutes: Math.max(1, Math.round(todayCompletedHistoryWorkout.durationSeconds / 60)),
+        volume: todayCompletedHistoryWorkout.totalVolume,
+        exerciseCount: todayCompletedHistoryWorkout.exercises.length,
+        completedSets: todayCompletedHistoryWorkout.totalSets,
+        prsCount: todayCompletedHistoryWorkout.personalRecords?.length ?? 0,
+        isLiveSession: false,
+        id: todayCompletedHistoryWorkout.id,
+      };
+    }
+    return null;
+  }, [isSessionCompleted, activeSession, todayCompletedHistoryWorkout]);
+
+  const displayMuscles = useMemo(() => {
+    if (nextWorkout.muscleGroups && nextWorkout.muscleGroups.length > 0) {
+      return nextWorkout.muscleGroups.slice(0, 3).map((m) => tm(m)).join(' • ');
+    }
+    if (nextWorkout.exercises && nextWorkout.exercises.length > 0) {
+      const fromEx = Array.from(new Set(nextWorkout.exercises.map((e) => e.muscleGroup).filter(Boolean)));
+      if (fromEx.length > 0) {
+        return fromEx.slice(0, 3).map((m) => tm(m)).join(' • ');
+      }
+    }
+    return language === 'uk' ? 'Все тіло' : 'Full Body';
+  }, [nextWorkout, tm, language]);
+
+  const userGreetingName = (profile?.name && profile.name.trim().length > 0 ? profile.name.trim() : name) || '';
+  const greetingText = userGreetingName
+    ? `${greetingPrefix}, ${userGreetingName} 👋`
+    : `${greetingPrefix} 👋`;
 
   return (
     <Screen style={styles.screenContent}>
       {/* 1. Header */}
       <View style={styles.header}>
         <Text style={styles.greetingTitle}>
-          {greetingPrefix}, {name || 'Ihor'} 👋
+          {greetingText}
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -263,116 +366,273 @@ export default function Home() {
         </Pressable>
       </View>
 
-      {/* 2. Readiness Section with Big Ring & Bold Typography */}
-      <View style={styles.readinessRow}>
-        <ReadinessRing
-          percentage={readiness.percentage}
-          color={readiness.color}
-          size={88}
-          strokeWidth={6.5}
-        />
-        <View style={styles.readinessTextCol}>
-          <Text style={styles.readinessLabel}>{readiness.label}</Text>
-          <Text style={styles.readinessSubtitle}>{readiness.subtitle}</Text>
-        </View>
-      </View>
+      {/* STATE A: No Active Workout */}
+      {homeState === 'READY_TO_TRAIN' && (
+        <>
+          {/* 2. Readiness Section with Big Ring & Dynamic Recovery */}
+          <View style={styles.readinessRow}>
+            <ReadinessRing
+              percentage={readiness.percentage}
+              color={readiness.color}
+              size={88}
+              strokeWidth={6.5}
+            />
+            <View style={styles.readinessTextCol}>
+              <Text style={styles.readinessLabel}>{readiness.label}</Text>
+              <Text style={styles.readinessSubtitle}>{readiness.subtitle}</Text>
+            </View>
+          </View>
 
+          {/* 3. Today's Workout Card */}
+          <View style={styles.workoutCard}>
+            <View style={styles.workoutCardHeaderRow}>
+              <Text style={styles.workoutCardLabel}>{t('todaysWorkout')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {program.workouts && program.workouts.length > 1 && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Switch workout"
+                    onPress={() => {
+                      hapticLight();
+                      setSwitchModalVisible(true);
+                    }}
+                    hitSlop={8}
+                    style={styles.switchWorkoutBtn}
+                  >
+                    <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
+                    <Text style={styles.switchWorkoutBtnText}>
+                      {language === 'uk' ? 'СПИСОК' : 'LIST'}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
 
-      {/* 3. Today's Workout Card */}
-      <View style={styles.workoutCard}>
-        <View style={styles.workoutCardHeaderRow}>
-          <Text style={styles.workoutCardLabel}>{t('todaysWorkout')}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {program.workouts && program.workouts.length > 1 && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                router.push({ pathname: '/workout/preview', params: { workoutId: nextWorkout.id } })
+              }
+              style={styles.workoutMainRow}
+            >
+              <Text style={styles.workoutName}>{tw(nextWorkout.name)}</Text>
+              <Ionicons name="chevron-forward" size={24} color="#8E959F" />
+            </Pressable>
+
+            <Text style={styles.workoutMuscles}>{displayMuscles}</Text>
+
+            {/* Exercise Quick Preview on Home Card */}
+            {nextWorkout.exercises && nextWorkout.exercises.length > 0 && (
               <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Switch workout"
-                onPress={() => {
-                  hapticLight();
-                  setSwitchModalVisible(true);
-                }}
-                hitSlop={8}
-                style={styles.switchWorkoutBtn}
+                onPress={() =>
+                  router.push({ pathname: '/workout/preview', params: { workoutId: nextWorkout.id } })
+                }
+                style={styles.exercisePreviewWrap}
               >
-                <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
-                <Text style={styles.switchWorkoutBtnText}>
-                  {language === 'uk' ? 'СПИСОК' : 'LIST'}
-                </Text>
+                {nextWorkout.exercises.slice(0, 3).map((ex, idx) => (
+                  <View key={ex.id || `${ex.name}-${idx}`} style={styles.previewExRow}>
+                    <View style={styles.previewExDot} />
+                    <Text style={styles.previewExName} numberOfLines={1}>
+                      {te(ex.name)}
+                    </Text>
+                    <Text style={styles.previewExSets}>
+                      {ex.sets} × {ex.recommendedWeight ? formatWithUnit(ex.recommendedWeight) : (language === 'uk' ? 'ВТ' : 'BW')}
+                    </Text>
+                  </View>
+                ))}
+                {nextWorkout.exercises.length > 3 && (
+                  <Text style={styles.previewMoreText}>
+                    + ще {nextWorkout.exercises.length - 3}{' '}
+                    {language === 'uk' ? 'вправи (натисніть для перегляду)' : 'more exercises'}
+                  </Text>
+                )}
               </Pressable>
             )}
-          </View>
-        </View>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() =>
-            router.push({ pathname: '/workout/preview', params: { workoutId: nextWorkout.id } })
-          }
-          style={styles.workoutMainRow}
-        >
-          <Text style={styles.workoutName}>{tw(nextWorkout.name)}</Text>
-          <Ionicons name="chevron-forward" size={24} color="#8E959F" />
-        </Pressable>
-
-        <Text style={styles.workoutMuscles}>{displayMuscles}</Text>
-
-        {/* Exercise Quick Preview on Home Card */}
-        {nextWorkout.exercises && nextWorkout.exercises.length > 0 && (
-          <Pressable
-            onPress={() =>
-              router.push({ pathname: '/workout/preview', params: { workoutId: nextWorkout.id } })
-            }
-            style={styles.exercisePreviewWrap}
-          >
-            {nextWorkout.exercises.slice(0, 3).map((ex, idx) => (
-              <View key={ex.id || `${ex.name}-${idx}`} style={styles.previewExRow}>
-                <View style={styles.previewExDot} />
-                <Text style={styles.previewExName} numberOfLines={1}>
-                  {te(ex.name)}
-                </Text>
-                <Text style={styles.previewExSets}>
-                  {ex.sets} × {ex.recommendedWeight ? `${ex.recommendedWeight} кг` : 'ВТ'}
+            <View style={styles.workoutFooterRow}>
+              <View style={styles.metaItem}>
+                <MaterialCommunityIcons name="dumbbell" size={18} color="#8E959F" />
+                <Text style={styles.metaText}>
+                  {nextWorkout.exercises.length} {t('exercises').toLowerCase()}
                 </Text>
               </View>
-            ))}
-            {nextWorkout.exercises.length > 3 && (
-              <Text style={styles.previewMoreText}>
-                + ще {nextWorkout.exercises.length - 3}{' '}
-                {language === 'uk' ? 'вправи (натисніть для перегляду)' : 'more exercises'}
-              </Text>
-            )}
+              <View style={styles.metaItem}>
+                <Ionicons name="time-outline" size={18} color="#8E959F" />
+                <Text style={styles.metaText}>
+                  ~{nextWorkout.estimatedMinutes} {t('min')}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Clear [START WORKOUT] CTA */}
+          <Button
+            style={styles.ctaButton}
+            onPress={() => {
+              router.push({ pathname: '/workout/preview', params: { workoutId: nextWorkout.id } });
+            }}
+          >
+            {t('startWorkout')}
+          </Button>
+        </>
+      )}
+
+      {/* STATE B: Workout in Progress */}
+      {homeState === 'IN_PROGRESS' && inProgressData && (
+        <>
+          <View style={styles.stateCard}>
+            <View style={styles.stateCardHeaderRow}>
+              <View style={styles.inProgressBadge}>
+                <View style={styles.pulseDot} />
+                <Text style={styles.inProgressBadgeText}>{t('workoutInProgress')}</Text>
+              </View>
+              <Text style={styles.progressCounterText}>{inProgressData.percent}%</Text>
+            </View>
+
+            <Text style={styles.workoutName}>{tw(inProgressData.routineName)}</Text>
+
+            <View style={styles.inProgressStatsRow}>
+              <View style={styles.metaItem}>
+                <MaterialCommunityIcons name="dumbbell" size={16} color={colors.primary} />
+                <Text style={styles.inProgressStatsText}>{inProgressData.progressText}</Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Ionicons name="layers-outline" size={15} color="#8E959F" />
+                <Text style={styles.metaText}>
+                  {inProgressData.completedSets} / {inProgressData.totalSets} {t('sets').toLowerCase()}
+                </Text>
+              </View>
+            </View>
+
+            {/* Progress Bar Track */}
+            <View style={styles.progressBarTrack}>
+              <View style={[styles.progressBarFill, { width: `${inProgressData.percent}%` }]} />
+            </View>
+
+            {/* Current Active Exercise Info */}
+            {inProgressData.currentExerciseName ? (
+              <View style={styles.currentExBox}>
+                <View style={styles.currentExHeaderRow}>
+                  <Text style={styles.currentExTag}>{t('currentExercise')}</Text>
+                  {inProgressData.currentExerciseMuscle ? (
+                    <Text style={styles.currentExMuscleTag}>
+                      {tm(inProgressData.currentExerciseMuscle)}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text numberOfLines={1} style={styles.currentExName}>
+                  {te(inProgressData.currentExerciseName)}
+                </Text>
+                <View style={styles.currentExDetailsRow}>
+                  <Text style={styles.currentExSetIndicator}>
+                    {t('set')} {(inProgressData.currentSetIndex ?? 0) + 1} / {inProgressData.currentExTotalSets}
+                  </Text>
+                  <Text style={styles.currentExTarget}>
+                    {inProgressData.targetWeight > 0 ? formatWithUnit(inProgressData.targetWeight) : t('bodyweight')} × {inProgressData.targetReps}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Electric Neon Lime [RESUME WORKOUT] CTA */}
+          <Button
+            style={styles.ctaButton}
+            onPress={() => {
+              router.replace(restEndsAt !== null ? '/workout/rest' : '/workout/active');
+            }}
+          >
+            <View style={styles.btnContentRow}>
+              <Ionicons name="play" size={18} color="#0B0D0F" style={{ marginRight: 6 }} />
+              <Text style={styles.ctaButtonText}>{t('resumeWorkout').toUpperCase()}</Text>
+            </View>
+          </Button>
+        </>
+      )}
+
+      {/* STATE C: Workout Completed Today */}
+      {homeState === 'COMPLETED_TODAY' && completedSummaryData && (
+        <>
+          <View style={styles.stateCard}>
+            <View style={styles.stateCardHeaderRow}>
+              <View style={styles.completedBadge}>
+                <Ionicons name="checkmark-circle" size={15} color="#0B0D0F" />
+                <Text style={styles.completedBadgeText}>{t('workoutCompletedToday')}</Text>
+              </View>
+              {completedSummaryData.prsCount > 0 && (
+                <View style={styles.prMiniBadge}>
+                  <MaterialCommunityIcons name="trophy" size={13} color="#FFD130" />
+                  <Text style={styles.prMiniBadgeText}>
+                    {completedSummaryData.prsCount} {t('personalRecords')}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <Text style={styles.workoutName}>{tw(completedSummaryData.workoutName)}</Text>
+            <Text style={styles.completedSubtitle}>{t('completedTodaySubtitle')}</Text>
+
+            <View style={styles.completedStatsGrid}>
+              <View style={styles.completedStatItem}>
+                <Ionicons name="time-outline" size={18} color={colors.primary} />
+                <Text style={styles.completedStatVal}>
+                  {completedSummaryData.durationMinutes} {t('min')}
+                </Text>
+                <Text style={styles.completedStatLbl}>{t('duration')}</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.completedStatItem}>
+                <MaterialCommunityIcons name="weight-kilogram" size={18} color={colors.primary} />
+                <Text style={styles.completedStatVal}>
+                  {formatVolume(completedSummaryData.volume)}
+                </Text>
+                <Text style={styles.completedStatLbl}>{t('volume')}</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.completedStatItem}>
+                <MaterialCommunityIcons name="dumbbell" size={18} color={colors.primary} />
+                <Text style={styles.completedStatVal}>
+                  {completedSummaryData.exerciseCount}
+                </Text>
+                <Text style={styles.completedStatLbl}>{t('exercises')}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Electric Neon Lime [VIEW SUMMARY] CTA */}
+          <Button
+            style={styles.ctaButton}
+            onPress={() => {
+              if (completedSummaryData.isLiveSession) {
+                router.push('/workout/complete');
+              } else if (completedSummaryData.id) {
+                router.push({ pathname: '/history/[id]', params: { id: completedSummaryData.id } });
+              } else {
+                router.push('/history');
+              }
+            }}
+          >
+            <View style={styles.btnContentRow}>
+              <Ionicons name="stats-chart" size={18} color="#0B0D0F" style={{ marginRight: 6 }} />
+              <Text style={styles.ctaButtonText}>{t('viewSummary')}</Text>
+            </View>
+          </Button>
+
+          {/* Secondary subtle action to allow starting another workout if desired */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('startAnotherWorkout')}
+            onPress={() => {
+              hapticLight();
+              setSwitchModalVisible(true);
+            }}
+            style={styles.secondaryTrainLink}
+          >
+            <Text style={styles.secondaryTrainLinkText}>{t('startAnotherWorkout')}</Text>
+            <Ionicons name="chevron-forward" size={14} color="#8E959F" />
           </Pressable>
-        )}
-
-        <View style={styles.workoutFooterRow}>
-          <View style={styles.metaItem}>
-            <MaterialCommunityIcons name="dumbbell" size={18} color="#8E959F" />
-            <Text style={styles.metaText}>
-              {nextWorkout.exercises.length} {t('exercises').toLowerCase()}
-            </Text>
-          </View>
-          <View style={styles.metaItem}>
-            <Ionicons name="time-outline" size={18} color="#8E959F" />
-            <Text style={styles.metaText}>
-              ~{nextWorkout.estimatedMinutes} {t('min')}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* 4. Electric Neon Lime CTA Button */}
-      <Button
-        style={styles.ctaButton}
-        onPress={() => {
-          if (isSessionActive && activeSession) {
-            router.replace(restEndsAt !== null ? '/workout/rest' : '/workout/active');
-          } else {
-            router.push({ pathname: '/workout/preview', params: { workoutId: nextWorkout.id } });
-          }
-        }}
-      >
-        {isSessionActive ? t('resumeWorkout') : t('startWorkout')}
-      </Button>
+        </>
+      )}
 
       {/* 5. This Week Tracker (Dots above, labels below) */}
       <View style={styles.weekSection}>
@@ -960,5 +1220,218 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#8E959F',
     marginTop: 2,
+  },
+  stateCard: {
+    backgroundColor: '#15191F',
+    borderColor: '#242B35',
+    borderWidth: 1,
+    borderRadius: 22,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  stateCardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  inProgressBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.3)',
+  },
+  pulseDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: colors.primary,
+  },
+  inProgressBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.8,
+  },
+  progressCounterText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  inProgressStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 6,
+    marginBottom: 12,
+  },
+  inProgressStatsText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  progressBarTrack: {
+    height: 6,
+    width: '100%',
+    backgroundColor: '#242B35',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 14,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 3,
+  },
+  currentExBox: {
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginTop: 4,
+  },
+  currentExHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  currentExTag: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#717B8A',
+    letterSpacing: 1,
+  },
+  currentExMuscleTag: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  currentExName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  currentExDetailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  currentExSetIndicator: {
+    fontSize: 12,
+    color: '#8E959F',
+    fontWeight: '600',
+  },
+  currentExTarget: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  completedBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#0B0D0F',
+    letterSpacing: 0.8,
+  },
+  prMiniBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 209, 48, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 209, 48, 0.3)',
+  },
+  prMiniBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFD130',
+  },
+  completedSubtitle: {
+    fontSize: 13,
+    color: '#8E959F',
+    fontWeight: '500',
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  completedStatsGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  completedStatItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  completedStatVal: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  completedStatLbl: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#717B8A',
+    letterSpacing: 0.5,
+  },
+  statDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  btnContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaButtonText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0B0D0F',
+    letterSpacing: 0.5,
+  },
+  secondaryTrainLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: -14,
+    marginBottom: 22,
+    paddingVertical: 6,
+  },
+  secondaryTrainLinkText: {
+    fontSize: 13,
+    color: '#8E959F',
+    fontWeight: '600',
   },
 });

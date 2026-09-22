@@ -28,6 +28,7 @@ export default function ProgramEdit() {
   const { t, tm, td, language } = useI18n();
   const activeProgram = useProgramStore((state) => state.program);
   const setCustomProgram = useProgramStore((state) => state.setCustomProgram);
+  const saveRoutine = useProgramStore((state) => state.saveRoutine);
 
   // Track if user made modifications in this editing session
   const isDirtyRef = useRef(false);
@@ -287,6 +288,19 @@ export default function ProgramEdit() {
     if (draft.workouts.length === 0) {
       Alert.alert(t('validationError'), t('programMustHaveWorkout'));
       return;
+    }
+
+    // Ensure all workouts have at least one exercise
+    for (const w of draft.workouts) {
+      if (!w.exercises || w.exercises.length === 0) {
+        Alert.alert(
+          language === 'uk' ? 'Порожнє тренування' : 'Empty Workout',
+          language === 'uk'
+            ? `Тренування "${w.name}" не містить вправ. Додайте хоча б одну вправу перед збереженням.`
+            : `Workout "${w.name}" has no exercises. Please add at least one exercise before saving.`
+        );
+        return;
+      }
     }
 
     // Pass the full draft object deeply cloned and guaranteed splitType: 'custom'
