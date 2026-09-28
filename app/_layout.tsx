@@ -5,8 +5,9 @@ import { loadAsync } from 'expo-font';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useAuthStore } from '@/store/authStore';
+import { initNotifications, scheduleWorkoutDayReminders } from '@/lib/notificationService';
 
-// Initialize non-UI services once at module load time so RootLayout stays 100% hook-free
+// Initialize non-UI services once at module load time so the root layout stays 100% hook-free
 loadAsync({
   ...Ionicons.font,
   ...MaterialCommunityIcons.font,
@@ -14,15 +15,11 @@ loadAsync({
 
 useAuthStore.getState().init();
 
-import('@/lib/notificationService')
-  .then(({ initNotifications, scheduleWorkoutDayReminders }) => {
-    initNotifications().then(() => {
-      scheduleWorkoutDayReminders().catch(() => undefined);
-    });
-  })
+initNotifications()
+  .then(() => scheduleWorkoutDayReminders().catch(() => undefined))
   .catch(() => undefined);
 
-export default function RootLayout() {
+export default function SpotAppRoot() {
   return (
     <Stack
       screenOptions={{
