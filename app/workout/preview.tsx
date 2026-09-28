@@ -34,6 +34,7 @@ import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { loadOnboarding, type OnboardingData } from '@/store/workoutStore';
 import type { UserExercise, UserProgram, UserWorkout } from '@/types/userProgram';
 import { ExercisePickerModal } from '@/components/program/ExercisePickerModal';
+import { ExerciseDetailModal } from '@/components/program/ExerciseDetailModal';
 import { WorkoutEditorModal } from '@/components/program/WorkoutEditorModal';
 import type { LibraryExercise } from '@/lib/exerciseLibrary';
 import { generateUUID } from '@/lib/programMigration';
@@ -64,6 +65,7 @@ export default function WorkoutPreview() {
   const [exerciseToSwap, setExerciseToSwap] = useState<UserExercise | null>(null);
   const [isAddPickerVisible, setIsAddPickerVisible] = useState(false);
   const [isWorkoutEditorVisible, setIsWorkoutEditorVisible] = useState(false);
+  const [detailExercise, setDetailExercise] = useState<UserExercise | null>(null);
 
   // Quick Exercise Config state
   const [configExercise, setConfigExercise] = useState<UserExercise | null>(null);
@@ -416,8 +418,11 @@ export default function WorkoutPreview() {
               <Pressable
                 key={exercise.id || `${exercise.name}-${index}`}
                 accessibilityRole="button"
-                accessibilityLabel={`Edit ${exercise.name}`}
-                onPress={() => handleOpenExerciseConfig(exercise)}
+                accessibilityLabel={`Exercise details for ${exercise.name}`}
+                onPress={() => {
+                  hapticLight();
+                  setDetailExercise(exercise);
+                }}
                 style={({ pressed }) => [
                   styles.exerciseCard,
                   pressed && styles.exerciseCardPressed,
@@ -429,6 +434,9 @@ export default function WorkoutPreview() {
                     style={styles.exerciseThumb}
                     resizeMode="cover"
                   />
+                  <View style={styles.thumbInfoBadge}>
+                    <Ionicons name="information" size={9} color="#0B0D0F" />
+                  </View>
                 </View>
                 <View style={styles.exerciseInfoCol}>
                   <Text numberOfLines={1} style={styles.exerciseName}>{te(exercise.name)}</Text>
@@ -437,6 +445,18 @@ export default function WorkoutPreview() {
                   </Text>
                 </View>
                 <View style={styles.cardActionsRight}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Налаштувати підходи"
+                    hitSlop={8}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleOpenExerciseConfig(exercise);
+                    }}
+                    style={({ pressed }) => [styles.quickConfigBtn, pressed && { opacity: 0.6 }]}
+                  >
+                    <Ionicons name="options-outline" size={17} color="#8E959F" />
+                  </Pressable>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Замінити вправу"
@@ -452,7 +472,6 @@ export default function WorkoutPreview() {
                       {language === 'uk' ? 'Замінити' : 'Swap'}
                     </Text>
                   </Pressable>
-                  <Ionicons name="chevron-forward" size={16} color="#6C7A8E" style={{ marginLeft: 6 }} />
                 </View>
               </Pressable>
             );
@@ -589,21 +608,43 @@ export default function WorkoutPreview() {
             {/* Sheet Header */}
             <View style={styles.configHeader}>
               {configExercise && (
-                <View style={styles.configThumbWrap}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="View technique"
+                  onPress={() => {
+                    const ex = configExercise;
+                    setConfigExercise(null);
+                    setTimeout(() => setDetailExercise(ex), 150);
+                  }}
+                  style={styles.configThumbWrap}
+                >
                   <Image
                     source={getExerciseImage(configExercise.name, configExercise.customImageUri)}
                     style={styles.configThumb}
                     resizeMode="cover"
                   />
-                </View>
+                </Pressable>
               )}
               <View style={styles.configInfoCol}>
                 <Text numberOfLines={1} style={styles.configExerciseTitle}>
                   {configExercise ? te(configExercise.name) : ''}
                 </Text>
-                <Text style={styles.configExerciseSub}>
-                  {configExercise ? tm(configExercise.muscleGroup) : ''}
-                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Anatomy and technique"
+                  hitSlop={6}
+                  onPress={() => {
+                    const ex = configExercise;
+                    setConfigExercise(null);
+                    setTimeout(() => setDetailExercise(ex), 150);
+                  }}
+                  style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}
+                >
+                  <Ionicons name="information-circle" size={13} color={colors.primary} style={{ marginRight: 4 }} />
+                  <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
+                    {language === 'uk' ? 'Анатомія та техніка' : 'Anatomy & Guide'}
+                  </Text>
+                </Pressable>
               </View>
               <Pressable
                 onPress={() => setConfigExercise(null)}
@@ -809,6 +850,19 @@ export default function WorkoutPreview() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Exercise Detail Modal (Anatomy, Technique, Mistakes & Personal Best) */}
+      {detailExercise && (
+        <ExerciseDetailModal
+          visible={detailExercise !== null}
+          onClose={() => setDetailExercise(null)}
+          exerciseName={detailExercise.name}
+          muscleGroup={detailExercise.muscleGroup}
+          customImageUri={detailExercise.customImageUri}
+          equipment={detailExercise.equipment}
+          onConfigure={() => handleOpenExerciseConfig(detailExercise)}
+        />
+      )}
 
       {/* Full Workout Editor Modal */}
       <WorkoutEditorModal
@@ -1113,9 +1167,31 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
   },
+  thumbInfoBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#C8FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cardActionsRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  quickConfigBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1C232E',
+    borderWidth: 1,
+    borderColor: '#2A3442',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   exerciseCardPressed: {
     opacity: 0.85,

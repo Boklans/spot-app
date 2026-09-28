@@ -21,6 +21,7 @@ import { useI18n } from '@/lib/i18n';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { getSessionProgress, useWorkoutSessionStore } from '@/store/workoutSessionStore';
+import { ExerciseDetailModal } from '@/components/program/ExerciseDetailModal';
 
 const EXERCISE_ALTERNATIVES: Record<string, Array<{ name: string; muscleGroup: string; defaultWeight: number }>> = {
   Chest: [
@@ -91,6 +92,7 @@ export default function Active() {
   const swapExercise = useWorkoutSessionStore((state) => state.swapExercise);
   const [finishing, setFinishing] = useState(false);
   const [showSwapModal, setShowSwapModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -252,17 +254,38 @@ export default function Active() {
       >
         {/* 2. Exercise Header */}
         <View style={styles.exerciseHeader}>
-          <View style={styles.exerciseThumbWrap}>
-            <Image
-              source={getExerciseImage(exercise.name, exercise.customImageUri)}
-              style={styles.exerciseThumb}
-              resizeMode="cover"
-            />
-          </View>
-          <View style={styles.exerciseInfoCol}>
-            <Text numberOfLines={2} style={styles.exerciseName}>{te(exercise.name)}</Text>
-            <Text style={styles.exerciseMuscle}>{tm(exercise.muscleGroup)}</Text>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Exercise Details"
+            onPress={() => {
+              hapticLight();
+              setShowDetailModal(true);
+            }}
+            style={styles.exerciseHeaderInteractive}
+          >
+            <View style={styles.exerciseThumbWrap}>
+              <Image
+                source={getExerciseImage(exercise.name, exercise.customImageUri)}
+                style={styles.exerciseThumb}
+                resizeMode="cover"
+              />
+              <View style={styles.thumbInfoBadge}>
+                <Ionicons name="information" size={9} color="#0B0D0F" />
+              </View>
+            </View>
+            <View style={styles.exerciseInfoCol}>
+              <Text numberOfLines={2} style={styles.exerciseName}>{te(exercise.name)}</Text>
+              <View style={styles.exerciseMuscleRow}>
+                <Text style={styles.exerciseMuscle}>{tm(exercise.muscleGroup)}</Text>
+                <View style={styles.guideBadge}>
+                  <Ionicons name="information-circle" size={12} color={colors.primary} style={{ marginRight: 3 }} />
+                  <Text style={styles.guideBadgeText}>
+                    {language === 'uk' ? 'Техніка' : 'Guide'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Swap exercise"
@@ -604,6 +627,17 @@ export default function Active() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Exercise Detail Modal (Anatomy, Technique, Mistakes, Personal Best) */}
+      {exercise && (
+        <ExerciseDetailModal
+          visible={showDetailModal}
+          onClose={() => setShowDetailModal(false)}
+          exerciseName={exercise.name}
+          muscleGroup={exercise.muscleGroup}
+          customImageUri={exercise.customImageUri}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -683,6 +717,12 @@ const styles = StyleSheet.create({
     gap: 14,
     marginBottom: 16,
   },
+  exerciseHeaderInteractive: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
   exerciseThumbWrap: {
     width: 58,
     height: 58,
@@ -691,6 +731,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#242B35',
     overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbInfoBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#C8FF3D',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -709,13 +760,34 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
     lineHeight: 28,
   },
+  exerciseMuscleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
   exerciseMuscle: {
     fontSize: 13,
     color: colors.primary,
-    marginTop: 3,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
+  },
+  guideBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+  },
+  guideBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.3,
   },
   heroTargetCard: {
     backgroundColor: '#12161D',

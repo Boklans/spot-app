@@ -20,6 +20,7 @@ import { hapticImpact, hapticLight } from '@/lib/haptics';
 import { translateExercise, useI18n } from '@/lib/i18n';
 import { useCustomExercisesStore } from '@/store/customExercisesStore';
 import { CreateExerciseModal } from './CreateExerciseModal';
+import { ExerciseDetailModal } from './ExerciseDetailModal';
 
 const MUSCLE_GROUPS = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'] as const;
 type MuscleGroupFilter = (typeof MUSCLE_GROUPS)[number];
@@ -39,6 +40,7 @@ export function ExercisePickerModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroupFilter>('All');
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [detailExercise, setDetailExercise] = useState<LibraryExercise | null>(null);
   const customExercises = useCustomExercisesStore((state) => state.customExercises);
 
   const combinedLibrary = useMemo(() => {
@@ -218,13 +220,26 @@ export function ExercisePickerModal({
               >
                 <Card style={styles.exerciseCard}>
                   <View style={styles.exerciseCardLeft}>
-                    <View style={styles.exerciseThumbWrap}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Деталі вправи"
+                      hitSlop={6}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        hapticLight();
+                        setDetailExercise(item);
+                      }}
+                      style={styles.exerciseThumbWrap}
+                    >
                       <Image
                         source={getExerciseImage(item.name, item.customImageUri)}
                         style={styles.exerciseThumb}
                         resizeMode="cover"
                       />
-                    </View>
+                      <View style={styles.thumbInfoBadge}>
+                        <Ionicons name="information" size={9} color="#0B0D0F" />
+                      </View>
+                    </Pressable>
                     <View style={styles.cardInfo}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Text numberOfLines={1} style={styles.exerciseName}>{te(item.name)}</Text>
@@ -273,6 +288,18 @@ export function ExercisePickerModal({
             handleSelect(newExercise);
           }}
         />
+
+        {/* Exercise Detail Modal (Anatomy, Technique, Mistakes) */}
+        {detailExercise && (
+          <ExerciseDetailModal
+            visible={detailExercise !== null}
+            onClose={() => setDetailExercise(null)}
+            exerciseName={detailExercise.name}
+            muscleGroup={detailExercise.muscleGroup}
+            customImageUri={detailExercise.customImageUri}
+            equipment={detailExercise.equipment}
+          />
+        )}
       </SafeAreaView>
     </Modal>
   );
@@ -391,6 +418,17 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: colors.elevated,
+  },
+  thumbInfoBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#C8FF3D',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   exerciseThumb: {
     width: '100%',
