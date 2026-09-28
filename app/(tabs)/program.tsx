@@ -1,16 +1,14 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Image,
-  KeyboardAvoidingView,
-  Platform,
+  InteractionManager,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { colors } from '@/constants/colors';
@@ -32,44 +30,13 @@ import {
 } from '@/store/workoutStore';
 import type { UserProgram, UserWorkout } from '@/types/userProgram';
 
-type Message = {
-  id: string;
-  sender: 'user' | 'spot';
-  text: string;
-};
-
-const SUGGESTED_QUESTIONS = [
-  'Why am I stuck on bench?',
-  'Should I increase my volume?',
-  'Why am I not progressing?',
-  'Can I replace this exercise?',
-  'How should I train this week?',
-];
-
-const PREPARED_ANSWERS: Record<string, string> = {
-  'Why am I stuck on bench?':
-    'Your bench press plateau at 75 kg is likely due to triceps fatigue in the lockout phase. We recommend adding 2-second pause reps on your first set and increasing Triceps Pushdown volume by 2 sets this week.',
-  'Should I increase my volume?':
-    'Your recovery readiness is high (94%) with 42 sets on chest this month. You have room to add 1 progressive set to your secondary compound exercises without exceeding your Maximum Recoverable Volume.',
-  'Why am I not progressing?':
-    'Your training logs show rest periods averaged 90s instead of the optimal 2:30. Extending rest will restore intra-muscular ATP, allowing higher mechanical tension on sets 2 and 3.',
-  'Can I replace this exercise?':
-    'Yes! You can swap Incline Dumbbell Press with Incline Barbell Press or Low-to-High Cable Flyes. Both hit the clavicular pectoral head with equivalent stimulus.',
-  'How should I train this week?':
-    'Hit progressive overload on Monday’s Upper A (+2.5 kg on Bench Press). On Wednesday’s Lower A, prioritize quad volume, and keep Friday’s Upper B focused on shoulder hypertrophy.',
-};
-
 export default function Program() {
   const { t, tm, td, te, tw, language } = useI18n();
   const { formatWithUnit } = useWeightUnit();
   const program = useProgramStore((state) => state.program);
   const progress = useProgramProgressStore((state) => state.progress);
-  const [activeTab, setActiveTab] = useState<'routine' | 'ai'>('routine');
-  const [inputText, setInputText] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
   const [editingWorkout, setEditingWorkout] = useState<UserWorkout | null>(null);
   const [onboarding, setOnboarding] = useState<OnboardingData | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
 
   const syncProgramAndOnboarding = useCallback(() => {
     useProgramStore.getState().getOrLoadProgram();
@@ -82,7 +49,10 @@ export default function Program() {
 
   useFocusEffect(
     useCallback(() => {
-      syncProgramAndOnboarding();
+      const task = InteractionManager.runAfterInteractions(() => {
+        syncProgramAndOnboarding();
+      });
+      return () => task.cancel();
     }, [syncProgramAndOnboarding])
   );
 
@@ -113,201 +83,21 @@ export default function Program() {
 
   const scheduledWorkout = getScheduledWorkout(program, progress);
 
-  const handleAsk = (questionText: string) => {
-    if (!questionText.trim()) return;
-    hapticMedium();
-
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      sender: 'user',
-      text: questionText,
-    };
-
-    const answer =
-      PREPARED_ANSWERS[questionText] ??
-      `SPOT AI analyzed your history: For "${questionText}", prioritize consistent progressive overload with +2.5 kg jumps and maintain 2:30 rest intervals for optimal hypertrophy.`;
-
-    const aiMsg: Message = {
-      id: (Date.now() + 1).toString(),
-      sender: 'spot',
-      text: answer,
-    };
-
-    setMessages((prev) => [...prev, userMsg, aiMsg]);
-    setInputText('');
-
-    setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  };
-
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardContainer}
+      {/* 1. Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>{t('yourProgram')}</Text>
+        <Text style={styles.subtitle}>
+          {`${program.name} • ${program.daysPerWeek} ${t('daysPerWeek')}`}
+        </Text>
+      </View>
+
+      {/* Routine Schedule */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.routineScroll}
       >
-        {/* 1. Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>{t('yourProgram')}</Text>
-            <Text style={styles.subtitle}>
-              {activeTab === 'ai'
-                ? t('askAnything')
-                : `${program.name} • ${program.daysPerWeek} ${t('daysPerWeek')}`}
-            </Text>
-          </View>
-
-          {/* Tab Switcher: Routine first, then AI Coach */}
-          <View style={styles.tabToggleWrap}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                hapticLight();
-                setActiveTab('routine');
-              }}
-              style={[styles.toggleBtn, activeTab === 'routine' && styles.toggleBtnActive]}
-            >
-              <Text
-                style={[
-                  styles.toggleBtnText,
-                  activeTab === 'routine' && styles.toggleBtnTextActive,
-                ]}
-              >
-                {t('routine')}
-              </Text>
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                hapticLight();
-                setActiveTab('ai');
-              }}
-              style={[styles.toggleBtn, activeTab === 'ai' && styles.toggleBtnActive]}
-            >
-              <Text
-                style={[
-                  styles.toggleBtnText,
-                  activeTab === 'ai' && styles.toggleBtnTextActive,
-                ]}
-              >
-                {t('aiCoach')}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* ===================================================================== */}
-        {/* TAB 1: AI COACH (SCREEN 16)                                           */}
-        {/* ===================================================================== */}
-        {activeTab === 'ai' ? (
-          <View style={styles.aiContainer}>
-            <ScrollView
-              ref={scrollRef}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.aiScrollContent}
-            >
-              {/* Getting Smarter Banner (Screen 17 Preview) */}
-              <View style={styles.aiBanner}>
-                <View style={styles.aiBannerSparkle}>
-                  <MaterialCommunityIcons name="brain" size={20} color="#7C5CFF" />
-                </View>
-                <View style={styles.aiBannerTextWrap}>
-                  <Text style={styles.aiBannerKicker}>GETTING SMARTER</Text>
-                  <Text style={styles.aiBannerSub}>
-                    SPOT detected 7 progressive patterns in your training.
-                  </Text>
-                </View>
-              </View>
-
-              {/* Chat Message History */}
-              {messages.map((msg) => (
-                <View
-                  key={msg.id}
-                  style={[
-                    styles.msgWrap,
-                    msg.sender === 'user' ? styles.userMsgWrap : styles.spotMsgWrap,
-                  ]}
-                >
-                  {msg.sender === 'spot' && (
-                    <View style={styles.spotAvatar}>
-                      <Text style={styles.spotAvatarText}>AI</Text>
-                    </View>
-                  )}
-                  <View
-                    style={[
-                      styles.msgBubble,
-                      msg.sender === 'user'
-                        ? styles.userMsgBubble
-                        : styles.spotMsgBubble,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.msgText,
-                        msg.sender === 'user'
-                          ? styles.userMsgText
-                          : styles.spotMsgText,
-                      ]}
-                    >
-                      {msg.text}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-
-              {/* Suggested Questions Section (Screen 16) */}
-              <Text style={styles.suggestedTitle}>Suggested questions</Text>
-              <View style={styles.questionsList}>
-                {SUGGESTED_QUESTIONS.map((q) => (
-                  <Pressable
-                    accessibilityRole="button"
-                    key={q}
-                    onPress={() => handleAsk(q)}
-                    style={({ pressed }) => [
-                      styles.questionPill,
-                      pressed && styles.questionPillPressed,
-                    ]}
-                  >
-                    <Text style={styles.questionPillText}>{q}</Text>
-                    <Ionicons name="arrow-forward" size={16} color="#8E9BAE" />
-                  </Pressable>
-                ))}
-              </View>
-            </ScrollView>
-
-            {/* Input Bar at Bottom (Screen 16) */}
-            <View style={styles.inputContainer}>
-              <View style={styles.inputBar}>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Type your question..."
-                  placeholderTextColor="#6C7A8E"
-                  value={inputText}
-                  onChangeText={setInputText}
-                  onSubmitEditing={() => handleAsk(inputText)}
-                  returnKeyType="send"
-                />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Send question"
-                  onPress={() => handleAsk(inputText)}
-                  style={styles.sendButton}
-                >
-                  <Ionicons name="arrow-up" size={18} color="#0B0D0F" />
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        ) : (
-          /* ===================================================================== */
-          /* TAB 2: ROUTINE SCHEDULE                                               */
-          /* ===================================================================== */
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.routineScroll}
-          >
             {/* Split Switcher in Routine */}
             <View style={styles.routineHeaderCard}>
               <View style={styles.routineTitleRow}>
@@ -508,10 +298,8 @@ export default function Program() {
               </Pressable>
             )}
           </ScrollView>
-        )}
-      </KeyboardAvoidingView>
 
-      {editingWorkout && (
+          {editingWorkout && (
         <WorkoutEditorModal
           key={editingWorkout.id}
           visible={editingWorkout !== null}
@@ -548,192 +336,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400',
     marginTop: 4,
-  },
-  tabToggleWrap: {
-    flexDirection: 'row',
-    backgroundColor: '#14181F',
-    borderRadius: 14,
-    padding: 3,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  toggleBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 11,
-  },
-  toggleBtnActive: {
-    backgroundColor: '#1E2530',
-  },
-  toggleBtnText: {
-    color: '#6C7A8E',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  toggleBtnTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  aiContainer: {
-    flex: 1,
-  },
-  aiScrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-  },
-  aiBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(124, 92, 255, 0.12)',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(124, 92, 255, 0.3)',
-    marginBottom: 20,
-    marginTop: 4,
-  },
-  aiBannerSparkle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(124, 92, 255, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  aiBannerTextWrap: {
-    flex: 1,
-  },
-  aiBannerKicker: {
-    color: '#A78BFA',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.0,
-    marginBottom: 2,
-  },
-  aiBannerSub: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  msgWrap: {
-    flexDirection: 'row',
-    marginBottom: 14,
-  },
-  userMsgWrap: {
-    justifyContent: 'flex-end',
-  },
-  spotMsgWrap: {
-    justifyContent: 'flex-start',
-    gap: 10,
-  },
-  spotAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#7C5CFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  spotAvatarText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  msgBubble: {
-    maxWidth: '82%',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 18,
-  },
-  userMsgBubble: {
-    backgroundColor: colors.primary,
-    borderBottomRightRadius: 4,
-  },
-  spotMsgBubble: {
-    backgroundColor: '#151921',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderBottomLeftRadius: 4,
-  },
-  msgText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  userMsgText: {
-    color: '#0B0D0F',
-    fontWeight: '700',
-  },
-  spotMsgText: {
-    color: '#FFFFFF',
-    fontWeight: '500',
-  },
-  suggestedTitle: {
-    color: '#8E9BAE',
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  questionsList: {
-    gap: 10,
-  },
-  questionPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#12161D',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-  },
-  questionPillPressed: {
-    backgroundColor: '#181E27',
-    borderColor: colors.primary,
-  },
-  questionPillText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-    marginRight: 10,
-  },
-  inputContainer: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-    backgroundColor: '#0B0D0F',
-  },
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#14181F',
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    height: 48,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  textInput: {
-    flex: 1,
-    color: '#FFFFFF',
-    fontSize: 14,
-    height: '100%',
-  },
-  sendButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
   },
   routineScroll: {
     paddingHorizontal: 24,

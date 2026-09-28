@@ -3,6 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
+  InteractionManager,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -62,13 +63,14 @@ export default function Progress() {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [activeTab]);
 
-  // Sync on tab focus
+  // Sync on tab focus after transition finishes smoothly
   useFocusEffect(
     useCallback(() => {
-      useUserProfileStore.getState().loadProfile();
-      loadHistory();
-      useProgramStore.getState().loadProgram();
-      loadBodyWeightHistory();
+      const task = InteractionManager.runAfterInteractions(() => {
+        loadHistory();
+        loadBodyWeightHistory();
+      });
+      return () => task.cancel();
     }, [loadHistory, loadBodyWeightHistory])
   );
 

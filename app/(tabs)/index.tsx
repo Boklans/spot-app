@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { InteractionManager, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
@@ -140,28 +140,17 @@ export default function Home() {
   // Focus synchronization
   useFocusEffect(
     useCallback(() => {
-      AsyncStorage.getItem(WORKOUT_HISTORY_STORAGE_KEY)
-        .then((stored) => {
-          if (stored) {
-            try {
-              const parsed = JSON.parse(stored);
-              if (Array.isArray(parsed)) {
-                useWorkoutHistoryStore.setState({ workouts: parsed, hydrated: true });
-              }
-            } catch {}
+      const task = InteractionManager.runAfterInteractions(() => {
+        useWorkoutSessionStore.getState().hydrateSession();
+        useWorkoutHistoryStore.getState().loadHistory();
+        useProgramStore.getState().getOrLoadProgram().then((p) => {
+          if (p) {
+            useProgramProgressStore.getState().loadProgress(p);
           }
-        })
-        .catch(() => undefined);
-
-      useWorkoutSessionStore.getState().hydrateSession();
-      useWorkoutHistoryStore.getState().loadHistory();
-      useUserProfileStore.getState().loadProfile();
-      useProgramStore.getState().getOrLoadProgram().then((p) => {
-        if (p) {
-          useProgramProgressStore.getState().loadProgress(p);
-        }
+        });
+        setFocusKey((prev) => prev + 1);
       });
-      setFocusKey((prev) => prev + 1);
+      return () => task.cancel();
     }, [])
   );
 
