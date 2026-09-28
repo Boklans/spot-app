@@ -1,18 +1,18 @@
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { colors } from '@/constants/colors';
-import { useFonts } from 'expo-font';
+import { loadAsync } from 'expo-font';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useAuthStore } from '@/store/authStore';
 
 export default function RootLayout() {
-  useFonts({
-    ...Ionicons.font,
-    ...MaterialCommunityIcons.font,
-  });
-
   useEffect(() => {
+    loadAsync({
+      ...Ionicons.font,
+      ...MaterialCommunityIcons.font,
+    }).catch(() => undefined);
+
     useAuthStore.getState().init();
     import('@/lib/notificationService')
       .then(({ initNotifications, scheduleWorkoutDayReminders }) => {
