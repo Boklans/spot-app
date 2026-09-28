@@ -84,9 +84,10 @@ function formatElapsed(totalSec: number): string {
 
 export default function Active() {
   const { t, tm, td, te, tw, language } = useI18n();
-  const { unitLabel, format, formatWithUnit } = useWeightUnit();
+  const { unit, unitLabel, format, formatWithUnit, fromKg, toKg } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
   const completeCurrentSet = useWorkoutSessionStore((state) => state.completeCurrentSet);
+  const updateCurrentSet = useWorkoutSessionStore((state) => state.updateCurrentSet);
   const swapExercise = useWorkoutSessionStore((state) => state.swapExercise);
   const [finishing, setFinishing] = useState(false);
   const [showSwapModal, setShowSwapModal] = useState(false);
@@ -165,8 +166,37 @@ export default function Active() {
   const isFinalSet = session.currentSetIndex === (exercise?.sets.length ?? 0) - 1;
   const isFinalExercise = session.currentExerciseIndex === session.exercises.length - 1;
 
+  const adjustActiveWeight = useCallback(
+    (deltaDisplay: number) => {
+      if (!activeSet) return;
+      hapticLight();
+      const currentDisplay = fromKg(activeSet.weight ?? 0);
+      const newDisplay = Math.max(0, Math.round((currentDisplay + deltaDisplay) * 10) / 10);
+      const newKg = toKg(newDisplay);
+      updateCurrentSet({ weight: Math.round(newKg * 100) / 100 });
+    },
+    [activeSet, fromKg, toKg, updateCurrentSet]
+  );
+
+  const adjustActiveReps = useCallback(
+    (deltaReps: number) => {
+      if (!activeSet) return;
+      hapticLight();
+      const currentR = activeSet.reps ?? 8;
+      const newR = Math.max(1, Math.min(100, currentR + deltaReps));
+      updateCurrentSet({ reps: newR });
+    },
+    [activeSet, updateCurrentSet]
+  );
+
+  const prevSetForActive = exercise?.previousSets?.[session.currentSetIndex] || exercise?.previousSets?.[0];
+  const prevContextText = prevSetForActive
+    ? `${prevSetForActive.weight ? formatWithUnit(prevSetForActive.weight) : t('bodyweight')} × ${prevSetForActive.reps}`
+    : null;
+
   const finishSet = async () => {
     if (finishing) return;
+    hapticMedium();
     completeCurrentSet();
 
     if (isFinalSet && isFinalExercise) {
@@ -183,11 +213,9 @@ export default function Active() {
         );
       }
     } else if ((exercise?.restSeconds ?? 90) > 0) {
-      hapticMedium();
       router.push('/workout/rest');
     } else {
       // 0s rest (Superset / Circuit): stay on screen and advance directly
-      hapticMedium();
     }
   };
 
@@ -238,12 +266,13 @@ export default function Active() {
             />
           </View>
           <View style={styles.exerciseInfoCol}>
-            <Text style={styles.exerciseName}>{te(exercise.name)}</Text>
+            <Text numberOfLines={2} style={styles.exerciseName}>{te(exercise.name)}</Text>
             <Text style={styles.exerciseMuscle}>{tm(exercise.muscleGroup)}</Text>
           </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Swap exercise"
+            hitSlop={8}
             onPress={() => {
               hapticLight();
               setShowSwapModal(true);
@@ -258,47 +287,128 @@ export default function Active() {
           </Pressable>
         </View>
 
-        {/* 3. Last Workout Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>{t('lastWorkout')}</Text>
-          {exercise.previousSets && exercise.previousSets.length > 0 ? (
-            <View style={styles.previousList}>
-              {exercise.previousSets.map((prevSet, idx) => {
-                const weightText = prevSet.weight
-                  ? formatWithUnit(prevSet.weight)
-                  : t('bodyweight');
-                return (
-                  <Text key={idx} style={styles.previousItemText}>
-                    • {weightText} × {prevSet.reps}
-                  </Text>
-                );
-              })}
-            </View>
-          ) : (
-            <Text style={styles.previousEmptyText}>{t('noPreviousData')}</Text>
-          )}
-        </View>
-
-        {/* 4. Today Section Card */}
-        <View style={styles.card}>
-          <View style={styles.todayHeaderRow}>
-            <Text style={styles.todayLabel}>{t('today')}</Text>
-            <View style={styles.targetWeightWrap}>
-              <Text style={styles.targetWeightNum}>
-                {activeSet?.weight ? format(activeSet.weight) : t('bodyweight')}
+        {/* 3. Hero Active Set Target & Zero-Friction Adjustments Card */}
+        <View style={styles.heroTargetCard}>
+          <View style={styles.heroTargetTopRow}>
+            <View style={styles.setKickerBadge}>
+              <View style={styles.setKickerDot} />
+              <Text style={styles.setKickerText}>
+                {t('set')} {session.currentSetIndex + 1} {t('of')} {exercise.sets.length}
               </Text>
-              {activeSet?.weight ? <Text style={styles.targetWeightUnit}>{unitLabel}</Text> : null}
             </View>
+
+            {prevContextText ? (
+              <View style={styles.heroPrevContextPill}>
+                <Ionicons name="flash" size={13} color={colors.primary} style={{ marginRight: 4 }} />
+                <Text style={styles.heroPrevContextText}>
+                  {language === 'uk' ? 'Минуле' : 'Last'}: {prevContextText}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
-          <View style={styles.cardDivider} />
+          {/* Steppers & Target Numbers Grid */}
+          <View style={styles.heroControlsRow}>
+            {/* Weight Stepper Control */}
+            <View style={styles.heroControlBox}>
+              <Text style={styles.heroControlLabel}>
+                {t('weight')} ({unitLabel})
+              </Text>
+              <View style={styles.stepperContainer}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Decrease weight 0.5kg"
+                  hitSlop={8}
+                  onPress={() => adjustActiveWeight(unit === 'lbs' ? -1 : -0.5)}
+                  style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
+                >
+                  <Ionicons name="remove" size={20} color="#FFFFFF" />
+                </Pressable>
 
-          {/* Table Header */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit weight"
+                  hitSlop={6}
+                  onPress={() => {
+                    hapticLight();
+                    router.push({
+                      pathname: '/workout/input',
+                      params: { setIndex: String(session.currentSetIndex) },
+                    });
+                  }}
+                  style={({ pressed }) => [styles.heroValueBtn, pressed && styles.heroValueBtnPressed]}
+                >
+                  <Text style={styles.heroValueText}>
+                    {activeSet?.weight ? format(activeSet.weight) : (language === 'uk' ? 'ВТ' : 'BW')}
+                  </Text>
+                  {activeSet?.weight ? <Text style={styles.heroValueSub}>{unitLabel}</Text> : null}
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Increase weight 0.5kg"
+                  hitSlop={8}
+                  onPress={() => adjustActiveWeight(unit === 'lbs' ? 1 : 0.5)}
+                  style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
+                >
+                  <Ionicons name="add" size={20} color="#FFFFFF" />
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Reps Stepper Control */}
+            <View style={styles.heroControlBox}>
+              <Text style={styles.heroControlLabel}>{t('reps')}</Text>
+              <View style={styles.stepperContainer}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Decrease reps 1"
+                  hitSlop={8}
+                  onPress={() => adjustActiveReps(-1)}
+                  style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
+                >
+                  <Ionicons name="remove" size={20} color="#FFFFFF" />
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit reps"
+                  hitSlop={6}
+                  onPress={() => {
+                    hapticLight();
+                    router.push({
+                      pathname: '/workout/input',
+                      params: { setIndex: String(session.currentSetIndex) },
+                    });
+                  }}
+                  style={({ pressed }) => [styles.heroValueBtn, pressed && styles.heroValueBtnPressed]}
+                >
+                  <Text style={styles.heroValueText}>{activeSet?.reps ?? 8}</Text>
+                  <Text style={styles.heroValueSub}>{language === 'uk' ? 'повт' : 'reps'}</Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Increase reps 1"
+                  hitSlop={8}
+                  onPress={() => adjustActiveReps(1)}
+                  style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
+                >
+                  <Ionicons name="add" size={20} color="#FFFFFF" />
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* 4. Sets Table Card with Visual Completion Feedback */}
+        <View style={styles.card}>
           <View style={styles.tableHeaderRow}>
-            <Text style={styles.tableHeadText}>{t('set')}</Text>
-            <Text style={styles.tableHeadTextCenter}>{unitLabel}</Text>
-            <Text style={styles.tableHeadTextCenter}>{t('reps')}</Text>
-            <Text style={styles.tableHeadTextRight}>{t('status')}</Text>
+            <Text style={styles.tableHeadSet}>{t('set')}</Text>
+            <Text style={styles.tableHeadPrev}>{language === 'uk' ? 'МИНУЛЕ' : 'PREV'}</Text>
+            <Text style={styles.tableHeadWeight}>{unitLabel}</Text>
+            <Text style={styles.tableHeadReps}>{t('reps')}</Text>
+            <Text style={styles.tableHeadStatus}>{t('status')}</Text>
           </View>
 
           {/* Sets Rows */}
@@ -307,47 +417,73 @@ export default function Active() {
               const isCurrent = index === session.currentSetIndex;
               const isDone = set.completed;
               const weightDisplay = set.weight ? format(set.weight) : (language === 'uk' ? 'ВТ' : 'BW');
+              const prevForThisSet = exercise.previousSets?.[index] || (index === 0 ? exercise.previousSets?.[0] : null);
+              const prevSetText = prevForThisSet
+                ? `${prevForThisSet.weight ? format(prevForThisSet.weight) : (language === 'uk' ? 'ВТ' : 'BW')} × ${prevForThisSet.reps}`
+                : '—';
 
               return (
                 <Pressable
                   key={set.id || index}
-                  onPress={() =>
+                  onPress={() => {
+                    hapticLight();
                     router.push({
                       pathname: '/workout/input',
                       params: { setIndex: String(index) },
-                    })
-                  }
+                    });
+                  }}
                   style={({ pressed }) => [
                     styles.setRow,
                     isCurrent && styles.setRowActive,
+                    isDone && styles.setRowDone,
                     pressed && { opacity: 0.8 },
                   ]}
                 >
-                  <Text style={[styles.setColNum, isCurrent && styles.textHighlight]}>
+                  <Text style={[styles.setColNum, isCurrent && styles.textHighlight, isDone && styles.setColDoneText]}>
                     {index + 1}
                   </Text>
 
-                  <Text style={[styles.setColWeight, isCurrent && styles.textHighlight]}>
+                  <Text style={[styles.setColPrev, isDone && styles.setColDoneText]}>
+                    {prevSetText}
+                  </Text>
+
+                  <Text style={[styles.setColWeight, isCurrent && styles.textHighlight, isDone && styles.setColDoneText]}>
                     {weightDisplay}
                   </Text>
 
-                  <Text style={[styles.setColReps, isCurrent && styles.textHighlight]}>
+                  <Text style={[styles.setColReps, isCurrent && styles.textHighlight, isDone && styles.setColDoneText]}>
                     {set.reps}
                   </Text>
 
-                  <View style={styles.setColStatus}>
+                  <Pressable
+                    hitSlop={12}
+                    accessibilityRole="button"
+                    accessibilityLabel={isDone ? 'Set completed' : isCurrent ? 'Complete current set' : 'Set pending'}
+                    onPress={() => {
+                      if (isCurrent) {
+                        finishSet();
+                      } else {
+                        hapticLight();
+                        router.push({
+                          pathname: '/workout/input',
+                          params: { setIndex: String(index) },
+                        });
+                      }
+                    }}
+                    style={styles.setColStatus}
+                  >
                     {isDone ? (
                       <View style={styles.statusDoneBadge}>
-                        <Ionicons name="checkmark" size={15} color="#0B0D0F" />
+                        <Ionicons name="checkmark" size={17} color="#0B0D0F" />
                       </View>
                     ) : isCurrent ? (
                       <View style={styles.statusCurrentBadge}>
-                        <View style={styles.statusCurrentDot} />
+                        <Ionicons name="checkmark" size={14} color={colors.primary} />
                       </View>
                     ) : (
                       <View style={styles.statusPendingBadge} />
                     )}
-                  </View>
+                  </Pressable>
                 </Pressable>
               );
             })}
@@ -551,12 +687,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   exerciseThumbWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
+    width: 58,
+    height: 58,
+    borderRadius: 16,
     backgroundColor: '#0E1115',
     borderWidth: 1,
     borderColor: '#242B35',
@@ -576,20 +712,143 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+    lineHeight: 28,
   },
   exerciseMuscle: {
-    fontSize: 14,
+    fontSize: 13,
+    color: colors.primary,
+    marginTop: 3,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  heroTargetCard: {
+    backgroundColor: '#12161D',
+    borderColor: 'rgba(200, 255, 61, 0.22)',
+    borderWidth: 1.5,
+    borderRadius: 22,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  heroTargetTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  setKickerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+  },
+  setKickerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+    marginRight: 6,
+  },
+  setKickerText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.8,
+  },
+  heroPrevContextPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#181E27',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  heroPrevContextText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B0BAC7',
+  },
+  heroControlsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  heroControlBox: {
+    flex: 1,
+    backgroundColor: '#171D26',
+    borderRadius: 16,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  heroControlLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#717B8A',
+    letterSpacing: 1,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  stepperContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  stepperBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#202836',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  stepperBtnPressed: {
+    backgroundColor: '#2A3547',
+    borderColor: colors.primary,
+  },
+  heroValueBtn: {
+    flex: 1,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  heroValueBtnPressed: {
+    opacity: 0.7,
+  },
+  heroValueText: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: colors.primary,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.5,
+  },
+  heroValueSub: {
+    fontSize: 10,
+    fontWeight: '700',
     color: '#8E959F',
-    marginTop: 2,
-    fontWeight: '500',
+    letterSpacing: 0.5,
+    marginTop: -2,
   },
   card: {
     backgroundColor: '#15191F',
     borderColor: '#242B35',
     borderWidth: 1,
     borderRadius: 20,
-    padding: 18,
+    padding: 16,
     marginBottom: 16,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 3 },
@@ -597,75 +856,28 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 3,
   },
-  cardLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#717B8A',
-    letterSpacing: 1.5,
-    marginBottom: 10,
-  },
-  previousList: {
-    gap: 4,
-  },
-  previousItemText: {
-    fontSize: 14,
-    color: '#8E959F',
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  previousEmptyText: {
-    fontSize: 14,
-    color: '#717B8A',
-    fontStyle: 'italic',
-  },
-  todayHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    paddingBottom: 4,
-  },
-  todayLabel: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  targetWeightWrap: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  targetWeightNum: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#C8FF3D',
-    letterSpacing: -0.5,
-  },
-  targetWeightUnit: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#8E959F',
-    letterSpacing: 1,
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    marginVertical: 14,
-  },
   tableHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 12,
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  tableHeadText: {
+  tableHeadSet: {
     fontSize: 11,
     fontWeight: '800',
     color: '#717B8A',
     letterSpacing: 1,
-    width: 44,
+    width: 36,
   },
-  tableHeadTextCenter: {
+  tableHeadPrev: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#717B8A',
+    letterSpacing: 1,
+    flex: 1.2,
+    textAlign: 'center',
+  },
+  tableHeadWeight: {
     fontSize: 11,
     fontWeight: '800',
     color: '#717B8A',
@@ -673,12 +885,20 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  tableHeadTextRight: {
+  tableHeadReps: {
     fontSize: 11,
     fontWeight: '800',
     color: '#717B8A',
     letterSpacing: 1,
-    width: 60,
+    flex: 1,
+    textAlign: 'center',
+  },
+  tableHeadStatus: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#717B8A',
+    letterSpacing: 1,
+    width: 48,
     textAlign: 'right',
   },
   setsList: {
@@ -687,22 +907,37 @@ const styles = StyleSheet.create({
   setRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    minHeight: 48,
   },
   setRowActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.07)',
+    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    borderColor: colors.primary,
+  },
+  setRowDone: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    opacity: 0.65,
   },
   setColNum: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#8E959F',
-    width: 44,
+    width: 36,
+  },
+  setColPrev: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6C7787',
+    flex: 1.2,
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
   setColWeight: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#8E959F',
     flex: 1,
@@ -710,14 +945,18 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   setColReps: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#8E959F',
     flex: 1,
     textAlign: 'center',
   },
+  setColDoneText: {
+    textDecorationLine: 'line-through',
+    color: '#5A687A',
+  },
   setColStatus: {
-    width: 60,
+    width: 48,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
@@ -725,35 +964,35 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   statusDoneBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#C8FF3D',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 3,
   },
   statusCurrentBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#C8FF3D',
+    borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-  },
-  statusCurrentDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#C8FF3D',
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
   },
   statusPendingBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#242B35',
+    borderColor: '#2A323F',
+    backgroundColor: '#12161D',
   },
   bottomBar: {
     position: 'absolute',

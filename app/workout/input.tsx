@@ -78,7 +78,7 @@ export default function Input() {
   const currentRestSeconds = exercise?.restSeconds ?? 90;
   const currentDisplayWeight = fromKg(currentWeightKg);
 
-  const weightStep = unit === 'lbs' ? 5 : (increment ?? 2.5);
+  const weightStep = unit === 'lbs' ? 1 : 0.5;
   const maxWeight = unit === 'lbs' ? 660 : 300;
 
   // Stable base list that only recomputes when unit or step changes
@@ -322,6 +322,65 @@ export default function Input() {
               />
             </View>
           </View>
+        </View>
+
+        {/* Quick Stepper Adjustments (Large 44px+ touch targets) */}
+        <View style={styles.quickAdjustRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Subtract 0.5 kg"
+            hitSlop={6}
+            onPress={() => {
+              hapticLight();
+              const curr = fromKg(currentWeightKg);
+              const next = Math.max(0, Math.round((curr - (unit === 'lbs' ? 1 : 0.5)) * 10) / 10);
+              handleSelectWeight(next);
+            }}
+            style={({ pressed }) => [styles.quickStepBtn, pressed && styles.quickStepBtnPressed]}
+          >
+            <Text style={styles.quickStepBtnText}>-{unit === 'lbs' ? '1' : '0.5'} {unitLabel}</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add 0.5 kg"
+            hitSlop={6}
+            onPress={() => {
+              hapticLight();
+              const curr = fromKg(currentWeightKg);
+              const next = Math.round((curr + (unit === 'lbs' ? 1 : 0.5)) * 10) / 10;
+              handleSelectWeight(next);
+            }}
+            style={({ pressed }) => [styles.quickStepBtn, pressed && styles.quickStepBtnPressed]}
+          >
+            <Text style={styles.quickStepBtnText}>+{unit === 'lbs' ? '1' : '0.5'} {unitLabel}</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Subtract 1 rep"
+            hitSlop={6}
+            onPress={() => {
+              hapticLight();
+              handleSelectReps(Math.max(1, currentReps - 1));
+            }}
+            style={({ pressed }) => [styles.quickStepBtn, pressed && styles.quickStepBtnPressed]}
+          >
+            <Text style={styles.quickStepBtnText}>-1 {isUk ? 'повт' : 'rep'}</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add 1 rep"
+            hitSlop={6}
+            onPress={() => {
+              hapticLight();
+              handleSelectReps(currentReps + 1);
+            }}
+            style={({ pressed }) => [styles.quickStepBtn, pressed && styles.quickStepBtnPressed]}
+          >
+            <Text style={styles.quickStepBtnText}>+1 {isUk ? 'повт' : 'rep'}</Text>
+          </Pressable>
         </View>
 
         {/* Minimalist Hint for Manual Numeric Entry */}
@@ -705,5 +764,37 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     color: '#0B0D0F',
+  },
+  quickAdjustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+    marginBottom: 6,
+    paddingHorizontal: 16,
+    flexWrap: 'wrap',
+  },
+  quickStepBtn: {
+    minHeight: 44,
+    minWidth: 76,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#161B23',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickStepBtnPressed: {
+    backgroundColor: '#202836',
+    borderColor: colors.primary,
+  },
+  quickStepBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });
