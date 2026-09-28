@@ -395,7 +395,7 @@ export default function Active() {
                   onPress={() => adjustActiveWeight(unit === 'lbs' ? -1 : -0.5)}
                   style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
                 >
-                  <Ionicons name="remove" size={20} color="#FFFFFF" />
+                  <Ionicons name="remove" size={18} color="#FFFFFF" />
                 </Pressable>
 
                 <View style={styles.heroValueBtn}>
@@ -412,7 +412,7 @@ export default function Active() {
                   onPress={() => adjustActiveWeight(unit === 'lbs' ? 1 : 0.5)}
                   style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
                 >
-                  <Ionicons name="add" size={20} color="#FFFFFF" />
+                  <Ionicons name="add" size={18} color="#FFFFFF" />
                 </Pressable>
               </View>
             </View>
@@ -435,7 +435,7 @@ export default function Active() {
                   onPress={() => adjustActiveReps(-1)}
                   style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
                 >
-                  <Ionicons name="remove" size={20} color="#FFFFFF" />
+                  <Ionicons name="remove" size={18} color="#FFFFFF" />
                 </Pressable>
 
                 <View style={styles.heroValueBtn}>
@@ -450,7 +450,7 @@ export default function Active() {
                   onPress={() => adjustActiveReps(1)}
                   style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
                 >
-                  <Ionicons name="add" size={20} color="#FFFFFF" />
+                  <Ionicons name="add" size={18} color="#FFFFFF" />
                 </Pressable>
               </View>
             </View>
@@ -528,11 +528,11 @@ export default function Active() {
                   >
                     {isDone ? (
                       <View style={styles.statusDoneBadge}>
-                        <Ionicons name="checkmark" size={17} color="#0B0D0F" />
+                        <Ionicons name="checkmark" size={16} color="#0B0D0F" />
                       </View>
                     ) : isCurrent ? (
                       <View style={styles.statusCurrentBadge}>
-                        <Ionicons name="checkmark" size={14} color={colors.primary} />
+                        <Ionicons name="checkmark" size={13} color={colors.primary} />
                       </View>
                     ) : (
                       <View style={styles.statusPendingBadge} />
@@ -774,8 +774,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#C8FF3D',
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingTop: 14,
     paddingBottom: 140,
   },
   exerciseHeader: {
@@ -860,9 +860,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#12161D',
     borderColor: 'rgba(200, 255, 61, 0.22)',
     borderWidth: 1.5,
-    borderRadius: 22,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 14,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -980,13 +980,14 @@ const styles = StyleSheet.create({
   },
   heroControlsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   heroControlBox: {
     flex: 1,
     backgroundColor: '#171D26',
-    borderRadius: 16,
-    padding: 10,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.06)',
   },
@@ -1023,9 +1024,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   stepperBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: '#202836',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1038,34 +1039,39 @@ const styles = StyleSheet.create({
   },
   heroValueBtn: {
     flex: 1,
-    height: 44,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
   heroValueBtnPressed: {
     opacity: 0.7,
   },
   heroValueText: {
-    fontSize: 26,
+    fontSize: 20,
+    lineHeight: 22,
     fontWeight: '700',
     color: colors.primary,
     fontVariant: ['tabular-nums'],
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
+    textAlign: 'center',
   },
   heroValueSub: {
     fontSize: 10,
+    lineHeight: 12,
     fontWeight: '600',
     color: '#8E959F',
-    letterSpacing: 0.4,
-    marginTop: -2,
+    letterSpacing: 0.3,
+    marginTop: 1,
+    textAlign: 'center',
   },
   card: {
     backgroundColor: '#15191F',
     borderColor: '#242B35',
     borderWidth: 1,
     borderRadius: 20,
-    padding: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     marginBottom: 16,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 3 },
@@ -1076,22 +1082,23 @@ const styles = StyleSheet.create({
   tableHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    marginBottom: 10,
+    paddingHorizontal: 6,
+    marginBottom: 8,
   },
   tableHeadSet: {
     fontSize: 11,
     fontWeight: '600',
     color: '#717B8A',
     letterSpacing: 0.8,
-    width: 32,
+    width: 28,
+    textAlign: 'left',
   },
   tableHeadPrev: {
     fontSize: 11,
     fontWeight: '600',
     color: '#717B8A',
     letterSpacing: 0.8,
-    flex: 1.1,
+    flex: 1.2,
     textAlign: 'center',
   },
   tableHeadWeight: {
@@ -1115,8 +1122,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#717B8A',
     letterSpacing: 0.5,
-    width: 58,
-    textAlign: 'right',
+    width: 40,
+    textAlign: 'center',
   },
   setsList: {
     gap: 6,
@@ -1124,12 +1131,12 @@ const styles = StyleSheet.create({
   setRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'transparent',
-    minHeight: 48,
+    minHeight: 44,
   },
   setRowActive: {
     backgroundColor: 'rgba(200, 255, 61, 0.08)',
@@ -1143,14 +1150,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#8E959F',
-    width: 32,
+    width: 28,
+    textAlign: 'left',
     fontVariant: ['tabular-nums'],
   },
   setColPrev: {
     fontSize: 13,
     fontWeight: '500',
     color: '#6C7787',
-    flex: 1.1,
+    flex: 1.2,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
@@ -1175,8 +1183,8 @@ const styles = StyleSheet.create({
     color: '#5A687A',
   },
   setColStatus: {
-    width: 58,
-    alignItems: 'flex-end',
+    width: 40,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   textHighlight: {
@@ -1187,9 +1195,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statusDoneBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1200,9 +1208,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   statusCurrentBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 2,
     borderColor: colors.primary,
     alignItems: 'center',
@@ -1210,9 +1218,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(200, 255, 61, 0.12)',
   },
   statusPendingBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: '#2A323F',
     backgroundColor: '#12161D',
