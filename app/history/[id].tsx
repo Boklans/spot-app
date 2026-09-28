@@ -28,10 +28,12 @@ export default function HistoryDetail() {
   if (!workout) {
     return (
       <Screen>
-        <Text style={styles.empty}>{t('workoutNotFound')}</Text>
-        <Button onPress={() => (router.canGoBack() ? router.back() : router.replace('/history'))}>
-          {t('backToHistory')}
-        </Button>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>{t('workoutNotFound')}</Text>
+          <Button onPress={() => (router.canGoBack() ? router.back() : router.replace('/history'))}>
+            {t('backToHistory')}
+          </Button>
+        </View>
       </Screen>
     );
   }
@@ -178,5 +180,15 @@ const styles = StyleSheet.create({
   setLabel: { color: colors.secondary, fontSize: 11, fontWeight: '800', width: 52 },
   setValue: { color: colors.text, fontSize: 15, fontWeight: '700', flex: 1 },
   setVolume: { color: colors.secondary, fontSize: 12 },
-  empty: { color: colors.text, fontSize: 22, fontWeight: '800', marginBottom: spacing.xl },
+  emptyCard: {
+    backgroundColor: '#15181C',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#292E35',
+    padding: spacing.xl,
+    alignItems: 'center',
+    marginVertical: spacing.xl,
+    gap: spacing.lg,
+  },
+  emptyTitle: { color: colors.text, fontSize: 18, fontWeight: '800', textAlign: 'center' },
 });

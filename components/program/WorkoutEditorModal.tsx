@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -105,42 +106,47 @@ export function WorkoutEditorModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <SafeAreaView style={styles.sheetContainer}>
-          {libraryVisible ? (
-            <ExerciseLibraryModal
-              visible={true}
-              embedded={true}
-              onSelectExercise={(item) => {
-                handleAddFromLibrary(item);
-                setLibraryVisible(false);
-              }}
-              onClose={() => setLibraryVisible(false)}
-            />
-          ) : (
-            <>
-              {/* Header */}
-              <View style={styles.header}>
-                <View>
-                  <Text style={styles.headerTitle}>{t('customizeWorkout')}</Text>
-                  <Text style={styles.headerSubtitle}>{td(workout.dayLabel)}</Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.keyboardWrap}
+        >
+          <SafeAreaView style={styles.sheetContainer}>
+            {libraryVisible ? (
+              <ExerciseLibraryModal
+                visible={true}
+                embedded={true}
+                onSelectExercise={(item) => {
+                  handleAddFromLibrary(item);
+                  setLibraryVisible(false);
+                }}
+                onClose={() => setLibraryVisible(false)}
+              />
+            ) : (
+              <>
+                {/* Header */}
+                <View style={styles.header}>
+                  <View>
+                    <Text style={styles.headerTitle}>{t('customizeWorkout')}</Text>
+                    <Text style={styles.headerSubtitle}>{td(workout.dayLabel)}</Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Close"
+                    hitSlop={12}
+                    onPress={onClose}
+                    style={styles.closeBtn}
+                  >
+                    <Ionicons name="close" size={22} color="#FFFFFF" />
+                  </Pressable>
                 </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Close"
-                  hitSlop={12}
-                  onPress={onClose}
-                  style={styles.closeBtn}
-                >
-                  <Ionicons name="close" size={22} color="#FFFFFF" />
-                </Pressable>
-              </View>
 
-              <ScrollView
-                style={styles.mainScrollView}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-              >
-                {/* Workout Name Field */}
+                <ScrollView
+                  style={styles.mainScrollView}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.scrollContent}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {/* Workout Name Field */}
                 <Text style={styles.inputLabel}>{t('workoutName')}</Text>
                 <View style={styles.nameInputWrap}>
                   <TextInput
@@ -449,8 +455,9 @@ export function WorkoutEditorModal({
             </>
           )}
         </SafeAreaView>
-      </View>
-    </Modal>
+      </KeyboardAvoidingView>
+    </View>
+  </Modal>
   );
 }
 
@@ -460,13 +467,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'flex-end',
   },
+  keyboardWrap: {
+    height: '92%',
+    width: '100%',
+  },
   sheetContainer: {
     backgroundColor: '#12161D',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: '#242C38',
-    height: '90%',
+    height: '100%',
     display: 'flex',
     flexDirection: 'column',
   },

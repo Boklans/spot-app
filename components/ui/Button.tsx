@@ -42,6 +42,6 @@ const styles = StyleSheet.create({
   secondary: { backgroundColor: 'transparent' },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.72 },
-  text: { color: colors.background, fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
-  secondaryText: { color: colors.secondary, fontWeight: '600' },
+  text: { color: colors.background, fontSize: 16, fontWeight: '800', letterSpacing: 0.3, textAlign: 'center' },
+  secondaryText: { color: colors.secondary, fontWeight: '600', textAlign: 'center' },
 });

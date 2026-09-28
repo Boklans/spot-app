@@ -1,11 +1,13 @@
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { hapticLight } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { formatVolume } from '@/lib/progressCalculator';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
@@ -59,11 +61,41 @@ export default function History() {
       </View>
 
       {workouts.length === 0 ? (
-        <Card style={styles.empty}>
-          <Text style={styles.emptyTitle}>{t('noWorkoutsYet')}</Text>
-          <Text style={styles.emptyBody}>{t('noWorkoutsBody')}</Text>
-          <Button onPress={() => router.replace('/(tabs)')}>{t('startTraining')}</Button>
-        </Card>
+        <View style={styles.emptyCard}>
+          <View style={styles.emptyGlowRing}>
+            <View style={styles.emptyIconBadge}>
+              <MaterialCommunityIcons name="history" size={34} color={colors.primary} />
+            </View>
+          </View>
+
+          <Text style={styles.emptyTitle}>
+            {language === 'uk' ? 'ІСТОРІЯ ТРЕНУВАНЬ ПОРОЖНЯ' : 'NO WORKOUTS YET'}
+          </Text>
+
+          <Text style={styles.emptySubtitle}>
+            {language === 'uk'
+              ? 'Завершіть своє перше тренування, щоб відстежувати прогрес та збережені сесії.'
+              : 'Complete your first workout to start logging your sessions and tracking progress.'}
+          </Text>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Start Workout"
+            onPress={() => {
+              hapticLight();
+              router.replace('/(tabs)');
+            }}
+            style={({ pressed }) => [
+              styles.emptyCtaBtn,
+              pressed && styles.emptyCtaBtnPressed,
+            ]}
+          >
+            <Ionicons name="play" size={18} color="#0B0D0F" style={{ marginRight: 6 }} />
+            <Text style={styles.emptyCtaBtnText}>
+              {language === 'uk' ? 'ПОЧАТИ ТРЕНУВАННЯ' : 'START WORKOUT'}
+            </Text>
+          </Pressable>
+        </View>
       ) : (
         [...groups.entries()].map(([key, items]) => (
           <View key={key} style={styles.group}>
@@ -123,7 +155,69 @@ const styles = StyleSheet.create({
   arrow: { color: colors.secondary, fontSize: 28 },
   details: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.lg },
   detail: { color: colors.secondary, fontSize: 13 },
-  empty: { marginTop: spacing.xl },
-  emptyTitle: { color: colors.secondary, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
-  emptyBody: { color: colors.text, fontSize: 16, lineHeight: 23, marginVertical: spacing.xl },
+  emptyCard: {
+    backgroundColor: '#15181C',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#292E35',
+    padding: 28,
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  emptyGlowRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  emptyIconBadge: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#1C2025',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    color: '#F5F7FA',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 1,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  emptySubtitle: {
+    color: '#8E9BAE',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginBottom: 24,
+    maxWidth: 280,
+  },
+  emptyCtaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 14,
+    minHeight: 48,
+    width: '100%',
+  },
+  emptyCtaBtnPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+  emptyCtaBtnText: {
+    color: '#0B0D0F',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
 });

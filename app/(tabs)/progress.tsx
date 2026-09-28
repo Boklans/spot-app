@@ -927,7 +927,7 @@ export default function Progress() {
                   style={[
                     styles.statNumber,
                     bodyStats.deltaWeight !== 0 && {
-                      color: bodyStats.deltaWeight < 0 ? '#38BDF8' : colors.primary,
+                      color: colors.primary,
                     },
                   ]}
                 >
@@ -1106,7 +1106,7 @@ export default function Progress() {
         {/* ========================================================================= */}
         {activeTab === 'prs' && (
           <View style={styles.tabContainer}>
-            {hasHistory && allHistoryPrs.length > 0 ? (
+            {allHistoryPrs.length > 0 ? (
               <View style={styles.prsList}>
                 {allHistoryPrs.map((item) => (
                   <View key={item.id} style={styles.prCard}>

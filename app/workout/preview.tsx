@@ -614,7 +614,11 @@ export default function WorkoutPreview() {
               </Pressable>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.configBody}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={styles.configBody}
+              keyboardShouldPersistTaps="handled"
+            >
               {/* 1. Sets Stepper */}
               <View style={styles.configSection}>
                 <Text style={styles.configSectionLabel}>
@@ -785,8 +789,8 @@ export default function WorkoutPreview() {
                   style={styles.configSecondaryBtn}
                 >
                   <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
-                  <Text style={styles.configSecondaryBtnText}>
-                    {language === 'uk' ? 'Замінити вправу' : 'Swap Exercise'}
+                  <Text numberOfLines={1} style={styles.configSecondaryBtnText}>
+                    {language === 'uk' ? 'Замінити' : 'Swap'}
                   </Text>
                 </Pressable>
 

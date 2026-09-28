@@ -373,7 +373,7 @@ const uk: Record<TranslationKey, string> = {
   couldNotSave: 'Не вдалося зберегти тренування',
   couldNotSaveDesc: 'Ваше тренування збережено на цьому пристрої. Спробуйте ще раз.',
   savingWorkout: 'Збереження...',
-  adjustWeightReps: 'Налаштувати вагу та повторення',
+  adjustWeightReps: 'Змінити вагу / повтори',
   activeBadge: 'АКТИВНА',
   base: 'База',
   alternativesFor: 'Альтернативи для',
