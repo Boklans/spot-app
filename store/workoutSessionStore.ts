@@ -32,6 +32,7 @@ export type WorkoutExercise = {
   sets: WorkoutSet[];
   weightIncrement: number;
   restSeconds: number;
+  isCustomRest?: boolean;
   customImageUri?: string;
   isCustom?: boolean;
 };
@@ -174,7 +175,7 @@ function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history
       ? exercise.recommendedWeight
       : recommendation.recommendedWeight;
     const weightIncrement = typeof exercise.weightIncrement === 'number' ? exercise.weightIncrement : 2.5;
-    const restSeconds = typeof exercise.restSeconds === 'number' ? exercise.restSeconds : resolveRestSeconds(exercise as any, workout as any);
+    const restSeconds = resolveRestSeconds(exercise as any, workout as any);
 
     return {
       id: exercise.id,
@@ -184,6 +185,7 @@ function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history
       recommendation,
       weightIncrement,
       restSeconds,
+      isCustomRest: (exercise as any).isCustomRest,
       customImageUri: (exercise as any).customImageUri,
       isCustom: (exercise as any).isCustom,
       sets: Array.from({ length: exercise.sets || 3 }, (_, setIndex) => ({
@@ -441,7 +443,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       if (!state.session) return state;
       const boundedRest = Math.max(0, Math.min(600, restSeconds));
       const updatedExercises = state.session.exercises.map((ex, idx) =>
-        idx === exerciseIndex ? { ...ex, restSeconds: boundedRest } : ex
+        idx === exerciseIndex ? { ...ex, restSeconds: boundedRest, isCustomRest: true } : ex
       );
       return {
         ...state,

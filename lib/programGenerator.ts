@@ -369,23 +369,28 @@ function repeatTemplates(templates: WorkoutTemplate[], frequency: number) {
 }
 
 export function resolveRestSeconds(
-  exercise?: { restSeconds?: number },
+  exercise?: { restSeconds?: number; isCustomRest?: boolean },
   workout?: { defaultRestSeconds?: number },
   program?: { defaultRestSeconds?: number }
 ): number {
   const profileRest = (() => {
     try {
-      return useUserProfileStore.getState().profile.defaultRestSeconds;
+      const rest = useUserProfileStore.getState().profile.defaultRestSeconds;
+      return typeof rest === 'number' && rest > 0 ? rest : undefined;
     } catch {
       return undefined;
     }
   })();
 
-  return exercise?.restSeconds
+  if (exercise?.isCustomRest && typeof exercise.restSeconds === 'number') {
+    return exercise.restSeconds;
+  }
+
+  return profileRest
     ?? workout?.defaultRestSeconds
     ?? program?.defaultRestSeconds
-    ?? profileRest
-    ?? 150;
+    ?? exercise?.restSeconds
+    ?? 90;
 }
 
 export function calculateRecommendedRest(

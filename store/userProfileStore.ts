@@ -255,6 +255,42 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         .catch(() => undefined);
     }
 
+    if (updates.defaultRestSeconds !== undefined) {
+      import('./workoutSessionStore')
+        .then(({ useWorkoutSessionStore }) => {
+          const store = useWorkoutSessionStore.getState();
+          if (store.session) {
+            const nextSec = updates.defaultRestSeconds!;
+            const updatedExercises = store.session.exercises.map((ex) =>
+              ex.isCustomRest ? ex : { ...ex, restSeconds: nextSec }
+            );
+            useWorkoutSessionStore.setState({
+              session: { ...store.session, exercises: updatedExercises },
+            });
+          }
+        })
+        .catch(() => undefined);
+
+      import('./programStore')
+        .then(({ useProgramStore }) => {
+          const progStore = useProgramStore.getState();
+          if (progStore.program) {
+            const nextSec = updates.defaultRestSeconds!;
+            const updatedWorkouts = progStore.program.workouts.map((w) => ({
+              ...w,
+              defaultRestSeconds: nextSec,
+              exercises: w.exercises.map((ex) =>
+                (ex as any).isCustomRest ? ex : { ...ex, restSeconds: nextSec }
+              ),
+            }));
+            useProgramStore.setState({
+              program: { ...progStore.program, defaultRestSeconds: nextSec, workouts: updatedWorkouts },
+            });
+          }
+        })
+        .catch(() => undefined);
+    }
+
     if (
       updates.notifications !== undefined ||
       updates.notificationTime !== undefined ||

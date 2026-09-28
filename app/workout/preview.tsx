@@ -228,6 +228,7 @@ export default function WorkoutPreview() {
             recommendedWeight: Math.round(weightInKg * 100) / 100,
             targetRepRange: configRepRange,
             restSeconds: configRestSeconds,
+            isCustomRest: true,
           }
         : ex
     );
