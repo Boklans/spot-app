@@ -41,7 +41,7 @@ function computeReadinessScore(
     return {
       percentage: 100,
       label: isUk ? 'ГОТОВІ ДО ТРЕНУВАННЯ' : 'READY TO TRAIN',
-      subtitle: isUk ? 'Тіло готове до навантажень' : 'Your body is ready',
+      subtitle: isUk ? 'Оцінка на основі ваших тренувань' : 'Based on your recent training',
       color: colors.primary,
     };
   }
@@ -64,20 +64,20 @@ function computeReadinessScore(
   const percentage = Math.min(100, Math.max(15, avg));
 
   let label = isUk ? 'ГОТОВІ ДО ТРЕНУВАННЯ' : 'READY TO TRAIN';
-  let subtitle = isUk ? 'Цільові м’язи відновилися' : 'Target muscles fully recovered';
+  let subtitle = isUk ? 'Оцінка на основі ваших тренувань' : 'Based on your recent training';
   let color: string = colors.primary;
 
   if (percentage >= 85) {
     label = isUk ? 'ГОТОВІ ДО ТРЕНУВАННЯ' : 'READY TO TRAIN';
-    subtitle = isUk ? 'Цільові м’язи повністю відновилися' : 'Target muscles fully recovered';
+    subtitle = isUk ? 'Оцінка на основі ваших тренувань' : 'Based on your recent training';
     color = colors.primary;
   } else if (percentage >= 60) {
     label = isUk ? 'ОПТИМАЛЬНИЙ СТАН' : 'OPTIMAL STATE';
-    subtitle = isUk ? 'Цільові м’язи відновлюються' : 'Target muscles recovering';
+    subtitle = isUk ? 'Цільові м’язи ще відновлюються' : 'Target muscles still recovering';
     color = colors.warning;
   } else {
     label = isUk ? 'ВІДНОВЛЕННЯ' : 'RECOVERING';
-    subtitle = isUk ? 'Виявлено втому' : 'High fatigue detected';
+    subtitle = isUk ? 'Виявлено високе навантаження' : 'High fatigue detected';
     color = colors.danger;
   }
 
@@ -568,11 +568,18 @@ export default function Home() {
                 <Ionicons name="checkmark-circle" size={15} color="#0B0D0F" />
                 <Text style={styles.completedBadgeText}>{t('workoutCompletedToday')}</Text>
               </View>
-              {completedSummaryData.prsCount > 0 && (
+              {completedSummaryData.prsCount > 0 ? (
                 <View style={styles.prMiniBadge}>
                   <MaterialCommunityIcons name="trophy" size={13} color="#FFD130" />
                   <Text style={styles.prMiniBadgeText}>
                     {completedSummaryData.prsCount} {t('personalRecords')}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.baselineMiniBadge}>
+                  <Ionicons name="flag" size={12} color={colors.primary} />
+                  <Text style={styles.baselineMiniBadgeText}>
+                    {language === 'uk' ? 'БАЗУ ЗАФІКСОВАНО' : 'BASELINE SET'}
                   </Text>
                 </View>
               )}
@@ -1411,6 +1418,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     color: '#FFD130',
+  },
+  baselineMiniBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+  },
+  baselineMiniBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.5,
   },
   completedSubtitle: {
     fontSize: 13,

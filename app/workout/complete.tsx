@@ -165,19 +165,27 @@ export default function Complete() {
           <Text style={styles.volumeLabel}>{t('volume')}</Text>
         </View>
 
-        {/* 5. Personal Records Card */}
+        {/* 5. Personal Records / Baseline Card */}
         <View style={styles.prsCard}>
           <View style={styles.prHeader}>
-            <MaterialCommunityIcons name="trophy" size={16} color={colors.primary} />
-            <Text style={styles.prSectionTitle}>
-              {prsHeaderTitle}
+            <MaterialCommunityIcons
+              name={prs.length === 0 ? 'flag-variant' : 'trophy'}
+              size={16}
+              color={prs.length === 0 ? colors.primary : '#FFD130'}
+            />
+            <Text style={[styles.prSectionTitle, prs.length === 0 && { color: colors.primary }]}>
+              {prs.length === 0
+                ? (language === 'uk' ? 'БАЗУ ЗАФІКСОВАНО' : 'BASELINE ESTABLISHED')
+                : prsHeaderTitle}
             </Text>
           </View>
 
           {prs.length === 0 ? (
             <View style={styles.noPrWrap}>
               <Text style={styles.noPrText}>
-                {t('baselineSaved')}
+                {language === 'uk'
+                  ? 'Показники тренування зафіксовано як вашу базу. Прогрес та нові рекорди почнуть відстежуватися вже з наступних сесій!'
+                  : 'Workout metrics saved as your baseline. Progressive overload and new PRs will be tracked from your next workouts!'}
               </Text>
             </View>
           ) : (
