@@ -452,8 +452,8 @@ export default function Program() {
                   </View>
 
                   <View style={styles.exerciseList}>
-                    {workout.exercises.map((exercise) => (
-                      <View key={exercise.name} style={styles.exerciseRow}>
+                    {workout.exercises.map((exercise, exIndex) => (
+                      <View key={`${exercise.name}-${exIndex}`} style={styles.exerciseRow}>
                         <View style={styles.exerciseRowLeft}>
                           <View style={styles.exerciseThumbMini}>
                             <Image

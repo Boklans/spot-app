@@ -652,7 +652,15 @@ export default function Profile() {
           </Pressable>
 
           {/* Language Selector */}
-          <View style={styles.row}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Change language"
+            onPress={() => {
+              hapticLight();
+              updateProfile({ language: profile.language === 'uk' ? 'en' : 'uk' });
+            }}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
             <View style={styles.rowLeftWithIcon}>
               <Ionicons name="globe-outline" size={20} color="#8E9BAE" />
               <View>
@@ -666,6 +674,7 @@ export default function Profile() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Set Ukrainian"
+                hitSlop={8}
                 onPress={() => {
                   hapticLight();
                   updateProfile({ language: 'uk' });
@@ -684,6 +693,7 @@ export default function Profile() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Set English"
+                hitSlop={8}
                 onPress={() => {
                   hapticLight();
                   updateProfile({ language: 'en' });
@@ -700,7 +710,7 @@ export default function Profile() {
                 </Text>
               </Pressable>
             </View>
-          </View>
+          </Pressable>
 
           {/* Notifications Toggle */}
           <Pressable

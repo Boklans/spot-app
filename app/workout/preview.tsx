@@ -681,9 +681,6 @@ export default function WorkoutPreview() {
 
                   <View style={styles.configStepValueBox}>
                     <Text style={styles.configStepValueText}>{configSets}</Text>
-                    <Text style={styles.configStepValueSub}>
-                      {language === 'uk' ? 'підходи' : 'sets'}
-                    </Text>
                   </View>
 
                   <Pressable
@@ -732,7 +729,6 @@ export default function WorkoutPreview() {
                       placeholderTextColor="#6C7A8E"
                       selectTextOnFocus
                     />
-                    <Text style={styles.configWeightInputUnit}>{unitLabel}</Text>
                   </View>
 
                   <Pressable
@@ -1298,19 +1294,13 @@ const styles = StyleSheet.create({
     borderColor: '#242B35',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
   },
   configStepValueText: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     color: '#FFFFFF',
     fontVariant: ['tabular-nums'],
-  },
-  configStepValueSub: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#8E959F',
+    textAlign: 'center',
   },
   configWeightInputWrap: {
     flex: 1,
@@ -1321,23 +1311,16 @@ const styles = StyleSheet.create({
     borderColor: '#242B35',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
     paddingHorizontal: 12,
   },
   configWeightInput: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
-    minWidth: 50,
+    width: '100%',
     paddingVertical: 0,
     fontVariant: ['tabular-nums'],
-  },
-  configWeightInputUnit: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-    marginLeft: 4,
   },
   configPillsRow: {
     flexDirection: 'row',
