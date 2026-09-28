@@ -6,7 +6,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
-import { hapticLight } from '@/lib/haptics';
+import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { countWorkoutsThisWeek, getStartOfWeek } from '@/lib/progressCalculator';
 import { calculateMuscleRecovery } from '@/lib/recoveryEngine';
 import { translateExercise, useI18n } from '@/lib/i18n';
@@ -135,6 +135,7 @@ export default function Home() {
   const setNextWorkout = useProgramProgressStore((state) => state.setNextWorkout);
   const history = useWorkoutHistoryStore((state) => state.workouts);
   const [switchModalVisible, setSwitchModalVisible] = useState(false);
+  const [switchModalMode, setSwitchModalMode] = useState<'switch' | 'start'>('switch');
 
   // Focus synchronization
   useFocusEffect(
@@ -401,6 +402,7 @@ export default function Home() {
                     accessibilityLabel="Switch workout"
                     onPress={() => {
                       hapticLight();
+                      setSwitchModalMode('switch');
                       setSwitchModalVisible(true);
                     }}
                     hitSlop={8}
@@ -625,18 +627,23 @@ export default function Home() {
             </View>
           </Button>
 
-          {/* Secondary subtle action to allow starting another workout if desired */}
+          {/* Secondary action to allow starting another workout if desired */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('startAnotherWorkout')}
             onPress={() => {
-              hapticLight();
+              hapticMedium();
+              setSwitchModalMode('start');
               setSwitchModalVisible(true);
             }}
-            style={styles.secondaryTrainLink}
+            style={({ pressed }) => [
+              styles.secondaryTrainBtn,
+              pressed && styles.secondaryTrainBtnPressed,
+            ]}
           >
-            <Text style={styles.secondaryTrainLinkText}>{t('startAnotherWorkout')}</Text>
-            <Ionicons name="chevron-forward" size={14} color="#8E959F" />
+            <Ionicons name="barbell-outline" size={17} color={colors.primary} style={{ marginRight: 8 }} />
+            <Text style={styles.secondaryTrainBtnText}>{t('startAnotherWorkout')}</Text>
+            <Ionicons name="arrow-forward" size={14} color="#8E959F" style={{ marginLeft: 6 }} />
           </Pressable>
         </>
       )}
@@ -708,9 +715,18 @@ export default function Home() {
         >
           <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {language === 'uk' ? 'Вибрати тренування' : 'Select Workout'}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>
+                  {switchModalMode === 'start'
+                    ? (language === 'uk' ? 'Почати інше тренування' : 'Start Another Workout')
+                    : (language === 'uk' ? 'Вибрати тренування' : 'Select Workout')}
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  {switchModalMode === 'start'
+                    ? (language === 'uk' ? 'Оберіть тренування для перегляду та старту' : 'Select a workout to preview & start')
+                    : (language === 'uk' ? 'Оберіть заплановане тренування' : 'Choose your scheduled workout')}
+                </Text>
+              </View>
               <Pressable
                 onPress={() => setSwitchModalVisible(false)}
                 hitSlop={10}
@@ -729,9 +745,12 @@ export default function Home() {
                     key={w.id}
                     style={[styles.switchItem, isSelected && styles.switchItemActive]}
                     onPress={async () => {
-                      hapticLight();
+                      hapticMedium();
                       await setNextWorkout(w.id);
                       setSwitchModalVisible(false);
+                      if (switchModalMode === 'start') {
+                        router.push({ pathname: '/workout/preview', params: { workoutId: w.id } });
+                      }
                     }}
                   >
                     <View style={styles.switchItemLeft}>
@@ -749,7 +768,14 @@ export default function Home() {
                         ) : null}
                       </View>
                     </View>
-                    {isSelected ? (
+                    {switchModalMode === 'start' ? (
+                      <View style={styles.switchItemStartBadge}>
+                        <Ionicons name="play" size={11} color="#0B0D0F" style={{ marginRight: 3 }} />
+                        <Text style={styles.switchItemStartBadgeText}>
+                          {language === 'uk' ? 'СТАРТ' : 'START'}
+                        </Text>
+                      </View>
+                    ) : isSelected ? (
                       <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
                     ) : (
                       <Ionicons name="chevron-forward" size={18} color="#6C7685" />
@@ -1436,18 +1462,48 @@ const styles = StyleSheet.create({
     color: '#0B0D0F',
     letterSpacing: 0.5,
   },
-  secondaryTrainLink: {
+  secondaryTrainBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    marginTop: -14,
-    marginBottom: 22,
-    paddingVertical: 6,
+    backgroundColor: '#15181C',
+    borderWidth: 1,
+    borderColor: '#292E35',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginTop: -8,
+    marginBottom: 24,
+    minHeight: 48,
   },
-  secondaryTrainLinkText: {
-    fontSize: 13,
+  secondaryTrainBtnPressed: {
+    backgroundColor: '#1C2025',
+    opacity: 0.85,
+  },
+  secondaryTrainBtnText: {
+    fontSize: 14,
+    color: '#F5F5F5',
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  modalSubtitle: {
+    fontSize: 12,
     color: '#8E959F',
     fontWeight: '600',
+    marginTop: 3,
+  },
+  switchItemStartBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  switchItemStartBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#0B0D0F',
+    letterSpacing: 0.6,
   },
 });

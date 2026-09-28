@@ -404,11 +404,11 @@ export default function Active() {
         {/* 4. Sets Table Card with Visual Completion Feedback */}
         <View style={styles.card}>
           <View style={styles.tableHeaderRow}>
-            <Text style={styles.tableHeadSet}>{t('set')}</Text>
-            <Text style={styles.tableHeadPrev}>{language === 'uk' ? 'МИНУЛЕ' : 'PREV'}</Text>
-            <Text style={styles.tableHeadWeight}>{unitLabel}</Text>
-            <Text style={styles.tableHeadReps}>{t('reps')}</Text>
-            <Text style={styles.tableHeadStatus}>{t('status')}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadSet}>{t('set')}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadPrev}>{language === 'uk' ? 'МИНУЛЕ' : 'PREV'}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadWeight}>{unitLabel}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadReps}>{t('reps')}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadStatus}>{t('status')}</Text>
           </View>
 
           {/* Sets Rows */}
@@ -866,22 +866,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: '#717B8A',
-    letterSpacing: 1,
-    width: 36,
+    letterSpacing: 0.8,
+    width: 32,
   },
   tableHeadPrev: {
     fontSize: 11,
     fontWeight: '800',
     color: '#717B8A',
-    letterSpacing: 1,
-    flex: 1.2,
+    letterSpacing: 0.8,
+    flex: 1.1,
     textAlign: 'center',
   },
   tableHeadWeight: {
     fontSize: 11,
     fontWeight: '800',
     color: '#717B8A',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
     flex: 1,
     textAlign: 'center',
   },
@@ -889,16 +889,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: '#717B8A',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
     flex: 1,
     textAlign: 'center',
   },
   tableHeadStatus: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: '#717B8A',
-    letterSpacing: 1,
-    width: 48,
+    letterSpacing: 0.5,
+    width: 58,
     textAlign: 'right',
   },
   setsList: {
@@ -926,13 +926,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: '#8E959F',
-    width: 36,
+    width: 32,
   },
   setColPrev: {
     fontSize: 13,
     fontWeight: '600',
     color: '#6C7787',
-    flex: 1.2,
+    flex: 1.1,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
@@ -956,7 +956,7 @@ const styles = StyleSheet.create({
     color: '#5A687A',
   },
   setColStatus: {
-    width: 48,
+    width: 58,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
