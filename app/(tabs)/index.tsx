@@ -31,7 +31,7 @@ function computeReadinessScore(
     return {
       percentage: 100,
       label: isUk ? 'ГОТОВІ ДО ТРЕНУВАННЯ' : 'READY TO TRAIN',
-      subtitle: isUk ? 'Тіло повністю відновилося' : 'Your body is fully recovered',
+      subtitle: isUk ? 'Оцінка на основі ваших тренувань' : 'Based on your recent training',
       color: colors.primary,
     };
   }
@@ -619,24 +619,48 @@ export default function Home() {
             </View>
           </Button>
 
-          {/* Secondary action to allow starting another workout if desired */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('startAnotherWorkout')}
-            onPress={() => {
-              hapticMedium();
-              setSwitchModalMode('start');
-              setSwitchModalVisible(true);
-            }}
-            style={({ pressed }) => [
-              styles.secondaryTrainBtn,
-              pressed && styles.secondaryTrainBtnPressed,
-            ]}
-          >
-            <Ionicons name="barbell-outline" size={17} color={colors.primary} style={{ marginRight: 8 }} />
-            <Text style={styles.secondaryTrainBtnText}>{t('startAnotherWorkout')}</Text>
-            <Ionicons name="arrow-forward" size={14} color="#8E959F" style={{ marginLeft: 6 }} />
-          </Pressable>
+          {/* NEXT UP Card - Closes the training loop: READY -> TRAIN -> IN PROGRESS -> COMPLETE -> NEXT UP */}
+          {nextWorkout && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View next workout"
+              onPress={() => {
+                hapticLight();
+                router.push({ pathname: '/workout/preview', params: { workoutId: nextWorkout.id } });
+              }}
+              style={({ pressed }) => [styles.nextUpCard, pressed && { opacity: 0.85 }]}
+            >
+              <View style={styles.nextUpHeaderRow}>
+                <View style={styles.nextUpKickerBadge}>
+                  <Ionicons name="calendar-outline" size={12} color={colors.primary} style={{ marginRight: 4 }} />
+                  <Text style={styles.nextUpKickerText}>
+                    {language === 'uk' ? 'НАСТУПНЕ ТРЕНУВАННЯ' : 'NEXT UP'}
+                  </Text>
+                </View>
+                <Text style={styles.nextUpDayText}>
+                  {nextWorkout.dayLabel || (language === 'uk' ? 'За розкладом' : 'Scheduled')}
+                </Text>
+              </View>
+
+              <View style={styles.nextUpTitleRow}>
+                <Text numberOfLines={1} style={styles.nextUpWorkoutName}>
+                  {tw(nextWorkout.name)}
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color="#8E959F" />
+              </View>
+
+              <Text numberOfLines={1} style={styles.nextUpMuscles}>
+                {displayMuscles}
+              </Text>
+
+              <View style={styles.nextUpMetaRow}>
+                <Ionicons name="time-outline" size={13} color="#6C7787" style={{ marginRight: 4 }} />
+                <Text style={styles.nextUpMetaText}>
+                  {nextWorkout.exercises.length} {t('exercises').toLowerCase()} · ~{nextWorkout.estimatedMinutes} {t('min')}
+                </Text>
+              </View>
+            </Pressable>
+          )}
         </>
       )}
 
@@ -1471,29 +1495,69 @@ const styles = StyleSheet.create({
     color: '#0B0D0F',
     letterSpacing: 0.5,
   },
-  secondaryTrainBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#15181C',
+  nextUpCard: {
+    backgroundColor: '#12161D',
+    borderRadius: 20,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#292E35',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
     marginTop: -8,
     marginBottom: 24,
-    minHeight: 48,
   },
-  secondaryTrainBtnPressed: {
-    backgroundColor: '#1C2025',
-    opacity: 0.85,
+  nextUpHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  secondaryTrainBtnText: {
-    fontSize: 14,
-    color: '#F5F5F5',
+  nextUpKickerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.2)',
+  },
+  nextUpKickerText: {
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    color: colors.primary,
+    letterSpacing: 0.8,
+  },
+  nextUpDayText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8E959F',
+  },
+  nextUpTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  nextUpWorkoutName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+    flex: 1,
+  },
+  nextUpMuscles: {
+    fontSize: 13,
+    color: '#8E959F',
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  nextUpMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  nextUpMetaText: {
+    fontSize: 12,
+    color: '#6C7787',
+    fontWeight: '600',
   },
   modalSubtitle: {
     fontSize: 12,
