@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { colors } from '@/constants/colors';
-import { hapticMedium } from '@/lib/haptics';
+import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useWeightUnit } from '@/lib/weightUtils';
 import { useUserProfileStore } from '@/store/userProfileStore';
@@ -28,10 +28,14 @@ export default function ParamsSetup() {
   const weightRef = useRef<TextInput>(null);
   const heightRef = useRef<TextInput>(null);
 
+  const isDefaultDummy = (n?: string) =>
+    !n || ['IHOR', 'ATHLETE', 'АТЛЕТ'].includes(n.trim().toUpperCase());
+
   const initialProfile = useUserProfileStore.getState().profile;
-  const [name, setName] = useState(() => (initialProfile.name && initialProfile.name !== 'IHOR' ? initialProfile.name : ''));
+  const [name, setName] = useState(() => (!isDefaultDummy(initialProfile.name) ? initialProfile.name : ''));
   const [weight, setWeight] = useState(() => String(fromKg(initialProfile.weightKg || 78)));
   const [height, setHeight] = useState(() => String(initialProfile.heightCm || 180));
+  const [nameError, setNameError] = useState(false);
 
   const isUk = language === 'uk';
   const hasHydratedRef = useRef(false);
@@ -42,18 +46,27 @@ export default function ParamsSetup() {
       const p = useUserProfileStore.getState().profile;
       if (!hasHydratedRef.current) {
         hasHydratedRef.current = true;
-        if (p.name && p.name !== 'IHOR' && !name) setName(p.name);
+        if (p.name && !isDefaultDummy(p.name) && !name) setName(p.name);
         if (p.weightKg && p.weightKg > 0 && !weight) setWeight(String(fromKg(p.weightKg)));
         if (p.heightCm && p.heightCm > 0 && !height) setHeight(String(p.heightCm));
       }
     }, [fromKg, name, weight, height])
   );
 
-  const handleContinue = async () => {
-    hapticMedium();
+  const isNameValid = name.trim().length >= 2;
 
-    const rawName = name.trim();
-    const effectiveName = rawName.length >= 1 ? rawName : (isUk ? 'Атлет' : 'Athlete');
+  const handleContinue = () => {
+    if (!isNameValid) {
+      hapticLight();
+      setNameError(true);
+      nameRef.current?.focus();
+      return;
+    }
+
+    hapticMedium();
+    setNameError(false);
+
+    const effectiveName = name.trim();
 
     const parsedWeight = parseFloat(weight.replace(',', '.'));
     const effectiveWeightKg = !isNaN(parsedWeight) && parsedWeight >= 20 && parsedWeight <= 300
@@ -65,23 +78,22 @@ export default function ParamsSetup() {
       ? Math.round(parsedHeight)
       : (initialProfile.heightCm || 180);
 
-    // 1. Update userProfileStore (Definitive Source of Truth)
-    await useUserProfileStore.getState().updateProfile({
-      name: effectiveName,
-      weightKg: effectiveWeightKg,
-      heightCm: effectiveHeightCm,
-    });
+    // Save in background without blocking screen transition
+    Promise.all([
+      useUserProfileStore.getState().updateProfile({
+        name: effectiveName,
+        weightKg: effectiveWeightKg,
+        heightCm: effectiveHeightCm,
+      }),
+      useBodyWeightStore.getState().syncBaselineWeight(effectiveWeightKg),
+      saveOnboarding({
+        name: effectiveName,
+        weightKg: effectiveWeightKg,
+        heightCm: effectiveHeightCm,
+      }),
+    ]).catch((err) => console.warn('Non-blocking onboarding save error:', err));
 
-    // 2. Directly sync bodyWeightStore baseline entry
-    await useBodyWeightStore.getState().syncBaselineWeight(effectiveWeightKg);
-
-    // 3. Save onboarding
-    await saveOnboarding({
-      name: effectiveName,
-      weightKg: effectiveWeightKg,
-      heightCm: effectiveHeightCm,
-    });
-
+    // Navigate immediately
     router.push('/onboarding/experience');
   };
 
@@ -128,12 +140,20 @@ export default function ParamsSetup() {
           <View style={styles.formContainer}>
             {/* Name */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{isUk ? "Ваше ім'я" : 'Your Name'}</Text>
+              <View style={styles.inputLabelRow}>
+                <Text style={styles.inputLabel}>{isUk ? "Ваше ім'я" : 'Your Name'}</Text>
+                <Text style={styles.requiredStar}>*</Text>
+              </View>
               <Pressable
                 onPress={() => nameRef.current?.focus()}
-                style={styles.inputWrap}
+                style={[styles.inputWrap, nameError && styles.inputWrapError]}
               >
-                <Ionicons name="person-outline" size={20} color="#717B8A" style={styles.inputIcon} />
+                <Ionicons
+                  name="person-outline"
+                  size={20}
+                  color={nameError ? '#EF4444' : '#717B8A'}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   ref={nameRef}
                   editable={true}
@@ -141,12 +161,24 @@ export default function ParamsSetup() {
                   placeholder={isUk ? 'Як до вас звертатися?' : 'Enter your name'}
                   placeholderTextColor="#4E5A6C"
                   value={name}
-                  onChangeText={setName}
+                  onChangeText={(val) => {
+                    setName(val);
+                    if (nameError && val.trim().length >= 2) {
+                      setNameError(false);
+                    }
+                  }}
                   autoCapitalize="words"
                   returnKeyType="next"
                   onSubmitEditing={() => weightRef.current?.focus()}
                 />
               </Pressable>
+              {nameError && (
+                <Text style={styles.errorText}>
+                  {isUk
+                    ? "Будь ласка, введіть ваше ім'я (мінімум 2 символи)"
+                    : 'Please enter your name (at least 2 characters)'}
+                </Text>
+              )}
             </View>
 
             {/* Weight */}
@@ -209,10 +241,16 @@ export default function ParamsSetup() {
             onPress={handleContinue}
             style={({ pressed }) => [
               styles.continueBtn,
-              pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] },
+              !isNameValid && styles.continueBtnDisabled,
+              isNameValid && pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] },
             ]}
           >
-            <Text style={styles.continueBtnText}>
+            <Text
+              style={[
+                styles.continueBtnText,
+                !isNameValid && styles.continueBtnTextDisabled,
+              ]}
+            >
               {t('continue')}
             </Text>
           </Pressable>
@@ -275,6 +313,16 @@ const styles = StyleSheet.create({
   inputGroup: {
     gap: 8,
   },
+  inputLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  requiredStar: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '900',
+  },
   inputLabel: {
     color: '#CBD5E1',
     fontSize: 13,
@@ -290,6 +338,17 @@ const styles = StyleSheet.create({
     borderColor: '#1E2530',
     paddingHorizontal: 16,
     height: 54,
+  },
+  inputWrapError: {
+    borderColor: '#EF4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 6,
+    marginLeft: 4,
   },
   inputIcon: {
     marginRight: 12,
@@ -330,8 +389,10 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   continueBtnDisabled: {
-    backgroundColor: '#1E2530',
-    opacity: 0.45,
+    backgroundColor: '#161B22',
+    borderWidth: 1,
+    borderColor: '#212A38',
+    opacity: 0.7,
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -341,7 +402,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   continueBtnTextDisabled: {
-    color: '#717B8A',
+    color: '#64748B',
   },
 });
 

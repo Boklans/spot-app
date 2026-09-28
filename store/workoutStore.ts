@@ -32,7 +32,7 @@ export type OnboardingPatch = Partial<OnboardingData>;
 const KEY = 'spot-onboarding';
 
 export const defaultOnboarding: OnboardingData = {
-  name: 'Ihor',
+  name: '',
   avatar: 'gorilla',
   weightKg: 78,
   heightCm: 180,
