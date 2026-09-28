@@ -31,9 +31,13 @@ export function Button({
         pressed && styles.pressed,
       ]}
     >
-      <Text style={[styles.text, secondary && styles.secondaryText, textStyle]}>
-        {children}
-      </Text>
+      {typeof children === 'string' ? (
+        <Text style={[styles.text, secondary && styles.secondaryText, textStyle]}>
+          {children}
+        </Text>
+      ) : (
+        children
+      )}
     </Pressable>
   );
 }
@@ -42,6 +46,6 @@ const styles = StyleSheet.create({
   secondary: { backgroundColor: 'transparent' },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.72 },
-  text: { color: colors.background, fontSize: 16, fontWeight: '800', letterSpacing: 0.3, textAlign: 'center' },
-  secondaryText: { color: colors.secondary, fontWeight: '600', textAlign: 'center' },
+  text: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2, textAlign: 'center', includeFontPadding: false },
+  secondaryText: { color: colors.secondary, fontWeight: '600', textAlign: 'center', includeFontPadding: false },
 });

@@ -481,28 +481,33 @@ export default function Progress() {
               <>
                 {/* 3 Stats Row */}
                 <View style={styles.statsRow}>
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{workoutsCount}</Text>
-                <Text style={styles.statLabel}>{t('workouts')}</Text>
-              </View>
+                  <View style={styles.statCard}>
+                    <Text style={styles.statNumber} numberOfLines={1} adjustsFontSizeToFit>
+                      {workoutsCount}
+                    </Text>
+                    <Text style={styles.statLabel} numberOfLines={1}>
+                      {t('workouts')}
+                    </Text>
+                  </View>
 
-              <View style={styles.statCard}>
-                <Text
-                  style={[
-                    styles.statNumber,
-                    { color: hasHistory ? colors.primary : '#8E9BAE', fontSize: 18 },
-                  ]}
-                >
-                  {volumeDisplay}
-                </Text>
-                <Text style={styles.statLabel}>{t('volume')}</Text>
-              </View>
+                  <View style={styles.statCard}>
+                    <Text style={styles.statNumber} numberOfLines={1} adjustsFontSizeToFit>
+                      {volumeDisplay}
+                    </Text>
+                    <Text style={styles.statLabel} numberOfLines={1}>
+                      {t('volume')}
+                    </Text>
+                  </View>
 
-              <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{prsCount}</Text>
-                <Text style={styles.statLabel}>{t('prs')}</Text>
-              </View>
-            </View>
+                  <View style={styles.statCard}>
+                    <Text style={styles.statNumber} numberOfLines={1} adjustsFontSizeToFit>
+                      {prsCount}
+                    </Text>
+                    <Text style={styles.statLabel} numberOfLines={1}>
+                      {t('prs')}
+                    </Text>
+                  </View>
+                </View>
 
             {/* Exercise Selector Carousel */}
             {availableExercises.length > 0 && (
@@ -1294,22 +1299,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#12161D',
     borderRadius: 18,
-    paddingVertical: 16,
+    minHeight: 84,
+    paddingVertical: 14,
     paddingHorizontal: 12,
+    justifyContent: 'center',
+    gap: 6,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
   },
   statNumber: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
-    marginBottom: 4,
     fontVariant: ['tabular-nums'],
+    letterSpacing: -0.3,
   },
   statLabel: {
-    color: '#8E9BAE',
+    color: '#717B8A',
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   exerciseSelectorWrap: {
     marginBottom: 12,

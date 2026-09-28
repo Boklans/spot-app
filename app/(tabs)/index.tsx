@@ -575,7 +575,6 @@ export default function Home() {
 
             <View style={styles.completedStatsGrid}>
               <View style={styles.completedStatItem}>
-                <Ionicons name="time-outline" size={18} color={colors.primary} />
                 <Text style={styles.completedStatVal}>
                   {completedSummaryData.durationMinutes} {t('min')}
                 </Text>
@@ -583,7 +582,6 @@ export default function Home() {
               </View>
               <View style={styles.statDivider} />
               <View style={styles.completedStatItem}>
-                <MaterialCommunityIcons name="weight-kilogram" size={18} color={colors.primary} />
                 <Text style={styles.completedStatVal}>
                   {formatVolume(completedSummaryData.volume)}
                 </Text>
@@ -591,7 +589,6 @@ export default function Home() {
               </View>
               <View style={styles.statDivider} />
               <View style={styles.completedStatItem}>
-                <MaterialCommunityIcons name="dumbbell" size={18} color={colors.primary} />
                 <Text style={styles.completedStatVal}>
                   {completedSummaryData.exerciseCount}
                 </Text>
@@ -1473,16 +1470,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   completedStatVal: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
     fontVariant: ['tabular-nums'],
   },
   completedStatLbl: {
     fontSize: 10,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#717B8A',
-    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   statDivider: {
     width: 1,
@@ -1499,6 +1497,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0B0D0F',
     letterSpacing: 0.2,
+    includeFontPadding: false,
+    lineHeight: 20,
   },
   nextUpCard: {
     backgroundColor: '#12161D',
