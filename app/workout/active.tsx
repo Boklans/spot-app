@@ -190,6 +190,20 @@ export default function Active() {
     ? `${prevSetForActive.weight ? formatWithUnit(prevSetForActive.weight) : t('bodyweight')} × ${prevSetForActive.reps}`
     : null;
 
+  const prevWeight = prevSetForActive?.weight ?? 0;
+  const currentWeight = activeSet?.weight ?? 0;
+  const prevReps = prevSetForActive?.reps ?? 0;
+  const currentReps = activeSet?.reps ?? 0;
+
+  const prevDisplayWeight = fromKg(prevWeight);
+  const currentDisplayWeight = fromKg(currentWeight);
+  const weightDeltaDisplay = Math.round((currentDisplayWeight - prevDisplayWeight) * 10) / 10;
+  const repsDelta = currentReps - prevReps;
+
+  const hasWeightIncrease = prevWeight > 0 && weightDeltaDisplay > 0;
+  const hasRepsIncrease = prevReps > 0 && repsDelta > 0 && weightDeltaDisplay >= 0;
+  const isProgressed = hasWeightIncrease || hasRepsIncrease;
+
   const finishSet = async () => {
     if (finishing) return;
     hapticMedium();
@@ -316,21 +330,63 @@ export default function Active() {
 
             {prevContextText ? (
               <View style={styles.heroPrevContextPill}>
-                <Ionicons name="flash" size={13} color={colors.primary} style={{ marginRight: 4 }} />
+                <Ionicons name="time-outline" size={13} color="#9BA1A6" style={{ marginRight: 4 }} />
                 <Text style={styles.heroPrevContextText}>
                   {language === 'uk' ? 'Минуле' : 'Last'}: {prevContextText}
                 </Text>
               </View>
-            ) : null}
+            ) : (
+              <View style={styles.heroBaselinePill}>
+                <Ionicons name="sparkles" size={12} color={colors.primary} style={{ marginRight: 4 }} />
+                <Text style={styles.heroBaselineText}>
+                  {language === 'uk' ? 'Нова вправа' : 'New exercise'}
+                </Text>
+              </View>
+            )}
           </View>
+
+          {/* Progressive Overload Real-time Feedback Banner */}
+          {isProgressed ? (
+            <View style={styles.overloadHighlightBanner}>
+              <View style={styles.overloadPill}>
+                <Ionicons name="trending-up" size={13} color="#0B0D0F" />
+                <Text style={styles.overloadPillText}>
+                  {hasWeightIncrease
+                    ? `+${weightDeltaDisplay} ${unitLabel}`
+                    : `+${repsDelta} ${language === 'uk' ? 'повт' : 'reps'}`}
+                </Text>
+              </View>
+              <Text numberOfLines={1} style={styles.overloadSubText}>
+                {hasWeightIncrease && repsDelta > 0
+                  ? (language === 'uk' ? `+${weightDeltaDisplay} ${unitLabel} та +${repsDelta} повт до минулої сесії` : `+${weightDeltaDisplay} ${unitLabel} & +${repsDelta} reps vs last session`)
+                  : hasWeightIncrease
+                  ? (language === 'uk' ? `Прогресивне перевантаження ваги 🔥` : `Progressive weight overload 🔥`)
+                  : (language === 'uk' ? `Прогресія повторень з тою ж вагою ⚡` : `Reps overload at same weight ⚡`)}
+              </Text>
+            </View>
+          ) : prevSetForActive && currentWeight === prevWeight && currentReps === prevReps ? (
+            <View style={styles.matchedBanner}>
+              <Ionicons name="checkmark-circle-outline" size={13} color={colors.primary} />
+              <Text numberOfLines={1} style={styles.matchedSubText}>
+                {language === 'uk' ? 'Навантаження відповідає минулій сесії' : 'Weight & reps match previous session'}
+              </Text>
+            </View>
+          ) : null}
 
           {/* Steppers & Target Numbers Grid */}
           <View style={styles.heroControlsRow}>
             {/* Weight Stepper Control */}
             <View style={styles.heroControlBox}>
-              <Text style={styles.heroControlLabel}>
-                {t('weight')} ({unitLabel})
-              </Text>
+              <View style={styles.heroControlLabelRow}>
+                <Text style={styles.heroControlLabel}>
+                  {t('weight')} ({unitLabel})
+                </Text>
+                {hasWeightIncrease && (
+                  <View style={styles.deltaMicroBadge}>
+                    <Text style={styles.deltaMicroText}>+{weightDeltaDisplay}</Text>
+                  </View>
+                )}
+              </View>
               <View style={styles.stepperContainer}>
                 <Pressable
                   accessibilityRole="button"
@@ -375,7 +431,14 @@ export default function Active() {
 
             {/* Reps Stepper Control */}
             <View style={styles.heroControlBox}>
-              <Text style={styles.heroControlLabel}>{t('reps')}</Text>
+              <View style={styles.heroControlLabelRow}>
+                <Text style={styles.heroControlLabel}>{t('reps')}</Text>
+                {hasRepsIncrease && (
+                  <View style={styles.deltaMicroBadge}>
+                    <Text style={styles.deltaMicroText}>+{repsDelta}</Text>
+                  </View>
+                )}
+              </View>
               <View style={styles.stepperContainer}>
                 <Pressable
                   accessibilityRole="button"
@@ -438,6 +501,8 @@ export default function Active() {
               const prevSetText = prevForThisSet
                 ? `${prevForThisSet.weight ? format(prevForThisSet.weight) : (language === 'uk' ? 'ВТ' : 'BW')} × ${prevForThisSet.reps}`
                 : '—';
+              const setWeightIncreased = isDone && prevForThisSet && prevForThisSet.weight > 0 && (set.weight ?? 0) > prevForThisSet.weight;
+              const setRepsIncreased = isDone && prevForThisSet && (set.weight ?? 0) >= prevForThisSet.weight && (set.reps ?? 0) > prevForThisSet.reps;
 
               return (
                 <Pressable
@@ -464,12 +529,12 @@ export default function Active() {
                     {prevSetText}
                   </Text>
 
-                  <Text style={[styles.setColWeight, isCurrent && styles.textHighlight, isDone && styles.setColDoneText]}>
-                    {weightDisplay}
+                  <Text style={[styles.setColWeight, isCurrent && styles.textHighlight, isDone && styles.setColDoneText, setWeightIncreased && styles.textProgressionHighlight]}>
+                    {weightDisplay}{setWeightIncreased ? ' ↑' : ''}
                   </Text>
 
-                  <Text style={[styles.setColReps, isCurrent && styles.textHighlight, isDone && styles.setColDoneText]}>
-                    {set.reps}
+                  <Text style={[styles.setColReps, isCurrent && styles.textHighlight, isDone && styles.setColDoneText, setRepsIncreased && styles.textProgressionHighlight]}>
+                    {set.reps}{setRepsIncreased ? ' ↑' : ''}
                   </Text>
 
                   <Pressable
@@ -846,6 +911,71 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#B0BAC7',
   },
+  heroBaselinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#181E27',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+  },
+  heroBaselineText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  overloadHighlightBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    borderRadius: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.3)',
+    gap: 8,
+  },
+  overloadPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+  },
+  overloadPillText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#0B0D0F',
+    letterSpacing: 0.2,
+  },
+  overloadSubText: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#D8FF70',
+  },
+  matchedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 14,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  matchedSubText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8E99A8',
+  },
   heroControlsRow: {
     flexDirection: 'row',
     gap: 12,
@@ -858,13 +988,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.06)',
   },
+  heroControlLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
   heroControlLabel: {
     fontSize: 11,
     fontWeight: '800',
     color: '#717B8A',
     letterSpacing: 1,
     textAlign: 'center',
-    marginBottom: 8,
+  },
+  deltaMicroBadge: {
+    backgroundColor: 'rgba(200, 255, 61, 0.2)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.4)',
+  },
+  deltaMicroText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.primary,
   },
   stepperContainer: {
     flexDirection: 'row',
@@ -1028,6 +1177,10 @@ const styles = StyleSheet.create({
   },
   textHighlight: {
     color: '#FFFFFF',
+  },
+  textProgressionHighlight: {
+    color: colors.primary,
+    fontWeight: '900',
   },
   statusDoneBadge: {
     width: 32,

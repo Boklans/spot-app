@@ -17,6 +17,7 @@ import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useWeightUnit } from '@/lib/weightUtils';
+import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { getSessionSummary, useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { defaultOnboarding, loadOnboarding } from '@/store/workoutStore';
 
@@ -25,6 +26,8 @@ export default function Complete() {
   const { formatVolume } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
   const clearSession = useWorkoutSessionStore((state) => state.clearSession);
+  const workouts = useWorkoutHistoryStore((state) => state.workouts);
+  const loadHistory = useWorkoutHistoryStore((state) => state.loadHistory);
   const [, setName] = useState(defaultOnboarding.name);
   const [isStoriesModalVisible, setIsStoriesModalVisible] = useState(false);
 
@@ -32,7 +35,8 @@ export default function Complete() {
     loadOnboarding().then((data) => {
       if (data?.name) setName(data.name);
     });
-  }, []);
+    loadHistory();
+  }, [loadHistory]);
 
   if (!session) {
     return (
@@ -54,6 +58,23 @@ export default function Complete() {
   const summary = getSessionSummary(session);
   const prs = session.personalRecords ?? [];
 
+  // Find previous session of the same workout (excluding current session)
+  const previousWorkout = workouts.find(
+    (w) =>
+      w.id !== session.id &&
+      (w.programWorkoutId === session.programWorkoutId ||
+        w.workoutName.trim().toLowerCase() === session.workoutName.trim().toLowerCase())
+  );
+
+  const prevVolume = previousWorkout?.totalVolume ?? 0;
+  const currentVolume = summary.volume;
+  const hasPreviousSession = Boolean(previousWorkout);
+  const volumeDelta = hasPreviousSession ? currentVolume - prevVolume : 0;
+  const volumePercent =
+    hasPreviousSession && prevVolume > 0
+      ? Math.round(((volumeDelta / prevVolume) * 100) * 10) / 10
+      : 0;
+
   const handleFinish = () => {
     hapticMedium();
     clearSession();
@@ -72,15 +93,19 @@ export default function Complete() {
         ? `\n🏆 ${language === 'uk' ? 'Нові рекорди' : 'New PRs'}:\n` + prs.map((p) => `• ${te(p.exerciseName)}: ${p.label}`).join('\n')
         : '';
 
+      const surgeShareText = hasPreviousSession && volumeDelta > 0
+        ? `\n📈 ${language === 'uk' ? 'Прогрес об\'єму' : 'Volume surge'}: +${formatVolume(volumeDelta)} (+${volumePercent}%)`
+        : '';
+
       const message = language === 'uk'
         ? `🔥 Щойно завершив тренування "${tw(session.workoutName)}" у SPOT!\n\n` +
           `⏱️ Тривалість: ${summary.durationMinutes} хв\n` +
-          `🏋️ Тоннаж: ${formatVolume(summary.volume)}\n` +
+          `🏋️ Тоннаж: ${formatVolume(summary.volume)}${surgeShareText}\n` +
           `📊 Підходів: ${summary.completedSets}${prsText}\n\n` +
           `Тренуйся розумніше зі SPOT 💪`
         : `🔥 Just crushed "${tw(session.workoutName)}" on SPOT!\n\n` +
           `⏱️ Duration: ${summary.durationMinutes} min\n` +
-          `🏋️ Volume: ${formatVolume(summary.volume)}\n` +
+          `🏋️ Volume: ${formatVolume(summary.volume)}${surgeShareText}\n` +
           `📊 Sets: ${summary.completedSets}${prsText}\n\n` +
           `Train smarter with SPOT 💪`;
 
@@ -157,12 +182,55 @@ export default function Complete() {
           </View>
         </View>
 
-        {/* 4. Volume Card */}
+        {/* 4. Volume Card with Progression Delta */}
         <View style={styles.volumeCard}>
-          <Text style={styles.volumeValue}>
-            {formatVolume(summary.volume)}
-          </Text>
+          <View style={styles.volumeValueRow}>
+            <Text style={styles.volumeValue}>
+              {formatVolume(summary.volume)}
+            </Text>
+            {hasPreviousSession && volumeDelta > 0 ? (
+              <View style={styles.volumeSurgeBadge}>
+                <Ionicons name="trending-up" size={13} color="#0B0D0F" />
+                <Text style={styles.volumeSurgeBadgeText}>
+                  +{formatVolume(volumeDelta)}
+                </Text>
+              </View>
+            ) : null}
+          </View>
           <Text style={styles.volumeLabel}>{t('volume')}</Text>
+
+          {/* Volume Comparison Sub-Banner */}
+          {hasPreviousSession ? (
+            <View style={styles.volumeComparisonRow}>
+              <Ionicons
+                name={volumeDelta > 0 ? 'flame' : volumeDelta < 0 ? 'shield-checkmark-outline' : 'checkmark-circle-outline'}
+                size={14}
+                color={volumeDelta > 0 ? colors.primary : volumeDelta < 0 ? '#8E99A8' : colors.primary}
+              />
+              <Text style={styles.volumeComparisonText}>
+                {volumeDelta > 0
+                  ? (language === 'uk'
+                    ? `+${volumePercent}% навантаження порівняно з минулим "${tw(previousWorkout?.workoutName || '')}"`
+                    : `+${volumePercent}% volume vs previous "${tw(previousWorkout?.workoutName || '')}"`)
+                  : volumeDelta === 0
+                  ? (language === 'uk'
+                    ? `Тоннаж відповідає минулому тренуванню`
+                    : `Volume matched previous workout`)
+                  : (language === 'uk'
+                    ? `${volumePercent}% тоннажу (відновлювальне навантаження)`
+                    : `${volumePercent}% volume (recovery session)`)}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.volumeComparisonRow}>
+              <Ionicons name="sparkles" size={13} color={colors.primary} />
+              <Text style={styles.volumeComparisonText}>
+                {language === 'uk'
+                  ? 'Базовий тоннаж зафіксовано для відстеження прогресу'
+                  : 'Baseline volume recorded for progressive overload tracking'}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* 5. Personal Records / Baseline Card */}
@@ -313,6 +381,14 @@ export default function Complete() {
                 <Text style={styles.storyHeroVolumeLabel}>
                   {language === 'uk' ? 'ЗАГАЛЬНИЙ ТОННАЖ' : 'TOTAL VOLUME'}
                 </Text>
+                {hasPreviousSession && volumeDelta > 0 ? (
+                  <View style={styles.storySurgePill}>
+                    <Ionicons name="trending-up" size={12} color="#0B0D0F" style={{ marginRight: 3 }} />
+                    <Text style={styles.storySurgePillText}>
+                      +{formatVolume(volumeDelta)} (+{volumePercent}%)
+                    </Text>
+                  </View>
+                ) : null}
               </View>
 
               {/* Tri-Metric Row */}
@@ -488,23 +564,78 @@ const styles = StyleSheet.create({
     maxWidth: 350,
     backgroundColor: '#12161D',
     borderRadius: 20,
-    paddingVertical: 20,
+    paddingVertical: 18,
     paddingHorizontal: 20,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
     marginBottom: 16,
+  },
+  volumeValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  volumeSurgeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 4,
+  },
+  volumeSurgeBadgeText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#0B0D0F',
+    letterSpacing: 0.3,
   },
   volumeValue: {
     color: '#FFFFFF',
     fontSize: 26,
     fontWeight: '900',
     letterSpacing: 0.5,
-    marginBottom: 4,
   },
   volumeLabel: {
     color: '#8E9BAE',
     fontSize: 12,
     fontWeight: '600',
+  },
+  volumeComparisonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginTop: 12,
+    gap: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  volumeComparisonText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B0BAC7',
+    lineHeight: 16,
+  },
+  storySurgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginTop: 8,
+    alignSelf: 'center',
+  },
+  storySurgePillText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#0B0D0F',
+    letterSpacing: 0.3,
   },
   prsCard: {
     width: '100%',
