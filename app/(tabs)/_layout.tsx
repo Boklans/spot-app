@@ -17,8 +17,8 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={({ route }) => ({
         headerShown: false,
-        lazy: false,
-        detachInactiveScreens: false,
+        animation: 'none',
+        sceneContainerStyle: { backgroundColor: colors.background },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {

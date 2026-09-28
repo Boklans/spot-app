@@ -5,12 +5,12 @@ import {
   Dimensions,
   InteractionManager,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NeonLineChart } from '@/components/progress/NeonLineChart';
 import {
   RealStrengthGraph,
@@ -349,7 +349,7 @@ export default function Progress() {
   }, [bodyWeightEntries, profile.weightKg]);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       {/* 1. Header with Period Dropdown */}
       <View style={styles.header}>
         <Text style={styles.title}>{t('analytics')}</Text>

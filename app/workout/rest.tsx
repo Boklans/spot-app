@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   AppState,
@@ -121,27 +121,13 @@ export default function Rest() {
     }
   }, [seconds]);
 
-  if (!session) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>{t('noActiveWorkout')}</Text>
-          <Button onPress={() => router.replace('/(tabs)')}>{t('backToHome')}</Button>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const continueWorkout = () => {
-    hapticMedium();
-    cancelRestTimerNotification();
-    skipRest();
-    router.replace('/workout/active');
-  };
-
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     hapticLight();
     cancelRestTimerNotification();
+    if (!session) {
+      router.replace('/(tabs)');
+      return;
+    }
     const hasCompletedSets = session.exercises.some((e) =>
       e.sets.some((s) => s.completed)
     );
@@ -183,7 +169,7 @@ export default function Rest() {
         },
       ]
     );
-  };
+  }, [session, language]);
 
   useEffect(() => {
     const onBackPress = () => {
@@ -194,10 +180,28 @@ export default function Rest() {
     return () => sub.remove();
   }, [handleBack]);
 
+  const continueWorkout = () => {
+    hapticMedium();
+    cancelRestTimerNotification();
+    skipRest();
+    router.replace('/workout/active');
+  };
+
   const handleAdd30 = () => {
     hapticLight();
     addRestTime(30);
   };
+
+  if (!session) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyTitle}>{t('noActiveWorkout')}</Text>
+          <Button onPress={() => router.replace('/(tabs)')}>{t('backToHome')}</Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const minutes = Math.floor(seconds / 60)
     .toString()

@@ -7,13 +7,13 @@ import {
   Alert,
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { EditProfileModal } from '@/components/profile/EditProfileModal';
 import { PreferencePickerModal } from '@/components/profile/PreferencePickerModal';
@@ -334,7 +334,7 @@ export default function Profile() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
