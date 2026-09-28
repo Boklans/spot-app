@@ -4,18 +4,21 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
 import { getExerciseImage } from '@/lib/exerciseImages';
-import { hapticImpact, hapticMedium } from '@/lib/haptics';
+import { hapticImpact, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import {
   calibrateInitialWeight,
@@ -29,11 +32,11 @@ import { useProgramStore } from '@/store/programStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { loadOnboarding, type OnboardingData } from '@/store/workoutStore';
-import type { UserExercise, UserProgram } from '@/types/userProgram';
+import type { UserExercise, UserProgram, UserWorkout } from '@/types/userProgram';
 import { ExercisePickerModal } from '@/components/program/ExercisePickerModal';
+import { WorkoutEditorModal } from '@/components/program/WorkoutEditorModal';
 import type { LibraryExercise } from '@/lib/exerciseLibrary';
 import { generateUUID } from '@/lib/programMigration';
-import { hapticSuccess } from '@/lib/haptics';
 
 function getExerciseIcon(name: string): keyof typeof MaterialCommunityIcons.glyphMap {
   const lower = name.toLowerCase();
@@ -46,7 +49,7 @@ function getExerciseIcon(name: string): keyof typeof MaterialCommunityIcons.glyp
 
 export default function WorkoutPreview() {
   const { t, tm, td, te, tw, language } = useI18n();
-  const { formatWithUnit } = useWeightUnit();
+  const { unit, unitLabel, format, formatWithUnit, fromKg, toKg } = useWeightUnit();
   const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
   const initializeSession = useWorkoutSessionStore((state) => state.initializeSession);
   const activeSession = useWorkoutSessionStore((state) => state.session);
@@ -60,6 +63,14 @@ export default function WorkoutPreview() {
   const [swapModalVisible, setSwapModalVisible] = useState(false);
   const [exerciseToSwap, setExerciseToSwap] = useState<UserExercise | null>(null);
   const [isAddPickerVisible, setIsAddPickerVisible] = useState(false);
+  const [isWorkoutEditorVisible, setIsWorkoutEditorVisible] = useState(false);
+
+  // Quick Exercise Config state
+  const [configExercise, setConfigExercise] = useState<UserExercise | null>(null);
+  const [configSets, setConfigSets] = useState(3);
+  const [configWeightText, setConfigWeightText] = useState('0');
+  const [configRepRange, setConfigRepRange] = useState('8-10');
+  const [configRestSeconds, setConfigRestSeconds] = useState(90);
 
   useEffect(() => {
     useProgramStore.getState().loadProgram();
@@ -172,6 +183,98 @@ export default function WorkoutPreview() {
     hapticSuccess();
   };
 
+  const handleSaveWorkoutFromEditor = async (updatedWorkout: UserWorkout) => {
+    if (!program) return;
+    const nextWorkouts = program.workouts.map((w) =>
+      w.id === updatedWorkout.id ? updatedWorkout : w
+    );
+    const updatedProgram: UserProgram = {
+      ...program,
+      splitType: 'custom',
+      workouts: nextWorkouts,
+    };
+    await updateUserProgram(updatedProgram);
+    setIsWorkoutEditorVisible(false);
+    hapticSuccess();
+  };
+
+  const handleOpenExerciseConfig = (ex: UserExercise) => {
+    hapticLight();
+    setConfigExercise(ex);
+    setConfigSets(ex.sets || 3);
+    const displayW = fromKg(ex.recommendedWeight || 0);
+    setConfigWeightText(formatWeight(displayW));
+    setConfigRepRange(ex.targetRepRange || '8-10');
+    setConfigRestSeconds(ex.restSeconds || 90);
+  };
+
+  const handleSaveExerciseConfig = async () => {
+    if (!configExercise || !workout || !program) return;
+    hapticMedium();
+
+    const parsedWeight = parseFloat(configWeightText.replace(',', '.'));
+    const validWeight = !isNaN(parsedWeight) && parsedWeight >= 0 ? parsedWeight : 0;
+    const weightInKg = toKg(validWeight);
+
+    const updatedExercises = workout.exercises.map((ex) =>
+      ex.id === configExercise.id
+        ? {
+            ...ex,
+            sets: Math.max(1, Math.min(12, configSets)),
+            recommendedWeight: Math.round(weightInKg * 100) / 100,
+            targetRepRange: configRepRange,
+            restSeconds: configRestSeconds,
+          }
+        : ex
+    );
+
+    const updatedWorkout = { ...workout, exercises: updatedExercises };
+    const updatedProgram: UserProgram = {
+      ...program,
+      splitType: 'custom',
+      workouts: program.workouts.map((w) => (w.id === workout.id ? updatedWorkout : w)),
+    };
+
+    await updateUserProgram(updatedProgram);
+    setConfigExercise(null);
+    hapticSuccess();
+  };
+
+  const handleDeleteExerciseFromConfig = () => {
+    if (!configExercise || !workout || !program) return;
+    Alert.alert(
+      language === 'uk' ? 'Видалити вправу?' : 'Remove Exercise?',
+      `${language === 'uk' ? 'Видалити' : 'Remove'} ${te(configExercise.name)} ${language === 'uk' ? 'з цього тренування?' : 'from this workout?'}`,
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: language === 'uk' ? 'Видалити' : 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            hapticMedium();
+            const updatedExercises = workout.exercises.filter((ex) => ex.id !== configExercise.id);
+            const updatedWorkout = { ...workout, exercises: updatedExercises };
+            const updatedProgram: UserProgram = {
+              ...program,
+              splitType: 'custom',
+              workouts: program.workouts.map((w) => (w.id === workout.id ? updatedWorkout : w)),
+            };
+            await updateUserProgram(updatedProgram);
+            setConfigExercise(null);
+            hapticSuccess();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSwapFromConfig = () => {
+    if (!configExercise) return;
+    const ex = configExercise;
+    setConfigExercise(null);
+    handleOpenSwapModal(ex);
+  };
+
   // Calculate readiness percentage for this workout's muscle groups
   const readinessPercent = useMemo(() => {
     if (!workout) return 85;
@@ -246,10 +349,11 @@ export default function WorkoutPreview() {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Edit routine"
+          accessibilityLabel="Edit workout day"
+          hitSlop={8}
           onPress={() => {
             hapticMedium();
-            router.push('/program/edit');
+            setIsWorkoutEditorVisible(true);
           }}
           style={({ pressed }) => [styles.navBtn, pressed && { opacity: 0.6 }]}
         >
@@ -284,9 +388,19 @@ export default function WorkoutPreview() {
         {/* Exercises Section Header */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>{t('exercises')}</Text>
-          <Text style={styles.sectionMeta}>
-            {workout.exercises.length} • ~{workout.estimatedMinutes} {t('min')}
-          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              hapticLight();
+              setIsWorkoutEditorVisible(true);
+            }}
+            style={styles.editDayLink}
+          >
+            <Ionicons name="create-outline" size={13} color={colors.primary} style={{ marginRight: 4 }} />
+            <Text style={styles.editDayLinkText}>
+              {language === 'uk' ? 'Редагувати день' : 'Edit Day'}
+            </Text>
+          </Pressable>
         </View>
 
         {/* Exercise Cards List */}
@@ -297,7 +411,16 @@ export default function WorkoutPreview() {
               : t('bodyweight');
 
             return (
-              <View key={exercise.id || `${exercise.name}-${index}`} style={styles.exerciseCard}>
+              <Pressable
+                key={exercise.id || `${exercise.name}-${index}`}
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${exercise.name}`}
+                onPress={() => handleOpenExerciseConfig(exercise)}
+                style={({ pressed }) => [
+                  styles.exerciseCard,
+                  pressed && styles.exerciseCardPressed,
+                ]}
+              >
                 <View style={styles.exerciseThumbWrap}>
                   <Image
                     source={getExerciseImage(exercise.name)}
@@ -306,24 +429,30 @@ export default function WorkoutPreview() {
                   />
                 </View>
                 <View style={styles.exerciseInfoCol}>
-                  <Text style={styles.exerciseName}>{te(exercise.name)}</Text>
+                  <Text numberOfLines={1} style={styles.exerciseName}>{te(exercise.name)}</Text>
                   <Text style={styles.exerciseMeta}>
-                    {exercise.sets} {t('sets').toLowerCase()} • {weightLabel}
+                    {exercise.sets} {t('sets').toLowerCase()} • {weightLabel} • {exercise.targetRepRange || '8-10'}
                   </Text>
                 </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Замінити вправу"
-                  hitSlop={8}
-                  onPress={() => handleOpenSwapModal(exercise)}
-                  style={({ pressed }) => [styles.swapBtn, pressed && { opacity: 0.7 }]}
-                >
-                  <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
-                  <Text style={styles.swapBtnText}>
-                    {language === 'uk' ? 'Замінити' : 'Swap'}
-                  </Text>
-                </Pressable>
-              </View>
+                <View style={styles.cardActionsRight}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Замінити вправу"
+                    hitSlop={8}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleOpenSwapModal(exercise);
+                    }}
+                    style={({ pressed }) => [styles.swapBtn, pressed && { opacity: 0.7 }]}
+                  >
+                    <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
+                    <Text style={styles.swapBtnText}>
+                      {language === 'uk' ? 'Замінити' : 'Swap'}
+                    </Text>
+                  </Pressable>
+                  <Ionicons name="chevron-forward" size={16} color="#6C7A8E" style={{ marginLeft: 6 }} />
+                </View>
+              </Pressable>
             );
           })}
 
@@ -440,6 +569,247 @@ export default function WorkoutPreview() {
         visible={isAddPickerVisible}
         onClose={() => setIsAddPickerVisible(false)}
         onSelect={handleAddExercise}
+      />
+
+      {/* Quick Exercise Config Bottom Sheet */}
+      <Modal
+        visible={configExercise !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setConfigExercise(null)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <Pressable style={styles.modalOverlayDismiss} onPress={() => setConfigExercise(null)} />
+          <View style={styles.configSheet}>
+            {/* Sheet Header */}
+            <View style={styles.configHeader}>
+              {configExercise && (
+                <View style={styles.configThumbWrap}>
+                  <Image
+                    source={getExerciseImage(configExercise.name)}
+                    style={styles.configThumb}
+                    resizeMode="cover"
+                  />
+                </View>
+              )}
+              <View style={styles.configInfoCol}>
+                <Text numberOfLines={1} style={styles.configExerciseTitle}>
+                  {configExercise ? te(configExercise.name) : ''}
+                </Text>
+                <Text style={styles.configExerciseSub}>
+                  {configExercise ? tm(configExercise.muscleGroup) : ''}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setConfigExercise(null)}
+                hitSlop={10}
+                style={styles.configCloseBtn}
+              >
+                <Ionicons name="close" size={22} color="#8E959F" />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.configBody}>
+              {/* 1. Sets Stepper */}
+              <View style={styles.configSection}>
+                <Text style={styles.configSectionLabel}>
+                  {language === 'uk' ? 'КІЛЬКІСТЬ ПІДХОДІВ' : 'NUMBER OF SETS'}
+                </Text>
+                <View style={styles.configStepperRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Decrease sets"
+                    hitSlop={8}
+                    onPress={() => {
+                      hapticLight();
+                      setConfigSets((s) => Math.max(1, s - 1));
+                    }}
+                    style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
+                  >
+                    <Ionicons name="remove" size={22} color="#FFFFFF" />
+                  </Pressable>
+
+                  <View style={styles.configStepValueBox}>
+                    <Text style={styles.configStepValueText}>{configSets}</Text>
+                    <Text style={styles.configStepValueSub}>
+                      {language === 'uk' ? 'підходи' : 'sets'}
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Increase sets"
+                    hitSlop={8}
+                    onPress={() => {
+                      hapticLight();
+                      setConfigSets((s) => Math.min(10, s + 1));
+                    }}
+                    style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
+                  >
+                    <Ionicons name="add" size={22} color="#FFFFFF" />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* 2. Target Weight */}
+              <View style={styles.configSection}>
+                <Text style={styles.configSectionLabel}>
+                  {language === 'uk' ? 'ЦІЛЬОВА ВАГА' : 'TARGET WEIGHT'} ({unitLabel})
+                </Text>
+                <View style={styles.configStepperRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Decrease weight 0.5"
+                    hitSlop={8}
+                    onPress={() => {
+                      hapticLight();
+                      const current = parseFloat(configWeightText.replace(',', '.')) || 0;
+                      const next = Math.max(0, Math.round((current - (unit === 'lbs' ? 1 : 0.5)) * 10) / 10);
+                      setConfigWeightText(formatWeight(next));
+                    }}
+                    style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
+                  >
+                    <Ionicons name="remove" size={22} color="#FFFFFF" />
+                  </Pressable>
+
+                  <View style={styles.configWeightInputWrap}>
+                    <TextInput
+                      style={styles.configWeightInput}
+                      keyboardType="numeric"
+                      value={configWeightText}
+                      onChangeText={setConfigWeightText}
+                      placeholder="0"
+                      placeholderTextColor="#6C7A8E"
+                      selectTextOnFocus
+                    />
+                    <Text style={styles.configWeightInputUnit}>{unitLabel}</Text>
+                  </View>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Increase weight 0.5"
+                    hitSlop={8}
+                    onPress={() => {
+                      hapticLight();
+                      const current = parseFloat(configWeightText.replace(',', '.')) || 0;
+                      const next = Math.round((current + (unit === 'lbs' ? 1 : 0.5)) * 10) / 10;
+                      setConfigWeightText(formatWeight(next));
+                    }}
+                    style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
+                  >
+                    <Ionicons name="add" size={22} color="#FFFFFF" />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* 3. Rep Range */}
+              <View style={styles.configSection}>
+                <Text style={styles.configSectionLabel}>
+                  {language === 'uk' ? 'ДІАПАЗОН ПОВТОРЕНЬ' : 'TARGET REP RANGE'}
+                </Text>
+                <View style={styles.configPillsRow}>
+                  {['6-8', '8-10', '10-12', '12-15', '15-20'].map((range) => {
+                    const isSelected = configRepRange === range;
+                    return (
+                      <Pressable
+                        key={range}
+                        onPress={() => {
+                          hapticLight();
+                          setConfigRepRange(range);
+                        }}
+                        style={[styles.configPill, isSelected && styles.configPillActive]}
+                      >
+                        <Text style={[styles.configPillText, isSelected && styles.configPillTextActive]}>
+                          {range}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* 4. Rest Timer */}
+              <View style={styles.configSection}>
+                <Text style={styles.configSectionLabel}>
+                  {language === 'uk' ? 'ЧАС ВІДПОЧИНКУ' : 'REST INTERVAL'}
+                </Text>
+                <View style={styles.configPillsRow}>
+                  {[
+                    { sec: 60, label: '60s' },
+                    { sec: 90, label: '90s' },
+                    { sec: 120, label: '2m' },
+                    { sec: 180, label: '3m' },
+                  ].map((r) => {
+                    const isSelected = configRestSeconds === r.sec;
+                    return (
+                      <Pressable
+                        key={r.sec}
+                        onPress={() => {
+                          hapticLight();
+                          setConfigRestSeconds(r.sec);
+                        }}
+                        style={[styles.configPill, isSelected && styles.configPillActive]}
+                      >
+                        <Text style={[styles.configPillText, isSelected && styles.configPillTextActive]}>
+                          {r.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* 5. Main Action Button */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Save exercise changes"
+                onPress={handleSaveExerciseConfig}
+                style={({ pressed }) => [styles.configSaveBtn, pressed && styles.configSaveBtnPressed]}
+              >
+                <Ionicons name="checkmark" size={18} color="#0B0D0F" style={{ marginRight: 6 }} />
+                <Text style={styles.configSaveBtnText}>
+                  {language === 'uk' ? 'ЗБЕРЕГТИ ЗМІНИ' : 'SAVE CHANGES'}
+                </Text>
+              </Pressable>
+
+              {/* 6. Secondary Swap & Remove Actions */}
+              <View style={styles.configSecondaryRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleSwapFromConfig}
+                  style={styles.configSecondaryBtn}
+                >
+                  <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
+                  <Text style={styles.configSecondaryBtnText}>
+                    {language === 'uk' ? 'Замінити вправу' : 'Swap Exercise'}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleDeleteExerciseFromConfig}
+                  style={[styles.configSecondaryBtn, styles.configDeleteBtn]}
+                >
+                  <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                  <Text style={styles.configDeleteBtnText}>
+                    {language === 'uk' ? 'Видалити' : 'Remove'}
+                  </Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Full Workout Editor Modal */}
+      <WorkoutEditorModal
+        visible={isWorkoutEditorVisible}
+        workout={workout}
+        onSaveWorkout={handleSaveWorkoutFromEditor}
+        onClose={() => setIsWorkoutEditorVisible(false)}
       />
 
       {/* Sticky Bottom CTA Button */}
@@ -723,5 +1093,238 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
     fontWeight: '700',
+  },
+  editDayLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+  },
+  editDayLinkText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  cardActionsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  exerciseCardPressed: {
+    opacity: 0.85,
+    borderColor: 'rgba(200, 255, 61, 0.3)',
+  },
+  modalOverlayDismiss: {
+    ...StyleSheet.absoluteFill,
+  },
+  configSheet: {
+    backgroundColor: '#15191F',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
+    borderWidth: 1,
+    borderColor: '#242B35',
+    maxHeight: '85%',
+  },
+  configHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#242B35',
+    marginBottom: 16,
+  },
+  configThumbWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: '#0E1115',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#242B35',
+  },
+  configThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  configInfoCol: {
+    flex: 1,
+  },
+  configExerciseTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  configExerciseSub: {
+    fontSize: 13,
+    color: '#8E959F',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  configCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1E242D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  configBody: {
+    flexShrink: 1,
+  },
+  configSection: {
+    marginBottom: 18,
+  },
+  configSectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#8E959F',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  configStepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  configStepBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#1A212D',
+    borderWidth: 1,
+    borderColor: '#242B35',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  configStepBtnPressed: {
+    backgroundColor: '#242B35',
+  },
+  configStepValueBox: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#0E1115',
+    borderWidth: 1,
+    borderColor: '#242B35',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  configStepValueText: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  configStepValueSub: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E959F',
+  },
+  configWeightInputWrap: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#0E1115',
+    borderWidth: 1,
+    borderColor: '#242B35',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+  },
+  configWeightInput: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    minWidth: 50,
+    paddingVertical: 0,
+  },
+  configWeightInputUnit: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+    marginLeft: 4,
+  },
+  configPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  configPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: '#1A212D',
+    borderWidth: 1,
+    borderColor: '#242B35',
+  },
+  configPillActive: {
+    backgroundColor: 'rgba(200, 255, 61, 0.15)',
+    borderColor: colors.primary,
+  },
+  configPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#8E959F',
+  },
+  configPillTextActive: {
+    color: colors.primary,
+  },
+  configSaveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: 14,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  configSaveBtnPressed: {
+    opacity: 0.85,
+  },
+  configSaveBtnText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0B0D0F',
+    letterSpacing: 0.3,
+  },
+  configSecondaryRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 8,
+  },
+  configSecondaryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#1A212D',
+    borderWidth: 1,
+    borderColor: '#242B35',
+    borderRadius: 12,
+    paddingVertical: 11,
+  },
+  configSecondaryBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  configDeleteBtn: {
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
+  configDeleteBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#EF4444',
   },
 });
