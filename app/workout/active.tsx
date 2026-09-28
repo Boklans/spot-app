@@ -398,24 +398,12 @@ export default function Active() {
                   <Ionicons name="remove" size={20} color="#FFFFFF" />
                 </Pressable>
 
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit weight"
-                  hitSlop={6}
-                  onPress={() => {
-                    hapticLight();
-                    router.push({
-                      pathname: '/workout/input',
-                      params: { setIndex: String(session.currentSetIndex) },
-                    });
-                  }}
-                  style={({ pressed }) => [styles.heroValueBtn, pressed && styles.heroValueBtnPressed]}
-                >
+                <View style={styles.heroValueBtn}>
                   <Text style={styles.heroValueText}>
                     {activeSet?.weight ? format(activeSet.weight) : (language === 'uk' ? 'ВТ' : 'BW')}
                   </Text>
                   {activeSet?.weight ? <Text style={styles.heroValueSub}>{unitLabel}</Text> : null}
-                </Pressable>
+                </View>
 
                 <Pressable
                   accessibilityRole="button"
@@ -450,22 +438,10 @@ export default function Active() {
                   <Ionicons name="remove" size={20} color="#FFFFFF" />
                 </Pressable>
 
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit reps"
-                  hitSlop={6}
-                  onPress={() => {
-                    hapticLight();
-                    router.push({
-                      pathname: '/workout/input',
-                      params: { setIndex: String(session.currentSetIndex) },
-                    });
-                  }}
-                  style={({ pressed }) => [styles.heroValueBtn, pressed && styles.heroValueBtnPressed]}
-                >
+                <View style={styles.heroValueBtn}>
                   <Text style={styles.heroValueText}>{activeSet?.reps ?? 8}</Text>
                   <Text style={styles.heroValueSub}>{language === 'uk' ? 'повт' : 'reps'}</Text>
-                </Pressable>
+                </View>
 
                 <Pressable
                   accessibilityRole="button"
@@ -508,17 +484,16 @@ export default function Active() {
                 <Pressable
                   key={set.id || index}
                   onPress={() => {
-                    hapticLight();
-                    router.push({
-                      pathname: '/workout/input',
-                      params: { setIndex: String(index) },
-                    });
+                    if (!isDone && !isCurrent) {
+                      hapticLight();
+                      useWorkoutSessionStore.getState().setCurrentSetIndex(index);
+                    }
                   }}
                   style={({ pressed }) => [
                     styles.setRow,
                     isCurrent && styles.setRowActive,
                     isDone && styles.setRowDone,
-                    pressed && { opacity: 0.8 },
+                    !isDone && pressed && { opacity: 0.8 },
                   ]}
                 >
                   <Text style={[styles.setColNum, isCurrent && styles.textHighlight, isDone && styles.setColDoneText]}>
@@ -544,12 +519,9 @@ export default function Active() {
                     onPress={() => {
                       if (isCurrent) {
                         finishSet();
-                      } else {
+                      } else if (!isDone) {
                         hapticLight();
-                        router.push({
-                          pathname: '/workout/input',
-                          params: { setIndex: String(index) },
-                        });
+                        useWorkoutSessionStore.getState().setCurrentSetIndex(index);
                       }
                     }}
                     style={styles.setColStatus}
@@ -570,6 +542,43 @@ export default function Active() {
               );
             })}
           </View>
+
+          {/* Add / Remove Set Row */}
+          <View style={styles.tableFooterActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add set"
+              hitSlop={8}
+              onPress={() => {
+                hapticLight();
+                useWorkoutSessionStore.getState().addSet(session.currentExerciseIndex);
+              }}
+              style={({ pressed }) => [styles.tableAddSetBtn, pressed && { opacity: 0.7 }]}
+            >
+              <Ionicons name="add-circle-outline" size={17} color={colors.primary} />
+              <Text style={styles.tableAddSetText}>
+                {language === 'uk' ? 'Додати підхід' : 'Add set'}
+              </Text>
+            </Pressable>
+
+            {exercise.sets.length > 1 && !exercise.sets[exercise.sets.length - 1].completed && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Remove set"
+                hitSlop={8}
+                onPress={() => {
+                  hapticLight();
+                  useWorkoutSessionStore.getState().removeSet(session.currentExerciseIndex);
+                }}
+                style={({ pressed }) => [styles.tableRemoveSetBtn, pressed && { opacity: 0.7 }]}
+              >
+                <Ionicons name="remove-circle-outline" size={17} color="#8E99A8" />
+                <Text style={styles.tableRemoveSetText}>
+                  {language === 'uk' ? 'Видалити підхід' : 'Remove set'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
         </View>
       </ScrollView>
 
@@ -586,14 +595,6 @@ export default function Active() {
             ? t('finishWorkout')
             : t('completeSet')}
         </Button>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push('/workout/input')}
-          style={({ pressed }) => [styles.adjustBtn, pressed && { opacity: 0.7 }]}
-        >
-          <Text style={styles.adjustBtnText}>{t('adjustWeightReps')}</Text>
-        </Pressable>
       </View>
 
       {/* 6. Exercise Swap Modal */}
@@ -1235,15 +1236,38 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 5,
   },
-  adjustBtn: {
+  tableFooterActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    marginTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  tableAddSetBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
+    paddingHorizontal: 6,
+    gap: 6,
   },
-  adjustBtnText: {
+  tableAddSetText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#8E959F',
-    letterSpacing: 0.5,
+    color: colors.primary,
+  },
+  tableRemoveSetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    gap: 6,
+  },
+  tableRemoveSetText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E99A8',
   },
   emptyWrap: {
     flex: 1,

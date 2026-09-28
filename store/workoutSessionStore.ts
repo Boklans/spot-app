@@ -72,6 +72,9 @@ type WorkoutSessionState = {
   addRestTime: (seconds: number) => void;
   skipRest: () => void;
   swapExercise: (newExercise: { name: string; muscleGroup: string; defaultWeight?: number }) => void;
+  setCurrentSetIndex: (setIndex: number) => void;
+  addSet: (exerciseIndex: number) => void;
+  removeSet: (exerciseIndex: number) => void;
   clearSession: () => void;
 };
 
@@ -326,11 +329,106 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
               ? exercise
               : {
                   ...exercise,
-                  sets: exercise.sets.map((workoutSet, sIdx) =>
-                    sIdx !== setIndex ? workoutSet : { ...workoutSet, ...values },
-                  ),
+                  sets: exercise.sets.map((workoutSet, sIdx) => {
+                    // Update target set
+                    if (sIdx === setIndex) {
+                      return { ...workoutSet, ...values };
+                    }
+                    // Forward-propagate weight and reps to subsequent uncompleted sets!
+                    if (sIdx > setIndex && !workoutSet.completed) {
+                      return { ...workoutSet, ...values };
+                    }
+                    return workoutSet;
+                  }),
                 },
           ),
+        },
+      };
+    });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
+  },
+
+  setCurrentSetIndex: (setIndex) => {
+    set((state) => {
+      if (!state.session) return state;
+      const exercise = state.session.exercises[state.session.currentExerciseIndex];
+      if (!exercise) return state;
+      const bounded = Math.max(0, Math.min(exercise.sets.length - 1, setIndex));
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          currentSetIndex: bounded,
+        },
+      };
+    });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session && !state.session.completed) {
+      persistSnapshot({
+        session: state.session,
+        restEndsAt: state.restEndsAt,
+        restNextType: state.restNextType,
+      });
+    }
+  },
+
+  addSet: (exerciseIndex) => {
+    set((state) => {
+      if (!state.session) return state;
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          exercises: state.session.exercises.map((exercise, exIdx) => {
+            if (exIdx !== exerciseIndex) return exercise;
+            const lastSet = exercise.sets[exercise.sets.length - 1];
+            const newSet: WorkoutSet = {
+              id: `set-${Date.now()}-${exercise.sets.length + 1}`,
+              weight: lastSet?.weight ?? 20,
+              reps: lastSet?.reps ?? 8,
+              targetReps: lastSet?.targetReps ?? '8-12',
+              completed: false,
+            };
+            return {
+              ...exercise,
+              sets: [...exercise.sets, newSet],
+            };
+          }),
+        },
+      };
+    });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
+  },
+
+  removeSet: (exerciseIndex) => {
+    set((state) => {
+      if (!state.session) return state;
+      const targetExercise = state.session.exercises[exerciseIndex];
+      if (!targetExercise || targetExercise.sets.length <= 1) return state;
+
+      const lastSet = targetExercise.sets[targetExercise.sets.length - 1];
+      if (lastSet?.completed) return state;
+
+      const newSets = targetExercise.sets.slice(0, -1);
+      const isCurrentExercise = state.session.currentExerciseIndex === exerciseIndex;
+      const newCurrentSetIndex = isCurrentExercise
+        ? Math.min(state.session.currentSetIndex, newSets.length - 1)
+        : state.session.currentSetIndex;
+
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          currentSetIndex: newCurrentSetIndex,
+          exercises: state.session.exercises.map((exercise, exIdx) => {
+            if (exIdx !== exerciseIndex) return exercise;
+            return {
+              ...exercise,
+              sets: newSets,
+            };
+          }),
         },
       };
     });
