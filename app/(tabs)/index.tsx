@@ -810,25 +810,25 @@ export default function Home() {
 const styles = StyleSheet.create({
   screenContent: {
     paddingTop: 6,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
     marginTop: 0,
   },
   greetingTitle: {
-    fontSize: 23,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.4,
   },
   headerIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -836,14 +836,15 @@ const styles = StyleSheet.create({
   readinessRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
     gap: 16,
   },
   readinessPercentText: {
-    fontSize: 21,
-    fontWeight: '900',
+    fontSize: 22,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
+    fontVariant: ['tabular-nums'],
   },
   readinessTextCol: {
     flex: 1,
@@ -851,16 +852,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   readinessLabel: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 1.1,
+    letterSpacing: 0.8,
   },
   readinessSubtitle: {
-    fontSize: 15,
+    fontSize: 13,
     color: '#8E959F',
     fontWeight: '400',
-    lineHeight: 20,
+    lineHeight: 18,
   },
   focusSection: {
     marginBottom: 20,
@@ -940,10 +941,10 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   workoutCardLabel: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#717B8A',
-    letterSpacing: 1.5,
+    letterSpacing: 1.1,
   },
   workoutCardHeaderRow: {
     flexDirection: 'row',
@@ -964,9 +965,9 @@ const styles = StyleSheet.create({
   },
   switchWorkoutBtnText: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.primary,
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   exercisePreviewWrap: {
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
@@ -991,13 +992,14 @@ const styles = StyleSheet.create({
   previewExName: {
     flex: 1,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#D8DEE9',
   },
   previewExSets: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '500',
     color: '#8E959F',
+    fontVariant: ['tabular-nums'],
   },
   previewMoreText: {
     fontSize: 11,
@@ -1013,17 +1015,17 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   workoutName: {
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 22,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
   },
   workoutMuscles: {
     fontSize: 14,
     color: '#8E959F',
     marginTop: 4,
     marginBottom: 14,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   workoutFooterRow: {
     flexDirection: 'row',
@@ -1036,9 +1038,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   metaText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#8E959F',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   ctaButton: {
     width: '100%',
@@ -1313,14 +1315,15 @@ const styles = StyleSheet.create({
   },
   inProgressBadgeText: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.primary,
     letterSpacing: 0.8,
   },
   progressCounterText: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFFFFF',
+    fontVariant: ['tabular-nums'],
   },
   inProgressStatsRow: {
     flexDirection: 'row',
@@ -1330,9 +1333,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   inProgressStatsText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   progressBarTrack: {
     height: 6,
@@ -1367,15 +1370,15 @@ const styles = StyleSheet.create({
   },
   muscleInlineBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.primary,
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
   currentExName: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
   currentExDetailsRow: {
     flexDirection: 'row',
@@ -1389,13 +1392,14 @@ const styles = StyleSheet.create({
   currentExSetIndicator: {
     fontSize: 12,
     color: '#8E959F',
-    fontWeight: '700',
+    fontWeight: '500',
   },
   currentExTarget: {
     fontSize: 13,
     color: '#FFFFFF',
-    fontWeight: '800',
+    fontWeight: '600',
     letterSpacing: 0.2,
+    fontVariant: ['tabular-nums'],
   },
   completedBadge: {
     flexDirection: 'row',
@@ -1408,7 +1412,7 @@ const styles = StyleSheet.create({
   },
   completedBadgeText: {
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#0B0D0F',
     letterSpacing: 0.8,
   },
@@ -1425,7 +1429,7 @@ const styles = StyleSheet.create({
   },
   prMiniBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFD130',
   },
   baselineMiniBadge: {
@@ -1441,14 +1445,14 @@ const styles = StyleSheet.create({
   },
   baselineMiniBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.primary,
     letterSpacing: 0.5,
   },
   completedSubtitle: {
     fontSize: 13,
     color: '#8E959F',
-    fontWeight: '500',
+    fontWeight: '400',
     marginTop: 4,
     marginBottom: 16,
   },
@@ -1470,12 +1474,13 @@ const styles = StyleSheet.create({
   },
   completedStatVal: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFFFFF',
+    fontVariant: ['tabular-nums'],
   },
   completedStatLbl: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '500',
     color: '#717B8A',
     letterSpacing: 0.5,
   },
@@ -1491,9 +1496,9 @@ const styles = StyleSheet.create({
   },
   ctaButtonText: {
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#0B0D0F',
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
   },
   nextUpCard: {
     backgroundColor: '#12161D',
