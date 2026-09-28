@@ -30,8 +30,8 @@ export default function ParamsSetup() {
 
   const initialProfile = useUserProfileStore.getState().profile;
   const [name, setName] = useState(() => (initialProfile.name && initialProfile.name !== 'IHOR' ? initialProfile.name : ''));
-  const [weight, setWeight] = useState(() => (initialProfile.weightKg && initialProfile.weightKg !== 78 ? String(fromKg(initialProfile.weightKg)) : ''));
-  const [height, setHeight] = useState(() => (initialProfile.heightCm && initialProfile.heightCm !== 180 ? String(initialProfile.heightCm) : ''));
+  const [weight, setWeight] = useState(() => String(fromKg(initialProfile.weightKg || 78)));
+  const [height, setHeight] = useState(() => String(initialProfile.heightCm || 180));
 
   const isUk = language === 'uk';
   const hasHydratedRef = useRef(false);
@@ -49,38 +49,37 @@ export default function ParamsSetup() {
     }, [fromKg, name, weight, height])
   );
 
-  const isNameValid = name.trim().length >= 2;
-  const parsedWeight = parseFloat(weight.replace(',', '.'));
-  const weightInKg = !isNaN(parsedWeight) ? toKg(parsedWeight) : 0;
-  const isWeightValid = weightInKg >= 20 && weightInKg <= 300;
-  const parsedHeight = parseFloat(height.replace(',', '.'));
-  const isHeightValid = !isNaN(parsedHeight) && parsedHeight >= 100 && parsedHeight <= 250;
-
-  const isFormValid = isNameValid && isWeightValid && isHeightValid;
-
   const handleContinue = async () => {
-    if (!isFormValid) return;
     hapticMedium();
 
-    const updatedWeightKg = Math.round(weightInKg * 10) / 10;
-    const updatedHeightCm = Math.round(parsedHeight);
-    const updatedName = name.trim();
+    const rawName = name.trim();
+    const effectiveName = rawName.length >= 1 ? rawName : (isUk ? 'Атлет' : 'Athlete');
+
+    const parsedWeight = parseFloat(weight.replace(',', '.'));
+    const effectiveWeightKg = !isNaN(parsedWeight) && parsedWeight >= 20 && parsedWeight <= 300
+      ? Math.round(toKg(parsedWeight) * 10) / 10
+      : (initialProfile.weightKg || 78);
+
+    const parsedHeight = parseFloat(height.replace(',', '.'));
+    const effectiveHeightCm = !isNaN(parsedHeight) && parsedHeight >= 80 && parsedHeight <= 250
+      ? Math.round(parsedHeight)
+      : (initialProfile.heightCm || 180);
 
     // 1. Update userProfileStore (Definitive Source of Truth)
     await useUserProfileStore.getState().updateProfile({
-      name: updatedName,
-      weightKg: updatedWeightKg,
-      heightCm: updatedHeightCm,
+      name: effectiveName,
+      weightKg: effectiveWeightKg,
+      heightCm: effectiveHeightCm,
     });
 
     // 2. Directly sync bodyWeightStore baseline entry
-    await useBodyWeightStore.getState().syncBaselineWeight(updatedWeightKg);
+    await useBodyWeightStore.getState().syncBaselineWeight(effectiveWeightKg);
 
     // 3. Save onboarding
     await saveOnboarding({
-      name: updatedName,
-      weightKg: updatedWeightKg,
-      heightCm: updatedHeightCm,
+      name: effectiveName,
+      weightKg: effectiveWeightKg,
+      heightCm: effectiveHeightCm,
     });
 
     router.push('/onboarding/experience');
@@ -207,11 +206,13 @@ export default function ParamsSetup() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Continue"
-            disabled={!isFormValid}
             onPress={handleContinue}
-            style={[styles.continueBtn, !isFormValid && styles.continueBtnDisabled]}
+            style={({ pressed }) => [
+              styles.continueBtn,
+              pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] },
+            ]}
           >
-            <Text style={[styles.continueBtnText, !isFormValid && styles.continueBtnTextDisabled]}>
+            <Text style={styles.continueBtnText}>
               {t('continue')}
             </Text>
           </Pressable>
