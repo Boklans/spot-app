@@ -75,22 +75,17 @@ export default function Rest() {
     };
   }, []);
 
-  if (!session) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>{t('noActiveWorkout')}</Text>
-          <Button onPress={() => router.replace('/(tabs)')}>{t('backToHome')}</Button>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   // The upcoming exercise and set that user will perform after this rest
-  const targetExercise = session.exercises[session.currentExerciseIndex];
-  const nextSet = targetExercise?.sets[session.currentSetIndex];
-  const setNumber = (session.currentSetIndex ?? 0) + 1;
-  const totalSets = targetExercise?.sets.length ?? 0;
+  const targetExercise =
+    session && typeof session.currentExerciseIndex === 'number'
+      ? session.exercises[session.currentExerciseIndex]
+      : undefined;
+  const nextSet =
+    targetExercise && session && typeof session.currentSetIndex === 'number'
+      ? targetExercise.sets[session.currentSetIndex]
+      : undefined;
+  const setNumber = (session?.currentSetIndex ?? 0) + 1;
+  const totalSets = targetExercise?.sets?.length ?? 0;
 
   // Background Push Notification Scheduling
   useEffect(() => {
@@ -125,6 +120,17 @@ export default function Rest() {
       cancelRestTimerNotification();
     }
   }, [seconds]);
+
+  if (!session) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyTitle}>{t('noActiveWorkout')}</Text>
+          <Button onPress={() => router.replace('/(tabs)')}>{t('backToHome')}</Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const continueWorkout = () => {
     hapticMedium();

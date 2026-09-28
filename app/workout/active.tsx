@@ -166,28 +166,22 @@ export default function Active() {
   const isFinalSet = session.currentSetIndex === (exercise?.sets.length ?? 0) - 1;
   const isFinalExercise = session.currentExerciseIndex === session.exercises.length - 1;
 
-  const adjustActiveWeight = useCallback(
-    (deltaDisplay: number) => {
-      if (!activeSet) return;
-      hapticLight();
-      const currentDisplay = fromKg(activeSet.weight ?? 0);
-      const newDisplay = Math.max(0, Math.round((currentDisplay + deltaDisplay) * 10) / 10);
-      const newKg = toKg(newDisplay);
-      updateCurrentSet({ weight: Math.round(newKg * 100) / 100 });
-    },
-    [activeSet, fromKg, toKg, updateCurrentSet]
-  );
+  const adjustActiveWeight = (deltaDisplay: number) => {
+    if (!activeSet) return;
+    hapticLight();
+    const currentDisplay = fromKg(activeSet.weight ?? 0);
+    const newDisplay = Math.max(0, Math.round((currentDisplay + deltaDisplay) * 10) / 10);
+    const newKg = toKg(newDisplay);
+    updateCurrentSet({ weight: Math.round(newKg * 100) / 100 });
+  };
 
-  const adjustActiveReps = useCallback(
-    (deltaReps: number) => {
-      if (!activeSet) return;
-      hapticLight();
-      const currentR = activeSet.reps ?? 8;
-      const newR = Math.max(1, Math.min(100, currentR + deltaReps));
-      updateCurrentSet({ reps: newR });
-    },
-    [activeSet, updateCurrentSet]
-  );
+  const adjustActiveReps = (deltaReps: number) => {
+    if (!activeSet) return;
+    hapticLight();
+    const currentR = activeSet.reps ?? 8;
+    const newR = Math.max(1, Math.min(100, currentR + deltaReps));
+    updateCurrentSet({ reps: newR });
+  };
 
   const prevSetForActive = exercise?.previousSets?.[session.currentSetIndex] || exercise?.previousSets?.[0];
   const prevContextText = prevSetForActive
