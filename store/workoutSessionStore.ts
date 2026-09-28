@@ -361,7 +361,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
 
   addRestTime: (seconds) => {
     set((state) => ({
-      restEndsAt: (state.restEndsAt ?? Date.now()) + seconds * 1000,
+      restEndsAt: Math.max(Date.now(), (state.restEndsAt ?? Date.now()) + seconds * 1000),
     }));
     const state = useWorkoutSessionStore.getState();
     if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });

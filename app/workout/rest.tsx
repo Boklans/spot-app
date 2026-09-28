@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  AppState,
   BackHandler,
   Dimensions,
   Image,
@@ -22,6 +23,7 @@ import { colors } from '@/constants/colors';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { cancelRestTimerNotification, scheduleRestTimerNotification } from '@/lib/notificationService';
 import { playRestCompleteSound } from '@/lib/soundEffects';
 import { useWeightUnit } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
@@ -57,21 +59,21 @@ export default function Rest() {
     : 0;
   const lastHapticSecond = useRef<number | null>(null);
 
+  // AppState sync: recalculate absolute time immediately when returning from background/lockscreen
   useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        setNow(Date.now());
+      }
+    };
+    const sub = AppState.addEventListener('change', handleAppStateChange);
     const timer = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(timer);
-  }, []);
 
-  useEffect(() => {
-    if (seconds <= 3 && seconds > 0 && lastHapticSecond.current !== seconds) {
-      lastHapticSecond.current = seconds;
-      hapticLight();
-    } else if (seconds === 0 && lastHapticSecond.current !== 0) {
-      lastHapticSecond.current = 0;
-      hapticSuccess();
-      playRestCompleteSound();
-    }
-  }, [seconds]);
+    return () => {
+      sub.remove();
+      clearInterval(timer);
+    };
+  }, []);
 
   if (!session) {
     return (
@@ -90,14 +92,50 @@ export default function Rest() {
   const setNumber = (session.currentSetIndex ?? 0) + 1;
   const totalSets = targetExercise?.sets.length ?? 0;
 
+  // Background Push Notification Scheduling
+  useEffect(() => {
+    if (!restEndsAt || !targetExercise) return;
+    const remaining = Math.max(0, Math.ceil((restEndsAt - Date.now()) / 1000));
+    if (remaining > 0) {
+      scheduleRestTimerNotification(
+        remaining,
+        te(targetExercise.name),
+        setNumber,
+        totalSets,
+        language
+      );
+    } else {
+      cancelRestTimerNotification();
+    }
+
+    return () => {
+      cancelRestTimerNotification();
+    };
+  }, [restEndsAt, targetExercise?.name, setNumber, totalSets, language]);
+
+  // Real-time haptic & audio chime on 3, 2, 1, 0s
+  useEffect(() => {
+    if (seconds <= 3 && seconds > 0 && lastHapticSecond.current !== seconds) {
+      lastHapticSecond.current = seconds;
+      hapticLight();
+    } else if (seconds === 0 && lastHapticSecond.current !== 0) {
+      lastHapticSecond.current = 0;
+      hapticSuccess();
+      playRestCompleteSound();
+      cancelRestTimerNotification();
+    }
+  }, [seconds]);
+
   const continueWorkout = () => {
     hapticMedium();
+    cancelRestTimerNotification();
     skipRest();
     router.replace('/workout/active');
   };
 
   const handleBack = () => {
     hapticLight();
+    cancelRestTimerNotification();
     const hasCompletedSets = session.exercises.some((e) =>
       e.sets.some((s) => s.completed)
     );

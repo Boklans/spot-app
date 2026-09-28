@@ -11,7 +11,9 @@ import type { UserProgram, UserWorkout } from '@/types/userProgram';
 import type { CompletedWorkout } from '@/types/workout';
 
 const NOTIFICATION_CHANNEL_ID = 'workout-reminders';
+const REST_TIMER_CHANNEL_ID = 'rest-timer-channel';
 const REMINDER_ID_PREFIX = 'spot-workout-reminder-';
+const REST_TIMER_NOTIFICATION_ID = 'spot-rest-timer';
 
 // Day key to Expo weekday number (1 = Sunday, 2 = Monday, ..., 7 = Saturday)
 const DAY_KEY_TO_EXPO_WEEKDAY: Record<string, number> = {
@@ -51,6 +53,14 @@ export async function initNotifications(): Promise<void> {
         name: 'Workout Reminders',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#C8FF3D',
+        sound: 'default',
+      });
+
+      await Notifications.setNotificationChannelAsync(REST_TIMER_CHANNEL_ID, {
+        name: 'Rest Timer',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 500, 250, 500],
         lightColor: '#C8FF3D',
         sound: 'default',
       });
@@ -423,5 +433,60 @@ export async function sendTestNotification(): Promise<{
       success: false,
       error: errorMessage,
     };
+  }
+}
+
+/**
+ * Schedules a rest timer notification to fire after specified seconds in the background.
+ */
+export async function scheduleRestTimerNotification(
+  seconds: number,
+  exerciseName: string,
+  setNumber: number,
+  totalSets: number,
+  lang: AppLanguage = 'uk'
+): Promise<void> {
+  if (Platform.OS === 'web' || seconds <= 0) return;
+
+  try {
+    // Cancel any previous rest timer notification first
+    await cancelRestTimerNotification();
+
+    const title = lang === 'uk' ? 'Час відпочинку вичерпано! ⏱️' : 'Rest time is up! ⏱️';
+    const body = lang === 'uk'
+      ? `Наступний підхід: ${exerciseName} (${setNumber}/${totalSets})`
+      : `Next set: ${exerciseName} (${setNumber}/${totalSets})`;
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: REST_TIMER_NOTIFICATION_ID,
+      content: {
+        title,
+        body,
+        sound: true,
+        data: {
+          screen: '/workout/rest',
+        },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: Math.max(1, Math.round(seconds)),
+        channelId: REST_TIMER_CHANNEL_ID,
+      },
+    });
+  } catch {
+    // Fail gracefully
+  }
+}
+
+/**
+ * Cancels any scheduled rest timer notification.
+ */
+export async function cancelRestTimerNotification(): Promise<void> {
+  if (Platform.OS === 'web') return;
+
+  try {
+    await Notifications.cancelScheduledNotificationAsync(REST_TIMER_NOTIFICATION_ID);
+  } catch {
+    // Fail gracefully
   }
 }
