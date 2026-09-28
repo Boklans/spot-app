@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
@@ -477,8 +477,10 @@ export default function Progress() {
         {/* ========================================================================= */}
         {activeTab === 'overview' && (
           <View style={styles.tabContainer}>
-            {/* 3 Stats Row */}
-            <View style={styles.statsRow}>
+            {hasHistory ? (
+              <>
+                {/* 3 Stats Row */}
+                <View style={styles.statsRow}>
               <View style={styles.statCard}>
                 <Text style={styles.statNumber}>{workoutsCount}</Text>
                 <Text style={styles.statLabel}>{t('workouts')}</Text>
@@ -712,96 +714,195 @@ export default function Progress() {
                 ))}
               </View>
             </Pressable>
-          </View>
-        )}
+          </>
+          ) : (
+            <View style={styles.emptyCard}>
+              <View style={styles.emptyGlowRing}>
+                <View style={styles.emptyIconBadge}>
+                  <MaterialCommunityIcons name="lightning-bolt" size={36} color={colors.primary} />
+                </View>
+              </View>
+
+              <Text style={styles.emptyTitle}>
+                {language === 'uk' ? 'ВАШ ПРОГРЕС ПОЧИНАЄТЬСЯ ТУТ' : 'YOUR PROGRESS STARTS HERE'}
+              </Text>
+
+              <Text style={styles.emptySubtitle}>
+                {language === 'uk'
+                  ? 'Завершіть своє перше тренування, щоб відстежувати зростання сили та тоннажу.'
+                  : 'Complete your first workout to start tracking your strength and volume.'}
+              </Text>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Start Workout"
+                onPress={() => {
+                  hapticLight();
+                  router.replace('/(tabs)');
+                }}
+                style={({ pressed }) => [
+                  styles.emptyCtaBtn,
+                  pressed && styles.emptyCtaBtnPressed,
+                ]}
+              >
+                <Ionicons name="play" size={18} color="#0B0D0F" style={{ marginRight: 6 }} />
+                <Text style={styles.emptyCtaBtnText}>
+                  {language === 'uk' ? 'ПОЧАТИ ТРЕНУВАННЯ' : 'START WORKOUT'}
+                </Text>
+              </Pressable>
+
+              <View style={styles.emptyFeatureList}>
+                <View style={styles.emptyFeatureRow}>
+                  <View style={styles.emptyFeatureDot} />
+                  <Text style={styles.emptyFeatureText}>
+                    {language === 'uk'
+                      ? 'Динаміка сили та розрахунковий 1RM'
+                      : 'Strength curves & estimated 1RM'}
+                  </Text>
+                </View>
+                <View style={styles.emptyFeatureRow}>
+                  <View style={styles.emptyFeatureDot} />
+                  <Text style={styles.emptyFeatureText}>
+                    {language === 'uk'
+                      ? 'Аналітика робочого об’єму по м’язових групах'
+                      : 'Volume analytics across muscle groups'}
+                  </Text>
+                </View>
+                <View style={styles.emptyFeatureRow}>
+                  <View style={styles.emptyFeatureDot} />
+                  <Text style={styles.emptyFeatureText}>
+                    {language === 'uk'
+                      ? 'Автоматична фіксація особистих рекордів (PR)'
+                      : 'Automatic Personal Record (PR) recognition'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </View>
+      )}
 
         {/* ========================================================================= */}
         {/* VIEW 2: SCREEN 14 (MUSCLE PROGRESS)                                       */}
         {/* ========================================================================= */}
         {activeTab === 'muscles' && (
           <View style={styles.tabContainer}>
-            <View style={styles.muscleListCard}>
-              {displayMuscles.map((muscle) => {
-                const isSelected = selectedMuscle === muscle.name;
-                const hasVolume = muscle.volume > 0;
-                const maxVol = Math.max(1, ...displayMuscles.map((m) => m.volume));
-                const barFillPercent = hasVolume
-                  ? Math.max(15, Math.min(95, (muscle.volume / maxVol) * 100))
-                  : 0;
+            {hasHistory ? (
+              <>
+                <View style={styles.muscleListCard}>
+                  {displayMuscles.map((muscle) => {
+                    const isSelected = selectedMuscle === muscle.name;
+                    const hasVolume = muscle.volume > 0;
+                    const maxVol = Math.max(1, ...displayMuscles.map((m) => m.volume));
+                    const barFillPercent = hasVolume
+                      ? Math.max(15, Math.min(95, (muscle.volume / maxVol) * 100))
+                      : 0;
 
-                return (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${muscle.name} progress`}
-                    key={muscle.name}
-                    onPress={() => {
-                      hapticLight();
-                      setSelectedMuscle(muscle.name);
-                    }}
-                    style={[styles.muscleRow, isSelected && styles.muscleRowSelected]}
-                  >
-                    <View style={styles.muscleRowTop}>
-                      <Text style={styles.muscleName}>{tm(muscle.name)}</Text>
-                      <Text
-                        style={[
-                          styles.muscleDelta,
-                          { color: hasVolume ? colors.primary : '#6C7A8E' },
-                        ]}
+                    return (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${muscle.name} progress`}
+                        key={muscle.name}
+                        onPress={() => {
+                          hapticLight();
+                          setSelectedMuscle(muscle.name);
+                        }}
+                        style={[styles.muscleRow, isSelected && styles.muscleRowSelected]}
                       >
-                        {hasVolume
-                          ? formatVolume(muscle.volume)
-                          : language === 'uk'
-                          ? 'Не треновано'
-                          : 'Not trained'}
+                        <View style={styles.muscleRowTop}>
+                          <Text style={styles.muscleName}>{tm(muscle.name)}</Text>
+                          <Text
+                            style={[
+                              styles.muscleDelta,
+                              { color: hasVolume ? colors.primary : '#6C7A8E' },
+                            ]}
+                          >
+                            {hasVolume
+                              ? formatVolume(muscle.volume)
+                              : language === 'uk'
+                              ? 'Не треновано'
+                              : 'Not trained'}
+                          </Text>
+                        </View>
+
+                        {/* Progress Bar */}
+                        <View style={styles.progressBarTrack}>
+                          <View
+                            style={[
+                              styles.progressBarFill,
+                              {
+                                width: `${barFillPercent}%`,
+                                backgroundColor: colors.primary,
+                              },
+                            ]}
+                          />
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* Bottom Muscle Summary Card (Screen 14) */}
+                <View style={styles.muscleSummaryCard}>
+                  <Text style={styles.summaryMuscleTitle}>{tm(selectedMuscle)}</Text>
+                  <View style={styles.summaryGrid}>
+                    <View style={styles.summaryCol}>
+                      <Text style={styles.summaryMainVal}>
+                        {selectedMuscleSets} {t('sets').toLowerCase()}
+                      </Text>
+                      <Text style={styles.summarySubVal}>
+                        {selectedMuscleWorkouts.length} {t('workouts').toLowerCase()}
                       </Text>
                     </View>
 
-                    {/* Progress Bar */}
-                    <View style={styles.progressBarTrack}>
-                      <View
-                        style={[
-                          styles.progressBarFill,
-                          {
-                            width: `${barFillPercent}%`,
-                            backgroundColor: colors.primary,
-                          },
-                        ]}
-                      />
+                    <View style={styles.summaryColRight}>
+                      <Text style={styles.summaryMainVal}>
+                        {formatVolume(selectedMuscleVolume)} {t('volume').toLowerCase()}
+                      </Text>
+                      <Text style={styles.summarySubVal}>
+                        {language === 'uk' ? 'Активний цикл' : 'Active cycle'}
+                      </Text>
                     </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* Bottom Muscle Summary Card (Screen 14) */}
-            <View style={styles.muscleSummaryCard}>
-              <Text style={styles.summaryMuscleTitle}>{tm(selectedMuscle)}</Text>
-              <View style={styles.summaryGrid}>
-                <View style={styles.summaryCol}>
-                  <Text style={styles.summaryMainVal}>
-                    {selectedMuscleSets} {t('sets').toLowerCase()}
-                  </Text>
-                  <Text style={styles.summarySubVal}>
-                    {selectedMuscleWorkouts.length} {t('workouts').toLowerCase()}
-                  </Text>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <View style={styles.emptyCard}>
+                <View style={styles.emptyGlowRing}>
+                  <View style={styles.emptyIconBadge}>
+                    <MaterialCommunityIcons name="arm-flex" size={34} color={colors.primary} />
+                  </View>
                 </View>
 
-                <View style={styles.summaryColRight}>
-                  <Text style={styles.summaryMainVal}>
-                    {formatVolume(selectedMuscleVolume)} {t('volume').toLowerCase()}
+                <Text style={styles.emptyTitle}>
+                  {language === 'uk' ? 'ВАШ ПРОГРЕС ПОЧИНАЄТЬСЯ ТУТ' : 'YOUR PROGRESS STARTS HERE'}
+                </Text>
+
+                <Text style={styles.emptySubtitle}>
+                  {language === 'uk'
+                    ? 'Завершіть своє перше тренування, щоб відстежувати навантаження на м’язи.'
+                    : 'Complete your first workout to start tracking your muscle group balance.'}
+                </Text>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Start Workout"
+                  onPress={() => {
+                    hapticLight();
+                    router.replace('/(tabs)');
+                  }}
+                  style={({ pressed }) => [
+                    styles.emptyCtaBtn,
+                    pressed && styles.emptyCtaBtnPressed,
+                  ]}
+                >
+                  <Ionicons name="play" size={18} color="#0B0D0F" style={{ marginRight: 6 }} />
+                  <Text style={styles.emptyCtaBtnText}>
+                    {language === 'uk' ? 'ПОЧАТИ ТРЕНУВАННЯ' : 'START WORKOUT'}
                   </Text>
-                  <Text style={styles.summarySubVal}>
-                    {hasHistory
-                      ? language === 'uk'
-                        ? 'Активний цикл'
-                        : 'Active cycle'
-                      : language === 'uk'
-                      ? 'Ще немає даних'
-                      : 'No logs yet'}
-                  </Text>
-                </View>
+                </Pressable>
               </View>
-            </View>
+            )}
           </View>
         )}
 
@@ -1005,7 +1106,7 @@ export default function Progress() {
         {/* ========================================================================= */}
         {activeTab === 'prs' && (
           <View style={styles.tabContainer}>
-            {allHistoryPrs.length > 0 ? (
+            {hasHistory && allHistoryPrs.length > 0 ? (
               <View style={styles.prsList}>
                 {allHistoryPrs.map((item) => (
                   <View key={item.id} style={styles.prCard}>
@@ -1030,18 +1131,40 @@ export default function Progress() {
                 ))}
               </View>
             ) : (
-              <View style={styles.prEmptyWrap}>
-                <View style={styles.prEmptyIconWrap}>
-                  <MaterialCommunityIcons name="trophy-outline" size={40} color="#4B5565" />
+              <View style={styles.emptyCard}>
+                <View style={styles.emptyGlowRing}>
+                  <View style={styles.emptyIconBadge}>
+                    <MaterialCommunityIcons name="trophy-outline" size={34} color={colors.primary} />
+                  </View>
                 </View>
-                <Text style={styles.prEmptyTitle}>
-                  {language === 'uk' ? 'Ще немає особистих рекордів' : 'No personal records yet'}
+
+                <Text style={styles.emptyTitle}>
+                  {language === 'uk' ? 'ВАШ ПРОГРЕС ПОЧИНАЄТЬСЯ ТУТ' : 'YOUR PROGRESS STARTS HERE'}
                 </Text>
-                <Text style={styles.prEmptyBody}>
+
+                <Text style={styles.emptySubtitle}>
                   {language === 'uk'
                     ? 'Завершіть своє перше тренування, щоб зафіксувати рекорди.'
-                    : 'Finish your first workout to establish your baseline records.'}
+                    : 'Complete your first workout to start tracking your personal records.'}
                 </Text>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Start Workout"
+                  onPress={() => {
+                    hapticLight();
+                    router.replace('/(tabs)');
+                  }}
+                  style={({ pressed }) => [
+                    styles.emptyCtaBtn,
+                    pressed && styles.emptyCtaBtnPressed,
+                  ]}
+                >
+                  <Ionicons name="play" size={18} color="#0B0D0F" style={{ marginRight: 6 }} />
+                  <Text style={styles.emptyCtaBtnText}>
+                    {language === 'uk' ? 'ПОЧАТИ ТРЕНУВАННЯ' : 'START WORKOUT'}
+                  </Text>
+                </Pressable>
               </View>
             )}
           </View>
@@ -1673,5 +1796,93 @@ const styles = StyleSheet.create({
   },
   deleteBtn: {
     padding: 4,
+  },
+  emptyCard: {
+    backgroundColor: '#12161D',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.18)',
+    padding: 26,
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  emptyGlowRing: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.22)',
+  },
+  emptyIconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(200, 255, 61, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    color: '#8E9BAE',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+    paddingHorizontal: 8,
+  },
+  emptyCtaBtn: {
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    paddingVertical: 15,
+    paddingHorizontal: 28,
+    width: '100%',
+  },
+  emptyCtaBtnPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+  emptyCtaBtnText: {
+    color: '#0B0D0F',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  emptyFeatureList: {
+    width: '100%',
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.07)',
+    gap: 10,
+  },
+  emptyFeatureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  emptyFeatureDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+    marginRight: 10,
+  },
+  emptyFeatureText: {
+    color: '#8E9BAE',
+    fontSize: 13,
+    fontWeight: '500',
   },
 });
