@@ -597,6 +597,12 @@ function buildWorkouts(
 ): GeneratedWorkout[] {
   const targetDuration = onboarding?.sessionDurationMinutes ?? 45;
   const maxExercises = targetDuration <= 35 ? 4 : targetDuration <= 50 ? 5 : 6;
+  const profile = useUserProfileStore.getState().profile;
+  const activeWeightKg = (onboarding?.weightKg && onboarding.weightKg > 0) ? onboarding.weightKg : profile.weightKg;
+  const activeHeightCm = (onboarding?.heightCm && onboarding.heightCm > 0) ? onboarding.heightCm : profile.heightCm;
+  const activeBaselineLifts = onboarding?.baselineLifts || profile.baselineLifts;
+  const activeExperience = onboarding?.experience || (profile.experience === 'Beginner' ? 'beginner' : profile.experience === 'Advanced' ? 'advanced' : 'intermediate');
+  const activeGoal = onboarding?.goal || (profile.goal === 'Lose Fat' ? 'lose_fat' : profile.goal === 'Get Stronger' ? 'get_stronger' : 'build_muscle');
 
   return repeatTemplates(templates, frequency).map((template, index) => {
     const candidateExercises =
@@ -605,31 +611,27 @@ function buildWorkouts(
         : template.exercises;
 
     const exercises: GeneratedExercise[] = candidateExercises.map((exercise) => {
-      const calibratedWeight = onboarding
-        ? calibrateInitialWeight(
-            exercise.recommendedWeight,
-            exercise.equipment,
-            onboarding.experience,
-            onboarding.goal,
-            { weightKg: onboarding.weightKg, heightCm: onboarding.heightCm },
-            exercise.name,
-            onboarding.baselineLifts
-          )
-        : exercise.recommendedWeight;
+      const calibratedWeight = calibrateInitialWeight(
+        exercise.recommendedWeight,
+        exercise.equipment,
+        activeExperience,
+        activeGoal,
+        { weightKg: activeWeightKg, heightCm: activeHeightCm },
+        exercise.name,
+        activeBaselineLifts
+      );
 
-      const calibratedRest = onboarding
-        ? calculateRecommendedRest(
-            exercise.name,
-            exercise.equipment,
-            onboarding.goal,
-            { weightKg: onboarding.weightKg }
-          )
-        : exercise.restSeconds ?? defaultRestSeconds;
+      const calibratedRest = calculateRecommendedRest(
+        exercise.name,
+        exercise.equipment,
+        activeGoal,
+        { weightKg: activeWeightKg }
+      ) ?? exercise.restSeconds ?? defaultRestSeconds;
 
       const calibratedReps = exercise.targetRepRange ?? (
-        onboarding?.experience === 'beginner'
+        activeExperience === 'beginner'
           ? '12-15'
-          : onboarding?.experience === 'advanced'
+          : activeExperience === 'advanced'
           ? '6-10'
           : '8-12'
       );

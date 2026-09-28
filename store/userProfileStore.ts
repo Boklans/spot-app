@@ -38,6 +38,13 @@ export type WeightUnit = 'kg' | 'lbs';
 export type HeightUnit = 'cm' | 'ft';
 export type AppLanguage = 'en' | 'uk';
 
+export type BaselineLifts = {
+  benchPressKg?: number;
+  squatKg?: number;
+  deadliftKg?: number;
+  overheadPressKg?: number;
+};
+
 export type UserProfile = {
   name: string;
   avatar: BeastAvatarId;
@@ -53,6 +60,7 @@ export type UserProfile = {
   notifications: boolean;
   notificationTime: string;
   soundEnabled: boolean;
+  baselineLifts?: BaselineLifts;
 };
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
@@ -70,6 +78,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   notifications: true,
   notificationTime: '09:00',
   soundEnabled: true,
+  baselineLifts: undefined,
 };
 
 type UserProfileState = {
@@ -87,10 +96,32 @@ function normalizeLoadedProfile(parsed: unknown): UserProfile {
   const validExp: UserExperience[] = ['Beginner', 'Intermediate', 'Advanced'];
   const validAvatars = Object.keys(BEAST_AVATARS) as BeastAvatarId[];
 
+  const baselineLifts =
+    p.baselineLifts && typeof p.baselineLifts === 'object'
+      ? {
+          benchPressKg:
+            typeof p.baselineLifts.benchPressKg === 'number' && p.baselineLifts.benchPressKg > 0
+              ? p.baselineLifts.benchPressKg
+              : undefined,
+          squatKg:
+            typeof p.baselineLifts.squatKg === 'number' && p.baselineLifts.squatKg > 0
+              ? p.baselineLifts.squatKg
+              : undefined,
+          deadliftKg:
+            typeof p.baselineLifts.deadliftKg === 'number' && p.baselineLifts.deadliftKg > 0
+              ? p.baselineLifts.deadliftKg
+              : undefined,
+          overheadPressKg:
+            typeof p.baselineLifts.overheadPressKg === 'number' && p.baselineLifts.overheadPressKg > 0
+              ? p.baselineLifts.overheadPressKg
+              : undefined,
+        }
+      : undefined;
+
   return {
     name: typeof p.name === 'string' && p.name.trim().length > 0 ? p.name.trim() : DEFAULT_USER_PROFILE.name,
     avatar: validAvatars.includes(p.avatar as BeastAvatarId) ? (p.avatar as BeastAvatarId) : DEFAULT_USER_PROFILE.avatar,
-    weightKg: typeof p.weightKg === 'number' && p.weightKg >= 30 && p.weightKg <= 250 ? Math.round(p.weightKg * 10) / 10 : DEFAULT_USER_PROFILE.weightKg,
+    weightKg: typeof p.weightKg === 'number' && p.weightKg >= 20 && p.weightKg <= 300 ? Math.round(p.weightKg * 10) / 10 : DEFAULT_USER_PROFILE.weightKg,
     heightCm: typeof p.heightCm === 'number' && p.heightCm >= 100 && p.heightCm <= 240 ? Math.round(p.heightCm) : DEFAULT_USER_PROFILE.heightCm,
     goal: validGoals.includes(p.goal as UserGoal) ? (p.goal as UserGoal) : DEFAULT_USER_PROFILE.goal,
     experience: validExp.includes(p.experience as UserExperience) ? (p.experience as UserExperience) : DEFAULT_USER_PROFILE.experience,
@@ -108,6 +139,7 @@ function normalizeLoadedProfile(parsed: unknown): UserProfile {
         ? p.notificationTime
         : DEFAULT_USER_PROFILE.notificationTime,
     soundEnabled: typeof p.soundEnabled === 'boolean' ? p.soundEnabled : true,
+    baselineLifts,
   };
 }
 
@@ -127,7 +159,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
       // Fall through
     }
 
-    // Sync with onboarding data if present to ensure 100% harmony
+    // Sync with onboarding data if present to ensure 100% harmony, but never overwrite userProfileStore with defaults
     try {
       const onboardingRaw = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
       if (onboardingRaw) {
@@ -139,13 +171,16 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         if (typeof ob.name === 'string' && ob.name.trim().length > 0 && normalized.name === DEFAULT_USER_PROFILE.name) {
           normalized.name = ob.name.trim();
         }
-        if (typeof ob.weightKg === 'number' && ob.weightKg > 30) {
-          normalized.weightKg = ob.weightKg;
+        if (typeof ob.weightKg === 'number' && ob.weightKg >= 20 && normalized.weightKg === DEFAULT_USER_PROFILE.weightKg) {
+          normalized.weightKg = Math.round(ob.weightKg * 10) / 10;
         }
-        if (typeof ob.heightCm === 'number' && ob.heightCm > 100) {
-          normalized.heightCm = ob.heightCm;
+        if (typeof ob.heightCm === 'number' && ob.heightCm > 50 && normalized.heightCm === DEFAULT_USER_PROFILE.heightCm) {
+          normalized.heightCm = Math.round(ob.heightCm);
         }
-        if (typeof ob.avatar === 'string' && ob.avatar in BEAST_AVATARS) {
+        if (ob.baselineLifts && typeof ob.baselineLifts === 'object' && !normalized.baselineLifts) {
+          normalized.baselineLifts = ob.baselineLifts as BaselineLifts;
+        }
+        if (typeof ob.avatar === 'string' && ob.avatar in BEAST_AVATARS && normalized.avatar === DEFAULT_USER_PROFILE.avatar) {
           normalized.avatar = ob.avatar as BeastAvatarId;
         }
         const goalMap: Record<string, UserGoal> = {
@@ -158,7 +193,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
           recomposition: 'Recomposition',
           Recomposition: 'Recomposition',
         };
-        if (typeof ob.goal === 'string' && goalMap[ob.goal]) {
+        if (typeof ob.goal === 'string' && goalMap[ob.goal] && normalized.goal === DEFAULT_USER_PROFILE.goal) {
           normalized.goal = goalMap[ob.goal];
         }
         const expMap: Record<string, UserExperience> = {
@@ -169,7 +204,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
           advanced: 'Advanced',
           Advanced: 'Advanced',
         };
-        if (typeof ob.experience === 'string' && expMap[ob.experience]) {
+        if (typeof ob.experience === 'string' && expMap[ob.experience] && normalized.experience === DEFAULT_USER_PROFILE.experience) {
           normalized.experience = expMap[ob.experience];
         }
       }
@@ -188,7 +223,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
       ...updates,
     };
 
-    set({ profile: updated });
+    set({ profile: updated, hydrated: true });
 
     try {
       await AsyncStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(updated));
@@ -207,10 +242,17 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         weightKg: updated.weightKg,
         heightCm: updated.heightCm,
         avatar: updated.avatar,
+        baselineLifts: updated.baselineLifts,
       };
       await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(nextOnboarding));
     } catch {
       // Continue
+    }
+
+    if (updates.weightKg !== undefined && updates.weightKg > 0) {
+      import('./bodyWeightStore')
+        .then(({ useBodyWeightStore }) => useBodyWeightStore.getState().syncBaselineWeight(updates.weightKg!))
+        .catch(() => undefined);
     }
 
     if (

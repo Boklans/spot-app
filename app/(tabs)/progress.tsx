@@ -65,6 +65,7 @@ export default function Progress() {
   // Sync on tab focus
   useFocusEffect(
     useCallback(() => {
+      useUserProfileStore.getState().loadProfile();
       loadHistory();
       useProgramStore.getState().loadProgram();
       loadBodyWeightHistory();
@@ -81,7 +82,77 @@ export default function Progress() {
   const volumeDisplay = hasHistory
     ? formatVolume(realSummary.volume)
     : formatVolume(0);
-  const prsCount = hasHistory ? realSummary.personalRecords : 0;
+
+  // Baseline PR records from synchronized global userProfileStore
+  const baselinePrs = React.useMemo(() => {
+    const lifts = profile.baselineLifts;
+    if (!lifts) return [];
+    const list: Array<{ id: string; name: string; value: string; date: string; icon: 'dumbbell' }> = [];
+    if (typeof lifts.benchPressKg === 'number' && lifts.benchPressKg > 0) {
+      list.push({
+        id: 'baseline-bench',
+        name: 'Bench Press',
+        value: `${formatWeight(fromKg(lifts.benchPressKg))} ${unitLabel}`,
+        date: language === 'uk' ? 'Базовий рекорд' : 'Baseline Record',
+        icon: 'dumbbell',
+      });
+    }
+    if (typeof lifts.squatKg === 'number' && lifts.squatKg > 0) {
+      list.push({
+        id: 'baseline-squat',
+        name: 'Barbell Squat',
+        value: `${formatWeight(fromKg(lifts.squatKg))} ${unitLabel}`,
+        date: language === 'uk' ? 'Базовий рекорд' : 'Baseline Record',
+        icon: 'dumbbell',
+      });
+    }
+    if (typeof lifts.deadliftKg === 'number' && lifts.deadliftKg > 0) {
+      list.push({
+        id: 'baseline-deadlift',
+        name: 'Barbell Deadlift',
+        value: `${formatWeight(fromKg(lifts.deadliftKg))} ${unitLabel}`,
+        date: language === 'uk' ? 'Базовий рекорд' : 'Baseline Record',
+        icon: 'dumbbell',
+      });
+    }
+    if (typeof lifts.overheadPressKg === 'number' && lifts.overheadPressKg > 0) {
+      list.push({
+        id: 'baseline-ohp',
+        name: 'Overhead Press',
+        value: `${formatWeight(fromKg(lifts.overheadPressKg))} ${unitLabel}`,
+        date: language === 'uk' ? 'Базовий рекорд' : 'Baseline Record',
+        icon: 'dumbbell',
+      });
+    }
+    return list;
+  }, [profile.baselineLifts, fromKg, unitLabel, language]);
+
+  // Combined PR records: user's baseline strength lifts + subsequent workout PRs
+  const allHistoryPrs = React.useMemo(() => {
+    const fromHistory = history
+      .flatMap((w) =>
+        (w.personalRecords || []).map((pr) => ({
+          id: pr.id,
+          name: pr.exerciseName,
+          value: pr.label,
+          date: new Date(w.completedAt).toLocaleDateString(language === 'uk' ? 'uk-UA' : 'en-US', {
+            month: 'short',
+            day: 'numeric',
+          }),
+          icon: 'dumbbell' as const,
+        }))
+      );
+
+    const combined = [...fromHistory];
+    for (const bPr of baselinePrs) {
+      if (!combined.some((h) => h.name.toLowerCase() === bPr.name.toLowerCase())) {
+        combined.push(bPr);
+      }
+    }
+    return combined.slice(0, 10);
+  }, [history, baselinePrs, language]);
+
+  const prsCount = allHistoryPrs.length > 0 ? allHistoryPrs.length : (hasHistory ? realSummary.personalRecords : 0);
 
   // Real muscle group calculation
   const realMuscles = calculateMuscleProgress(history, period);
@@ -123,22 +194,6 @@ export default function Progress() {
     0
   );
 
-  // Real PR records from history
-  const allHistoryPrs = history
-    .flatMap((w) =>
-      (w.personalRecords || []).map((pr) => ({
-        id: pr.id,
-        name: pr.exerciseName,
-        value: pr.label,
-        date: new Date(w.completedAt).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-        }),
-        icon: 'dumbbell' as const,
-      }))
-    )
-    .slice(0, 10);
-
   const availableExercises = getAvailableExercisesForProgress(program, history);
 
   const selectedExercise =
@@ -170,7 +225,7 @@ export default function Progress() {
         new Date(b.completedAt || b.startedAt).getTime()
     );
 
-  const sessionPoints: StrengthSessionPoint[] = exerciseWorkouts
+  const rawSessionPoints: StrengthSessionPoint[] = exerciseWorkouts
     .map((w, index) => {
       const ex = w.exercises.find((e) =>
         e.exerciseName.toLowerCase().trim() === exerciseName.toLowerCase().trim() ||
@@ -214,6 +269,36 @@ export default function Progress() {
     })
     .filter((p) => p.weight > 0);
 
+  // If no workouts recorded yet, integrate baseline calibration from global state
+  const sessionPoints: StrengthSessionPoint[] = React.useMemo(() => {
+    if (rawSessionPoints.length > 0) return rawSessionPoints;
+
+    let baselineKg: number | undefined;
+    const nameLower = exerciseName.toLowerCase();
+    if (nameLower.includes('bench')) baselineKg = profile.baselineLifts?.benchPressKg;
+    else if (nameLower.includes('squat')) baselineKg = profile.baselineLifts?.squatKg;
+    else if (nameLower.includes('deadlift')) baselineKg = profile.baselineLifts?.deadliftKg;
+    else if (nameLower.includes('overhead') || nameLower.includes('shoulder press')) {
+      baselineKg = profile.baselineLifts?.overheadPressKg;
+    }
+
+    if (baselineKg && baselineKg > 0) {
+      const dispWeight = Math.round(fromKg(baselineKg) * 10) / 10;
+      return [
+        {
+          date: new Date().toISOString(),
+          formattedDate: language === 'uk' ? 'База' : 'Baseline',
+          weight: dispWeight,
+          reps: 5,
+          volume: convertVolumeToActiveUnit(baselineKg * 5 * 3, unit),
+          est1RM: dispWeight,
+        },
+      ];
+    }
+
+    return [];
+  }, [rawSessionPoints, exerciseName, profile.baselineLifts, fromKg, unit, language]);
+
   const latestSession =
     sessionPoints.length > 0 ? sessionPoints[sessionPoints.length - 1] : null;
 
@@ -244,6 +329,22 @@ export default function Progress() {
     avgMuscleChange,
     language
   );
+
+  const effectiveWeightEntries = React.useMemo(() => {
+    if (bodyWeightEntries && bodyWeightEntries.length > 0) {
+      return bodyWeightEntries;
+    }
+    const w = profile.weightKg || 78;
+    return [
+      {
+        id: 'baseline-today',
+        date: new Date().toISOString().split('T')[0],
+        timestamp: Date.now(),
+        weightKg: w,
+        note: 'Baseline',
+      },
+    ];
+  }, [bodyWeightEntries, profile.weightKg]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -713,7 +814,7 @@ export default function Progress() {
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
                 <Text style={styles.statNumber}>
-                  {formatWeight(fromKg(bodyStats.currentWeight))}
+                  {formatWeight(fromKg(profile.weightKg || bodyStats.currentWeight))}
                 </Text>
                 <Text style={styles.statLabel}>
                   {language === 'uk' ? 'Поточна вага' : 'Current Weight'} ({unitLabel})
@@ -737,7 +838,7 @@ export default function Progress() {
               </View>
 
               <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{bodyStats.entriesCount}</Text>
+                <Text style={styles.statNumber}>{Math.max(1, bodyStats.entriesCount)}</Text>
                 <Text style={styles.statLabel}>
                   {language === 'uk' ? 'Зважувань' : 'Logs'}
                 </Text>
@@ -782,7 +883,7 @@ export default function Progress() {
 
               <View style={styles.chartWrap}>
                 <BodyWeightGraph
-                  entries={bodyWeightEntries}
+                  entries={effectiveWeightEntries}
                   width={chartWidth + 20}
                   height={175}
                   unit={unitLabel}

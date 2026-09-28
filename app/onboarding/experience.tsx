@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,39 +16,65 @@ import { colors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useWeightUnit } from '@/lib/weightUtils';
-import { type OnboardingExperience, saveOnboarding, loadOnboarding } from '@/store/workoutStore';
+import { useUserProfileStore } from '@/store/userProfileStore';
+import { type OnboardingExperience, saveOnboarding } from '@/store/workoutStore';
 
 export default function Experience() {
   const { t, language } = useI18n();
   const { unitLabel, toKg, fromKg } = useWeightUnit();
-  const [selected, setSelected] = useState<OnboardingExperience>('intermediate');
 
-  // Baseline Strength Inputs for experienced lifters
-  const [benchText, setBenchText] = useState('');
-  const [squatText, setSquatText] = useState('');
-  const [deadliftText, setDeadliftText] = useState('');
-  const [ohpText, setOhpText] = useState('');
+  const benchRef = useRef<TextInput>(null);
+  const squatRef = useRef<TextInput>(null);
+  const deadliftRef = useRef<TextInput>(null);
+  const ohpRef = useRef<TextInput>(null);
+
+  const initialProfile = useUserProfileStore.getState().profile;
+  const [selected, setSelected] = useState<OnboardingExperience>(() => {
+    if (initialProfile.experience === 'Beginner') return 'beginner';
+    if (initialProfile.experience === 'Advanced') return 'advanced';
+    return 'intermediate';
+  });
+
+  // Baseline Strength Inputs for experienced lifters - initialize directly from global store
+  const [benchText, setBenchText] = useState(() => {
+    const b = initialProfile.baselineLifts?.benchPressKg;
+    return typeof b === 'number' && b > 0 ? String(fromKg(b)) : '';
+  });
+  const [squatText, setSquatText] = useState(() => {
+    const s = initialProfile.baselineLifts?.squatKg;
+    return typeof s === 'number' && s > 0 ? String(fromKg(s)) : '';
+  });
+  const [deadliftText, setDeadliftText] = useState(() => {
+    const d = initialProfile.baselineLifts?.deadliftKg;
+    return typeof d === 'number' && d > 0 ? String(fromKg(d)) : '';
+  });
+  const [ohpText, setOhpText] = useState(() => {
+    const o = initialProfile.baselineLifts?.overheadPressKg;
+    return typeof o === 'number' && o > 0 ? String(fromKg(o)) : '';
+  });
 
   const isUk = language === 'uk';
-  const hasHydratedRef = React.useRef(false);
+  const hasHydratedRef = useRef(false);
 
-  React.useEffect(() => {
-    if (hasHydratedRef.current) return;
-    hasHydratedRef.current = true;
-
-    loadOnboarding().then((data) => {
-      if (data?.experience) {
-        setSelected(data.experience);
+  // Sync state cleanly whenever screen comes into focus without locking user edits
+  useFocusEffect(
+    useCallback(() => {
+      const p = useUserProfileStore.getState().profile;
+      if (!hasHydratedRef.current) {
+        hasHydratedRef.current = true;
+        if (p.experience) {
+          setSelected(p.experience === 'Beginner' ? 'beginner' : p.experience === 'Advanced' ? 'advanced' : 'intermediate');
+        }
+        if (p.baselineLifts) {
+          const { benchPressKg, squatKg, deadliftKg, overheadPressKg } = p.baselineLifts;
+          if (typeof benchPressKg === 'number' && benchPressKg > 0 && !benchText) setBenchText(String(fromKg(benchPressKg)));
+          if (typeof squatKg === 'number' && squatKg > 0 && !squatText) setSquatText(String(fromKg(squatKg)));
+          if (typeof deadliftKg === 'number' && deadliftKg > 0 && !deadliftText) setDeadliftText(String(fromKg(deadliftKg)));
+          if (typeof overheadPressKg === 'number' && overheadPressKg > 0 && !ohpText) setOhpText(String(fromKg(overheadPressKg)));
+        }
       }
-      if (data?.baselineLifts) {
-        const { benchPressKg, squatKg, deadliftKg, overheadPressKg } = data.baselineLifts;
-        if (typeof benchPressKg === 'number') setBenchText(String(fromKg(benchPressKg)));
-        if (typeof squatKg === 'number') setSquatText(String(fromKg(squatKg)));
-        if (typeof deadliftKg === 'number') setDeadliftText(String(fromKg(deadliftKg)));
-        if (typeof overheadPressKg === 'number') setOhpText(String(fromKg(overheadPressKg)));
-      }
-    });
-  }, []);
+    }, [fromKg, benchText, squatText, deadliftText, ohpText])
+  );
 
   const experienceOptions: Array<{
     value: OnboardingExperience;
@@ -85,16 +111,29 @@ export default function Experience() {
 
     const hasBaseline = bKg !== undefined || sKg !== undefined || dKg !== undefined || oKg !== undefined;
 
-    await saveOnboarding({
-      experience: selected,
-      baselineLifts: selected !== 'beginner' && hasBaseline
+    const baselineLifts =
+      selected !== 'beginner' && hasBaseline
         ? {
             benchPressKg: bKg,
             squatKg: sKg,
             deadliftKg: dKg,
             overheadPressKg: oKg,
           }
-        : undefined,
+        : undefined;
+
+    const expEnum =
+      selected === 'beginner' ? 'Beginner' : selected === 'advanced' ? 'Advanced' : 'Intermediate';
+
+    // 1. Update userProfileStore (Single Source of Truth)
+    await useUserProfileStore.getState().updateProfile({
+      experience: expEnum,
+      baselineLifts,
+    });
+
+    // 2. Save onboarding
+    await saveOnboarding({
+      experience: selected,
+      baselineLifts,
     });
 
     router.push('/onboarding/frequency');
@@ -118,13 +157,14 @@ export default function Experience() {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
+          nestedScrollEnabled={true}
         >
           {/* 2. Title Section */}
           <View style={styles.titleSection}>
@@ -205,17 +245,24 @@ export default function Experience() {
                   <Text style={styles.liftLabel}>
                     {isUk ? 'Жим лежачи' : 'Bench Press'}
                   </Text>
-                  <View style={styles.inputWrap}>
+                  <Pressable
+                    onPress={() => benchRef.current?.focus()}
+                    style={styles.inputWrap}
+                  >
                     <TextInput
+                      ref={benchRef}
+                      editable={true}
                       style={styles.liftInput}
                       keyboardType="decimal-pad"
                       placeholder={unitLabel === 'LBS' ? '185' : '80'}
                       placeholderTextColor="#4E5A6C"
                       value={benchText}
                       onChangeText={setBenchText}
+                      returnKeyType="next"
+                      onSubmitEditing={() => squatRef.current?.focus()}
                     />
                     <Text style={styles.inputUnit}>{unitLabel}</Text>
-                  </View>
+                  </Pressable>
                 </View>
 
                 {/* Squat */}
@@ -223,17 +270,24 @@ export default function Experience() {
                   <Text style={styles.liftLabel}>
                     {isUk ? 'Присідання' : 'Squat'}
                   </Text>
-                  <View style={styles.inputWrap}>
+                  <Pressable
+                    onPress={() => squatRef.current?.focus()}
+                    style={styles.inputWrap}
+                  >
                     <TextInput
+                      ref={squatRef}
+                      editable={true}
                       style={styles.liftInput}
                       keyboardType="decimal-pad"
                       placeholder={unitLabel === 'LBS' ? '225' : '100'}
                       placeholderTextColor="#4E5A6C"
                       value={squatText}
                       onChangeText={setSquatText}
+                      returnKeyType="next"
+                      onSubmitEditing={() => deadliftRef.current?.focus()}
                     />
                     <Text style={styles.inputUnit}>{unitLabel}</Text>
-                  </View>
+                  </Pressable>
                 </View>
 
                 {/* Deadlift */}
@@ -241,17 +295,24 @@ export default function Experience() {
                   <Text style={styles.liftLabel}>
                     {isUk ? 'Станова тяга' : 'Deadlift'}
                   </Text>
-                  <View style={styles.inputWrap}>
+                  <Pressable
+                    onPress={() => deadliftRef.current?.focus()}
+                    style={styles.inputWrap}
+                  >
                     <TextInput
+                      ref={deadliftRef}
+                      editable={true}
                       style={styles.liftInput}
                       keyboardType="decimal-pad"
                       placeholder={unitLabel === 'LBS' ? '275' : '120'}
                       placeholderTextColor="#4E5A6C"
                       value={deadliftText}
                       onChangeText={setDeadliftText}
+                      returnKeyType="next"
+                      onSubmitEditing={() => ohpRef.current?.focus()}
                     />
                     <Text style={styles.inputUnit}>{unitLabel}</Text>
-                  </View>
+                  </Pressable>
                 </View>
 
                 {/* Overhead Press */}
@@ -259,8 +320,13 @@ export default function Experience() {
                   <Text style={styles.liftLabel}>
                     {isUk ? 'Жим стоячи' : 'Overhead Press'}
                   </Text>
-                  <View style={styles.inputWrap}>
+                  <Pressable
+                    onPress={() => ohpRef.current?.focus()}
+                    style={styles.inputWrap}
+                  >
                     <TextInput
+                      ref={ohpRef}
+                      editable={true}
                       style={styles.liftInput}
                       keyboardType="decimal-pad"
                       placeholder={unitLabel === 'LBS' ? '115' : '50'}
@@ -269,7 +335,7 @@ export default function Experience() {
                       onChangeText={setOhpText}
                     />
                     <Text style={styles.inputUnit}>{unitLabel}</Text>
-                  </View>
+                  </Pressable>
                 </View>
               </View>
             </View>

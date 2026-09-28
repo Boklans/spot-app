@@ -21,6 +21,8 @@ import {
   type GeneratedProgram,
 } from '@/lib/programGenerator';
 import { useProgramStore } from '@/store/programStore';
+import { useUserProfileStore } from '@/store/userProfileStore';
+import { useBodyWeightStore } from '@/store/bodyWeightStore';
 import {
   defaultOnboarding,
   loadOnboarding,
@@ -115,14 +117,22 @@ export default function ProgramReady() {
 
   const syncProgramState = React.useCallback(async () => {
     const data = (await loadOnboarding()) ?? defaultOnboarding;
-    setOnboarding(data);
+    const profile = useUserProfileStore.getState().profile;
+    const mergedData: OnboardingData = {
+      ...data,
+      name: (profile.name && profile.name !== 'IHOR') ? profile.name : data.name,
+      weightKg: (profile.weightKg && profile.weightKg > 0) ? profile.weightKg : data.weightKg,
+      heightCm: (profile.heightCm && profile.heightCm > 0) ? profile.heightCm : data.heightCm,
+      baselineLifts: profile.baselineLifts || data.baselineLifts,
+    };
+    setOnboarding(mergedData);
 
     const storeProg = await useProgramStore.getState().getOrLoadProgram();
-    if (data.splitPreference === 'custom' && storeProg && storeProg.splitType === 'custom') {
+    if (mergedData.splitPreference === 'custom' && storeProg && storeProg.splitType === 'custom') {
       setProgram(storeProg as unknown as GeneratedProgram);
       setHasEdits(false);
     } else {
-      setProgram(generateProgram(data));
+      setProgram(generateProgram(mergedData));
       setHasEdits(false);
     }
   }, []);
@@ -266,13 +276,30 @@ export default function ProgramReady() {
   const handleStartTraining = async () => {
     hapticSuccess();
     const isCustom = onboarding.splitPreference === 'custom';
+    const profile = useUserProfileStore.getState().profile;
+    const finalWeightKg = (profile.weightKg && profile.weightKg > 0) ? profile.weightKg : (onboarding.weightKg ?? 78);
+    const finalBaselineLifts = profile.baselineLifts || onboarding.baselineLifts;
+    const finalName = (profile.name && profile.name !== 'IHOR') ? profile.name : onboarding.name;
+
     const updated = {
       ...onboarding,
+      name: finalName,
+      weightKg: finalWeightKg,
+      baselineLifts: finalBaselineLifts,
       completed: true,
       splitPreference: isCustom ? ('custom' as WorkoutSplitPreference) : onboarding.splitPreference,
     };
     setOnboarding(updated);
     await saveOnboarding(updated);
+
+    // Commit strictly to userProfileStore and bodyWeightStore
+    await useUserProfileStore.getState().updateProfile({
+      name: finalName,
+      weightKg: finalWeightKg,
+      baselineLifts: finalBaselineLifts,
+    });
+    await useBodyWeightStore.getState().syncBaselineWeight(finalWeightKg);
+
     if (isCustom) {
       if (hasEdits) {
         await useProgramStore.getState().setCustomProgram(buildUserProgramFromLocal() as unknown as UserProgram);
@@ -287,6 +314,7 @@ export default function ProgramReady() {
     } else {
       await useProgramStore.getState().refreshProgram(updated);
     }
+    await useUserProfileStore.getState().loadProfile();
     router.replace('/(tabs)');
   };
 

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,29 +16,38 @@ import { colors } from '@/constants/colors';
 import { hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useWeightUnit } from '@/lib/weightUtils';
-import { loadOnboarding, saveOnboarding } from '@/store/workoutStore';
+import { useUserProfileStore } from '@/store/userProfileStore';
+import { useBodyWeightStore } from '@/store/bodyWeightStore';
+import { saveOnboarding } from '@/store/workoutStore';
 
 export default function ParamsSetup() {
   const { t, language } = useI18n();
   const { unitLabel, toKg, fromKg } = useWeightUnit();
 
-  const [name, setName] = useState('');
-  const [weight, setWeight] = useState('');
-  const [height, setHeight] = useState('');
-  const hasHydratedRef = React.useRef(false);
+  const nameRef = useRef<TextInput>(null);
+  const weightRef = useRef<TextInput>(null);
+  const heightRef = useRef<TextInput>(null);
+
+  const initialProfile = useUserProfileStore.getState().profile;
+  const [name, setName] = useState(() => (initialProfile.name && initialProfile.name !== 'IHOR' ? initialProfile.name : ''));
+  const [weight, setWeight] = useState(() => (initialProfile.weightKg && initialProfile.weightKg !== 78 ? String(fromKg(initialProfile.weightKg)) : ''));
+  const [height, setHeight] = useState(() => (initialProfile.heightCm && initialProfile.heightCm !== 180 ? String(initialProfile.heightCm) : ''));
 
   const isUk = language === 'uk';
+  const hasHydratedRef = useRef(false);
 
-  useEffect(() => {
-    if (hasHydratedRef.current) return;
-    hasHydratedRef.current = true;
-
-    loadOnboarding().then((data) => {
-      if (data?.name) setName(data.name);
-      if (data?.weightKg) setWeight(String(fromKg(data.weightKg)));
-      if (data?.heightCm) setHeight(String(data.heightCm));
-    });
-  }, []);
+  // Sync state cleanly whenever screen comes into focus without locking user edits
+  useFocusEffect(
+    useCallback(() => {
+      const p = useUserProfileStore.getState().profile;
+      if (!hasHydratedRef.current) {
+        hasHydratedRef.current = true;
+        if (p.name && p.name !== 'IHOR' && !name) setName(p.name);
+        if (p.weightKg && p.weightKg > 0 && !weight) setWeight(String(fromKg(p.weightKg)));
+        if (p.heightCm && p.heightCm > 0 && !height) setHeight(String(p.heightCm));
+      }
+    }, [fromKg, name, weight, height])
+  );
 
   const isNameValid = name.trim().length >= 2;
   const parsedWeight = parseFloat(weight.replace(',', '.'));
@@ -53,10 +62,25 @@ export default function ParamsSetup() {
     if (!isFormValid) return;
     hapticMedium();
 
+    const updatedWeightKg = Math.round(weightInKg * 10) / 10;
+    const updatedHeightCm = Math.round(parsedHeight);
+    const updatedName = name.trim();
+
+    // 1. Update userProfileStore (Definitive Source of Truth)
+    await useUserProfileStore.getState().updateProfile({
+      name: updatedName,
+      weightKg: updatedWeightKg,
+      heightCm: updatedHeightCm,
+    });
+
+    // 2. Directly sync bodyWeightStore baseline entry
+    await useBodyWeightStore.getState().syncBaselineWeight(updatedWeightKg);
+
+    // 3. Save onboarding
     await saveOnboarding({
-      name: name.trim(),
-      weightKg: Math.round(weightInKg * 10) / 10,
-      heightCm: Math.round(parsedHeight),
+      name: updatedName,
+      weightKg: updatedWeightKg,
+      heightCm: updatedHeightCm,
     });
 
     router.push('/onboarding/experience');
@@ -64,7 +88,7 @@ export default function ParamsSetup() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* 1. Top Bar with 2/5 Progress */}
+      {/* 1. Top Bar with 1/3 Progress */}
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
@@ -80,13 +104,14 @@ export default function ParamsSetup() {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
+          nestedScrollEnabled={true}
         >
           {/* 2. Header */}
           <View style={styles.titleSection}>
@@ -105,17 +130,24 @@ export default function ParamsSetup() {
             {/* Name */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{isUk ? "Ваше ім'я" : 'Your Name'}</Text>
-              <View style={styles.inputWrap}>
+              <Pressable
+                onPress={() => nameRef.current?.focus()}
+                style={styles.inputWrap}
+              >
                 <Ionicons name="person-outline" size={20} color="#717B8A" style={styles.inputIcon} />
                 <TextInput
+                  ref={nameRef}
+                  editable={true}
                   style={styles.textInput}
                   placeholder={isUk ? 'Як до вас звертатися?' : 'Enter your name'}
                   placeholderTextColor="#4E5A6C"
                   value={name}
                   onChangeText={setName}
                   autoCapitalize="words"
+                  returnKeyType="next"
+                  onSubmitEditing={() => weightRef.current?.focus()}
                 />
-              </View>
+              </Pressable>
             </View>
 
             {/* Weight */}
@@ -123,18 +155,25 @@ export default function ParamsSetup() {
               <Text style={styles.inputLabel}>
                 {isUk ? 'Вага' : 'Bodyweight'} ({unitLabel})
               </Text>
-              <View style={styles.inputWrap}>
+              <Pressable
+                onPress={() => weightRef.current?.focus()}
+                style={styles.inputWrap}
+              >
                 <Ionicons name="scale-outline" size={20} color="#717B8A" style={styles.inputIcon} />
                 <TextInput
+                  ref={weightRef}
+                  editable={true}
                   style={styles.textInput}
                   placeholder="75"
                   placeholderTextColor="#4E5A6C"
                   keyboardType="decimal-pad"
                   value={weight}
                   onChangeText={setWeight}
+                  returnKeyType="next"
+                  onSubmitEditing={() => heightRef.current?.focus()}
                 />
                 <Text style={styles.unitSuffix}>{unitLabel}</Text>
-              </View>
+              </Pressable>
             </View>
 
             {/* Height */}
@@ -142,9 +181,14 @@ export default function ParamsSetup() {
               <Text style={styles.inputLabel}>
                 {isUk ? 'Зріст (см)' : 'Height (cm)'}
               </Text>
-              <View style={styles.inputWrap}>
+              <Pressable
+                onPress={() => heightRef.current?.focus()}
+                style={styles.inputWrap}
+              >
                 <Ionicons name="resize-outline" size={20} color="#717B8A" style={styles.inputIcon} />
                 <TextInput
+                  ref={heightRef}
+                  editable={true}
                   style={styles.textInput}
                   placeholder="178"
                   placeholderTextColor="#4E5A6C"
@@ -153,7 +197,7 @@ export default function ParamsSetup() {
                   onChangeText={setHeight}
                 />
                 <Text style={styles.unitSuffix}>{isUk ? 'СМ' : 'CM'}</Text>
-              </View>
+              </Pressable>
             </View>
           </View>
         </ScrollView>

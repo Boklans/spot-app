@@ -27,6 +27,7 @@ interface BodyWeightState {
   hydrated: boolean;
   loadHistory: () => Promise<BodyWeightEntry[]>;
   clearHistory: () => Promise<void>;
+  syncBaselineWeight: (weightKg: number) => Promise<void>;
   addEntry: (weightKg: number, dateStr?: string, note?: string) => Promise<void>;
   deleteEntry: (id: string) => Promise<void>;
   getStats: (days?: number) => BodyWeightStats;
@@ -44,49 +45,99 @@ export const useBodyWeightStore = create<BodyWeightState>((set, get) => ({
   hydrated: false,
 
   loadHistory: async () => {
+    const profileWeight = useUserProfileStore.getState().profile.weightKg || 78;
     try {
       const raw = await AsyncStorage.getItem(BODY_WEIGHT_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as BodyWeightEntry[];
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const sorted = parsed.sort((a, b) => a.timestamp - b.timestamp);
-          set({ entries: sorted, hydrated: true });
-          return sorted;
+          // Purge any legacy mock seed entries
+          const nonSeed = parsed.filter((e) => !e.id.startsWith('seed-'));
+          if (nonSeed.length > 0) {
+            // If the entries only consist of baseline logs, ensure the weight reflects the profile weight
+            const hasOnlyBaselines = nonSeed.every((e) => e.note === 'Baseline' || e.id.startsWith('baseline-'));
+            const cleaned = hasOnlyBaselines
+              ? nonSeed.map((e) => ({ ...e, weightKg: profileWeight }))
+              : nonSeed;
+            const sorted = cleaned.sort((a, b) => a.timestamp - b.timestamp);
+            set({ entries: sorted, hydrated: true });
+            return sorted;
+          }
         }
       }
     } catch {
-      // Fall through to seed
+      // Fall through to initial baseline
     }
 
-    // Seed initial history if empty based on current profile weight
-    const currentProfileWeight = useUserProfileStore.getState().profile.weightKg || 78;
+    // Initialize with the user's actual profile weight without mock variations
     const now = new Date();
-    const seeded: BodyWeightEntry[] = [];
+    const initialEntry: BodyWeightEntry = {
+      id: `baseline-${now.getTime()}`,
+      date: formatDate(now),
+      timestamp: now.getTime(),
+      weightKg: Math.round(profileWeight * 10) / 10,
+      note: 'Baseline',
+    };
+    const initial = [initialEntry];
 
-    // Create 4 realistic weekly data points leading up to today
-    for (let i = 3; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i * 7);
-      // Subtle realistic variation
-      const variation = i === 0 ? 0 : (i === 1 ? -0.3 : (i === 2 ? 0.4 : 0.8));
-      const w = Math.round((currentProfileWeight + variation) * 10) / 10;
-      seeded.push({
-        id: `seed-${d.getTime()}`,
-        date: formatDate(d),
-        timestamp: d.getTime(),
-        weightKg: w,
-        note: i === 0 ? 'Current baseline' : undefined,
-      });
-    }
-
-    set({ entries: seeded, hydrated: true });
+    set({ entries: initial, hydrated: true });
     try {
-      await AsyncStorage.setItem(BODY_WEIGHT_STORAGE_KEY, JSON.stringify(seeded));
+      await AsyncStorage.setItem(BODY_WEIGHT_STORAGE_KEY, JSON.stringify(initial));
     } catch {
       // Continue
     }
 
-    return seeded;
+    return initial;
+  },
+
+  syncBaselineWeight: async (weightKg: number) => {
+    const cleanWeight = Math.round(weightKg * 10) / 10;
+    const now = new Date();
+    const todayStr = formatDate(now);
+    const current = get().entries;
+
+    // Purge fake mock seed entries
+    const nonSeed = current.filter((e) => !e.id.startsWith('seed-'));
+
+    let updated: BodyWeightEntry[];
+    const hasOnlyBaselines = nonSeed.length <= 1 || nonSeed.every((e) => e.note === 'Baseline' || e.id.startsWith('baseline-'));
+    if (hasOnlyBaselines) {
+      // Single baseline or clean start -> set strictly to user's input
+      updated = [
+        {
+          id: `baseline-${now.getTime()}`,
+          date: todayStr,
+          timestamp: now.getTime(),
+          weightKg: cleanWeight,
+          note: 'Baseline',
+        },
+      ];
+    } else {
+      // Update today's entry or append
+      const existingToday = nonSeed.findIndex((e) => e.date === todayStr);
+      if (existingToday >= 0) {
+        updated = nonSeed.map((e, idx) =>
+          idx === existingToday ? { ...e, weightKg: cleanWeight } : e
+        );
+      } else {
+        updated = [
+          ...nonSeed,
+          {
+            id: `bw-${Date.now()}`,
+            date: todayStr,
+            timestamp: now.getTime(),
+            weightKg: cleanWeight,
+          },
+        ].sort((a, b) => a.timestamp - b.timestamp);
+      }
+    }
+
+    set({ entries: updated, hydrated: true });
+    try {
+      await AsyncStorage.setItem(BODY_WEIGHT_STORAGE_KEY, JSON.stringify(updated));
+    } catch {
+      // Continue
+    }
   },
 
   clearHistory: async () => {
@@ -160,17 +211,31 @@ export const useBodyWeightStore = create<BodyWeightState>((set, get) => ({
   },
 
   getStats: (days = 30): BodyWeightStats => {
-    const entries = get().entries;
+    const entries = get().entries.filter((e) => !e.id.startsWith('seed-'));
+    const profileWeight = useUserProfileStore.getState().profile.weightKg || 78;
+
     if (entries.length === 0) {
-      const fallback = useUserProfileStore.getState().profile.weightKg || 78;
       return {
-        currentWeight: fallback,
-        startWeight: fallback,
+        currentWeight: profileWeight,
+        startWeight: profileWeight,
         deltaWeight: 0,
         deltaPercent: 0,
-        highestWeight: fallback,
-        lowestWeight: fallback,
+        highestWeight: profileWeight,
+        lowestWeight: profileWeight,
         entriesCount: 0,
+      };
+    }
+
+    if (entries.length === 1) {
+      const w = profileWeight || entries[0].weightKg;
+      return {
+        currentWeight: w,
+        startWeight: w,
+        deltaWeight: 0,
+        deltaPercent: 0,
+        highestWeight: w,
+        lowestWeight: w,
+        entriesCount: 1,
       };
     }
 

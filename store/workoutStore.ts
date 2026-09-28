@@ -82,8 +82,8 @@ function normalizeOnboarding(value: Record<string, unknown>): OnboardingData {
   return {
     name: typeof value.name === 'string' && value.name.length > 0 ? value.name : defaultOnboarding.name,
     avatar: typeof value.avatar === 'string' ? value.avatar : defaultOnboarding.avatar,
-    weightKg: typeof value.weightKg === 'number' && value.weightKg > 30 ? value.weightKg : defaultOnboarding.weightKg,
-    heightCm: typeof value.heightCm === 'number' && value.heightCm > 100 ? value.heightCm : defaultOnboarding.heightCm,
+    weightKg: typeof value.weightKg === 'number' && value.weightKg >= 20 ? value.weightKg : defaultOnboarding.weightKg,
+    heightCm: typeof value.heightCm === 'number' && value.heightCm > 50 ? value.heightCm : defaultOnboarding.heightCm,
     goal: normalizeGoal(value.goal),
     experience: normalizeExperience(value.experience),
     trainingFrequency: storedFrequency ? Math.min(7, Math.max(1, storedFrequency)) : defaultOnboarding.trainingFrequency,
@@ -100,6 +100,32 @@ export async function saveOnboarding(data: OnboardingPatch) {
   const existing = await loadOnboarding();
   const next: OnboardingData = { ...defaultOnboarding, ...existing, ...data };
   await AsyncStorage.setItem(KEY, JSON.stringify(next));
+
+  try {
+    const { useUserProfileStore } = await import('./userProfileStore');
+    const profileUpdates: Record<string, unknown> = {};
+    if (data.name) profileUpdates.name = data.name;
+    if (typeof data.weightKg === 'number' && data.weightKg >= 20) profileUpdates.weightKg = data.weightKg;
+    if (typeof data.heightCm === 'number' && data.heightCm > 50) profileUpdates.heightCm = data.heightCm;
+    if (data.experience) {
+      profileUpdates.experience =
+        data.experience === 'beginner' ? 'Beginner' : data.experience === 'advanced' ? 'Advanced' : 'Intermediate';
+    }
+    if (data.baselineLifts !== undefined) {
+      profileUpdates.baselineLifts = data.baselineLifts;
+    }
+    if (typeof data.trainingFrequency === 'number') {
+      profileUpdates.workoutsPerWeek = data.trainingFrequency;
+    }
+    if (data.avatar) {
+      profileUpdates.avatar = data.avatar;
+    }
+    if (Object.keys(profileUpdates).length > 0) {
+      await useUserProfileStore.getState().updateProfile(profileUpdates);
+    }
+  } catch {
+    // Continue
+  }
 }
 
 export async function loadOnboarding(): Promise<OnboardingData | null> {
