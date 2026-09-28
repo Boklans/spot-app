@@ -201,7 +201,7 @@ export function WorkoutEditorModal({
                             </View>
                             <View style={styles.exerciseThumbWrap}>
                               <Image
-                                source={getExerciseImage(ex.name)}
+                                source={getExerciseImage(ex.name, ex.customImageUri)}
                                 style={styles.exerciseThumb}
                                 resizeMode="cover"
                               />

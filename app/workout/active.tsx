@@ -260,7 +260,7 @@ export default function Active() {
         <View style={styles.exerciseHeader}>
           <View style={styles.exerciseThumbWrap}>
             <Image
-              source={getExerciseImage(exercise.name)}
+              source={getExerciseImage(exercise.name, exercise.customImageUri)}
               style={styles.exerciseThumb}
               resizeMode="cover"
             />

@@ -32,6 +32,8 @@ export type WorkoutExercise = {
   sets: WorkoutSet[];
   weightIncrement: number;
   restSeconds: number;
+  customImageUri?: string;
+  isCustom?: boolean;
 };
 
 export type WorkoutSession = {
@@ -179,6 +181,8 @@ function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history
       recommendation,
       weightIncrement,
       restSeconds,
+      customImageUri: (exercise as any).customImageUri,
+      isCustom: (exercise as any).isCustom,
       sets: Array.from({ length: exercise.sets || 3 }, (_, setIndex) => ({
         id: `exercise-${exerciseIndex + 1}-set-${setIndex + 1}`,
         weight,

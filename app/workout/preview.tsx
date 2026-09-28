@@ -160,6 +160,8 @@ export default function WorkoutPreview() {
       equipment: libExercise.equipment,
       weightIncrement: libExercise.weightIncrement ?? 2.5,
       restSeconds: 90,
+      customImageUri: libExercise.customImageUri,
+      isCustom: libExercise.isCustom,
     };
 
     const nextWorkouts = program.workouts.map((w) => {
@@ -423,7 +425,7 @@ export default function WorkoutPreview() {
               >
                 <View style={styles.exerciseThumbWrap}>
                   <Image
-                    source={getExerciseImage(exercise.name)}
+                    source={getExerciseImage(exercise.name, exercise.customImageUri)}
                     style={styles.exerciseThumb}
                     resizeMode="cover"
                   />
@@ -589,7 +591,7 @@ export default function WorkoutPreview() {
               {configExercise && (
                 <View style={styles.configThumbWrap}>
                   <Image
-                    source={getExerciseImage(configExercise.name)}
+                    source={getExerciseImage(configExercise.name, configExercise.customImageUri)}
                     style={styles.configThumb}
                     resizeMode="cover"
                   />

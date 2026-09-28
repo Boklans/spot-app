@@ -9,6 +9,8 @@ export type LibraryExercise = {
   defaultSets?: number;
   defaultRepRange?: string;
   defaultWeight?: number;
+  customImageUri?: string;
+  isCustom?: boolean;
 };
 
 export const EXERCISE_LIBRARY: LibraryExercise[] = [

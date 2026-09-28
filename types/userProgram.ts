@@ -10,6 +10,8 @@ export type UserExercise = {
   equipment: EquipmentId;
   weightIncrement: number;
   restSeconds?: number;
+  customImageUri?: string;
+  isCustom?: boolean;
 };
 
 export type UserWorkout = {

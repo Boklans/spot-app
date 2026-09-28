@@ -101,7 +101,10 @@ const EXERCISE_IMAGES: Record<string, ImageSourcePropType> = {
   'plank': require('@/assets/exercises/plank.jpg'),
 };
 
-export function getExerciseImage(name?: string): ImageSourcePropType {
+export function getExerciseImage(name?: string, customImageUri?: string): ImageSourcePropType {
+  if (customImageUri) {
+    return { uri: customImageUri };
+  }
   if (!name) return EXERCISE_IMAGES['bench press'];
   const lower = name.toLowerCase().trim();
   for (const [key, image] of Object.entries(EXERCISE_IMAGES)) {

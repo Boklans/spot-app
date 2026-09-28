@@ -8,6 +8,8 @@ export interface CatalogExercise {
   defaultWeight: number;
   targetRepRange: string;
   sets: number;
+  customImageUri?: string;
+  isCustom?: boolean;
 }
 
 export const EXERCISE_CATALOG: CatalogExercise[] = [

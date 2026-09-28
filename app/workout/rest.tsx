@@ -282,7 +282,7 @@ export default function Rest() {
           {/* Big Centered Exercise 3D Illustration */}
           <View style={styles.imageContainer}>
             <Image
-              source={getExerciseImage(targetExercise?.name)}
+              source={getExerciseImage(targetExercise?.name, targetExercise?.customImageUri)}
               style={styles.image}
               resizeMode="cover"
             />

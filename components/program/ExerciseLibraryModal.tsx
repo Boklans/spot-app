@@ -16,6 +16,8 @@ import { EXERCISE_CATALOG, type CatalogExercise } from '@/lib/exerciseCatalog';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { useCustomExercisesStore } from '@/store/customExercisesStore';
+import { CreateExerciseModal } from './CreateExerciseModal';
 
 const CATEGORIES = ['All', 'Chest', 'Back', 'Shoulders', 'Legs', 'Arms', 'Core'];
 
@@ -35,9 +37,26 @@ export function ExerciseLibraryModal({
   const { t, tm, te, language } = useI18n();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const customExercises = useCustomExercisesStore((state) => state.customExercises);
+
+  const combinedCatalog = useMemo(() => {
+    const customAsCatalog: CatalogExercise[] = customExercises.map((c) => ({
+      id: c.id,
+      name: c.name,
+      muscleGroup: c.muscleGroup,
+      equipment: c.equipment,
+      defaultWeight: c.defaultWeight,
+      targetRepRange: c.defaultRepRange,
+      sets: c.defaultSets,
+      customImageUri: c.customImageUri,
+      isCustom: true,
+    }));
+    return [...customAsCatalog, ...EXERCISE_CATALOG];
+  }, [customExercises]);
 
   const filteredExercises = useMemo(() => {
-    return EXERCISE_CATALOG.filter((ex) => {
+    return combinedCatalog.filter((ex) => {
       const matchesCategory =
         selectedCategory === 'All' ||
         ex.muscleGroup.toLowerCase() === selectedCategory.toLowerCase();
@@ -49,7 +68,7 @@ export function ExerciseLibraryModal({
         tm(ex.muscleGroup).toLowerCase().includes(search.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [search, selectedCategory, tm, te]);
+  }, [combinedCatalog, search, selectedCategory, tm, te]);
 
   if (!visible) return null;
 
@@ -127,6 +146,32 @@ export function ExerciseLibraryModal({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
           >
+            {/* Create Custom Exercise Button */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Create custom exercise"
+              onPress={() => {
+                hapticLight();
+                setIsCreateModalVisible(true);
+              }}
+              style={({ pressed }) => [styles.createExBtn, pressed && { opacity: 0.75 }]}
+            >
+              <View style={styles.createExIconWrap}>
+                <Ionicons name="add" size={20} color="#0B0D0F" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.createExTitle}>
+                  {language === 'uk' ? '+ Створити власну вправу' : '+ Create Custom Exercise'}
+                </Text>
+                <Text style={styles.createExSubtitle}>
+                  {language === 'uk'
+                    ? 'Тренажер або рух з власним фото'
+                    : 'Gym machine or movement with custom photo'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+            </Pressable>
+
             {filteredExercises.map((item) => (
               <Pressable
                 key={item.id}
@@ -145,13 +190,22 @@ export function ExerciseLibraryModal({
                 <View style={styles.exerciseCardLeft}>
                   <View style={styles.exerciseThumbWrap}>
                     <Image
-                      source={getExerciseImage(item.name)}
+                      source={getExerciseImage(item.name, item.customImageUri)}
                       style={styles.exerciseThumb}
                       resizeMode="cover"
                     />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.exerciseName}>{te(item.name)}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.exerciseName} numberOfLines={1}>{te(item.name)}</Text>
+                      {item.isCustom && (
+                        <View style={styles.customBadge}>
+                          <Text style={styles.customBadgeText}>
+                            {language === 'uk' ? 'ВЛАСНА' : 'CUSTOM'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={styles.exerciseMeta}>
                       {tm(item.muscleGroup)} • {item.equipment} • {t('base')} {item.defaultWeight} {t('kg')}
                     </Text>
@@ -185,8 +239,30 @@ export function ExerciseLibraryModal({
               </Text>
             </Pressable>
           </View>
-    </>
-  );
+
+          {/* Create Custom Exercise Modal */}
+          <CreateExerciseModal
+            visible={isCreateModalVisible}
+            onClose={() => setIsCreateModalVisible(false)}
+            onCreated={(newEx) => {
+              setIsCreateModalVisible(false);
+              const asCatalog: CatalogExercise = {
+                id: newEx.id,
+                name: newEx.name,
+                muscleGroup: newEx.muscleGroup,
+                equipment: newEx.equipment,
+                defaultWeight: newEx.defaultWeight ?? 20,
+                targetRepRange: newEx.defaultRepRange ?? '8-12',
+                sets: newEx.defaultSets ?? 3,
+                customImageUri: newEx.customImageUri,
+                isCustom: true,
+              };
+              onSelectExercise(asCatalog);
+              onClose();
+            }}
+          />
+        </>
+      );
 
   if (embedded) {
     return <View style={styles.embeddedContainer}>{content}</View>;
@@ -403,6 +479,51 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  createExBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#161B24',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.3)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+  },
+  createExIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createExTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  createExSubtitle: {
+    fontSize: 12,
+    color: '#8E959F',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  customBadge: {
+    backgroundColor: 'rgba(200, 255, 61, 0.15)',
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  customBadgeText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });
 

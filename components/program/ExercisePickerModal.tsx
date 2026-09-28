@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card } from '@/components/ui/Card';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
@@ -17,6 +18,8 @@ import { getExerciseImage } from '@/lib/exerciseImages';
 import { EXERCISE_LIBRARY, type LibraryExercise } from '@/lib/exerciseLibrary';
 import { hapticImpact, hapticLight } from '@/lib/haptics';
 import { translateExercise, useI18n } from '@/lib/i18n';
+import { useCustomExercisesStore } from '@/store/customExercisesStore';
+import { CreateExerciseModal } from './CreateExerciseModal';
 
 const MUSCLE_GROUPS = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'] as const;
 type MuscleGroupFilter = (typeof MUSCLE_GROUPS)[number];
@@ -35,10 +38,28 @@ export function ExercisePickerModal({
   const { tm, te, language } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroupFilter>('All');
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const customExercises = useCustomExercisesStore((state) => state.customExercises);
+
+  const combinedLibrary = useMemo(() => {
+    const customAsLibrary: LibraryExercise[] = customExercises.map((c) => ({
+      id: c.id,
+      name: c.name,
+      muscleGroup: c.muscleGroup,
+      equipment: c.equipment,
+      weightIncrement: c.weightIncrement,
+      defaultSets: c.defaultSets,
+      defaultRepRange: c.defaultRepRange,
+      defaultWeight: c.defaultWeight,
+      customImageUri: c.customImageUri,
+      isCustom: true,
+    }));
+    return [...customAsLibrary, ...EXERCISE_LIBRARY];
+  }, [customExercises]);
 
   const filteredExercises = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return EXERCISE_LIBRARY.filter((item) => {
+    return combinedLibrary.filter((item) => {
       const translatedName = translateExercise(item.name, language).toLowerCase();
       const translatedMuscle = tm(item.muscleGroup).toLowerCase();
 
@@ -55,7 +76,7 @@ export function ExercisePickerModal({
 
       return matchesSearch && matchesMuscle;
     });
-  }, [searchQuery, selectedMuscle, language, tm]);
+  }, [combinedLibrary, searchQuery, selectedMuscle, language, tm]);
 
   const handleSelect = (exercise: LibraryExercise) => {
     hapticImpact();
@@ -163,6 +184,32 @@ export function ExercisePickerModal({
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             keyboardShouldPersistTaps="handled"
+            ListHeaderComponent={
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Create custom exercise"
+                onPress={() => {
+                  hapticLight();
+                  setIsCreateModalVisible(true);
+                }}
+                style={({ pressed }) => [styles.createExBtn, pressed && styles.pressed]}
+              >
+                <View style={styles.createExIconWrap}>
+                  <Ionicons name="add" size={20} color="#0B0D0F" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.createExTitle}>
+                    {language === 'uk' ? '+ Створити власну вправу' : '+ Create Custom Exercise'}
+                  </Text>
+                  <Text style={styles.createExSubtitle}>
+                    {language === 'uk'
+                      ? 'Тренажер або рух з власним фото'
+                      : 'Gym machine or movement with custom photo'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+              </Pressable>
+            }
             renderItem={({ item }) => (
               <Pressable
                 accessibilityRole="button"
@@ -173,13 +220,22 @@ export function ExercisePickerModal({
                   <View style={styles.exerciseCardLeft}>
                     <View style={styles.exerciseThumbWrap}>
                       <Image
-                        source={getExerciseImage(item.name)}
+                        source={getExerciseImage(item.name, item.customImageUri)}
                         style={styles.exerciseThumb}
                         resizeMode="cover"
                       />
                     </View>
                     <View style={styles.cardInfo}>
-                      <Text style={styles.exerciseName}>{te(item.name)}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text numberOfLines={1} style={styles.exerciseName}>{te(item.name)}</Text>
+                        {item.isCustom && (
+                          <View style={styles.customBadge}>
+                            <Text style={styles.customBadgeText}>
+                              {language === 'uk' ? 'ВЛАСНА' : 'CUSTOM'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.exerciseMeta}>
                         {tm(item.muscleGroup)} • {item.equipment}
                       </Text>
@@ -207,6 +263,16 @@ export function ExercisePickerModal({
             }
           />
         </View>
+
+        {/* Create Custom Exercise Modal */}
+        <CreateExerciseModal
+          visible={isCreateModalVisible}
+          onClose={() => setIsCreateModalVisible(false)}
+          onCreated={(newExercise) => {
+            setIsCreateModalVisible(false);
+            handleSelect(newExercise);
+          }}
+        />
       </SafeAreaView>
     </Modal>
   );
@@ -377,5 +443,50 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.75,
+  },
+  createExBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#161B24',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.3)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+  },
+  createExIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createExTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  createExSubtitle: {
+    fontSize: 12,
+    color: '#8E959F',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  customBadge: {
+    backgroundColor: 'rgba(200, 255, 61, 0.15)',
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  customBadgeText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });
