@@ -568,21 +568,6 @@ export default function Home() {
                 <Ionicons name="checkmark-circle" size={15} color="#0B0D0F" />
                 <Text style={styles.completedBadgeText}>{t('workoutCompletedToday')}</Text>
               </View>
-              {completedSummaryData.prsCount > 0 ? (
-                <View style={styles.prMiniBadge}>
-                  <MaterialCommunityIcons name="trophy" size={13} color="#FFD130" />
-                  <Text style={styles.prMiniBadgeText}>
-                    {completedSummaryData.prsCount} {t('personalRecords')}
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.baselineMiniBadge}>
-                  <Ionicons name="flag" size={12} color={colors.primary} />
-                  <Text style={styles.baselineMiniBadgeText}>
-                    {language === 'uk' ? 'БАЗУ ЗАФІКСОВАНО' : 'BASELINE SET'}
-                  </Text>
-                </View>
-              )}
             </View>
 
             <Text style={styles.workoutName}>{tw(completedSummaryData.workoutName)}</Text>

@@ -28,19 +28,19 @@ export function detectPersonalRecords(current: CompletedWorkout, history: Comple
         value: currentMaxWeight,
         label: `${formatWeight(currentMaxWeight)} kg`,
       });
-    }
-
-    const currentBest1RM = Math.max(...currentSets.map((set) => calculateEstimated1RM(set.weight, set.reps)));
-    const historicalBest1RM = Math.max(...historicalSets.map((set) => calculateEstimated1RM(set.weight, set.reps)));
-    if (currentBest1RM > historicalBest1RM) {
-      records.push({
-        id: `${current.id}-${exercise.exerciseId}-estimated-1rm`,
-        type: 'estimated_1rm',
-        exerciseId: exercise.exerciseId,
-        exerciseName: exercise.exerciseName,
-        value: currentBest1RM,
-        label: `${formatWeight(currentBest1RM)} kg estimated 1RM`,
-      });
+    } else {
+      const currentBest1RM = Math.max(...currentSets.map((set) => calculateEstimated1RM(set.weight, set.reps)));
+      const historicalBest1RM = Math.max(...historicalSets.map((set) => calculateEstimated1RM(set.weight, set.reps)));
+      if (currentBest1RM > historicalBest1RM) {
+        records.push({
+          id: `${current.id}-${exercise.exerciseId}-estimated-1rm`,
+          type: 'estimated_1rm',
+          exerciseId: exercise.exerciseId,
+          exerciseName: exercise.exerciseName,
+          value: currentBest1RM,
+          label: `${formatWeight(currentBest1RM)} kg (1RM)`,
+        });
+      }
     }
   }
 
