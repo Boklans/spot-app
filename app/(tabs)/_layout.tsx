@@ -26,7 +26,7 @@ export default function TabsLayout() {
           paddingTop: 10,
           paddingBottom: 14,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', letterSpacing: 0.1 },
         tabBarIcon: ({ color, size }) => (
           <Ionicons
             name={icons[route.name as keyof typeof icons] || 'ellipse-outline'}

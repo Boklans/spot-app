@@ -1188,15 +1188,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 4,
     paddingBottom: 8,
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.4,
   },
   dropdownBtn: {
     flexDirection: 'row',
@@ -1212,12 +1212,12 @@ const styles = StyleSheet.create({
   dropdownBtnText: {
     color: '#8E9BAE',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   dropdownMenu: {
     position: 'absolute',
     top: 60,
-    right: 20,
+    right: 24,
     zIndex: 100,
     backgroundColor: '#161B24',
     borderRadius: 14,
@@ -1240,17 +1240,17 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     color: '#8E9BAE',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   dropdownItemTextActive: {
     color: colors.primary,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   segmentBar: {
     flexDirection: 'row',
     backgroundColor: '#12161D',
     borderRadius: 14,
-    marginHorizontal: 20,
+    marginHorizontal: 24,
     marginTop: 8,
     marginBottom: 16,
     padding: 3,
@@ -1270,16 +1270,16 @@ const styles = StyleSheet.create({
   segmentBtnText: {
     color: '#6C7A8E',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     textAlign: 'center',
     includeFontPadding: false,
   },
   segmentBtnTextActive: {
     color: '#FFFFFF',
-    fontWeight: '800',
+    fontWeight: '700',
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingBottom: 32,
   },
   tabContainer: {
@@ -1302,13 +1302,14 @@ const styles = StyleSheet.create({
   statNumber: {
     color: '#FFFFFF',
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '700',
     marginBottom: 4,
+    fontVariant: ['tabular-nums'],
   },
   statLabel: {
     color: '#8E9BAE',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   exerciseSelectorWrap: {
     marginBottom: 12,
@@ -1333,11 +1334,11 @@ const styles = StyleSheet.create({
   exercisePillText: {
     color: '#8E9BAE',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   exercisePillTextActive: {
     color: '#0B0D0F',
-    fontWeight: '900',
+    fontWeight: '700',
   },
   strengthCard: {
     backgroundColor: '#12161D',
@@ -1356,31 +1357,32 @@ const styles = StyleSheet.create({
   strengthKicker: {
     color: colors.primary,
     fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1.5,
+    fontWeight: '700',
+    letterSpacing: 1.0,
     marginBottom: 4,
   },
   strengthExerciseName: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   strengthBigWeight: {
     color: '#FFFFFF',
-    fontSize: 30,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+    fontVariant: ['tabular-nums'],
   },
   strengthSubBest: {
     color: colors.primary,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     marginTop: 2,
   },
   strengthEst1RM: {
     color: '#8E9BAE',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
     marginTop: 2,
   },
   chartWrap: {
@@ -1397,12 +1399,12 @@ const styles = StyleSheet.create({
   chartTrendPositive: {
     color: colors.primary,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   chartFraction: {
     color: '#6C7A8E',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   chartEmptyWrap: {
     alignItems: 'center',
@@ -1412,7 +1414,7 @@ const styles = StyleSheet.create({
   chartEmptyTitle: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
     marginBottom: 6,
   },
   chartEmptyBody: {
@@ -1444,11 +1446,11 @@ const styles = StyleSheet.create({
   timePillText: {
     color: '#8E9BAE',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   timePillTextActive: {
     color: '#0B0D0F',
-    fontWeight: '900',
+    fontWeight: '700',
   },
   previewSectionCard: {
     backgroundColor: '#12161D',
@@ -1466,7 +1468,7 @@ const styles = StyleSheet.create({
   previewSectionTitle: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   muscleMiniBars: {
     gap: 8,
@@ -1482,12 +1484,14 @@ const styles = StyleSheet.create({
   muscleMiniVal: {
     color: colors.primary,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   previewWeightVal: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   previewWeightFooter: {
     flexDirection: 'row',
@@ -1501,17 +1505,18 @@ const styles = StyleSheet.create({
   previewWeightDelta: {
     color: '#8E9BAE',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
   },
   previewWeightLink: {
     color: colors.primary,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   muscleListCard: {
     backgroundColor: '#12161D',
     borderRadius: 22,
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
     marginBottom: 16,
@@ -1533,11 +1538,12 @@ const styles = StyleSheet.create({
   muscleName: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   muscleDelta: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   progressBarTrack: {
     height: 6,
@@ -1559,7 +1565,7 @@ const styles = StyleSheet.create({
   summaryMuscleTitle: {
     color: colors.primary,
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '700',
     marginBottom: 12,
   },
   summaryGrid: {
@@ -1576,12 +1582,13 @@ const styles = StyleSheet.create({
   summaryMainVal: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   summarySubVal: {
     color: '#8E9BAE',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   prsList: {
     gap: 10,
@@ -1610,13 +1617,13 @@ const styles = StyleSheet.create({
   prCardName: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '600',
     marginBottom: 2,
   },
   prCardDate: {
     color: '#8E9BAE',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   prCardRight: {
     flexDirection: 'row',
@@ -1625,8 +1632,9 @@ const styles = StyleSheet.create({
   },
   prCardWeight: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   prEmptyWrap: {
     alignItems: 'center',
@@ -1650,7 +1658,7 @@ const styles = StyleSheet.create({
   prEmptyTitle: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     marginBottom: 6,
   },
   prEmptyBody: {
@@ -1670,7 +1678,7 @@ const styles = StyleSheet.create({
   logWeightHeaderBtnText: {
     color: '#0B0D0F',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   aiInsightCard: {
     backgroundColor: '#131821',
@@ -1693,7 +1701,7 @@ const styles = StyleSheet.create({
   aiInsightBadgeText: {
     color: colors.primary,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0.8,
   },
   aiStatusPill: {
@@ -1705,13 +1713,13 @@ const styles = StyleSheet.create({
   },
   aiStatusPillText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     textTransform: 'uppercase',
   },
   aiInsightTitle: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     marginBottom: 6,
   },
   aiInsightBody: {

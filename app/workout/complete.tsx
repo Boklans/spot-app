@@ -515,14 +515,14 @@ const styles = StyleSheet.create({
   title: {
     color: '#FFFFFF',
     fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: 1,
+    fontWeight: '700',
+    letterSpacing: -0.3,
     textAlign: 'center',
   },
   workoutSubtitle: {
     color: '#8E9BAE',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '500',
     marginTop: 6,
   },
   statsRow: {
@@ -550,14 +550,15 @@ const styles = StyleSheet.create({
   },
   statValue: {
     color: '#FFFFFF',
-    fontSize: 19,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '700',
     marginBottom: 4,
+    fontVariant: ['tabular-nums'],
   },
   statLabel: {
     color: '#8E9BAE',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   volumeCard: {
     width: '100%',
@@ -586,21 +587,22 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   volumeSurgeBadgeText: {
-    fontSize: 12,
-    fontWeight: '900',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#0B0D0F',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   volumeValue: {
     color: '#FFFFFF',
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    fontVariant: ['tabular-nums'],
   },
   volumeLabel: {
     color: '#8E9BAE',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '500',
   },
   volumeComparisonRow: {
     flexDirection: 'row',
@@ -617,7 +619,7 @@ const styles = StyleSheet.create({
   volumeComparisonText: {
     flex: 1,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#B0BAC7',
     lineHeight: 16,
   },
@@ -632,10 +634,10 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   storySurgePillText: {
-    fontSize: 12,
-    fontWeight: '900',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#0B0D0F',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   prsCard: {
     width: '100%',
@@ -655,9 +657,9 @@ const styles = StyleSheet.create({
   },
   prSectionTitle: {
     color: colors.primary,
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 1.2,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.0,
   },
   noPrWrap: {
     paddingVertical: 8,
@@ -695,14 +697,15 @@ const styles = StyleSheet.create({
   prExerciseName: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
     flex: 1,
   },
   prValueText: {
     color: '#8E9BAE',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
     marginRight: 8,
+    fontVariant: ['tabular-nums'],
   },
   bottomBar: {
     paddingHorizontal: 24,
@@ -727,8 +730,8 @@ const styles = StyleSheet.create({
   },
   doneBtnText: {
     color: '#0B0D0F',
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 15,
+    fontWeight: '700',
   },
   emptyWrap: {
     flex: 1,
@@ -738,8 +741,8 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '700',
     marginBottom: 20,
   },
   topShareBtn: {

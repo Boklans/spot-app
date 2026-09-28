@@ -533,20 +533,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 4,
     paddingBottom: 8,
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.4,
   },
   subtitle: {
     color: '#8E9BAE',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '400',
     marginTop: 4,
   },
   tabToggleWrap: {
@@ -570,17 +570,17 @@ const styles = StyleSheet.create({
   toggleBtnText: {
     color: '#6C7A8E',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   toggleBtnTextActive: {
     color: '#FFFFFF',
-    fontWeight: '800',
+    fontWeight: '700',
   },
   aiContainer: {
     flex: 1,
   },
   aiScrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingBottom: 24,
   },
   aiBanner: {
@@ -609,14 +609,14 @@ const styles = StyleSheet.create({
   aiBannerKicker: {
     color: '#A78BFA',
     fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1.2,
+    fontWeight: '700',
+    letterSpacing: 1.0,
     marginBottom: 2,
   },
   aiBannerSub: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   msgWrap: {
     flexDirection: 'row',
@@ -704,7 +704,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   inputContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.06)',
@@ -736,14 +736,14 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   routineScroll: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingBottom: 32,
     gap: 14,
   },
   workoutCard: {
     backgroundColor: '#12161D',
     borderRadius: 20,
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
   },
@@ -774,7 +774,7 @@ const styles = StyleSheet.create({
   routineEditBtnText: {
     color: colors.primary,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   workoutLabelRow: {
     flexDirection: 'row',
@@ -784,8 +784,8 @@ const styles = StyleSheet.create({
   workoutNumber: {
     color: '#8E9BAE',
     fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
+    fontWeight: '700',
+    letterSpacing: 0.9,
   },
   upNextBadge: {
     backgroundColor: 'rgba(200, 255, 61, 0.15)',
@@ -795,14 +795,14 @@ const styles = StyleSheet.create({
   },
   upNextBadgeText: {
     color: colors.primary,
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.8,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.6,
   },
   workoutName: {
     color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '700',
     marginTop: 4,
   },
   muscleTagsRow: {
@@ -820,7 +820,7 @@ const styles = StyleSheet.create({
   muscleTagText: {
     color: '#8E9BAE',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   exerciseList: {
     marginTop: 14,
@@ -859,13 +859,14 @@ const styles = StyleSheet.create({
   exerciseNameText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     flex: 1,
   },
   exerciseMetaText: {
     color: '#8E9BAE',
     fontSize: 12,
     fontWeight: '500',
+    fontVariant: ['tabular-nums'],
   },
   routineHeaderCard: {
     backgroundColor: '#12161D',
@@ -883,15 +884,15 @@ const styles = StyleSheet.create({
   },
   routineProgramName: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   routineDaysLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '500',
     color: '#8E9BAE',
     marginTop: 2,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   splitBadge: {
     backgroundColor: 'rgba(200, 255, 61, 0.12)',
@@ -902,8 +903,8 @@ const styles = StyleSheet.create({
   splitBadgeText: {
     color: colors.primary,
     fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.6,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   splitChipRow: {
     gap: 8,
@@ -923,11 +924,11 @@ const styles = StyleSheet.create({
   splitChipText: {
     color: '#8E9BAE',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   splitChipTextActive: {
     color: colors.primary,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   customProgramHeaderBanner: {
     flexDirection: 'row',

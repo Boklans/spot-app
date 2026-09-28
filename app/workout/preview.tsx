@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 12,
     paddingBottom: 100,
   },
@@ -911,16 +911,16 @@ const styles = StyleSheet.create({
   },
   workoutTitle: {
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.4,
   },
   workoutMuscles: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#8E959F',
     marginTop: 4,
     marginBottom: 16,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   readinessRow: {
     flexDirection: 'row',
@@ -941,8 +941,9 @@ const styles = StyleSheet.create({
   },
   readinessPercentText: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#8E959F',
+    fontVariant: ['tabular-nums'],
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -952,15 +953,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '600',
     color: '#FFFFFF',
     letterSpacing: -0.2,
   },
   sectionMeta: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '500',
     color: '#8E959F',
+    fontVariant: ['tabular-nums'],
   },
   exerciseList: {
     gap: 10,
@@ -1001,22 +1003,23 @@ const styles = StyleSheet.create({
   },
   exerciseName: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.2,
   },
   exerciseMeta: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#8E959F',
     marginTop: 3,
-    fontWeight: '500',
+    fontWeight: '400',
+    fontVariant: ['tabular-nums'],
   },
   bottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingBottom: 24,
     paddingTop: 12,
     backgroundColor: '#0B0D0F',
@@ -1045,7 +1048,7 @@ const styles = StyleSheet.create({
   },
   swapBtnText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '600',
     color: colors.primary,
   },
   modalOverlay: {
@@ -1074,13 +1077,13 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.3,
   },
   modalSubtitle: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '400',
     color: '#8E959F',
     marginTop: 3,
   },
@@ -1238,14 +1241,14 @@ const styles = StyleSheet.create({
   },
   configExerciseTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   configExerciseSub: {
     fontSize: 13,
     color: '#8E959F',
     marginTop: 2,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   configCloseBtn: {
     width: 36,
@@ -1263,7 +1266,7 @@ const styles = StyleSheet.create({
   },
   configSectionLabel: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#8E959F',
     letterSpacing: 0.8,
     marginBottom: 8,
@@ -1300,12 +1303,13 @@ const styles = StyleSheet.create({
   },
   configStepValueText: {
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#FFFFFF',
+    fontVariant: ['tabular-nums'],
   },
   configStepValueSub: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#8E959F',
   },
   configWeightInputWrap: {
@@ -1322,15 +1326,16 @@ const styles = StyleSheet.create({
   },
   configWeightInput: {
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
     minWidth: 50,
     paddingVertical: 0,
+    fontVariant: ['tabular-nums'],
   },
   configWeightInputUnit: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.primary,
     marginLeft: 4,
   },
@@ -1353,11 +1358,12 @@ const styles = StyleSheet.create({
   },
   configPillText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#8E959F',
   },
   configPillTextActive: {
     color: colors.primary,
+    fontWeight: '700',
   },
   configSaveBtn: {
     flexDirection: 'row',
@@ -1374,9 +1380,9 @@ const styles = StyleSheet.create({
   },
   configSaveBtnText: {
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#0B0D0F',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   configSecondaryRow: {
     flexDirection: 'row',

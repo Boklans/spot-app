@@ -735,7 +735,7 @@ const styles = StyleSheet.create({
   },
   topWorkoutName: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.2,
   },
@@ -752,16 +752,17 @@ const styles = StyleSheet.create({
   },
   stopwatchText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#C8FF3D',
     fontVariant: ['tabular-nums'],
   },
   topPercent: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#C8FF3D',
     width: 44,
     textAlign: 'right',
+    fontVariant: ['tabular-nums'],
   },
   progressBarTrack: {
     width: '100%',
@@ -773,7 +774,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#C8FF3D',
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 140,
   },
@@ -820,10 +821,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   exerciseName: {
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 22,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
     lineHeight: 28,
   },
   exerciseMuscleRow: {
@@ -833,7 +834,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   exerciseMuscle: {
-    fontSize: 13,
+    fontSize: 11,
     color: colors.primary,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -851,7 +852,7 @@ const styles = StyleSheet.create({
   },
   guideBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.primary,
     letterSpacing: 0.3,
   },
@@ -860,7 +861,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(200, 255, 61, 0.22)',
     borderWidth: 1.5,
     borderRadius: 22,
-    padding: 16,
+    padding: 20,
     marginBottom: 16,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
@@ -892,8 +893,8 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   setKickerText: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
     color: colors.primary,
     letterSpacing: 0.8,
   },
@@ -950,7 +951,7 @@ const styles = StyleSheet.create({
   },
   overloadPillText: {
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#0B0D0F',
     letterSpacing: 0.2,
   },
@@ -998,7 +999,7 @@ const styles = StyleSheet.create({
   },
   heroControlLabel: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#717B8A',
     letterSpacing: 1,
     textAlign: 'center',
@@ -1013,7 +1014,7 @@ const styles = StyleSheet.create({
   },
   deltaMicroText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.primary,
   },
   stepperContainer: {
@@ -1046,17 +1047,17 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   heroValueText: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 26,
+    fontWeight: '700',
     color: colors.primary,
     fontVariant: ['tabular-nums'],
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
   heroValueSub: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#8E959F',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
     marginTop: -2,
   },
   card: {
@@ -1064,7 +1065,7 @@ const styles = StyleSheet.create({
     borderColor: '#242B35',
     borderWidth: 1,
     borderRadius: 20,
-    padding: 16,
+    padding: 20,
     marginBottom: 16,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 3 },
@@ -1080,14 +1081,14 @@ const styles = StyleSheet.create({
   },
   tableHeadSet: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#717B8A',
     letterSpacing: 0.8,
     width: 32,
   },
   tableHeadPrev: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#717B8A',
     letterSpacing: 0.8,
     flex: 1.1,
@@ -1095,7 +1096,7 @@ const styles = StyleSheet.create({
   },
   tableHeadWeight: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#717B8A',
     letterSpacing: 0.8,
     flex: 1,
@@ -1103,7 +1104,7 @@ const styles = StyleSheet.create({
   },
   tableHeadReps: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#717B8A',
     letterSpacing: 0.8,
     flex: 1,
@@ -1111,7 +1112,7 @@ const styles = StyleSheet.create({
   },
   tableHeadStatus: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#717B8A',
     letterSpacing: 0.5,
     width: 58,
@@ -1139,33 +1140,35 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   setColNum: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#8E959F',
     width: 32,
+    fontVariant: ['tabular-nums'],
   },
   setColPrev: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#6C7787',
     flex: 1.1,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
   setColWeight: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     color: '#8E959F',
     flex: 1,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
   setColReps: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     color: '#8E959F',
     flex: 1,
     textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
   setColDoneText: {
     textDecorationLine: 'line-through',
@@ -1181,7 +1184,7 @@ const styles = StyleSheet.create({
   },
   textProgressionHighlight: {
     color: colors.primary,
-    fontWeight: '900',
+    fontWeight: '700',
   },
   statusDoneBadge: {
     width: 32,
@@ -1219,7 +1222,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingBottom: 24,
     paddingTop: 12,
     backgroundColor: '#0B0D0F',
@@ -1254,7 +1257,7 @@ const styles = StyleSheet.create({
   },
   tableAddSetText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.primary,
   },
   tableRemoveSetBtn: {
@@ -1266,7 +1269,7 @@ const styles = StyleSheet.create({
   },
   tableRemoveSetText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#8E99A8',
   },
   emptyWrap: {
@@ -1277,7 +1280,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 20,
   },
@@ -1295,7 +1298,7 @@ const styles = StyleSheet.create({
   swapBtnText: {
     color: colors.primary,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
@@ -1323,12 +1326,12 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   modalSubtitle: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '400',
     color: '#8E9BAE',
     marginTop: 2,
   },
@@ -1382,7 +1385,7 @@ const styles = StyleSheet.create({
   },
   swapItemName: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#FFFFFF',
   },
   swapItemNameCurrent: {
@@ -1390,7 +1393,7 @@ const styles = StyleSheet.create({
   },
   swapItemDetail: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '400',
     color: '#8E9BAE',
     marginTop: 2,
   },
@@ -1403,7 +1406,7 @@ const styles = StyleSheet.create({
   currentBadgeText: {
     color: '#0B0D0F',
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
 });
