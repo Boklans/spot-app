@@ -81,7 +81,9 @@ export default function Complete() {
     router.replace('/(tabs)');
   };
 
-  const workoutDateFormatted = new Date().toLocaleDateString(
+  const workoutDateFormatted = new Date(
+    session?.completedAt || session?.startedAt || Date.now()
+  ).toLocaleDateString(
     language === 'uk' ? 'uk-UA' : 'en-US',
     { day: 'numeric', month: 'long', year: 'numeric' }
   ).toUpperCase();

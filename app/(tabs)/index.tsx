@@ -233,8 +233,13 @@ export default function Home() {
   // STATE B: Active session exists and is NOT completed
   const isSessionInProgress = Boolean(activeSession && !activeSession.completed);
 
-  // STATE C: Session completed or a workout was completed today
-  const isSessionCompleted = Boolean(activeSession && activeSession.completed);
+  // STATE C: Session completed today or a workout was completed today
+  const isSessionCompletedToday = Boolean(
+    activeSession &&
+    activeSession.completed &&
+    activeSession.completedAt &&
+    new Date(activeSession.completedAt).toDateString() === new Date().toDateString()
+  );
 
   const todayCompletedHistoryWorkout = useMemo(() => {
     const today = new Date();
@@ -251,7 +256,7 @@ export default function Home() {
     );
   }, [history, focusKey]);
 
-  const isWorkoutCompletedToday = isSessionCompleted || Boolean(todayCompletedHistoryWorkout);
+  const isWorkoutCompletedToday = isSessionCompletedToday || Boolean(todayCompletedHistoryWorkout);
 
   // Strict 3-state selector:
   const homeState: 'IN_PROGRESS' | 'COMPLETED_TODAY' | 'READY_TO_TRAIN' = isSessionInProgress
@@ -289,7 +294,7 @@ export default function Home() {
   }, [activeSession, t]);
 
   const completedSummaryData = useMemo(() => {
-    if (isSessionCompleted && activeSession) {
+    if (isSessionCompletedToday && activeSession) {
       const summary = getSessionSummary(activeSession);
       return {
         workoutName: activeSession.workoutName,
@@ -315,7 +320,7 @@ export default function Home() {
       };
     }
     return null;
-  }, [isSessionCompleted, activeSession, todayCompletedHistoryWorkout]);
+  }, [isSessionCompletedToday, activeSession, todayCompletedHistoryWorkout]);
 
   const displayMuscles = useMemo(() => {
     if (!nextWorkout) return language === 'uk' ? 'Все тіло' : 'Full Body';

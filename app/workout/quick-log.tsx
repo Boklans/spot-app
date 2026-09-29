@@ -343,6 +343,7 @@ export default function QuickLogScreen() {
 
   // Save Workout
   const handleSaveWorkout = async () => {
+    if (isSaving) return;
     if (totalCompletedSets === 0) {
       hapticImpact();
       Alert.alert(
