@@ -27,6 +27,7 @@ export type CompletedWorkout = {
   id: string;
   programWorkoutId: string;
   workoutName: string;
+  workoutDate?: string; // YYYY-MM-DD calendar day
   startedAt: string;
   completedAt: string;
   durationSeconds: number;

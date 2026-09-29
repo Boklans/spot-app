@@ -21,6 +21,7 @@ export function createCompletedWorkoutSnapshot(session: WorkoutSession, personal
     id: session.id,
     programWorkoutId: session.programWorkoutId,
     workoutName: session.workoutName,
+    workoutDate: session.workoutDate || session.startedAt.slice(0, 10),
     startedAt: session.startedAt,
     completedAt,
     durationSeconds,

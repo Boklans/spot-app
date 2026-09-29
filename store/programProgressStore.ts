@@ -219,22 +219,37 @@ export const useProgramProgressStore = create<ProgramProgressState>((set, get) =
     // If user is logging an old workout that was performed BEFORE the latest completed program workout in history,
     // do NOT rewind or reset the program rotation! Keep nextWorkoutId pointing forward.
     try {
-      const history = await useWorkoutHistoryStore.getState().loadHistory();
+      const sessionDate = completedAt
+        ? completedAt.slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
       const completedTimestamp = completedAt ? new Date(completedAt).getTime() : Date.now();
 
+      const history = await useWorkoutHistoryStore.getState().loadHistory();
       const priorProgramWorkouts = history.filter((w) =>
         w.id !== sessionId &&
         workouts.some((pw) => pw.id === w.programWorkoutId)
       );
 
       const latestPriorWorkout = priorProgramWorkouts.sort((a, b) => {
+        const dateA = a.workoutDate || (a.completedAt || a.startedAt || '').slice(0, 10);
+        const dateB = b.workoutDate || (b.completedAt || b.startedAt || '').slice(0, 10);
+        if (dateA !== dateB) return dateB.localeCompare(dateA);
         const timeA = new Date(a.completedAt || a.startedAt || 0).getTime();
         const timeB = new Date(b.completedAt || b.startedAt || 0).getTime();
         return timeB - timeA;
       })[0];
 
-      const isOlderThanLatest = latestPriorWorkout &&
-        completedTimestamp < new Date(latestPriorWorkout.completedAt || latestPriorWorkout.startedAt || 0).getTime();
+      const latestPriorDate = latestPriorWorkout
+        ? (latestPriorWorkout.workoutDate || (latestPriorWorkout.completedAt || latestPriorWorkout.startedAt || '').slice(0, 10))
+        : '';
+      const latestPriorTime = latestPriorWorkout
+        ? new Date(latestPriorWorkout.completedAt || latestPriorWorkout.startedAt || 0).getTime()
+        : 0;
+
+      const isOlderThanLatest = Boolean(
+        latestPriorWorkout &&
+        (sessionDate < latestPriorDate || (sessionDate === latestPriorDate && completedTimestamp < latestPriorTime))
+      );
 
       if (isOlderThanLatest) {
         // User backfilled an older session: preserve current nextWorkoutId

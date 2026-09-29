@@ -42,6 +42,7 @@ export type WorkoutSession = {
   id: string;
   programWorkoutId: string;
   workoutName: string;
+  workoutDate?: string; // YYYY-MM-DD calendar day
   startedAt: string;
   completedAt?: string;
   currentExerciseIndex: number;
@@ -234,6 +235,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         id: `session-${Date.now()}`,
         programWorkoutId: targetWorkout.id,
         workoutName: targetWorkout.name,
+        workoutDate: now.slice(0, 10),
         startedAt: now,
         currentExerciseIndex: 0,
         currentSetIndex: 0,

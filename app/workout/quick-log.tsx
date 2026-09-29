@@ -369,6 +369,7 @@ export default function QuickLogScreen() {
       const startedAtMs = completedAtMs - durationMinutes * 60 * 1000;
       const startedAt = new Date(startedAtMs).toISOString();
       const completedAt = new Date(completedAtMs).toISOString();
+      const workoutDate = new Date(completedAtMs).toISOString().slice(0, 10);
 
       // Convert QuickExercise[] to standard WorkoutExercise[]
       const canonicalExercises: WorkoutExercise[] = exercises.map((ex, exIdx) => {
@@ -402,6 +403,7 @@ export default function QuickLogScreen() {
         id: `session-quick-${Date.now()}`,
         programWorkoutId: programWorkoutId || 'custom-quick-workout',
         workoutName: workoutName || (language === 'uk' ? 'Швидке тренування' : 'Quick Workout'),
+        workoutDate,
         startedAt,
         completedAt,
         currentExerciseIndex: 0,
