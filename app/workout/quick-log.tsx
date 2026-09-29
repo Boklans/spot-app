@@ -682,7 +682,6 @@ export default function QuickLogScreen() {
                               placeholderTextColor="#4B5563"
                               maxLength={3}
                             />
-                            <Text style={styles.repsSuffix}>{t('reps')}</Text>
                           </View>
                         );
                       })}
@@ -713,7 +712,7 @@ export default function QuickLogScreen() {
             <View style={styles.summaryMetaItem}>
               <Ionicons name="layers-outline" size={14} color={colors.primary} />
               <Text style={styles.summaryMetaText}>
-                {totalCompletedSets} {t('sets')}
+                {totalCompletedSets} {language === 'uk' ? 'підходів' : 'sets'}
               </Text>
             </View>
 
@@ -997,13 +996,15 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   setBox: {
-    width: 66,
-    height: 72,
+    width: 62,
+    height: 56,
     backgroundColor: '#161E28',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#222B38',
-    padding: 6,
+    paddingHorizontal: 6,
+    paddingTop: 5,
+    paddingBottom: 4,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -1030,20 +1031,15 @@ const styles = StyleSheet.create({
   },
   repsInput: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     textAlign: 'center',
-    height: 28,
+    height: 30,
     width: '100%',
     padding: 0,
   },
   repsInputFilled: {
     color: colors.primary,
-  },
-  repsSuffix: {
-    color: '#64748B',
-    fontSize: 10,
-    fontWeight: '500',
   },
   addExerciseCard: {
     flexDirection: 'row',

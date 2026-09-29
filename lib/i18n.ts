@@ -264,7 +264,7 @@ const en = {
   // Quick Log
   quickLog: 'Quick Log',
   quickLogSub: 'Log sets and reps without live timers',
-  fillAllAsPlanned: '⚡ Fill all as planned',
+  fillAllAsPlanned: 'Fill all as planned',
   allPlannedFilled: 'All sets prefilled with planned numbers!',
   repsPerSet: 'Reps per set',
   addSetBtn: '+ Set',
@@ -554,7 +554,7 @@ const uk: Record<TranslationKey, string> = {
   // Quick Log
   quickLog: 'Швидкий запис',
   quickLogSub: 'Запис підходів та ваги без таймерів',
-  fillAllAsPlanned: '⚡ Заповнити все по плану',
+  fillAllAsPlanned: 'Заповнити все по плану',
   allPlannedFilled: 'Всі підходи заповнено за планом!',
   repsPerSet: 'Повторень у підходах',
   addSetBtn: '+ Сет',
