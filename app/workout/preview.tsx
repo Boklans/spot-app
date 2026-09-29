@@ -880,6 +880,7 @@ export default function WorkoutPreview() {
                 <View style={styles.configPillsRow}>
                   {[
                     { sec: 0, label: '0s' },
+                    { sec: 15, label: '15s' },
                     { sec: 30, label: '30s' },
                     { sec: 45, label: '45s' },
                     { sec: 60, label: '60s' },

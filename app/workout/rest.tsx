@@ -188,6 +188,11 @@ export default function Rest() {
     router.replace('/workout/active');
   };
 
+  const handleAdd15 = () => {
+    hapticLight();
+    addRestTime(15);
+  };
+
   const handleAdd30 = () => {
     hapticLight();
     addRestTime(30);
@@ -324,7 +329,7 @@ export default function Rest() {
           </View>
         </View>
 
-        {/* 4. Action Buttons (-15s, +30s & Start/Skip) */}
+        {/* 4. Action Buttons (-15s, +15s, +30s & Start/Skip) */}
         <View style={styles.actionsRow}>
           <Pressable
             accessibilityRole="button"
@@ -340,12 +345,22 @@ export default function Rest() {
 
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Add 15 seconds"
+            onPress={handleAdd15}
+            style={styles.addTimeBtn}
+          >
+            <Ionicons name="add" size={16} color="#FFFFFF" style={{ marginRight: 1 }} />
+            <Text style={styles.addTimeText}>15s</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Add 30 seconds"
             onPress={handleAdd30}
             style={styles.addTimeBtn}
           >
-            <Ionicons name="add" size={18} color="#FFFFFF" style={{ marginRight: 2 }} />
-            <Text style={styles.addTimeText}>+30s</Text>
+            <Ionicons name="add" size={16} color="#FFFFFF" style={{ marginRight: 1 }} />
+            <Text style={styles.addTimeText}>30s</Text>
           </Pressable>
 
           <Pressable
@@ -357,20 +372,20 @@ export default function Rest() {
               seconds === 0 && styles.startBtnPulse,
             ]}
           >
-            <Text style={styles.startBtnText}>
+            <Text numberOfLines={1} style={styles.startBtnText}>
               {seconds === 0
                 ? language === 'uk'
-                  ? 'Почати підхід'
-                  : 'Start Set'
+                  ? 'Почати'
+                  : 'Start'
                 : language === 'uk'
                 ? 'Пропустити'
                 : 'Skip'}
             </Text>
             <Ionicons
               name="arrow-forward"
-              size={18}
+              size={17}
               color="#0B0D0F"
-              style={{ marginLeft: 6 }}
+              style={{ marginLeft: 4 }}
             />
           </Pressable>
         </View>
@@ -653,9 +668,9 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     width: '100%',
-    maxWidth: 350,
+    maxWidth: 360,
     marginTop: 10,
   },
   addTimeBtn: {
@@ -675,7 +690,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   startBtn: {
-    flex: 1.35,
+    flex: 1.5,
     height: 52,
     borderRadius: 26,
     backgroundColor: colors.primary,
@@ -694,9 +709,9 @@ const styles = StyleSheet.create({
   },
   startBtnText: {
     color: '#0B0D0F',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '900',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   emptyWrap: {
     flex: 1,
@@ -733,7 +748,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   subTimeBtn: {
-    width: 60,
+    width: 52,
     height: 52,
     borderRadius: 26,
     backgroundColor: '#161B24',
