@@ -224,7 +224,7 @@ export default function WorkoutPreview() {
       ex.id === configExercise.id
         ? {
             ...ex,
-            sets: Math.max(1, Math.min(12, configSets)),
+            sets: Math.max(1, Math.min(25, configSets)),
             recommendedWeight: Math.round(weightInKg * 100) / 100,
             targetRepRange: configRepRange,
             restSeconds: configRestSeconds,
@@ -681,7 +681,20 @@ export default function WorkoutPreview() {
                   </Pressable>
 
                   <View style={styles.configStepValueBox}>
-                    <Text style={styles.configStepValueText}>{configSets}</Text>
+                    <TextInput
+                      style={styles.configStepValueText}
+                      keyboardType="number-pad"
+                      value={String(configSets)}
+                      onChangeText={(val) => {
+                        const parsed = parseInt(val, 10);
+                        if (!isNaN(parsed)) {
+                          setConfigSets(Math.max(1, Math.min(25, parsed)));
+                        } else if (val === '') {
+                          setConfigSets(1);
+                        }
+                      }}
+                      selectTextOnFocus
+                    />
                   </View>
 
                   <Pressable
@@ -690,7 +703,7 @@ export default function WorkoutPreview() {
                     hitSlop={8}
                     onPress={() => {
                       hapticLight();
-                      setConfigSets((s) => Math.min(10, s + 1));
+                      setConfigSets((s) => Math.min(25, s + 1));
                     }}
                     style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
                   >
@@ -825,12 +838,56 @@ export default function WorkoutPreview() {
                 <Text style={styles.configSectionLabel}>
                   {language === 'uk' ? 'ЧАС ВІДПОЧИНКУ' : 'REST INTERVAL'}
                 </Text>
+
+                {/* Stepper with -15s / +15s */}
+                <View style={[styles.configStepperRow, { marginBottom: 12 }]}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Decrease rest by 15s"
+                    hitSlop={8}
+                    onPress={() => {
+                      hapticLight();
+                      setConfigRestSeconds((s) => Math.max(0, s - 15));
+                    }}
+                    style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
+                  >
+                    <Ionicons name="remove" size={22} color="#FFFFFF" />
+                  </Pressable>
+
+                  <View style={styles.configStepValueBox}>
+                    <Text style={styles.configStepValueText}>
+                      {configRestSeconds === 0
+                        ? '0s'
+                        : `${Math.floor(configRestSeconds / 60)}:${(configRestSeconds % 60).toString().padStart(2, '0')}`}
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Increase rest by 15s"
+                    hitSlop={8}
+                    onPress={() => {
+                      hapticLight();
+                      setConfigRestSeconds((s) => Math.min(600, s + 15));
+                    }}
+                    style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
+                  >
+                    <Ionicons name="add" size={22} color="#FFFFFF" />
+                  </Pressable>
+                </View>
+
+                {/* Extended Quick Presets */}
                 <View style={styles.configPillsRow}>
                   {[
+                    { sec: 0, label: '0s' },
+                    { sec: 30, label: '30s' },
+                    { sec: 45, label: '45s' },
                     { sec: 60, label: '60s' },
                     { sec: 90, label: '90s' },
                     { sec: 120, label: '2m' },
+                    { sec: 150, label: '2:30' },
                     { sec: 180, label: '3m' },
+                    { sec: 240, label: '4m' },
                   ].map((r) => {
                     const isSelected = configRestSeconds === r.sec;
                     return (

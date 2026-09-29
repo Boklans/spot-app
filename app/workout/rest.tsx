@@ -52,6 +52,7 @@ export default function Rest() {
 
   const [showRestModal, setShowRestModal] = useState(false);
   const [customSecondsText, setCustomSecondsText] = useState('');
+  const [applyToAll, setApplyToAll] = useState(false);
   const [now, setNow] = useState(Date.now());
   const seconds = Math.max(0, Math.ceil(((restEndsAt ?? Date.now()) - now) / 1000));
   const elapsedSeconds = session?.startedAt
@@ -392,7 +393,6 @@ export default function Rest() {
             </Text>
             <Text style={styles.modalHeaderSubtitle}>
               {targetExercise ? te(targetExercise.name) : ''}
-              {language === 'uk' ? ' (і для наступних відпочинків)' : ' (and upcoming rests)'}
             </Text>
 
             {/* Quick preset chips */}
@@ -404,7 +404,7 @@ export default function Rest() {
                     key={presetSec}
                     onPress={() => {
                       hapticLight();
-                      updateExerciseRest(session.currentExerciseIndex, presetSec);
+                      updateExerciseRest(session.currentExerciseIndex, presetSec, applyToAll);
                       setShowRestModal(false);
                       if (presetSec === 0) {
                         router.replace('/workout/active');
@@ -435,6 +435,25 @@ export default function Rest() {
               </Text>
             </View>
 
+            {/* Apply to all toggle */}
+            <Pressable
+              style={styles.applyToAllRow}
+              onPress={() => {
+                hapticLight();
+                setApplyToAll((prev) => !prev);
+              }}
+            >
+              <Ionicons
+                name={applyToAll ? 'checkbox' : 'square-outline'}
+                size={20}
+                color={applyToAll ? colors.primary : '#5A6472'}
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.applyToAllText}>
+                {language === 'uk' ? 'Застосувати до всіх вправ' : 'Apply to all exercises'}
+              </Text>
+            </Pressable>
+
             <View style={styles.modalActionsRow}>
               <Pressable
                 onPress={() => setShowRestModal(false)}
@@ -449,7 +468,7 @@ export default function Rest() {
                   const parsed = parseInt(customSecondsText, 10);
                   if (!isNaN(parsed) && parsed >= 0 && parsed <= 600) {
                     hapticLight();
-                    updateExerciseRest(session.currentExerciseIndex, parsed);
+                    updateExerciseRest(session.currentExerciseIndex, parsed, applyToAll);
                     setShowRestModal(false);
                     if (parsed === 0) {
                       router.replace('/workout/active');
@@ -827,6 +846,19 @@ const styles = StyleSheet.create({
     color: '#8E959F',
     fontSize: 15,
     fontWeight: '700',
+  },
+  applyToAllRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  applyToAllText: {
+    color: '#A0AEC0',
+    fontSize: 14,
+    fontWeight: '600',
   },
   modalActionsRow: {
     flexDirection: 'row',

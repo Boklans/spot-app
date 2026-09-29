@@ -71,7 +71,7 @@ type WorkoutSessionState = {
   setPersonalRecords: (personalRecords: PersonalRecord[]) => void;
   updateCurrentSet: (values: { weight?: number; reps?: number }) => void;
   updateSet: (exerciseIndex: number, setIndex: number, values: { weight?: number; reps?: number }) => void;
-  updateExerciseRest: (exerciseIndex: number, restSeconds: number) => void;
+  updateExerciseRest: (exerciseIndex: number, restSeconds: number, applyToAll?: boolean) => void;
   addRestTime: (seconds: number) => void;
   skipRest: () => void;
   swapExercise: (newExercise: { name: string; muscleGroup: string; defaultWeight?: number }) => void;
@@ -445,14 +445,17 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
     if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
   },
 
-  updateExerciseRest: (exerciseIndex, restSeconds) => {
+  updateExerciseRest: (exerciseIndex, restSeconds, applyToAll = false) => {
     const boundedRest = Math.max(0, Math.min(600, restSeconds));
     set((state) => {
       if (!state.session) return state;
-      // Forward-propagate to current exercise and all subsequent exercises so the rest duration repeats
-      const updatedExercises = state.session.exercises.map((ex, idx) =>
-        idx >= exerciseIndex ? { ...ex, restSeconds: boundedRest, isCustomRest: true } : ex
-      );
+      // If applyToAll is true, update all exercises; otherwise update ONLY target exercise
+      const updatedExercises = state.session.exercises.map((ex, idx) => {
+        if (applyToAll || idx === exerciseIndex) {
+          return { ...ex, restSeconds: boundedRest, isCustomRest: true };
+        }
+        return ex;
+      });
       const newRestEndsAt =
         state.restEndsAt !== null
           ? (boundedRest > 0 ? Date.now() + boundedRest * 1000 : null)
@@ -471,10 +474,12 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       };
     });
 
-    try {
-      useUserProfileStore.getState().updateProfile({ defaultRestSeconds: boundedRest });
-    } catch {
-      // Ignore background sync errors
+    if (applyToAll) {
+      try {
+        useUserProfileStore.getState().updateProfile({ defaultRestSeconds: boundedRest });
+      } catch {
+        // Ignore background sync errors
+      }
     }
 
     const state = useWorkoutSessionStore.getState();
@@ -491,39 +496,13 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
     set((state) => {
       const base = Math.max(Date.now(), state.restEndsAt ?? Date.now());
       const newRestEndsAt = Math.max(Date.now(), base + seconds * 1000);
-      if (!state.session) {
-        return { restEndsAt: newRestEndsAt };
-      }
-      const currExercise = state.session.exercises[state.session.currentExerciseIndex];
-      const baseRest = currExercise?.restSeconds ?? 90;
-      const updatedRestSeconds = Math.max(15, Math.min(600, baseRest + seconds));
-
-      // Forward-propagate updated rest duration to all remaining exercises so rest repeats
-      const updatedExercises = state.session.exercises.map((ex, idx) =>
-        idx >= state.session!.currentExerciseIndex
-          ? { ...ex, restSeconds: updatedRestSeconds, isCustomRest: true }
-          : ex
-      );
-
       return {
         ...state,
         restEndsAt: newRestEndsAt,
-        session: {
-          ...state.session,
-          exercises: updatedExercises,
-        },
       };
     });
 
     const state = useWorkoutSessionStore.getState();
-    const currExercise = state.session?.exercises[state.session.currentExerciseIndex];
-    if (currExercise) {
-      try {
-        useUserProfileStore.getState().updateProfile({ defaultRestSeconds: currExercise.restSeconds });
-      } catch {
-        // Ignore background sync errors
-      }
-    }
     if (state.session) {
       persistSnapshot({
         session: state.session,
