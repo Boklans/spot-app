@@ -193,7 +193,7 @@ const en = {
   rest240: '240s (4:00) — Max Strength',
 
   // Onboarding
-  welcomeTagline: 'Train smarter.\nProgress automatically.',
+  welcomeTagline: 'Train your way.\nSPOT keeps the record.',
   welcomeSubTagline: 'Your personal AI-powered training system.',
   getStarted: 'Get started',
   logIn: 'Log in',
@@ -483,7 +483,7 @@ const uk: Record<TranslationKey, string> = {
   rest240: '240с (4:00) — Макс. сила',
 
   // Onboarding
-  welcomeTagline: 'Тренуйтеся розумніше.\nПрогресуйте автоматично.',
+  welcomeTagline: 'Тренуйся по-своєму.\nSPOT фіксує все.',
   welcomeSubTagline: 'Ваша персональна тренувальна система на базі ШІ.',
   getStarted: 'Почати',
   logIn: 'Увійти',

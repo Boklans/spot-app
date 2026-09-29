@@ -74,22 +74,23 @@ export default function Welcome() {
 
       {/* 2. Top Language Selector (EN / UA) */}
       <SafeAreaView style={styles.safeTop}>
-        <View style={styles.langPillContainer}>
+        <View style={styles.langRow}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Switch to English"
             onPress={() => setLang('en')}
-            style={[styles.langSegment, language === 'en' && styles.langSegmentActive]}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 6 }}
           >
             <Text style={[styles.langText, language === 'en' && styles.langTextActive]}>
               EN
             </Text>
           </Pressable>
+          <Text style={styles.langDivider}>/</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Перемкнути на українську"
             onPress={() => setLang('uk')}
-            style={[styles.langSegment, language === 'uk' && styles.langSegmentActive]}
+            hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
           >
             <Text style={[styles.langText, language === 'uk' && styles.langTextActive]}>
               UA
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
   heroImage: {
     width: '100%',
     height: '100%',
-    opacity: 0.42,
+    opacity: 0.54,
   },
   gradientOverlay: {
     position: 'absolute',
@@ -181,31 +182,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'android' ? 36 : 12,
   },
-  langPillContainer: {
+  langRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(21, 25, 31, 0.85)',
-    borderRadius: 20,
-    padding: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  langSegment: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 16,
-  },
-  langSegmentActive: {
-    backgroundColor: colors.primary,
+    gap: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
   },
   langText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#8E959F',
-    letterSpacing: 0.5,
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.38)',
+    letterSpacing: 0.8,
   },
   langTextActive: {
-    color: '#0B0D0F',
+    color: colors.primary,
+  },
+  langDivider: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.2)',
   },
   safeContent: {
     flex: 1,
