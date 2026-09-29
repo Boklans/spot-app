@@ -27,17 +27,17 @@ export default function CreationMode() {
     {
       key: 'full_body',
       label: 'Full Body',
-      sub: language === 'uk' ? 'Тренування всього тіла (1–3 дні)' : 'High recovery full-body training',
+      sub: language === 'uk' ? 'Тренування всього тіла' : 'High recovery full-body training',
     },
     {
       key: 'upper_lower',
       label: 'Upper / Lower',
-      sub: language === 'uk' ? 'Класичний збалансований спліт (3–4 дні)' : 'Balanced upper & lower split',
+      sub: language === 'uk' ? 'Класичний збалансований спліт' : 'Balanced upper & lower split',
     },
     {
       key: 'push_pull_legs',
       label: 'Push / Pull / Legs (Спліт)',
-      sub: language === 'uk' ? 'Спеціалізований спліт (3–6 днів)' : 'Synergistic muscle group focus',
+      sub: language === 'uk' ? 'Спеціалізований спліт на групи м’язів' : 'Synergistic muscle group focus',
     },
     {
       key: 'custom',
