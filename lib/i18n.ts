@@ -749,24 +749,39 @@ const UKRAINIAN_EXERCISES: Record<string, string> = {
   'plank': 'Планка',
 };
 
+const ENGLISH_EXERCISES: Record<string, string> = {};
+for (const [enKey, ukVal] of Object.entries(UKRAINIAN_EXERCISES)) {
+  ENGLISH_EXERCISES[ukVal.toLowerCase()] = enKey.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function translateExercise(name?: string, lang: AppLanguage = 'en'): string {
   if (!name) return '';
-  if (lang !== 'uk') return name;
-
   const clean = name.trim();
   const lower = clean.toLowerCase();
 
-  if (UKRAINIAN_EXERCISES[lower]) {
-    return UKRAINIAN_EXERCISES[lower];
+  if (lang === 'uk') {
+    if (UKRAINIAN_EXERCISES[lower]) {
+      return UKRAINIAN_EXERCISES[lower];
+    }
+    for (const [key, translated] of Object.entries(UKRAINIAN_EXERCISES)) {
+      if (lower.includes(key)) {
+        return translated;
+      }
+    }
+    return clean;
   }
 
-  for (const [key, translated] of Object.entries(UKRAINIAN_EXERCISES)) {
+  // When switching to English, translate any Ukrainian exercise names back to English
+  if (ENGLISH_EXERCISES[lower]) {
+    return ENGLISH_EXERCISES[lower];
+  }
+  for (const [key, translated] of Object.entries(ENGLISH_EXERCISES)) {
     if (lower.includes(key)) {
       return translated;
     }
   }
 
-  return name;
+  return clean;
 }
 
 const UKRAINIAN_WORKOUTS: Record<string, string> = {
@@ -799,20 +814,67 @@ const UKRAINIAN_WORKOUTS: Record<string, string> = {
   'rest day': 'День відпочинку',
 };
 
+const ENGLISH_WORKOUTS: Record<string, string> = {
+  'фулбоді a': 'Full Body A',
+  'фулбоді b': 'Full Body B',
+  'фулбоді c': 'Full Body C',
+  'фулбоді': 'Full Body',
+  'верх тіла a': 'Upper A',
+  'низ тіла a': 'Lower A',
+  'верх тіла b': 'Upper B',
+  'низ тіла b': 'Lower B',
+  'верх тіла': 'Upper Body',
+  'низ тіла': 'Lower Body',
+  'штовхай (push)': 'Push',
+  'штовхай': 'Push',
+  'тягни (pull)': 'Pull',
+  'тягни': 'Pull',
+  'ноги (legs)': 'Legs',
+  'ноги': 'Legs',
+  'штовхай 1': 'Push 1',
+  'тягни 1': 'Pull 1',
+  'ноги 1': 'Legs 1',
+  'штовхай 2': 'Push 2',
+  'тягни 2': 'Pull 2',
+  'ноги 2': 'Legs 2',
+  'груди та трицепс': 'Chest & Triceps',
+  'спина та біцепс': 'Back & Biceps',
+  'ноги та плечі': 'Legs & Shoulders',
+  'руки та прес': 'Arms & Core',
+  'фулбоді кондиція': 'Full Body Conditioning',
+  'власна програма': 'Custom Routine',
+  'власне тренування': 'Custom Workout',
+  'день відпочинку': 'Rest Day',
+};
+
 export function translateWorkoutName(name?: string, lang: AppLanguage = 'en'): string {
   if (!name) return '';
-  if (lang !== 'uk') return name;
+  const clean = name.trim();
+  const lower = clean.toLowerCase();
 
-  const lower = name.trim().toLowerCase();
-  if (UKRAINIAN_WORKOUTS[lower]) {
-    return UKRAINIAN_WORKOUTS[lower];
+  if (lang === 'uk') {
+    if (UKRAINIAN_WORKOUTS[lower]) {
+      return UKRAINIAN_WORKOUTS[lower];
+    }
+    for (const [key, translated] of Object.entries(UKRAINIAN_WORKOUTS)) {
+      if (lower.includes(key)) {
+        return translated;
+      }
+    }
+    return clean;
   }
-  for (const [key, translated] of Object.entries(UKRAINIAN_WORKOUTS)) {
+
+  // When switching to English, translate any Ukrainian workout names back to English
+  if (ENGLISH_WORKOUTS[lower]) {
+    return ENGLISH_WORKOUTS[lower];
+  }
+  for (const [key, translated] of Object.entries(ENGLISH_WORKOUTS)) {
     if (lower.includes(key)) {
       return translated;
     }
   }
-  return name;
+
+  return clean;
 }
 
 export function useI18n() {
