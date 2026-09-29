@@ -10,7 +10,11 @@ interface AuthState {
   error: string | null;
 
   init: () => Promise<void>;
-  signInWithPassword: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithPassword: (
+    email: string,
+    password: string,
+    language?: 'en' | 'uk'
+  ) => Promise<{ success: boolean; error?: string }>;
   signUpWithPassword: (
     email: string,
     password: string,
@@ -18,21 +22,38 @@ interface AuthState {
     language?: 'en' | 'uk'
   ) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  resetPassword: (
+    email: string,
+    language?: 'en' | 'uk'
+  ) => Promise<{ success: boolean; error?: string }>;
   clearError: () => void;
 }
 
-function formatAuthError(err: any): string {
-  const msg = err?.message || '';
+function formatAuthError(err: any, language: 'en' | 'uk' = 'uk'): string {
+  const msg = err?.message || (typeof err === 'string' ? err : '');
   if (
     msg.includes('hostname could not be found') ||
     msg.includes('Could not resolve host') ||
     msg.includes('Network request failed') ||
-    msg.includes('fetch failed')
+    msg.includes('fetch failed') ||
+    msg.includes('ENOTFOUND') ||
+    msg.includes('UnexpectedException')
   ) {
-    return 'Неможливо знайти сервер Supabase. Перевірте EXPO_PUBLIC_SUPABASE_URL у файлі .env та перезапустіть Expo (npx expo start -c).';
+    return language === 'uk'
+      ? 'Неможливо з\'єднатися із сервером Supabase. Перевірте підключення до інтернету, або перевірте статус проєкту в Supabase Dashboard (проєкт міг бути призупинений / paused через неактивність).'
+      : 'Cannot connect to Supabase server. Check your internet connection, or verify project status in Supabase Dashboard (the project may be paused due to inactivity).';
   }
-  return msg || 'Помилка мережі або сервера. Спробуйте ще раз.';
+  if (msg.includes('User already registered')) {
+    return language === 'uk'
+      ? 'Користувач із такою поштою вже зареєстрований'
+      : 'User with this email already exists';
+  }
+  if (msg.includes('Invalid login credentials')) {
+    return language === 'uk'
+      ? 'Невірний email або пароль'
+      : 'Invalid email or password';
+  }
+  return msg || (language === 'uk' ? 'Помилка мережі або сервера. Спробуйте ще раз.' : 'Network or server error. Please try again.');
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -76,7 +97,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signInWithPassword: async (email: string, password: string) => {
+  signInWithPassword: async (email: string, password: string, language: 'en' | 'uk' = 'uk') => {
     if (!isSupabaseConfigured()) {
       return { success: false, error: 'Supabase credentials are not configured yet.' };
     }
@@ -89,8 +110,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
 
       if (error) {
-        set({ loading: false, error: error.message });
-        return { success: false, error: error.message };
+        const formatted = formatAuthError(error, language);
+        set({ loading: false, error: formatted });
+        return { success: false, error: formatted };
       }
 
       set({
@@ -102,7 +124,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       return { success: true };
     } catch (err: any) {
-      const msg = formatAuthError(err);
+      const msg = formatAuthError(err, language);
       set({ loading: false, error: msg });
       return { success: false, error: msg };
     }
@@ -132,8 +154,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
 
       if (error) {
-        set({ loading: false, error: error.message });
-        return { success: false, error: error.message };
+        const formatted = formatAuthError(error, language);
+        set({ loading: false, error: formatted });
+        return { success: false, error: formatted };
       }
 
       set({
@@ -145,7 +168,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       return { success: true };
     } catch (err: any) {
-      const msg = formatAuthError(err);
+      const msg = formatAuthError(err, language);
       set({ loading: false, error: msg });
       return { success: false, error: msg };
     }
@@ -166,7 +189,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  resetPassword: async (email: string) => {
+  resetPassword: async (email: string, language: 'en' | 'uk' = 'uk') => {
     if (!isSupabaseConfigured()) {
       return { success: false, error: 'Supabase credentials are not configured yet.' };
     }
@@ -176,11 +199,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
       set({ loading: false });
       if (error) {
-        return { success: false, error: error.message };
+        const formatted = formatAuthError(error, language);
+        return { success: false, error: formatted };
       }
       return { success: true };
     } catch (err: any) {
-      const msg = formatAuthError(err);
+      const msg = formatAuthError(err, language);
       set({ loading: false });
       return { success: false, error: msg };
     }

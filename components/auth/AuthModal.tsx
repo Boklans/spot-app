@@ -90,7 +90,7 @@ export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess 
 
     try {
       if (mode === 'signin') {
-        const res = await signInWithPassword(cleanEmail, password);
+        const res = await signInWithPassword(cleanEmail, password, language);
         if (!res.success) {
           if (res.error?.includes('Email not confirmed')) {
             setEmailNotConfirmed(true);
