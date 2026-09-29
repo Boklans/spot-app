@@ -345,7 +345,9 @@ export default function Home() {
     return (
       <Screen style={styles.screenContent}>
         <View style={styles.header}>
-          <Text style={styles.greetingTitle}>{greetingText}</Text>
+          <Text numberOfLines={2} ellipsizeMode="tail" style={styles.greetingTitle}>
+            {greetingText}
+          </Text>
         </View>
       </Screen>
     );
@@ -355,7 +357,7 @@ export default function Home() {
     <Screen style={styles.screenContent}>
       {/* 1. Header */}
       <View style={styles.header}>
-        <Text style={styles.greetingTitle}>
+        <Text numberOfLines={2} ellipsizeMode="tail" style={styles.greetingTitle}>
           {greetingText}
         </Text>
         <Pressable
@@ -443,12 +445,22 @@ export default function Home() {
                     </Text>
                   </View>
                 ))}
-                {nextWorkout.exercises.length > 3 && (
-                  <Text style={styles.previewMoreText}>
-                    + ще {nextWorkout.exercises.length - 3}{' '}
-                    {language === 'uk' ? 'вправи (натисніть для перегляду)' : 'more exercises'}
-                  </Text>
-                )}
+                {nextWorkout.exercises.length > 3 && (() => {
+                  const rem = nextWorkout.exercises.length - 3;
+                  const label =
+                    language === 'uk'
+                      ? rem === 1
+                        ? '+ ще 1 вправа'
+                        : rem < 5
+                        ? `+ ще ${rem} вправи`
+                        : `+ ще ${rem} вправ`
+                      : `+ ${rem} more ${rem === 1 ? 'exercise' : 'exercises'}`;
+                  return (
+                    <Text style={styles.previewMoreText}>
+                      {label}
+                    </Text>
+                  );
+                })()}
               </Pressable>
             )}
 
@@ -839,12 +851,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     marginTop: 0,
+    gap: 12,
   },
   greetingTitle: {
-    fontSize: 28,
+    flex: 1,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
   },
   headerIconBtn: {
     width: 40,
@@ -853,6 +868,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   readinessRow: {
     flexDirection: 'row',
