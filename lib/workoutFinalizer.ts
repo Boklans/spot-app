@@ -28,7 +28,12 @@ export async function finalizeWorkoutSession(session: WorkoutSession): Promise<C
   await clearPersistedActiveWorkout();
 
   const program = await useProgramStore.getState().getOrLoadProgram();
-  await useProgramProgressStore.getState().advanceProgress(program, session.programWorkoutId, session.id);
+  await useProgramProgressStore.getState().advanceProgress(
+    program,
+    session.programWorkoutId,
+    session.id,
+    session.completedAt || session.startedAt
+  );
 
   await hapticSuccess();
   syncCompletedWorkout(snapshot).catch(() => undefined);

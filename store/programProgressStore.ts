@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import type { GeneratedProgram, GeneratedWorkout } from '@/lib/programGenerator';
 import type { UserProgram, UserWorkout } from '@/types/userProgram';
+import { useWorkoutHistoryStore } from './workoutHistoryStore';
 
 export const PROGRAM_PROGRESS_STORAGE_KEY = 'spot-program-progress';
 
@@ -30,7 +31,12 @@ type ProgramProgressState = {
   progress: ProgramProgress | null;
   hydrated: boolean;
   loadProgress: (program: UserProgram | GeneratedProgram) => Promise<ProgramProgress>;
-  advanceProgress: (program: UserProgram | GeneratedProgram, completedWorkoutId: string, sessionId?: string) => Promise<ProgramProgress>;
+  advanceProgress: (
+    program: UserProgram | GeneratedProgram,
+    completedWorkoutId: string,
+    sessionId?: string,
+    completedAt?: string
+  ) => Promise<ProgramProgress>;
   resetProgress: (programId: string, initialWorkoutId?: string) => Promise<ProgramProgress>;
   setNextWorkout: (workoutId: string) => Promise<ProgramProgress | undefined>;
   dismissWeeklyReview: (weekKey: string) => Promise<void>;
@@ -169,11 +175,17 @@ export const useProgramProgressStore = create<ProgramProgressState>((set, get) =
     }
   },
 
-  advanceProgress: async (program: UserProgram | GeneratedProgram, completedWorkoutId: string, sessionId?: string) => {
+  advanceProgress: async (
+    program: UserProgram | GeneratedProgram,
+    completedWorkoutId: string,
+    sessionId?: string,
+    completedAt?: string
+  ) => {
     const current = get().progress && get().progress?.programId === program.id
       ? (get().progress as ProgramProgress)
       : await get().loadProgress(program);
 
+    // 1. Idempotency guard: never advance twice for the exact same session
     if (sessionId && current.lastCompletedSessionId === sessionId) {
       return current;
     }
@@ -184,8 +196,68 @@ export const useProgramProgressStore = create<ProgramProgressState>((set, get) =
     }
 
     const completedIndex = workouts.findIndex((workout) => workout.id === completedWorkoutId);
-    const currentIndex = workouts.findIndex((workout) => workout.id === current.nextWorkoutId);
+    const isProgramWorkout = completedIndex >= 0;
 
+    // 2. Custom or unprogrammed workouts: count as completed workout, but do NOT advance or disrupt split rotation!
+    if (!isProgramWorkout) {
+      const next: ProgramProgress = {
+        ...current,
+        completedWorkoutCount: current.completedWorkoutCount + 1,
+        lastCompletedSessionId: sessionId,
+        updatedAt: new Date().toISOString(),
+      };
+      try {
+        await AsyncStorage.setItem(PROGRAM_PROGRESS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Continue even if local storage temporarily failed
+      }
+      set({ progress: next, hydrated: true });
+      return next;
+    }
+
+    // 3. Retroactive logging check:
+    // If user is logging an old workout that was performed BEFORE the latest completed program workout in history,
+    // do NOT rewind or reset the program rotation! Keep nextWorkoutId pointing forward.
+    try {
+      const history = await useWorkoutHistoryStore.getState().loadHistory();
+      const completedTimestamp = completedAt ? new Date(completedAt).getTime() : Date.now();
+
+      const priorProgramWorkouts = history.filter((w) =>
+        w.id !== sessionId &&
+        workouts.some((pw) => pw.id === w.programWorkoutId)
+      );
+
+      const latestPriorWorkout = priorProgramWorkouts.sort((a, b) => {
+        const timeA = new Date(a.completedAt || a.startedAt || 0).getTime();
+        const timeB = new Date(b.completedAt || b.startedAt || 0).getTime();
+        return timeB - timeA;
+      })[0];
+
+      const isOlderThanLatest = latestPriorWorkout &&
+        completedTimestamp < new Date(latestPriorWorkout.completedAt || latestPriorWorkout.startedAt || 0).getTime();
+
+      if (isOlderThanLatest) {
+        // User backfilled an older session: preserve current nextWorkoutId
+        const next: ProgramProgress = {
+          ...current,
+          completedWorkoutCount: current.completedWorkoutCount + 1,
+          lastCompletedSessionId: sessionId,
+          updatedAt: new Date().toISOString(),
+        };
+        try {
+          await AsyncStorage.setItem(PROGRAM_PROGRESS_STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          // Continue even if local storage temporarily failed
+        }
+        set({ progress: next, hydrated: true });
+        return next;
+      }
+    } catch {
+      // If history check fails, proceed with standard progression
+    }
+
+    // 4. Standard forward progression:
+    const currentIndex = workouts.findIndex((workout) => workout.id === current.nextWorkoutId);
     const baseIndex = completedIndex >= 0 ? completedIndex : (currentIndex >= 0 ? currentIndex : 0);
     const nextIndex = (baseIndex + 1) % workouts.length;
 
