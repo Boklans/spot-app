@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   Image,
   InteractionManager,
   Pressable,
@@ -79,6 +80,44 @@ export default function Program() {
       workouts: nextWorkouts,
     };
     await useProgramStore.getState().setCustomProgram(updatedProgram);
+  };
+
+  const handleDeleteWorkout = (workoutId: string) => {
+    if (program.workouts.length <= 1) {
+      Alert.alert(
+        language === 'uk' ? 'Неможливо видалити' : 'Cannot delete',
+        language === 'uk'
+          ? 'У вашій програмі має бути хоча б одне тренування.'
+          : 'Your program must have at least one workout.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      language === 'uk' ? 'Видалити тренування?' : 'Delete workout day?',
+      language === 'uk'
+        ? 'Цей день тренування та всі його вправи будуть видалені з програми.'
+        : 'This workout day and all its exercises will be removed from your program.',
+      [
+        { text: language === 'uk' ? 'Скасувати' : 'Cancel', style: 'cancel' },
+        {
+          text: language === 'uk' ? 'Видалити' : 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            hapticMedium();
+            const updatedWorkouts = program.workouts.filter((w) => w.id !== workoutId);
+            const updatedProg: UserProgram = {
+              ...program,
+              splitType: 'custom',
+              daysPerWeek: Math.min(updatedWorkouts.length, program.daysPerWeek),
+              workouts: updatedWorkouts,
+            };
+            await useProgramStore.getState().setCustomProgram(updatedProg);
+            setEditingWorkout(null);
+          },
+        },
+      ]
+    );
   };
 
   const scheduledWorkout = getScheduledWorkout(program, progress);
@@ -306,6 +345,7 @@ export default function Program() {
           visible={editingWorkout !== null}
           workout={editingWorkout}
           onSaveWorkout={handleSaveWorkout}
+          onDeleteWorkout={handleDeleteWorkout}
           onClose={() => setEditingWorkout(null)}
         />
       )}

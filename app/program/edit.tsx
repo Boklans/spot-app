@@ -98,23 +98,44 @@ export default function ProgramEdit() {
 
   const handleDeleteWorkout = (workoutId: string) => {
     if (draft.workouts.length <= 1) {
-      Alert.alert('Cannot delete', 'Your program must have at least one workout.');
+      Alert.alert(
+        language === 'uk' ? 'Неможливо видалити' : 'Cannot delete',
+        language === 'uk'
+          ? 'У вашій програмі має бути хоча б одне тренування.'
+          : 'Your program must have at least one workout.'
+      );
       return;
     }
 
-    isDirtyRef.current = true;
-    setDraft((prev) => {
-      const filtered = prev.workouts.filter((w) => w.id !== workoutId);
-      return {
-        ...prev,
-        workouts: filtered,
-        daysPerWeek: Math.min(prev.daysPerWeek, filtered.length),
-      };
-    });
+    Alert.alert(
+      language === 'uk' ? 'Видалити тренування?' : 'Delete workout day?',
+      language === 'uk'
+        ? 'Цей день тренування та всі його вправи будуть видалені з програми.'
+        : 'This workout day and all its exercises will be removed from your program.',
+      [
+        { text: language === 'uk' ? 'Скасувати' : 'Cancel', style: 'cancel' },
+        {
+          text: language === 'uk' ? 'Видалити' : 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            hapticMedium();
+            isDirtyRef.current = true;
+            setDraft((prev) => {
+              const filtered = prev.workouts.filter((w) => w.id !== workoutId);
+              return {
+                ...prev,
+                workouts: filtered,
+                daysPerWeek: Math.min(prev.daysPerWeek, filtered.length),
+              };
+            });
 
-    if (selectedWorkoutId === workoutId) {
-      setSelectedWorkoutId(null);
-    }
+            if (selectedWorkoutId === workoutId) {
+              setSelectedWorkoutId(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleAddNewWorkout = () => {
@@ -353,13 +374,23 @@ export default function ProgramEdit() {
             <Text style={styles.cancelText}>‹ {t('routine')}</Text>
           </Pressable>
           <Text style={styles.topTitle}>{t('editWorkout')}</Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setSelectedWorkoutId(null)}
-            style={styles.navButton}
-          >
-            <Text style={styles.saveNavText}>{t('done')}</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete workout day"
+              hitSlop={8}
+              onPress={() => handleDeleteWorkout(selectedWorkout.id)}
+            >
+              <Ionicons name="trash-outline" size={20} color="#FF453A" />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setSelectedWorkoutId(null)}
+              style={styles.navButton}
+            >
+              <Text style={styles.saveNavText}>{t('done')}</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* Workout Name Input */}
@@ -704,6 +735,21 @@ export default function ProgramEdit() {
             style={({ pressed }) => [styles.addExerciseButton, pressed && styles.buttonPressed]}
           >
             <Text style={styles.addExerciseText}>+ {t('addExercise').toUpperCase()}</Text>
+          </Pressable>
+        </View>
+
+        {/* Delete Workout Day Button */}
+        <View style={styles.section}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Delete Workout Day"
+            onPress={() => handleDeleteWorkout(selectedWorkout.id)}
+            style={({ pressed }) => [styles.deleteWorkoutFullBtn, pressed && styles.buttonPressed]}
+          >
+            <Ionicons name="trash-outline" size={16} color="#FF453A" />
+            <Text style={styles.deleteWorkoutFullText}>
+              {language === 'uk' ? 'Видалити цей день тренування' : 'Delete this workout day'}
+            </Text>
           </Pressable>
         </View>
 
@@ -1313,5 +1359,23 @@ const styles = StyleSheet.create({
   weekdayChipTextSelected: {
     color: '#0B0D0F',
     fontWeight: '900',
+  },
+  deleteWorkoutFullBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 69, 58, 0.3)',
+    backgroundColor: 'rgba(255, 69, 58, 0.06)',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  deleteWorkoutFullText: {
+    color: '#FF453A',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

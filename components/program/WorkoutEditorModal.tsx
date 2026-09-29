@@ -27,6 +27,7 @@ interface WorkoutEditorModalProps {
   visible: boolean;
   workout: UserWorkout | null;
   onSaveWorkout: (updatedWorkout: UserWorkout) => void;
+  onDeleteWorkout?: (workoutId: string) => void;
   onClose: () => void;
 }
 
@@ -34,6 +35,7 @@ export function WorkoutEditorModal({
   visible,
   workout,
   onSaveWorkout,
+  onDeleteWorkout,
   onClose,
 }: WorkoutEditorModalProps) {
   const { t, tm, td, te, tw, language } = useI18n();
@@ -133,15 +135,28 @@ export function WorkoutEditorModal({
                     <Text style={styles.headerTitle}>{t('customizeWorkout')}</Text>
                     <Text style={styles.headerSubtitle}>{td(dayLabel)}</Text>
                   </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Close"
-                    hitSlop={12}
-                    onPress={onClose}
-                    style={styles.closeBtn}
-                  >
-                    <Ionicons name="close" size={22} color="#FFFFFF" />
-                  </Pressable>
+                  <View style={styles.headerActions}>
+                    {onDeleteWorkout && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Delete workout day"
+                        hitSlop={12}
+                        onPress={() => workout && onDeleteWorkout(workout.id)}
+                        style={styles.headerDeleteBtn}
+                      >
+                        <Ionicons name="trash-outline" size={20} color="#FF453A" />
+                      </Pressable>
+                    )}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Close"
+                      hitSlop={12}
+                      onPress={onClose}
+                      style={styles.closeBtn}
+                    >
+                      <Ionicons name="close" size={22} color="#FFFFFF" />
+                    </Pressable>
+                  </View>
                 </View>
 
                 <ScrollView
@@ -464,6 +479,20 @@ export function WorkoutEditorModal({
                     ))}
                   </View>
                 )}
+
+                {onDeleteWorkout && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Delete workout day"
+                    onPress={() => workout && onDeleteWorkout(workout.id)}
+                    style={styles.deleteWorkoutBtn}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#FF453A" />
+                    <Text style={styles.deleteWorkoutBtnText}>
+                      {language === 'uk' ? 'Видалити цей день тренування' : 'Delete this workout day'}
+                    </Text>
+                  </Pressable>
+                )}
               </ScrollView>
 
               {/* Bottom Actions */}
@@ -533,6 +562,19 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginTop: 2,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerDeleteBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 69, 58, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   closeBtn: {
     width: 36,
     height: 36,
@@ -540,6 +582,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#1C232E',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  deleteWorkoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 28,
+    marginBottom: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 69, 58, 0.3)',
+    backgroundColor: 'rgba(255, 69, 58, 0.06)',
+  },
+  deleteWorkoutBtnText: {
+    color: '#FF453A',
+    fontSize: 14,
+    fontWeight: '700',
   },
   scrollContent: {
     paddingHorizontal: 20,
