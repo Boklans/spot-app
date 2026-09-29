@@ -4,13 +4,15 @@
     "slug": "spot-app",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "spot",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0D0F",
     "primaryColor": "#C8FF3D",
     "splash": {
-      "backgroundColor": "#0B0D0F",
-      "resizeMode": "contain"
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0D0F"
     },
     "plugins": [
       "expo-router",
@@ -29,7 +31,13 @@
     },
     "android": {
       "package": "com.ihor.spot",
+      "versionCode": 1,
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ],
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B0D0F"
       }
     }
