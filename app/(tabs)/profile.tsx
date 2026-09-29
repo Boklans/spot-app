@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -20,6 +21,7 @@ import { PreferencePickerModal } from '@/components/profile/PreferencePickerModa
 import { RestTimePickerModal } from '@/components/profile/RestTimePickerModal';
 import { ReminderTimePickerModal } from '@/components/profile/ReminderTimePickerModal';
 import { LanguagePickerModal } from '@/components/profile/LanguagePickerModal';
+import { PrivacyPolicyModal } from '@/components/profile/PrivacyPolicyModal';
 import { colors } from '@/constants/colors';
 import { getSyncStatus, subscribeSyncStatus, syncUp, type SyncStatus } from '@/lib/cloudSync';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
@@ -89,6 +91,7 @@ export default function Profile() {
   const [langModalVisible, setLangModalVisible] = useState(false);
   const [proModalVisible, setProModalVisible] = useState(false);
   const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
   const [isSendingTest, setIsSendingTest] = useState(false);
 
   // Auth & Sync State
@@ -162,17 +165,49 @@ export default function Profile() {
     hapticSuccess();
   };
 
+  const handleContactSupport = () => {
+    hapticMedium();
+    const email = 'support@spotapp.fit';
+    const subject = encodeURIComponent(
+      language === 'uk' ? 'Підтримка SPOT — Запит' : 'SPOT Support Request'
+    );
+    Linking.openURL(`mailto:${email}?subject=${subject}`).catch(() => {
+      Alert.alert(
+        language === 'uk' ? 'Служба підтримки' : 'Support',
+        language === 'uk'
+          ? `Напишіть нам на електронну пошту:\n\n${email}`
+          : `Please email us at:\n\n${email}`
+      );
+    });
+  };
+
   const handleResetPress = () => {
     hapticMedium();
     Alert.alert(
-      language === 'uk' ? 'Скинути всі дані додатку?' : 'Reset App Data?',
-      language === 'uk'
+      isAuthenticated
+        ? language === 'uk'
+          ? 'Видалити акаунт та всі дані?'
+          : 'Delete Account & All Data?'
+        : language === 'uk'
+        ? 'Скинути всі дані додатку?'
+        : 'Reset App Data?',
+      isAuthenticated
+        ? language === 'uk'
+          ? 'Це назавжди видалить ваш хмарний акаунт, історію тренувань, створені програми та весь прогрес. Цю дію неможливо скасувати.'
+          : 'This will permanently delete your cloud account, workout history, custom programs, and all progress. This action cannot be undone.'
+        : language === 'uk'
         ? 'Це назавжди видалить історію тренувань, створені кастомні програми та весь прогрес. Цю дію неможливо скасувати.'
         : 'This will permanently delete your workout history, custom programs, and training progress. This action cannot be undone.',
       [
         { text: language === 'uk' ? 'Скасувати' : 'Cancel', style: 'cancel' },
         {
-          text: language === 'uk' ? 'Скинути все' : 'Reset Everything',
+          text: isAuthenticated
+            ? language === 'uk'
+              ? 'Видалити акаунт'
+              : 'Delete Account'
+            : language === 'uk'
+            ? 'Скинути все'
+            : 'Reset Everything',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -215,6 +250,7 @@ export default function Profile() {
                     await supabase.from('user_programs').delete().eq('user_id', user.id);
                     await supabase.from('workout_history').delete().eq('user_id', user.id);
                     await supabase.from('body_weight_logs').delete().eq('user_id', user.id);
+                    await signOut();
                   } catch {
                     // Cloud delete error ignored
                   }
@@ -852,9 +888,10 @@ export default function Profile() {
 
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Privacy Policy"
             onPress={() => {
               hapticLight();
-              Alert.alert('Privacy Policy', 'Your workout data stays secure on your device.');
+              setPrivacyModalVisible(true);
             }}
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
           >
@@ -864,10 +901,8 @@ export default function Profile() {
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => {
-              hapticLight();
-              Alert.alert('Support', 'Contact SPOT team at support@spotapp.fit');
-            }}
+            accessibilityLabel="Contact Support"
+            onPress={handleContactSupport}
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
           >
             <Text style={styles.rowTitle}>{t('support')}</Text>
@@ -893,16 +928,19 @@ export default function Profile() {
         <View style={[styles.card, styles.dangerCard]}>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={isAuthenticated ? t('deleteAccountAndData') : t('resetAppData')}
             onPress={handleResetPress}
             style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
           >
-            <View>
-              <Text style={styles.dangerText}>{t('resetAppData')}</Text>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={styles.dangerText}>
+                {isAuthenticated ? t('deleteAccountAndData') : t('resetAppData')}
+              </Text>
               <Text style={styles.dangerSubText}>
-                {t('resetSubtitle')}
+                {isAuthenticated ? t('deleteAccountSubtitle') : t('resetSubtitle')}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#F87171" />
+            <Ionicons name="trash-outline" size={18} color="#F87171" />
           </Pressable>
         </View>
 
@@ -1048,6 +1086,11 @@ export default function Profile() {
       <AuthModal
         visible={authModalVisible}
         onClose={() => setAuthModalVisible(false)}
+      />
+
+      <PrivacyPolicyModal
+        visible={privacyModalVisible}
+        onClose={() => setPrivacyModalVisible(false)}
       />
     </SafeAreaView>
   );

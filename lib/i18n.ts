@@ -159,6 +159,8 @@ const en = {
   restartSubtitle: 'Re-run initial welcome & plan setup',
   resetAppData: 'Reset App Data',
   resetSubtitle: 'Wipe workout history, custom programs, and progress',
+  deleteAccountAndData: 'Delete Account & All Data',
+  deleteAccountSubtitle: 'Permanently remove your cloud profile and workout history',
 
   // Workout Editor Modal
   workoutName: 'WORKOUT NAME',
@@ -449,6 +451,8 @@ const uk: Record<TranslationKey, string> = {
   restartSubtitle: 'Пройти опитування та створити план знову',
   resetAppData: 'Скинути всі дані',
   resetSubtitle: 'Видалити історію тренувань, програми та прогрес',
+  deleteAccountAndData: 'Видалити акаунт та всі дані',
+  deleteAccountSubtitle: 'Назавжди видалити хмарний профіль та історію тренувань',
 
   // Workout Editor Modal
   workoutName: 'НАЗВА ТРЕНУВАННЯ',
