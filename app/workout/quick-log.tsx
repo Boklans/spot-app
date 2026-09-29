@@ -569,13 +569,24 @@ export default function QuickLogScreen() {
                       accessibilityRole="button"
                       hitSlop={8}
                       onPress={() => handleFillExercise(exIdx)}
-                      style={styles.quickFillExBtn}
+                      style={[
+                        styles.quickFillExBtn,
+                        hasCompletedSets && styles.quickFillExBtnActive,
+                      ]}
                     >
                       <Ionicons
-                        name="checkmark-done"
-                        size={15}
+                        name="checkmark"
+                        size={14}
                         color={hasCompletedSets ? colors.primary : '#8E959F'}
                       />
+                      <Text
+                        style={[
+                          styles.quickFillExBtnText,
+                          hasCompletedSets && styles.quickFillExBtnTextActive,
+                        ]}
+                      >
+                        {language === 'uk' ? 'По плану' : 'Target'}
+                      </Text>
                     </Pressable>
                   </View>
 
@@ -620,15 +631,28 @@ export default function QuickLogScreen() {
                   <View style={styles.repsSection}>
                     <View style={styles.repsHeaderRow}>
                       <Text style={styles.fieldLabel}>{t('repsPerSet')}</Text>
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() => handleAddSet(exIdx)}
-                        style={styles.addSetBtn}
-                        hitSlop={6}
-                      >
-                        <Ionicons name="add" size={14} color={colors.primary} />
-                        <Text style={styles.addSetBtnText}>{t('addSetBtn')}</Text>
-                      </Pressable>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        {ex.sets.length > 1 && (
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={() => handleRemoveSet(exIdx, ex.sets.length - 1)}
+                            style={styles.removeSetBtn}
+                            hitSlop={6}
+                          >
+                            <Ionicons name="remove-circle-outline" size={14} color="#8E959F" />
+                            <Text style={styles.removeSetBtnText}>{t('delete')}</Text>
+                          </Pressable>
+                        )}
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => handleAddSet(exIdx)}
+                          style={styles.addSetBtn}
+                          hitSlop={6}
+                        >
+                          <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
+                          <Text style={styles.addSetBtnText}>{t('addSetBtn')}</Text>
+                        </Pressable>
+                      </View>
                     </View>
 
                     <ScrollView
@@ -646,26 +670,14 @@ export default function QuickLogScreen() {
                               isSetFilled && styles.setBoxFilled,
                             ]}
                           >
-                            <View style={styles.setBoxTopRow}>
-                              <Text
-                                style={[
-                                  styles.setIndexLabel,
-                                  isSetFilled && styles.setIndexLabelFilled,
-                                ]}
-                              >
-                                {sIdx + 1}
-                              </Text>
-
-                              {ex.sets.length > 1 && (
-                                <Pressable
-                                  hitSlop={6}
-                                  onPress={() => handleRemoveSet(exIdx, sIdx)}
-                                  style={styles.removeSetIcon}
-                                >
-                                  <Ionicons name="close" size={11} color="#6C7A8E" />
-                                </Pressable>
-                              )}
-                            </View>
+                            <Text
+                              style={[
+                                styles.setIndexLabel,
+                                isSetFilled && styles.setIndexLabelFilled,
+                              ]}
+                            >
+                              {t('set').toUpperCase()} {sIdx + 1}
+                            </Text>
 
                             <TextInput
                               style={[
@@ -801,11 +813,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#16221C',
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 12,
     gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1F3A2B',
+    borderWidth: 1,
+    borderColor: '#1F3A2B',
   },
   bannerToastText: {
     color: colors.primary,
@@ -927,12 +942,27 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   quickFillExBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#19212C',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: '#18202C',
+    borderWidth: 1,
+    borderColor: '#242F40',
+  },
+  quickFillExBtnActive: {
+    backgroundColor: '#16231E',
+    borderColor: '#284E38',
+  },
+  quickFillExBtnText: {
+    color: '#8E959F',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  quickFillExBtnTextActive: {
+    color: colors.primary,
   },
   weightConfigRow: {
     flexDirection: 'row',
@@ -978,12 +1008,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  removeSetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: '#19202A',
+    borderRadius: 8,
+  },
+  removeSetBtnText: {
+    color: '#8E959F',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   addSetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: '#16231E',
+    borderRadius: 8,
   },
   addSetBtnText: {
     color: colors.primary,
@@ -993,50 +1039,45 @@ const styles = StyleSheet.create({
   setsScrollRow: {
     flexDirection: 'row',
     gap: 8,
-    paddingVertical: 2,
+    paddingVertical: 4,
   },
   setBox: {
-    width: 62,
-    height: 56,
-    backgroundColor: '#161E28',
-    borderRadius: 12,
+    width: 68,
+    height: 64,
+    backgroundColor: '#151D28',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#222B38',
-    paddingHorizontal: 6,
-    paddingTop: 5,
-    paddingBottom: 4,
+    borderColor: '#202A38',
+    paddingTop: 8,
+    paddingBottom: 6,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: 2,
   },
   setBoxFilled: {
-    backgroundColor: '#16231E',
-    borderColor: '#284E38',
-  },
-  setBoxTopRow: {
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    backgroundColor: '#14231C',
+    borderColor: '#274D37',
   },
   setIndexLabel: {
     color: '#64748B',
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
   setIndexLabelFilled: {
     color: colors.primary,
   },
-  removeSetIcon: {
-    padding: 1,
-  },
   repsInput: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     textAlign: 'center',
-    height: 30,
+    height: 32,
     width: '100%',
     padding: 0,
+    margin: 0,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   repsInputFilled: {
     color: colors.primary,
