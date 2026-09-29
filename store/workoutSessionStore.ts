@@ -8,6 +8,7 @@ import { defaultOnboarding } from './workoutStore';
 import { useWorkoutHistoryStore } from './workoutHistoryStore';
 import { useProgramStore } from './programStore';
 import { getScheduledWorkout, useProgramProgressStore } from './programProgressStore';
+import { useUserProfileStore } from './userProfileStore';
 
 export type WorkoutSet = {
   id: string;
@@ -261,7 +262,6 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       const activeSet = exercise?.sets[session.currentSetIndex];
       if (!exercise || !activeSet || activeSet.completed) return state;
 
-      const restDuration = resolveRestSeconds(exercise);
       const completedAt = new Date().toISOString();
       const exercisesWithCompletedSet = session.exercises.map((item, exerciseIndex) => {
         if (exerciseIndex !== session.currentExerciseIndex) return item;
@@ -296,6 +296,11 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         ? session.currentExerciseIndex + 1
         : session.currentExerciseIndex;
       const nextSetIndex = isLastSet ? 0 : session.currentSetIndex + 1;
+
+      const targetExerciseForRest = isLastSet
+        ? session.exercises[nextExerciseIndex] ?? exercise
+        : exercise;
+      const restDuration = resolveRestSeconds(targetExerciseForRest);
 
       return {
         ...state,
@@ -439,20 +444,37 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
   },
 
   updateExerciseRest: (exerciseIndex, restSeconds) => {
+    const boundedRest = Math.max(0, Math.min(600, restSeconds));
     set((state) => {
       if (!state.session) return state;
-      const boundedRest = Math.max(0, Math.min(600, restSeconds));
+      // Forward-propagate to current exercise and all subsequent exercises so the rest duration repeats
       const updatedExercises = state.session.exercises.map((ex, idx) =>
-        idx === exerciseIndex ? { ...ex, restSeconds: boundedRest, isCustomRest: true } : ex
+        idx >= exerciseIndex ? { ...ex, restSeconds: boundedRest, isCustomRest: true } : ex
       );
+      const newRestEndsAt =
+        state.restEndsAt !== null
+          ? (boundedRest > 0 ? Date.now() + boundedRest * 1000 : null)
+          : null;
+      const newRestNextType =
+        boundedRest === 0 ? null : state.restNextType;
+
       return {
         ...state,
         session: {
           ...state.session,
           exercises: updatedExercises,
         },
+        restEndsAt: newRestEndsAt,
+        restNextType: newRestNextType,
       };
     });
+
+    try {
+      useUserProfileStore.getState().updateProfile({ defaultRestSeconds: boundedRest });
+    } catch {
+      // Ignore background sync errors
+    }
+
     const state = useWorkoutSessionStore.getState();
     if (state.session && !state.session.completed) {
       persistSnapshot({
@@ -464,11 +486,49 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
   },
 
   addRestTime: (seconds) => {
-    set((state) => ({
-      restEndsAt: Math.max(Date.now(), (state.restEndsAt ?? Date.now()) + seconds * 1000),
-    }));
+    set((state) => {
+      const base = Math.max(Date.now(), state.restEndsAt ?? Date.now());
+      const newRestEndsAt = Math.max(Date.now(), base + seconds * 1000);
+      if (!state.session) {
+        return { restEndsAt: newRestEndsAt };
+      }
+      const currExercise = state.session.exercises[state.session.currentExerciseIndex];
+      const baseRest = currExercise?.restSeconds ?? 90;
+      const updatedRestSeconds = Math.max(15, Math.min(600, baseRest + seconds));
+
+      // Forward-propagate updated rest duration to all remaining exercises so rest repeats
+      const updatedExercises = state.session.exercises.map((ex, idx) =>
+        idx >= state.session!.currentExerciseIndex
+          ? { ...ex, restSeconds: updatedRestSeconds, isCustomRest: true }
+          : ex
+      );
+
+      return {
+        ...state,
+        restEndsAt: newRestEndsAt,
+        session: {
+          ...state.session,
+          exercises: updatedExercises,
+        },
+      };
+    });
+
     const state = useWorkoutSessionStore.getState();
-    if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
+    const currExercise = state.session?.exercises[state.session.currentExerciseIndex];
+    if (currExercise) {
+      try {
+        useUserProfileStore.getState().updateProfile({ defaultRestSeconds: currExercise.restSeconds });
+      } catch {
+        // Ignore background sync errors
+      }
+    }
+    if (state.session) {
+      persistSnapshot({
+        session: state.session,
+        restEndsAt: state.restEndsAt,
+        restNextType: state.restNextType,
+      });
+    }
   },
 
   skipRest: () => {

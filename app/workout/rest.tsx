@@ -391,9 +391,8 @@ export default function Rest() {
               {language === 'uk' ? 'Налаштувати відпочинок' : 'Customize Rest Duration'}
             </Text>
             <Text style={styles.modalHeaderSubtitle}>
-              {language === 'uk'
-                ? `Для вправи: ${targetExercise ? te(targetExercise.name) : ''}`
-                : `For: ${targetExercise ? targetExercise.name : ''}`}
+              {targetExercise ? te(targetExercise.name) : ''}
+              {language === 'uk' ? ' (і для наступних відпочинків)' : ' (and upcoming rests)'}
             </Text>
 
             {/* Quick preset chips */}
@@ -406,13 +405,9 @@ export default function Rest() {
                     onPress={() => {
                       hapticLight();
                       updateExerciseRest(session.currentExerciseIndex, presetSec);
+                      setShowRestModal(false);
                       if (presetSec === 0) {
-                        skipRest();
-                        setShowRestModal(false);
                         router.replace('/workout/active');
-                      } else {
-                        useWorkoutSessionStore.setState({ restEndsAt: Date.now() + presetSec * 1000 });
-                        setShowRestModal(false);
                       }
                     }}
                     style={[styles.modalPresetChip, isCurrent && styles.modalPresetChipActive]}
@@ -455,13 +450,9 @@ export default function Rest() {
                   if (!isNaN(parsed) && parsed >= 0 && parsed <= 600) {
                     hapticLight();
                     updateExerciseRest(session.currentExerciseIndex, parsed);
+                    setShowRestModal(false);
                     if (parsed === 0) {
-                      skipRest();
-                      setShowRestModal(false);
                       router.replace('/workout/active');
-                    } else {
-                      useWorkoutSessionStore.setState({ restEndsAt: Date.now() + parsed * 1000 });
-                      setShowRestModal(false);
                     }
                   } else {
                     setShowRestModal(false);

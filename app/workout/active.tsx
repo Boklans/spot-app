@@ -222,7 +222,7 @@ export default function Active() {
           t('couldNotSaveDesc')
         );
       }
-    } else if ((exercise?.restSeconds ?? 90) > 0) {
+    } else if (useWorkoutSessionStore.getState().restEndsAt !== null) {
       router.push('/workout/rest');
     } else {
       // 0s rest (Superset / Circuit): stay on screen and advance directly
