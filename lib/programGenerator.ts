@@ -83,19 +83,52 @@ export const DEFAULT_WEEKDAY_SCHEDULES: Record<number, string[]> = {
   7: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
 };
 
+export const ALL_WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
 export function getWorkoutDayLabel(
   dayLabel?: string,
   index = 0,
   trainingDays?: string[],
   frequency = 3
 ): string {
-  if (dayLabel && !dayLabel.toUpperCase().startsWith('WORKOUT')) {
+  if (dayLabel && !dayLabel.toUpperCase().startsWith('WORKOUT') && !dayLabel.toUpperCase().match(/^DAY\s*\d+$/i)) {
     return dayLabel;
   }
-  const days = (trainingDays && trainingDays.length > 0)
+  const days = (trainingDays && trainingDays.length >= frequency)
     ? trainingDays
     : (DEFAULT_WEEKDAY_SCHEDULES[frequency] ?? DEFAULT_WEEKDAY_SCHEDULES[3]);
   return days[index % days.length] ?? `DAY ${index + 1}`;
+}
+
+export function getNextAvailableWeekday(
+  existingWorkouts: { dayLabel?: string }[],
+  trainingDays?: string[]
+): string {
+  const existingDays = new Set(
+    existingWorkouts
+      .map((w, idx) => getWorkoutDayLabel(w.dayLabel, idx, trainingDays, existingWorkouts.length).trim().toUpperCase())
+      .filter(Boolean)
+  );
+
+  // Find the last used weekday in current list
+  const lastWeekday = [...existingWorkouts]
+    .reverse()
+    .map((w, revIdx) => {
+      const actualIdx = existingWorkouts.length - 1 - revIdx;
+      return getWorkoutDayLabel(w.dayLabel, actualIdx, trainingDays, existingWorkouts.length).trim().toUpperCase();
+    })
+    .find((label) => label && ALL_WEEKDAYS.includes(label));
+
+  const lastIndex = lastWeekday ? ALL_WEEKDAYS.indexOf(lastWeekday) : -1;
+
+  for (let i = 1; i <= 7; i++) {
+    const candidate = ALL_WEEKDAYS[(lastIndex + i) % 7];
+    if (!existingDays.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return `Day ${existingWorkouts.length + 1}`;
 }
 
 const defaultEquipment: EquipmentId[] = ['full_gym'];

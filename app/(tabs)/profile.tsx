@@ -471,32 +471,18 @@ export default function Profile() {
         <View style={styles.card}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => handleOpenPicker('split')}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            accessibilityLabel="Configure Training Program"
+            onPress={() => {
+              hapticLight();
+              router.push('/(tabs)/program');
+            }}
+            style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
           >
             <View>
               <Text style={styles.rowTitle}>{currentSplitLabel}</Text>
               <Text style={styles.rowSubtitle}>
-                {program.splitType === 'full_body'
-                  ? `3 full body ${t('sessions').toLowerCase()} / week`
-                  : program.splitType === 'push_pull_legs'
-                  ? 'Push / Pull / Legs rotation'
-                  : program.splitType === 'custom'
-                  ? t('customizedRoutine')
-                  : 'Upper / Lower balanced split'}
+                {program.workouts.length} {language === 'uk' ? 'тренувань / тиждень' : 'sessions / week'} • {language === 'uk' ? 'Налаштувати в Програмі' : 'Configure in Program'}
               </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleOpenPicker('workoutsPerWeek')}
-            style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
-          >
-            <View>
-              <Text style={styles.rowTitle}>{t('frequency')}</Text>
-              <Text style={styles.rowSubtitle}>{profile.workoutsPerWeek} {t('daysPerWeek')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
           </Pressable>

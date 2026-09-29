@@ -17,7 +17,7 @@ import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { generateUUID } from '@/lib/programMigration';
-import { getWorkoutDayLabel } from '@/lib/programGenerator';
+import { getNextAvailableWeekday, getWorkoutDayLabel } from '@/lib/programGenerator';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
@@ -272,10 +272,11 @@ export default function Program() {
                   hapticMedium();
                   const count = program.workouts.length;
                   const letter = String.fromCharCode(65 + count);
+                  const nextWeekday = getNextAvailableWeekday(program.workouts, onboarding?.trainingDays);
                   const newWorkout: UserWorkout = {
                     id: generateUUID(),
                     name: language === 'uk' ? `Тренування ${letter}` : `Workout ${letter}`,
-                    dayLabel: `Day ${count + 1}`,
+                    dayLabel: nextWeekday,
                     muscleGroups: [],
                     estimatedMinutes: 45,
                     defaultRestSeconds: 90,

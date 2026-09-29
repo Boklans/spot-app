@@ -18,7 +18,7 @@ import { spacing } from '@/constants/spacing';
 import type { LibraryExercise } from '@/lib/exerciseLibrary';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { generateUUID } from '@/lib/programMigration';
-import { getWorkoutDayLabel } from '@/lib/programGenerator';
+import { ALL_WEEKDAYS, getNextAvailableWeekday, getWorkoutDayLabel } from '@/lib/programGenerator';
 import { useI18n } from '@/lib/i18n';
 import { useProgramStore } from '@/store/programStore';
 import { defaultOnboarding, loadOnboarding, saveOnboarding } from '@/store/workoutStore';
@@ -122,10 +122,11 @@ export default function ProgramEdit() {
     isDirtyRef.current = true;
     const count = draft.workouts.length;
     const letter = String.fromCharCode(65 + count);
+    const nextWeekday = getNextAvailableWeekday(draft.workouts);
     const newWorkout: UserWorkout = {
       id: generateUUID(),
       name: language === 'uk' ? `Тренування ${letter}` : `Workout ${letter}`,
-      dayLabel: `Day ${count + 1}`,
+      dayLabel: nextWeekday,
       muscleGroups: [],
       estimatedMinutes: 45,
       defaultRestSeconds: 90,
@@ -147,6 +148,14 @@ export default function ProgramEdit() {
     setDraft((prev) => ({
       ...prev,
       workouts: prev.workouts.map((w) => (w.id === workoutId ? { ...w, name } : w)),
+    }));
+  };
+
+  const handleWorkoutDayLabelChange = (workoutId: string, dayLabel: string) => {
+    isDirtyRef.current = true;
+    setDraft((prev) => ({
+      ...prev,
+      workouts: prev.workouts.map((w) => (w.id === workoutId ? { ...w, dayLabel } : w)),
     }));
   };
 
@@ -367,6 +376,32 @@ export default function ProgramEdit() {
           <Text style={styles.workoutSubFocus}>
             {selectedWorkout.muscleGroups.map((m) => tm(m)).join(' • ')}
           </Text>
+        </View>
+
+        {/* Workout Day Selector */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>{language === 'uk' ? 'ДЕНЬ ТИЖНЯ' : 'DAY OF THE WEEK'}</Text>
+          <View style={styles.weekdayChipRow}>
+            {ALL_WEEKDAYS.map((day) => {
+              const isSelected = selectedWorkout.dayLabel?.toUpperCase() === day;
+              return (
+                <Pressable
+                  key={day}
+                  accessibilityRole="button"
+                  accessibilityLabel={td(day)}
+                  onPress={() => {
+                    hapticLight();
+                    handleWorkoutDayLabelChange(selectedWorkout.id, day);
+                  }}
+                  style={[styles.weekdayChip, isSelected && styles.weekdayChipSelected]}
+                >
+                  <Text style={[styles.weekdayChipText, isSelected && styles.weekdayChipTextSelected]}>
+                    {td(day)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         {/* Exercises List */}
@@ -1249,5 +1284,34 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     maxWidth: 280,
+  },
+  weekdayChipRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 8,
+    justifyContent: 'space-between',
+  },
+  weekdayChip: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: '#161B22',
+    borderWidth: 1,
+    borderColor: '#242C38',
+  },
+  weekdayChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  weekdayChipText: {
+    color: '#8E9BAE',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  weekdayChipTextSelected: {
+    color: '#0B0D0F',
+    fontWeight: '900',
   },
 });

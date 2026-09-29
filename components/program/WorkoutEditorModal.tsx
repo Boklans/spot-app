@@ -20,6 +20,7 @@ import { type CatalogExercise } from '@/lib/exerciseCatalog';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticImpact, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { ALL_WEEKDAYS } from '@/lib/programGenerator';
 import type { UserExercise, UserWorkout } from '@/types/userProgram';
 
 interface WorkoutEditorModalProps {
@@ -37,12 +38,14 @@ export function WorkoutEditorModal({
 }: WorkoutEditorModalProps) {
   const { t, tm, td, te, tw, language } = useI18n();
   const [workoutName, setWorkoutName] = useState(workout ? tw(workout.name) : '');
+  const [dayLabel, setDayLabel] = useState(workout?.dayLabel || 'MON');
   const [exercises, setExercises] = useState<UserExercise[]>(workout?.exercises ?? []);
   const [libraryVisible, setLibraryVisible] = useState(false);
 
   React.useEffect(() => {
     if (workout && visible) {
       setWorkoutName(tw(workout.name));
+      setDayLabel(workout.dayLabel || 'MON');
       setExercises(workout.exercises);
       setLibraryVisible(false);
     }
@@ -90,6 +93,7 @@ export function WorkoutEditorModal({
     const updated: UserWorkout = {
       ...workout,
       name: workoutName.trim() || workout.name,
+      dayLabel,
       exercises,
       muscleGroups: uniqueMuscles,
       estimatedMinutes: Math.max(30, exercises.length * 9),
@@ -127,7 +131,7 @@ export function WorkoutEditorModal({
                 <View style={styles.header}>
                   <View>
                     <Text style={styles.headerTitle}>{t('customizeWorkout')}</Text>
-                    <Text style={styles.headerSubtitle}>{td(workout.dayLabel)}</Text>
+                    <Text style={styles.headerSubtitle}>{td(dayLabel)}</Text>
                   </View>
                   <Pressable
                     accessibilityRole="button"
@@ -156,6 +160,30 @@ export function WorkoutEditorModal({
                     placeholder="e.g., Chest & Triceps"
                     placeholderTextColor="#64748B"
                   />
+                </View>
+
+                {/* Day of Week Selector */}
+                <Text style={styles.inputLabel}>{language === 'uk' ? 'ДЕНЬ ТИЖНЯ' : 'DAY OF THE WEEK'}</Text>
+                <View style={styles.weekdayRow}>
+                  {ALL_WEEKDAYS.map((d) => {
+                    const isSelected = dayLabel?.toUpperCase() === d;
+                    return (
+                      <Pressable
+                        key={d}
+                        accessibilityRole="button"
+                        accessibilityLabel={td(d)}
+                        onPress={() => {
+                          hapticLight();
+                          setDayLabel(d);
+                        }}
+                        style={[styles.weekdayChip, isSelected && styles.weekdayChipActive]}
+                      >
+                        <Text style={[styles.weekdayChipText, isSelected && styles.weekdayChipTextActive]}>
+                          {td(d)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
 
                 {/* Exercise List */}
@@ -533,6 +561,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 20,
+  },
+  weekdayRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 20,
+    justifyContent: 'space-between',
+  },
+  weekdayChip: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: '#161B22',
+    borderWidth: 1,
+    borderColor: '#242C38',
+  },
+  weekdayChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  weekdayChipText: {
+    color: '#8E9BAE',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  weekdayChipTextActive: {
+    color: '#0B0D0F',
+    fontWeight: '900',
   },
   nameInput: {
     color: '#FFFFFF',
