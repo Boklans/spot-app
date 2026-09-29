@@ -749,25 +749,70 @@ export default function WorkoutPreview() {
                 </View>
               </View>
 
-              {/* 3. Rep Range */}
+              {/* 3. Target Reps */}
               <View style={styles.configSection}>
                 <Text style={styles.configSectionLabel}>
-                  {language === 'uk' ? 'ДІАПАЗОН ПОВТОРЕНЬ' : 'TARGET REP RANGE'}
+                  {language === 'uk' ? 'ЦІЛЬОВІ ПОВТОРЕННЯ' : 'TARGET REPS'}
                 </Text>
-                <View style={styles.configPillsRow}>
-                  {['6-8', '8-10', '10-12', '12-15', '15-20'].map((range) => {
-                    const isSelected = configRepRange === range;
+                <View style={styles.configStepperRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Decrease reps"
+                    hitSlop={8}
+                    onPress={() => {
+                      hapticLight();
+                      const current = parseInt(configRepRange.split('-')[0], 10) || 8;
+                      const next = Math.max(1, current - 1);
+                      setConfigRepRange(next.toString());
+                    }}
+                    style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
+                  >
+                    <Ionicons name="remove" size={22} color="#FFFFFF" />
+                  </Pressable>
+
+                  <View style={styles.configWeightInputWrap}>
+                    <TextInput
+                      style={styles.configWeightInput}
+                      keyboardType="default"
+                      value={configRepRange}
+                      onChangeText={setConfigRepRange}
+                      placeholder="8"
+                      placeholderTextColor="#6C7A8E"
+                      selectTextOnFocus
+                    />
+                  </View>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Increase reps"
+                    hitSlop={8}
+                    onPress={() => {
+                      hapticLight();
+                      const current = parseInt(configRepRange.split('-')[0], 10) || 8;
+                      const next = Math.min(50, current + 1);
+                      setConfigRepRange(next.toString());
+                    }}
+                    style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
+                  >
+                    <Ionicons name="add" size={22} color="#FFFFFF" />
+                  </Pressable>
+                </View>
+
+                {/* Quick Presets */}
+                <View style={[styles.configPillsRow, { marginTop: 8 }]}>
+                  {['5', '8', '10', '12', '8-12'].map((preset) => {
+                    const isSelected = configRepRange === preset;
                     return (
                       <Pressable
-                        key={range}
+                        key={preset}
                         onPress={() => {
                           hapticLight();
-                          setConfigRepRange(range);
+                          setConfigRepRange(preset);
                         }}
                         style={[styles.configPill, isSelected && styles.configPillActive]}
                       >
                         <Text style={[styles.configPillText, isSelected && styles.configPillTextActive]}>
-                          {range}
+                          {preset}
                         </Text>
                       </Pressable>
                     );
