@@ -21,6 +21,9 @@ import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { getSessionSummary, useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { defaultOnboarding, loadOnboarding } from '@/store/workoutStore';
 
+// Temporary feature flag: hide Instagram Stories sharing
+const SHOW_INSTAGRAM_STORIES = false;
+
 export default function Complete() {
   const { t, te, tw, language } = useI18n();
   const { formatVolume } = useWeightUnit();
@@ -282,34 +285,36 @@ export default function Complete() {
         </View>
 
         {/* 6. Share to Instagram Stories Banner */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Share to Instagram Stories"
-          onPress={() => {
-            hapticMedium();
-            setIsStoriesModalVisible(true);
-          }}
-          style={({ pressed }) => [styles.storyBanner, pressed && styles.storyBannerPressed]}
-        >
-          <View style={styles.storyBannerLeft}>
-            <View style={styles.storyIconWrap}>
-              <Ionicons name="sparkles" size={20} color="#0B0D0F" />
+        {SHOW_INSTAGRAM_STORIES && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Share to Instagram Stories"
+            onPress={() => {
+              hapticMedium();
+              setIsStoriesModalVisible(true);
+            }}
+            style={({ pressed }) => [styles.storyBanner, pressed && styles.storyBannerPressed]}
+          >
+            <View style={styles.storyBannerLeft}>
+              <View style={styles.storyIconWrap}>
+                <Ionicons name="sparkles" size={20} color="#0B0D0F" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.storyBannerTitle}>
+                  {language === 'uk' ? 'Поділитися в Stories' : 'Share to Instagram Stories'}
+                </Text>
+                <Text style={styles.storyBannerSubtitle}>
+                  {language === 'uk'
+                    ? 'Стильна картка з вашим тоннажем і рекордами'
+                    : 'Aesthetic story card with volume & PRs'}
+                </Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.storyBannerTitle}>
-                {language === 'uk' ? 'Поділитися в Stories' : 'Share to Instagram Stories'}
-              </Text>
-              <Text style={styles.storyBannerSubtitle}>
-                {language === 'uk'
-                  ? 'Стильна картка з вашим тоннажем і рекордами'
-                  : 'Aesthetic story card with volume & PRs'}
-              </Text>
+            <View style={styles.storyBannerBadge}>
+              <Ionicons name="arrow-forward" size={16} color={colors.primary} />
             </View>
-          </View>
-          <View style={styles.storyBannerBadge}>
-            <Ionicons name="arrow-forward" size={16} color={colors.primary} />
-          </View>
-        </Pressable>
+          </Pressable>
+        )}
       </ScrollView>
 
       {/* 7. Sticky Bottom Done Button */}
@@ -326,7 +331,7 @@ export default function Complete() {
 
       {/* 8. Instagram Stories 9:16 Preview Modal */}
       <Modal
-        visible={isStoriesModalVisible}
+        visible={SHOW_INSTAGRAM_STORIES && isStoriesModalVisible}
         animationType="slide"
         transparent
         onRequestClose={() => setIsStoriesModalVisible(false)}

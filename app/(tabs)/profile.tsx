@@ -72,6 +72,9 @@ const SPLIT_OPTIONS = [
 
 type ActivePicker = 'goal' | 'experience' | 'workoutsPerWeek' | 'split' | null;
 
+// Temporary feature flag: hide PRO subscription until paywall/IAP is ready
+const SHOW_PRO_SUBSCRIPTION = false;
+
 export default function Profile() {
   const { t, language } = useI18n();
   const profile = useUserProfileStore((state) => state.profile);
@@ -360,7 +363,7 @@ export default function Profile() {
 
           <View style={styles.headerInfo}>
             <View style={styles.nameRow}>
-              <Text style={styles.userName}>{profile.name.toUpperCase()}</Text>
+              <Text style={styles.userName}>{profile.name}</Text>
               <View style={[styles.beastPill, { borderColor: currentBeast.color }]}>
                 <Text style={[styles.beastPillText, { color: currentBeast.color }]}>
                   {currentBeast.label}
@@ -828,34 +831,38 @@ export default function Profile() {
         {/* 4. ACCOUNT Section */}
         <Text style={styles.sectionTitle}>{t('account')}</Text>
         <View style={styles.card}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              hapticLight();
-              setProModalVisible(true);
-            }}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <Text style={styles.rowTitle}>{t('subscription')}</Text>
-            <View style={styles.badgeRow}>
-              <View style={styles.proBadge}>
-                <Text style={styles.proBadgeText}>PRO</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-            </View>
-          </Pressable>
+          {SHOW_PRO_SUBSCRIPTION && (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  hapticLight();
+                  setProModalVisible(true);
+                }}
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+              >
+                <Text style={styles.rowTitle}>{t('subscription')}</Text>
+                <View style={styles.badgeRow}>
+                  <View style={styles.proBadge}>
+                    <Text style={styles.proBadgeText}>PRO</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+                </View>
+              </Pressable>
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              hapticLight();
-              Alert.alert('Purchases Restored', 'Your account has been synced.');
-            }}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <Text style={styles.rowTitle}>{t('restorePurchases')}</Text>
-            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-          </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  hapticLight();
+                  Alert.alert('Purchases Restored', 'Your account has been synced.');
+                }}
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+              >
+                <Text style={styles.rowTitle}>{t('restorePurchases')}</Text>
+                <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+              </Pressable>
+            </>
+          )}
 
           <Pressable
             accessibilityRole="button"
