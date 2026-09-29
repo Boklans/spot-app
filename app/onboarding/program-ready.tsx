@@ -2,6 +2,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
+  Image,
   Platform,
   Pressable,
   SafeAreaView,
@@ -12,11 +14,13 @@ import {
 } from 'react-native';
 import { colors } from '@/constants/colors';
 import { WorkoutEditorModal } from '@/components/program/WorkoutEditorModal';
-import { hapticMedium, hapticSuccess } from '@/lib/haptics';
+import { getExerciseImage } from '@/lib/exerciseImages';
+import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useWeightUnit } from '@/lib/weightUtils';
 import {
   generateProgram,
+  getNextAvailableWeekday,
   getWorkoutDayLabel,
   type GeneratedProgram,
 } from '@/lib/programGenerator';
@@ -41,13 +45,13 @@ interface SplitChoice {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
 }
 
-const SPLIT_CHOICES: SplitChoice[] = [
+const PRESET_SPLITS: SplitChoice[] = [
   {
     id: 'full_body',
     labelUk: 'Фулбоді',
     labelEn: 'Full Body',
     subUk: '1–3 дні · Все тіло',
-    subEn: '1–3 days · Entire body',
+    subEn: '1–3 days · Full Body',
     icon: 'human',
   },
   {
@@ -62,45 +66,9 @@ const SPLIT_CHOICES: SplitChoice[] = [
     id: 'push_pull_legs',
     labelUk: 'Спліт (PPL)',
     labelEn: 'Split (PPL)',
-    subUk: '3–6 днів · Жим / Тяга / Ноги',
-    subEn: '3–6 days · Push / Pull / Legs',
+    subUk: '3–6 днів · Жим/Тяга',
+    subEn: '3–6 days · Push/Pull/Legs',
     icon: 'arm-flex',
-  },
-  {
-    id: 'custom',
-    labelUk: 'Кастом (Свій)',
-    labelEn: 'Custom Plan',
-    subUk: 'Скласти свій план',
-    subEn: 'Build from scratch',
-    icon: 'tune',
-  },
-];
-
-interface DurationChoiceOption {
-  minutes: number;
-  labelUk: string;
-  labelEn: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-}
-
-const DURATION_CHOICES: DurationChoiceOption[] = [
-  {
-    minutes: 30,
-    labelUk: '30 хв (4 впр)',
-    labelEn: '30 min (4 ex)',
-    icon: 'lightning-bolt',
-  },
-  {
-    minutes: 45,
-    labelUk: '45 хв (5 впр)',
-    labelEn: '45 min (5 ex)',
-    icon: 'timer-sand',
-  },
-  {
-    minutes: 60,
-    labelUk: '60 хв (6+ впр)',
-    labelEn: '60 min (6+ ex)',
-    icon: 'fire',
   },
 ];
 
@@ -112,8 +80,17 @@ export default function ProgramReady() {
     generateProgram(defaultOnboarding)
   );
   const [editingWorkout, setEditingWorkout] = useState<UserWorkout | null>(null);
+  const [expandedWorkouts, setExpandedWorkouts] = useState<Record<string, boolean>>({});
   // Track whether user manually edited the program so we persist edits instead of regenerating
   const [hasEdits, setHasEdits] = useState(false);
+
+  const toggleWorkout = (id: string) => {
+    hapticLight();
+    setExpandedWorkouts((prev) => ({
+      ...prev,
+      [id]: !(prev[id] ?? false),
+    }));
+  };
 
   const syncProgramState = React.useCallback(async () => {
     const data = (await loadOnboarding()) ?? defaultOnboarding;
@@ -195,10 +172,11 @@ export default function ProgramReady() {
     hapticMedium();
     const count = program.workouts.length;
     const letter = String.fromCharCode(65 + count);
+    const nextWeekday = getNextAvailableWeekday(program.workouts, onboarding.trainingDays);
     const newWorkout: GeneratedProgram['workouts'][0] = {
       id: `custom-w-${Date.now()}`,
       name: language === 'uk' ? `Тренування ${letter}` : `Workout ${letter}`,
-      dayLabel: `Day ${count + 1}`,
+      dayLabel: nextWeekday,
       muscleGroups: [],
       estimatedMinutes: 45,
       exercises: [],
@@ -213,6 +191,45 @@ export default function ProgramReady() {
     setProgram(nextProgram);
     setHasEdits(true);
     setEditingWorkout(newWorkout as unknown as UserWorkout);
+  };
+
+  const handleDeleteEditedWorkout = (workoutId: string) => {
+    if (program.workouts.length <= 1) {
+      Alert.alert(
+        language === 'uk' ? 'Неможливо видалити' : 'Cannot delete',
+        language === 'uk'
+          ? 'У вашій програмі має бути хоча б одне тренування.'
+          : 'Your program must have at least one workout.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      language === 'uk' ? 'Видалити тренування?' : 'Delete workout day?',
+      language === 'uk'
+        ? 'Цей день тренування та всі його вправи будуть видалені з програми.'
+        : 'This workout day and all its exercises will be removed from your program.',
+      [
+        { text: language === 'uk' ? 'Скасувати' : 'Cancel', style: 'cancel' },
+        {
+          text: language === 'uk' ? 'Видалити' : 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            hapticMedium();
+            const nextWorkouts = program.workouts.filter((w) => w.id !== workoutId);
+            setProgram({
+              ...program,
+              splitType: 'custom',
+              daysPerWeek: Math.min(nextWorkouts.length, program.daysPerWeek),
+              workouts: nextWorkouts,
+            });
+            setOnboarding((prev) => ({ ...prev, splitPreference: 'custom' }));
+            setHasEdits(true);
+            setEditingWorkout(null);
+          },
+        },
+      ]
+    );
   };
 
   const handleSaveEditedWorkout = (updatedWorkout: UserWorkout) => {
@@ -371,70 +388,19 @@ export default function ProgramReady() {
             </View>
             <View style={[styles.metaPill, styles.goalPill]}>
               <Text style={styles.goalText}>
-                {language === 'uk' ? 'КАЛІБРОВАНО' : 'CALIBRATED'}
+                {language === 'uk' ? 'ПЕРСОНАЛІЗОВАНО' : 'PERSONALIZED'}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* 2.5 Workout Duration Filter */}
-        <View style={styles.durationFilterWrap}>
-          <View style={styles.durationFilterHeader}>
-            <Text style={styles.durationFilterLabel}>
-              {language === 'uk' ? 'БАЖАНА ТРИВАЛІСТЬ' : 'TARGET DURATION'}
-            </Text>
-            <View style={styles.durationFilterActiveBadge}>
-              <Text style={styles.durationFilterActiveBadgeText}>
-                {language === 'uk'
-                  ? `${onboarding.sessionDurationMinutes ?? 45} ХВ · ${(onboarding.sessionDurationMinutes ?? 45) <= 30 ? 4 : (onboarding.sessionDurationMinutes ?? 45) <= 45 ? 5 : 6} ВПРАВ`
-                  : `${onboarding.sessionDurationMinutes ?? 45} MIN · ${(onboarding.sessionDurationMinutes ?? 45) <= 30 ? 4 : (onboarding.sessionDurationMinutes ?? 45) <= 45 ? 5 : 6} EX`}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.durationFilterRow}>
-            {DURATION_CHOICES.map((choice) => {
-              const isSelected = (onboarding.sessionDurationMinutes ?? 45) === choice.minutes;
-              return (
-                <Pressable
-                  key={choice.minutes}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${choice.minutes} min`}
-                  onPress={() => handleSelectDuration(choice.minutes)}
-                  style={[
-                    styles.durationFilterBtn,
-                    isSelected && styles.durationFilterBtnActive,
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name={choice.icon}
-                    size={16}
-                    color={isSelected ? '#0B0D0F' : '#8E9BAE'}
-                  />
-                  <Text
-                    style={[
-                      styles.durationFilterBtnText,
-                      isSelected && styles.durationFilterBtnTextActive,
-                    ]}
-                  >
-                    {language === 'uk' ? choice.labelUk : choice.labelEn}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* 3. Split Switcher Carousel (Фулбоді, Верх/Низ, Спліт, Кастом) */}
+        {/* 3. Split Switcher (3 Main Presets + Separated Custom Card) */}
         <View style={styles.splitSwitchWrap}>
           <Text style={styles.splitSwitchLabel}>
             {language === 'uk' ? 'ОБЕРІТЬ ПРОГРАМУ ТРЕНУВАНЬ' : 'CHOOSE TRAINING PROGRAM'}
           </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.splitSwitchRow}
-          >
-            {SPLIT_CHOICES.map((split) => {
+          <View style={styles.splitPresetRow}>
+            {PRESET_SPLITS.map((split) => {
               const isActive = currentSplit === split.id;
               return (
                 <Pressable
@@ -443,27 +409,73 @@ export default function ProgramReady() {
                   accessibilityLabel={language === 'uk' ? split.labelUk : split.labelEn}
                   onPress={() => handleSelectSplit(split.id)}
                   style={[
-                    styles.splitPill,
-                    isActive && styles.splitPillActive,
+                    styles.splitPresetCard,
+                    isActive && styles.splitPresetCardActive,
                   ]}
                 >
-                  <MaterialCommunityIcons
-                    name={split.icon}
-                    size={16}
-                    color={isActive ? '#0B0D0F' : '#8E9BAE'}
-                  />
+                  <View style={[styles.splitPresetIconWrap, isActive && styles.splitPresetIconWrapActive]}>
+                    <MaterialCommunityIcons
+                      name={split.icon}
+                      size={20}
+                      color={isActive ? '#0B0D0F' : colors.primary}
+                    />
+                  </View>
                   <Text
-                    style={[
-                      styles.splitPillText,
-                      isActive && styles.splitPillTextActive,
-                    ]}
+                    style={[styles.splitPresetTitle, isActive && styles.splitPresetTitleActive]}
+                    numberOfLines={1}
                   >
                     {language === 'uk' ? split.labelUk : split.labelEn}
+                  </Text>
+                  <Text
+                    style={[styles.splitPresetSub, isActive && styles.splitPresetSubActive]}
+                    numberOfLines={1}
+                  >
+                    {language === 'uk' ? split.subUk : split.subEn}
                   </Text>
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
+
+          {/* Dedicated Custom Plan Card - Prominently Separated */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={language === 'uk' ? 'Скласти свій план (Кастом)' : 'Build Custom Routine'}
+            onPress={() => handleSelectSplit('custom')}
+            style={[styles.customSelectCard, isCustom && styles.customSelectCardActive]}
+          >
+            <View style={styles.customSelectLeft}>
+              <View style={[styles.customSelectIconWrap, isCustom && styles.customSelectIconWrapActive]}>
+                <MaterialCommunityIcons
+                  name="tune-vertical"
+                  size={20}
+                  color={isCustom ? '#0B0D0F' : colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={styles.customTitleRow}>
+                  <Text style={[styles.customSelectTitle, isCustom && styles.customSelectTitleActive]}>
+                    {language === 'uk' ? 'Власний план (Кастом)' : 'Custom Routine (Your Own)'}
+                  </Text>
+                  <View style={[styles.customBadge, isCustom && styles.customBadgeActive]}>
+                    <Text style={[styles.customBadgeText, isCustom && styles.customBadgeTextActive]}>
+                      {language === 'uk' ? 'СВІЙ' : 'CUSTOM'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.customSelectSub}>
+                  {language === 'uk'
+                    ? 'Створіть свій розклад або оберіть будь-які вправи з каталогу'
+                    : 'Build your own routine and choose exercises from catalog'}
+                </Text>
+              </View>
+            </View>
+            <Ionicons
+              name={isCustom ? 'checkmark-circle' : 'chevron-forward'}
+              size={22}
+              color={isCustom ? colors.primary : '#8E9BAE'}
+            />
+          </Pressable>
         </View>
 
         {/* 3.5 Custom Plan Builder Banner (if Custom is chosen) */}
@@ -517,20 +529,44 @@ export default function ProgramReady() {
           <Text style={styles.sectionTitle}>
             {language === 'uk' ? 'СТРУКТУРА ТРЕНУВАНЬ' : 'WORKOUT SEQUENCE'}
           </Text>
-          <Text style={styles.sectionSub}>
-            {program.workouts.length} {language === 'uk' ? 'ТРЕНУВАНЬ' : 'SESSIONS'}
-          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              hapticLight();
+              const allExpanded = program.workouts.every((w, idx) => expandedWorkouts[w.id] ?? (idx === 0));
+              const nextState: Record<string, boolean> = {};
+              program.workouts.forEach((w) => {
+                nextState[w.id] = !allExpanded;
+              });
+              setExpandedWorkouts(nextState);
+            }}
+            hitSlop={8}
+          >
+            <Text style={styles.toggleAllText}>
+              {program.workouts.every((w, idx) => expandedWorkouts[w.id] ?? (idx === 0))
+                ? (language === 'uk' ? 'Згорнути всі' : 'Collapse all')
+                : (language === 'uk' ? 'Розгорнути всі' : 'Expand all')}
+            </Text>
+          </Pressable>
         </View>
 
-        {/* 5. Workout Cards */}
+        {/* 5. Expandable Workout Cards */}
         <View style={styles.workoutList}>
           {program.workouts.map((workout, index) => {
-            const dayLabel = getWorkoutDayLabel(workout.dayLabel, index, onboarding.trainingDays, program.workouts.length);
+            const rawDayLabel = getWorkoutDayLabel(workout.dayLabel, index, onboarding.trainingDays, program.workouts.length);
+            const isExpanded = expandedWorkouts[workout.id] ?? (index === 0);
+
             return (
-              <View key={workout.id} style={styles.workoutCard}>
+              <Pressable
+                key={workout.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${rawDayLabel}: ${workout.name}`}
+                onPress={() => toggleWorkout(workout.id)}
+                style={[styles.workoutCard, isExpanded && styles.workoutCardExpanded]}
+              >
                 <View style={styles.cardHeader}>
                   <View style={styles.dayBadge}>
-                    <Text style={styles.dayBadgeText}>{dayLabel}</Text>
+                    <Text style={styles.dayBadgeText}>{td(rawDayLabel)}</Text>
                   </View>
                   <View style={styles.cardHeaderRight}>
                     <Text style={styles.exerciseCount}>
@@ -539,7 +575,12 @@ export default function ProgramReady() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Редагувати тренування"
-                      onPress={() => setEditingWorkout(workout as unknown as UserWorkout)}
+                      hitSlop={8}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        hapticLight();
+                        setEditingWorkout(workout as unknown as UserWorkout);
+                      }}
                       style={styles.editWorkoutBtn}
                     >
                       <Ionicons name="create-outline" size={14} color={colors.primary} />
@@ -547,6 +588,12 @@ export default function ProgramReady() {
                         {language === 'uk' ? 'Редагувати' : 'Edit'}
                       </Text>
                     </Pressable>
+                    <Ionicons
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={18}
+                      color="#8E9BAE"
+                      style={{ marginLeft: 2 }}
+                    />
                   </View>
                 </View>
 
@@ -562,7 +609,11 @@ export default function ProgramReady() {
 
                 {workout.exercises.length === 0 ? (
                   <Pressable
-                    onPress={() => setEditingWorkout(workout as unknown as UserWorkout)}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      hapticLight();
+                      setEditingWorkout(workout as unknown as UserWorkout);
+                    }}
                     style={styles.emptyExercisesPrompt}
                   >
                     <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
@@ -572,28 +623,86 @@ export default function ProgramReady() {
                         : 'Empty workout. Tap to add exercises'}
                     </Text>
                   </Pressable>
-                ) : (
-                  <View style={styles.exPreviewList}>
-                    {workout.exercises.slice(0, 3).map((ex, exIdx) => (
-                      <View key={ex.id || `${ex.name}-${exIdx}`} style={styles.exPreviewRow}>
-                        <View style={styles.exPreviewDot} />
-                        <Text style={styles.exPreviewName} numberOfLines={1}>
-                          {te(ex.name)}
-                        </Text>
-                        <Text style={styles.exPreviewSets}>
-                          {ex.sets} × {ex.recommendedWeight ? formatWithUnit(ex.recommendedWeight) : (language === 'uk' ? 'ВТ' : 'BW')}
-                        </Text>
-                      </View>
-                    ))}
-                    {workout.exercises.length > 3 && (
-                      <Text style={styles.exPreviewMore}>
-                        + ще {workout.exercises.length - 3}{' '}
-                        {language === 'uk' ? 'вправи' : 'exercises'}
+                ) : !isExpanded ? (
+                  /* Collapsed View: Preview row */
+                  <View style={styles.collapsedPreviewRow}>
+                    <Text style={styles.collapsedPreviewText} numberOfLines={2}>
+                      {language === 'uk'
+                        ? `Вправи: ${workout.exercises.slice(0, 3).map((e) => te(e.name)).join(', ')}${workout.exercises.length > 3 ? '...' : ''}`
+                        : `Exercises: ${workout.exercises.slice(0, 3).map((e) => te(e.name)).join(', ')}${workout.exercises.length > 3 ? '...' : ''}`}
+                    </Text>
+                    <View style={styles.viewMoreRow}>
+                      <Text style={styles.viewMoreText}>
+                        {language === 'uk' ? `Показати всі вправи (${workout.exercises.length})` : `View all exercises (${workout.exercises.length})`}
                       </Text>
-                    )}
+                      <Ionicons name="chevron-down" size={14} color={colors.primary} />
+                    </View>
+                  </View>
+                ) : (
+                  /* Expanded View: Full Exercise Detail Cards */
+                  <View style={styles.fullExerciseList}>
+                    {workout.exercises.map((ex, exIdx) => {
+                      const weightStr = ex.recommendedWeight
+                        ? formatWithUnit(ex.recommendedWeight)
+                        : (language === 'uk' ? 'Власна вага' : 'Bodyweight');
+                      return (
+                        <View key={ex.id || `${ex.name}-${exIdx}`} style={styles.exerciseDetailCard}>
+                          <View style={styles.exerciseDetailThumbWrap}>
+                            <Image
+                              source={getExerciseImage(ex.name)}
+                              style={styles.exerciseDetailThumb}
+                              resizeMode="cover"
+                            />
+                            <View style={styles.exerciseOrderBadge}>
+                              <Text style={styles.exerciseOrderText}>{exIdx + 1}</Text>
+                            </View>
+                          </View>
+
+                          <View style={styles.exerciseDetailInfo}>
+                            <Text style={styles.exerciseDetailName} numberOfLines={2}>
+                              {te(ex.name)}
+                            </Text>
+
+                            <View style={styles.exerciseDetailMetaRow}>
+                              <View style={styles.exerciseDetailTargetBadge}>
+                                <Text style={styles.exerciseDetailTargetText}>
+                                  {ex.sets} {language === 'uk' ? 'підходи' : 'sets'} · {ex.targetRepRange || '8–12'} {language === 'uk' ? 'повт' : 'reps'}
+                                </Text>
+                              </View>
+                              <Text style={styles.exerciseDetailWeightText}>
+                                {weightStr}
+                              </Text>
+                            </View>
+
+                            <View style={styles.exerciseDetailSubRow}>
+                              <Text style={styles.exerciseDetailMuscle}>
+                                {tm(ex.muscleGroup)}
+                              </Text>
+                              <Text style={styles.exerciseDetailRest}>
+                                · ~{ex.restSeconds ?? 90}{language === 'uk' ? 'с відпочинок' : 's rest'}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })}
+
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        toggleWorkout(workout.id);
+                      }}
+                      style={styles.collapseCardBtn}
+                    >
+                      <Text style={styles.collapseCardBtnText}>
+                        {language === 'uk' ? 'Згорнути день' : 'Collapse day'}
+                      </Text>
+                      <Ionicons name="chevron-up" size={14} color="#8E9BAE" />
+                    </Pressable>
                   </View>
                 )}
-              </View>
+              </Pressable>
             );
           })}
         </View>
@@ -622,6 +731,7 @@ export default function ProgramReady() {
         visible={editingWorkout !== null}
         workout={editingWorkout}
         onSaveWorkout={handleSaveEditedWorkout}
+        onDeleteWorkout={handleDeleteEditedWorkout}
         onClose={() => setEditingWorkout(null)}
       />
     </SafeAreaView>
@@ -726,67 +836,8 @@ const styles = StyleSheet.create({
     color: colors.primary,
     letterSpacing: 0.5,
   },
-  durationFilterWrap: {
-    marginBottom: 16,
-  },
-  durationFilterHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  durationFilterLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#8E9BAE',
-    letterSpacing: 1.2,
-  },
-  durationFilterActiveBadge: {
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-  },
-  durationFilterActiveBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 0.5,
-  },
-  durationFilterRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  durationFilterBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    borderRadius: 12,
-    backgroundColor: '#161B22',
-    borderWidth: 1,
-    borderColor: '#242B35',
-  },
-  durationFilterBtnActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  durationFilterBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#8E9BAE',
-  },
-  durationFilterBtnTextActive: {
-    color: '#0B0D0F',
-    fontWeight: '900',
-  },
   splitSwitchWrap: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   splitSwitchLabel: {
     fontSize: 11,
@@ -795,33 +846,128 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     marginBottom: 10,
   },
-  splitSwitchRow: {
-    gap: 8,
-    paddingVertical: 2,
-  },
-  splitPill: {
+  splitPresetRow: {
     flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  splitPresetCard: {
+    flex: 1,
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 6,
     borderRadius: 14,
     backgroundColor: '#161B22',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#242B35',
   },
-  splitPillActive: {
+  splitPresetCardActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  splitPillText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#8E9BAE',
+  splitPresetIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
   },
-  splitPillTextActive: {
+  splitPresetIconWrapActive: {
+    backgroundColor: 'transparent',
+  },
+  splitPresetTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  splitPresetTitleActive: {
     color: '#0B0D0F',
     fontWeight: '900',
+  },
+  splitPresetSub: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#8E9BAE',
+    textAlign: 'center',
+  },
+  splitPresetSubActive: {
+    color: 'rgba(11, 13, 15, 0.8)',
+    fontWeight: '700',
+  },
+  customSelectCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#161B22',
+    borderWidth: 1.5,
+    borderColor: '#242B35',
+  },
+  customSelectCardActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(200, 255, 61, 0.06)',
+  },
+  customSelectLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginRight: 8,
+  },
+  customSelectIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customSelectIconWrapActive: {
+    backgroundColor: colors.primary,
+  },
+  customTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  customSelectTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  customSelectTitleActive: {
+    color: colors.primary,
+  },
+  customBadge: {
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  customBadgeActive: {
+    backgroundColor: colors.primary,
+  },
+  customBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  customBadgeTextActive: {
+    color: '#0B0D0F',
+  },
+  customSelectSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#8E9BAE',
   },
   customBanner: {
     backgroundColor: 'rgba(200, 255, 61, 0.06)',
@@ -907,6 +1053,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#4B5565',
   },
+  toggleAllText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primary,
+  },
   workoutList: {
     gap: 12,
     marginBottom: 20,
@@ -917,6 +1068,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1D2430',
     padding: 16,
+  },
+  workoutCardExpanded: {
+    borderColor: '#2A3646',
+    backgroundColor: '#131821',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -941,7 +1096,7 @@ const styles = StyleSheet.create({
   cardHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   exerciseCount: {
     fontSize: 12,
@@ -1003,40 +1158,132 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
   },
-  exPreviewList: {
-    backgroundColor: '#0E1115',
-    borderRadius: 10,
-    padding: 8,
-    gap: 4,
+  collapsedPreviewRow: {
+    marginTop: 4,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#1A212B',
   },
-  exPreviewRow: {
+  collapsedPreviewText: {
+    fontSize: 12,
+    color: '#8E9BAE',
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  viewMoreRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
-  exPreviewDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.primary,
-  },
-  exPreviewName: {
-    flex: 1,
+  viewMoreText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#C8D2DE',
+    fontWeight: '800',
+    color: colors.primary,
   },
-  exPreviewSets: {
+  fullExerciseList: {
+    marginTop: 8,
+    gap: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#1A212B',
+  },
+  exerciseDetailCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161B22',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#222B38',
+    padding: 10,
+    gap: 10,
+  },
+  exerciseDetailThumbWrap: {
+    position: 'relative',
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#0E1115',
+  },
+  exerciseDetailThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  exerciseOrderBadge: {
+    position: 'absolute',
+    top: 2,
+    left: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exerciseOrderText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  exerciseDetailInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  exerciseDetailName: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 3,
+  },
+  exerciseDetailMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  exerciseDetailTargetBadge: {
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  exerciseDetailTargetText: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  exerciseDetailWeightText: {
+    color: '#C8D2DE',
     fontSize: 11,
     fontWeight: '700',
-    color: '#8E9BAE',
   },
-  exPreviewMore: {
+  exerciseDetailSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  exerciseDetailMuscle: {
+    color: '#8E9BAE',
     fontSize: 11,
     fontWeight: '600',
-    color: colors.primary,
-    marginTop: 2,
-    paddingLeft: 10,
+  },
+  exerciseDetailRest: {
+    color: '#657385',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  collapseCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  collapseCardBtnText: {
+    color: '#8E9BAE',
+    fontSize: 12,
+    fontWeight: '700',
   },
   bottomBar: {
     width: '100%',
