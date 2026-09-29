@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useUserProfileStore, type WeightUnit } from '@/store/userProfileStore';
 
 export function normalizeWeight(value: number): number {
@@ -65,23 +66,23 @@ export function useWeightUnit() {
   const unit = useUserProfileStore((s) => s.profile.weightUnit) ?? 'kg';
   const unitLabel = unit.toUpperCase();
 
-  const format = (weightInKg: number) => {
+  const format = useCallback((weightInKg: number) => {
     const val = convertWeightToActiveUnit(weightInKg, unit);
     return formatWeight(val);
-  };
+  }, [unit]);
 
-  const formatWithUnit = (weightInKg: number) => {
+  const formatWithUnit = useCallback((weightInKg: number) => {
     return `${format(weightInKg)} ${unitLabel}`;
-  };
+  }, [format, unitLabel]);
 
-  const formatVolume = (volumeInKg: number) => {
+  const formatVolume = useCallback((volumeInKg: number) => {
     const converted = convertVolumeToActiveUnit(volumeInKg, unit);
     return `${converted.toLocaleString()} ${unitLabel}`;
-  };
+  }, [unit, unitLabel]);
 
   const step = unit === 'lbs' ? 5 : 2.5;
-  const toKg = (displayVal: number) => convertWeightFromActiveUnit(displayVal, unit);
-  const fromKg = (kgVal: number) => convertWeightToActiveUnit(kgVal, unit);
+  const toKg = useCallback((displayVal: number) => convertWeightFromActiveUnit(displayVal, unit), [unit]);
+  const fromKg = useCallback((kgVal: number) => convertWeightToActiveUnit(kgVal, unit), [unit]);
 
   return {
     unit,

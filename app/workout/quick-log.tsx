@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,7 +20,7 @@ import { type LibraryExercise } from '@/lib/exerciseLibrary';
 import { hapticImpact, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { resolveRestSeconds } from '@/lib/programGenerator';
-import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
+import { convertWeightToActiveUnit, formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
@@ -81,8 +81,12 @@ export default function QuickLogScreen() {
   const [isAddPickerVisible, setIsAddPickerVisible] = useState<boolean>(false);
   const [bannerMessage, setBannerMessage] = useState<string | null>(null);
 
-  // Initialize data on mount
+  const isInitializedRef = useRef(false);
+
+  // Initialize data once on mount or when data becomes ready
   useEffect(() => {
+    if (isInitializedRef.current) return;
+
     // 1. Check if user opened an existing in-progress session
     if (activeSession && !activeSession.completed && (!workoutId || workoutId === activeSession.programWorkoutId)) {
       setWorkoutName(activeSession.workoutName);
@@ -90,7 +94,7 @@ export default function QuickLogScreen() {
       const mapped: QuickExercise[] = activeSession.exercises.map((ex) => {
         const firstSet = ex.sets[0];
         const weightKg = firstSet?.weight ?? ex.recommendation.recommendedWeight;
-        const displayW = fromKg(weightKg);
+        const displayW = convertWeightToActiveUnit(weightKg, unit);
         return {
           id: ex.id,
           name: ex.name,
@@ -112,6 +116,7 @@ export default function QuickLogScreen() {
       });
       setExercises(mapped);
       setDurationMinutes(Math.max(20, Math.min(120, mapped.length * 8)));
+      isInitializedRef.current = true;
       return;
     }
 
@@ -126,7 +131,7 @@ export default function QuickLogScreen() {
       setProgramWorkoutId(target.id);
       const mapped: QuickExercise[] = target.exercises.map((ex, exIdx) => {
         const recWeightKg = ex.recommendedWeight || 0;
-        const displayW = fromKg(recWeightKg);
+        const displayW = convertWeightToActiveUnit(recWeightKg, unit);
         const repRange = ex.targetRepRange || '8-12';
         const defaultRep = parseTargetReps(repRange);
         const setsCount = ex.sets || 3;
@@ -152,8 +157,9 @@ export default function QuickLogScreen() {
       });
       setExercises(mapped);
       setDurationMinutes(Math.max(20, Math.min(120, mapped.length * 8)));
+      isInitializedRef.current = true;
     }
-  }, [workoutId, activeSession, program, progress, fromKg]);
+  }, [workoutId, activeSession, program, progress, unit]);
 
   // Fill all sets with target weights and target reps
   const handleFillAllAsPlanned = useCallback(() => {
