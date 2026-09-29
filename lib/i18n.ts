@@ -261,6 +261,26 @@ const en = {
   programNameEmpty: 'Program name cannot be empty.',
   programMustHaveWorkout: 'Program must have at least one workout.',
 
+  // Quick Log
+  quickLog: 'Quick Log',
+  quickLogSub: 'Log sets and reps without live timers',
+  fillAllAsPlanned: '⚡ Fill all as planned',
+  allPlannedFilled: 'All sets prefilled with planned numbers!',
+  repsPerSet: 'Reps per set',
+  addSetBtn: '+ Set',
+  whenDidYouTrain: 'When did you train?',
+  todayNow: 'Today (Now)',
+  todayEarlier: 'Today (Earlier)',
+  yesterday: 'Yesterday',
+  durationMin: 'Duration (min)',
+  noSetsCompletedWarning: 'Please enter reps for at least one set',
+  discardQuickLogTitle: 'Discard workout?',
+  discardQuickLogMessage: 'Any entered numbers will be lost.',
+  discard: 'Discard',
+  keepEditing: 'Keep editing',
+  logWorkout: 'Log workout',
+  fillTarget: 'Target',
+
   // Common UI
   cancel: 'Cancel',
   save: 'Save',
@@ -530,6 +550,26 @@ const uk: Record<TranslationKey, string> = {
   validationError: 'Помилка валідації',
   programNameEmpty: 'Назва програми не може бути порожньою.',
   programMustHaveWorkout: 'Програма повинна містити щонайменше одне тренування.',
+
+  // Quick Log
+  quickLog: 'Швидкий запис',
+  quickLogSub: 'Запис підходів та ваги без таймерів',
+  fillAllAsPlanned: '⚡ Заповнити все по плану',
+  allPlannedFilled: 'Всі підходи заповнено за планом!',
+  repsPerSet: 'Повторень у підходах',
+  addSetBtn: '+ Сет',
+  whenDidYouTrain: 'Коли тренувалися?',
+  todayNow: 'Сьогодні (Зараз)',
+  todayEarlier: 'Сьогодні (Раніше)',
+  yesterday: 'Вчора',
+  durationMin: 'Тривалість (хв)',
+  noSetsCompletedWarning: 'Будь ласка, введіть повтори хоча б для одного підходу',
+  discardQuickLogTitle: 'Скасувати запис?',
+  discardQuickLogMessage: 'Введені дані буде втрачено.',
+  discard: 'Скасувати',
+  keepEditing: 'Продовжити',
+  logWorkout: 'Записати тренування',
+  fillTarget: 'Ціль',
 
   // Common UI
   cancel: 'Скасувати',

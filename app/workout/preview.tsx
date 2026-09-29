@@ -874,6 +874,19 @@ export default function WorkoutPreview() {
         <Button style={styles.startButton} onPress={startWorkout}>
           {t('startWorkout')}
         </Button>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Quick Log"
+          onPress={() => {
+            hapticLight();
+            router.push({ pathname: '/workout/quick-log', params: { workoutId: workout.id } });
+          }}
+          hitSlop={8}
+          style={({ pressed }) => [styles.quickLogPreviewBtn, pressed && { opacity: 0.6 }]}
+        >
+          <Ionicons name="flash-outline" size={14} color="#8E959F" style={{ marginRight: 5 }} />
+          <Text style={styles.quickLogPreviewBtnText}>{t('quickLog')}</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -1031,6 +1044,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 14,
     elevation: 5,
+  },
+  quickLogPreviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    paddingVertical: 8,
+    marginTop: 6,
+  },
+  quickLogPreviewBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E959F',
+    letterSpacing: 0.1,
   },
   swapBtn: {
     flexDirection: 'row',

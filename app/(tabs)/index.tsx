@@ -472,6 +472,20 @@ export default function Home() {
           >
             {t('startWorkout')}
           </Button>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Quick Log"
+            onPress={() => {
+              hapticLight();
+              router.push({ pathname: '/workout/quick-log', params: { workoutId: nextWorkout.id } });
+            }}
+            hitSlop={10}
+            style={({ pressed }) => [styles.quickLogHomeLink, pressed && { opacity: 0.6 }]}
+          >
+            <Ionicons name="flash-outline" size={13} color="#8E959F" style={{ marginRight: 5 }} />
+            <Text style={styles.quickLogHomeLinkText}>{t('quickLog')}</Text>
+          </Pressable>
         </>
       )}
 
@@ -545,6 +559,22 @@ export default function Home() {
                 : (language === 'uk' ? '▶ ПОЧАТИ ТРЕНУВАННЯ' : '▶ START WORKOUT')}
             </Text>
           </Button>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Switch to Quick Log"
+            onPress={() => {
+              hapticLight();
+              router.push('/workout/quick-log');
+            }}
+            hitSlop={10}
+            style={({ pressed }) => [styles.quickLogHomeLink, pressed && { opacity: 0.6 }]}
+          >
+            <Ionicons name="flash-outline" size={13} color="#8E959F" style={{ marginRight: 5 }} />
+            <Text style={styles.quickLogHomeLinkText}>
+              {language === 'uk' ? 'Швидкий запис списком' : 'Switch to Quick Log'}
+            </Text>
+          </Pressable>
         </>
       )}
 
@@ -1572,5 +1602,20 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#0B0D0F',
     letterSpacing: 0.6,
+  },
+  quickLogHomeLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginTop: 4,
+  },
+  quickLogHomeLinkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E959F',
+    letterSpacing: 0.1,
   },
 });

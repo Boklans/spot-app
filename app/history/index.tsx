@@ -57,7 +57,21 @@ export default function History() {
         >
           <Text style={styles.back}>‹  {t('navBack').toUpperCase()}</Text>
         </Pressable>
-        <Text style={styles.title}>{t('workoutHistory')}</Text>
+        <View style={styles.headerTitleRow}>
+          <Text style={styles.title}>{t('workoutHistory')}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Quick Log"
+            onPress={() => {
+              hapticLight();
+              router.push('/workout/quick-log');
+            }}
+            style={({ pressed }) => [styles.quickLogBtn, pressed && { opacity: 0.85 }]}
+          >
+            <Ionicons name="flash" size={13} color="#0B0D0F" style={{ marginRight: 4 }} />
+            <Text style={styles.quickLogBtnText}>{t('quickLog')}</Text>
+          </Pressable>
+        </View>
       </View>
 
       {workouts.length === 0 ? (
@@ -139,7 +153,26 @@ const styles = StyleSheet.create({
   header: { marginBottom: spacing.xxl },
   backButton: { minHeight: 44, justifyContent: 'center', marginBottom: spacing.lg },
   back: { color: colors.secondary, fontSize: 12, fontWeight: '800', letterSpacing: 1 },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   title: { color: colors.text, fontSize: 32, fontWeight: '800' },
+  quickLogBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  quickLogBtnText: {
+    color: '#0B0D0F',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
   group: { marginBottom: spacing.xl },
   groupTitle: {
     color: colors.primary,
