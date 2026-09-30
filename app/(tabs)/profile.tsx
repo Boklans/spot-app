@@ -944,7 +944,7 @@ export default function Profile() {
           </Pressable>
         </View>
 
-        <Text style={styles.versionText}>SPOT 1.0.0 • AI-POWERED TRAINING</Text>
+        <Text style={styles.versionText}>SPOT v1.0.0 • Vanza Labs</Text>
       </ScrollView>
 
       {/* Screen 17: GETTING SMARTER PRO PAYWALL MODAL */}

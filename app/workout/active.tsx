@@ -223,7 +223,7 @@ export default function Active() {
         );
       }
     } else if (useWorkoutSessionStore.getState().restEndsAt !== null) {
-      router.push('/workout/rest');
+      router.replace('/workout/rest');
     } else {
       // 0s rest (Superset / Circuit): stay on screen and advance directly
     }

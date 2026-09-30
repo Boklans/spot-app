@@ -58,7 +58,9 @@ export default function Rest() {
   const elapsedSeconds = session?.startedAt
     ? Math.max(0, Math.floor((now - new Date(session.startedAt).getTime()) / 1000))
     : 0;
-  const lastHapticSecond = useRef<number | null>(null);
+  const isSkippingRef = useRef(false);
+  const initialSeconds = restEndsAt ? Math.max(0, Math.ceil((restEndsAt - Date.now()) / 1000)) : 0;
+  const lastHapticSecond = useRef<number | null>(initialSeconds === 0 ? 0 : null);
 
   // AppState sync: recalculate absolute time immediately when returning from background/lockscreen
   useEffect(() => {
@@ -68,7 +70,7 @@ export default function Rest() {
       }
     };
     const sub = AppState.addEventListener('change', handleAppStateChange);
-    const timer = setInterval(() => setNow(Date.now()), 500);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
 
     return () => {
       sub.remove();
@@ -111,6 +113,7 @@ export default function Rest() {
 
   // Real-time haptic & audio chime on 3, 2, 1, 0s
   useEffect(() => {
+    if (isSkippingRef.current) return;
     if (seconds <= 3 && seconds > 0 && lastHapticSecond.current !== seconds) {
       lastHapticSecond.current = seconds;
       hapticLight();
@@ -182,6 +185,7 @@ export default function Rest() {
   }, [handleBack]);
 
   const continueWorkout = () => {
+    isSkippingRef.current = true;
     hapticMedium();
     cancelRestTimerNotification();
     skipRest();

@@ -155,18 +155,30 @@ function parseActiveWorkout(value: string | null): ActiveWorkoutStorage | null {
   }
 }
 
-function queuePersistence(task: () => Promise<void>) {
-  persistenceQueue = persistenceQueue.then(task).catch(() => undefined);
+let pendingSnapshot: ActiveWorkoutStorage | null | undefined = undefined;
+let isPersisting = false;
+
+async function processPersistence() {
+  if (isPersisting || pendingSnapshot === undefined) return;
+  isPersisting = true;
+  const snapshotToSave = pendingSnapshot;
+  pendingSnapshot = undefined;
+  try {
+    if (!snapshotToSave) {
+      await AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
+    } else {
+      await AsyncStorage.setItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY, JSON.stringify(snapshotToSave));
+    }
+  } catch {}
+  isPersisting = false;
+  if (pendingSnapshot !== undefined) {
+    processPersistence();
+  }
 }
 
 function persistSnapshot(snapshot: ActiveWorkoutStorage | null) {
-  queuePersistence(async () => {
-    if (!snapshot) {
-      await AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
-      return;
-    }
-    await AsyncStorage.setItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY, JSON.stringify(snapshot));
-  });
+  pendingSnapshot = snapshot;
+  processPersistence();
 }
 
 function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history: CompletedWorkout[]): WorkoutExercise[] {

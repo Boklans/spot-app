@@ -1,9 +1,9 @@
 import * as Haptics from 'expo-haptics';
-import { Platform } from 'react-native';
+import { Platform, Vibration } from 'react-native';
 
 /**
  * Standardized, defensive haptic feedback utilities across SPOT.
- * Automatically no-ops on web and unsupported platforms to prevent runtime crashes.
+ * Uses expo-haptics with native Vibration fallback to guarantee crisp feedback across all devices.
  */
 
 /**
@@ -14,7 +14,9 @@ export async function hapticLight(): Promise<void> {
   try {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   } catch {
-    // Fail silently on unsupported devices
+    try {
+      Vibration.vibrate(25);
+    } catch {}
   }
 }
 
@@ -26,7 +28,9 @@ export async function hapticMedium(): Promise<void> {
   try {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   } catch {
-    // Fail silently on unsupported devices
+    try {
+      Vibration.vibrate(45);
+    } catch {}
   }
 }
 
@@ -38,7 +42,9 @@ export async function hapticSuccess(): Promise<void> {
   try {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   } catch {
-    // Fail silently on unsupported devices
+    try {
+      Vibration.vibrate([0, 50, 60, 50]);
+    } catch {}
   }
 }
 
@@ -50,7 +56,9 @@ export async function hapticSelection(): Promise<void> {
   try {
     await Haptics.selectionAsync();
   } catch {
-    // Fail silently on unsupported devices
+    try {
+      Vibration.vibrate(15);
+    } catch {}
   }
 }
 
