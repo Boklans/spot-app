@@ -168,7 +168,7 @@ export default function Profile() {
 
   const handleContactSupport = () => {
     hapticMedium();
-    const email = 'support@spotapp.fit';
+    const email = 'vanzalabs@gmail.com';
     const subject = encodeURIComponent(
       language === 'uk' ? 'Підтримка SPOT — Запит' : 'SPOT Support Request'
     );
@@ -184,7 +184,7 @@ export default function Profile() {
 
   const handleSendFeedback = () => {
     hapticMedium();
-    const email = 'support@spotapp.fit';
+    const email = 'vanzalabs@gmail.com';
     const subject = encodeURIComponent(
       language === 'uk' ? 'SPOT — Ідея / Відгук' : 'SPOT — Feature Idea / Feedback'
     );
@@ -197,6 +197,18 @@ export default function Profile() {
       Alert.alert(
         language === 'uk' ? 'Надіслати відгук' : 'Send Feedback',
         `${language === 'uk' ? 'Напишіть нам на' : 'Please email us at'} ${email}`
+      );
+    });
+  };
+
+  const handleOpenTelegram = () => {
+    hapticMedium();
+    Linking.openURL('https://t.me/vanzalabs').catch(() => {
+      Alert.alert(
+        'Telegram',
+        language === 'uk'
+          ? 'Зв’яжіться з нами в Telegram: @vanzalabs'
+          : 'Reach out to us on Telegram: @vanzalabs'
       );
     });
   };
@@ -940,10 +952,25 @@ export default function Profile() {
                 {language === 'uk' ? 'Запропонувати ідею / Відгук' : 'Suggest Feature / Feedback'}
               </Text>
               <Text style={styles.rowSubtitle}>
-                {language === 'uk' ? 'Напишіть команді розробників VanzaLabs' : 'Direct feedback to VanzaLabs'}
+                {language === 'uk' ? 'Напишіть на vanzalabs@gmail.com' : 'Email to vanzalabs@gmail.com'}
               </Text>
             </View>
             <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.primary} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Telegram Community"
+            onPress={handleOpenTelegram}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
+            <View>
+              <Text style={styles.rowTitle}>Telegram @vanzalabs</Text>
+              <Text style={styles.rowSubtitle}>
+                {language === 'uk' ? 'Чат спільноти, фідбек та прямий зв’язок' : 'Community chat, feedback & direct contact'}
+              </Text>
+            </View>
+            <Ionicons name="paper-plane" size={18} color="#2AABEE" />
           </Pressable>
 
           <Pressable

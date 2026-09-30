@@ -28,13 +28,13 @@ export function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps
     hapticMedium();
     // Default GitHub Pages URL or support site
     Linking.openURL('https://boklans.github.io/spot-app/privacy.html').catch(() => {
-      Linking.openURL('mailto:support@spotapp.fit?subject=SPOT%20Privacy%20Inquiry');
+      Linking.openURL('mailto:vanzalabs@gmail.com?subject=SPOT%20Privacy%20Inquiry');
     });
   };
 
   const handleContactSupport = () => {
     hapticMedium();
-    Linking.openURL('mailto:support@spotapp.fit?subject=SPOT%20Support%20Request');
+    Linking.openURL('mailto:vanzalabs@gmail.com?subject=SPOT%20Support%20Request');
   };
 
   return (
@@ -117,8 +117,8 @@ export function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps
           </Text>
           <Text style={styles.paragraph}>
             {isUk
-              ? 'Згідно з правилами Google Play та GDPR, ви можете у будь-який момент видалити всі свої дані безпосередньо у додатку (Профіль → Небезпечна зона → Скинути дані / Видалити акаунт) або надіславши запит на support@spotapp.fit.'
-              : 'In full accordance with Google Play Developer Policies and GDPR, you have the right to permanently purge all your data inside the app (Profile → Danger Zone → Reset App Data / Delete Account) or by requesting deletion at support@spotapp.fit.'}
+              ? 'Згідно з правилами Google Play та GDPR, ви можете у будь-який момент видалити всі свої дані безпосередньо у додатку (Профіль → Небезпечна зона → Скинути дані / Видалити акаунт) або надіславши запит на vanzalabs@gmail.com.'
+              : 'In full accordance with Google Play Developer Policies and GDPR, you have the right to permanently purge all your data inside the app (Profile → Danger Zone → Reset App Data / Delete Account) or by requesting deletion at vanzalabs@gmail.com.'}
           </Text>
 
           {/* Action buttons */}
