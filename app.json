@@ -24,13 +24,13 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.ihor.spot",
+      "bundleIdentifier": "com.vanzalabs.spot",
       "infoPlist": {
         "UIBackgroundModes": ["audio"]
       }
     },
     "android": {
-      "package": "com.ihor.spot",
+      "package": "com.vanzalabs.spot",
       "versionCode": 1,
       "permissions": [
         "POST_NOTIFICATIONS",
