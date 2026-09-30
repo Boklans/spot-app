@@ -7,6 +7,7 @@ import {
   Alert,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -177,6 +178,25 @@ export default function Profile() {
         language === 'uk'
           ? `Напишіть нам на електронну пошту:\n\n${email}`
           : `Please email us at:\n\n${email}`
+      );
+    });
+  };
+
+  const handleSendFeedback = () => {
+    hapticMedium();
+    const email = 'support@spotapp.fit';
+    const subject = encodeURIComponent(
+      language === 'uk' ? 'SPOT — Ідея / Відгук' : 'SPOT — Feature Idea / Feedback'
+    );
+    const body = encodeURIComponent(
+      language === 'uk'
+        ? `Привіт, VanzaLabs!\n\nЧого мені не вистачає в SPOT:\n- \n\nЩо сподобалося / Що покращити:\n- \n\nВерсія: SPOT v1.0.0 (${Platform.OS})`
+        : `Hi VanzaLabs team!\n\nWhat I would love to see in SPOT:\n- \n\nWhat I like / Suggestions:\n- \n\nVersion: SPOT v1.0.0 (${Platform.OS})`
+    );
+    Linking.openURL(`mailto:${email}?subject=${subject}&body=${body}`).catch(() => {
+      Alert.alert(
+        language === 'uk' ? 'Надіслати відгук' : 'Send Feedback',
+        `${language === 'uk' ? 'Напишіть нам на' : 'Please email us at'} ${email}`
       );
     });
   };
@@ -911,6 +931,23 @@ export default function Profile() {
 
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Feedback and Feature Request"
+            onPress={handleSendFeedback}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
+            <View>
+              <Text style={styles.rowTitle}>
+                {language === 'uk' ? 'Запропонувати ідею / Відгук' : 'Suggest Feature / Feedback'}
+              </Text>
+              <Text style={styles.rowSubtitle}>
+                {language === 'uk' ? 'Напишіть команді розробників VanzaLabs' : 'Direct feedback to VanzaLabs'}
+              </Text>
+            </View>
+            <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.primary} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Restart Onboarding"
             onPress={handleRestartOnboarding}
             style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
@@ -944,7 +981,7 @@ export default function Profile() {
           </Pressable>
         </View>
 
-        <Text style={styles.versionText}>SPOT v1.0.0 • Vanza Labs</Text>
+        <Text style={styles.versionText}>SPOT v1.0.0 • VanzaLabs</Text>
       </ScrollView>
 
       {/* Screen 17: GETTING SMARTER PRO PAYWALL MODAL */}
