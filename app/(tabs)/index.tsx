@@ -345,7 +345,9 @@ export default function Home() {
     return (
       <Screen style={styles.screenContent}>
         <View style={styles.header}>
-          <Text style={styles.greetingTitle}>{greetingText}</Text>
+          <Text numberOfLines={2} ellipsizeMode="tail" style={styles.greetingTitle}>
+            {greetingText}
+          </Text>
         </View>
       </Screen>
     );
@@ -355,7 +357,7 @@ export default function Home() {
     <Screen style={styles.screenContent}>
       {/* 1. Header */}
       <View style={styles.header}>
-        <Text style={styles.greetingTitle}>
+        <Text numberOfLines={2} ellipsizeMode="tail" style={styles.greetingTitle}>
           {greetingText}
         </Text>
         <Pressable
@@ -443,12 +445,22 @@ export default function Home() {
                     </Text>
                   </View>
                 ))}
-                {nextWorkout.exercises.length > 3 && (
-                  <Text style={styles.previewMoreText}>
-                    + ще {nextWorkout.exercises.length - 3}{' '}
-                    {language === 'uk' ? 'вправи (натисніть для перегляду)' : 'more exercises'}
-                  </Text>
-                )}
+                {nextWorkout.exercises.length > 3 && (() => {
+                  const rem = nextWorkout.exercises.length - 3;
+                  const label =
+                    language === 'uk'
+                      ? rem === 1
+                        ? '+ ще 1 вправа'
+                        : rem < 5
+                        ? `+ ще ${rem} вправи`
+                        : `+ ще ${rem} вправ`
+                      : `+ ${rem} more ${rem === 1 ? 'exercise' : 'exercises'}`;
+                  return (
+                    <Text style={styles.previewMoreText}>
+                      {label}
+                    </Text>
+                  );
+                })()}
               </Pressable>
             )}
 
@@ -485,11 +497,15 @@ export default function Home() {
               hapticLight();
               router.push({ pathname: '/workout/quick-log', params: { workoutId: nextWorkout.id } });
             }}
-            hitSlop={10}
-            style={({ pressed }) => [styles.quickLogHomeLink, pressed && { opacity: 0.6 }]}
+            style={({ pressed }) => [
+              styles.quickLogSecondaryBtn,
+              pressed && styles.quickLogSecondaryBtnPressed,
+            ]}
           >
-            <Ionicons name="flash-outline" size={13} color="#8E959F" style={{ marginRight: 5 }} />
-            <Text style={styles.quickLogHomeLinkText}>{t('quickLog')}</Text>
+            <Ionicons name="flash" size={15} color={colors.primary} />
+            <Text style={styles.quickLogSecondaryBtnText}>
+              {language === 'uk' ? 'Швидкий запис (без таймерів)' : 'Quick Log (no timers)'}
+            </Text>
           </Pressable>
         </>
       )}
@@ -572,11 +588,13 @@ export default function Home() {
               hapticLight();
               router.push('/workout/quick-log');
             }}
-            hitSlop={10}
-            style={({ pressed }) => [styles.quickLogHomeLink, pressed && { opacity: 0.6 }]}
+            style={({ pressed }) => [
+              styles.quickLogSecondaryBtn,
+              pressed && styles.quickLogSecondaryBtnPressed,
+            ]}
           >
-            <Ionicons name="flash-outline" size={13} color="#8E959F" style={{ marginRight: 5 }} />
-            <Text style={styles.quickLogHomeLinkText}>
+            <Ionicons name="flash" size={15} color={colors.primary} />
+            <Text style={styles.quickLogSecondaryBtnText}>
               {language === 'uk' ? 'Швидкий запис списком' : 'Switch to Quick Log'}
             </Text>
           </Pressable>
@@ -623,7 +641,7 @@ export default function Home() {
 
           {/* Electric Neon Lime [VIEW SUMMARY] CTA */}
           <Button
-            style={styles.ctaButton}
+            style={[styles.ctaButton, { marginBottom: 24 }]}
             onPress={() => {
               if (completedSummaryData.isLiveSession) {
                 router.push('/workout/complete');
@@ -839,12 +857,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     marginTop: 0,
+    gap: 12,
   },
   greetingTitle: {
-    fontSize: 28,
+    flex: 1,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
   },
   headerIconBtn: {
     width: 40,
@@ -853,6 +874,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   readinessRow: {
     flexDirection: 'row',
@@ -1070,7 +1092,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#C8FF3D',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 26,
+    marginBottom: 10,
     shadowColor: '#C8FF3D',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.22,
@@ -1608,19 +1630,27 @@ const styles = StyleSheet.create({
     color: '#0B0D0F',
     letterSpacing: 0.6,
   },
-  quickLogHomeLink: {
+  quickLogSecondaryBtn: {
+    width: '100%',
+    height: 48,
+    borderRadius: 20,
+    backgroundColor: '#141820',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginTop: 4,
+    gap: 8,
+    marginBottom: 26,
   },
-  quickLogHomeLinkText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E959F',
-    letterSpacing: 0.1,
+  quickLogSecondaryBtnPressed: {
+    backgroundColor: '#1B222D',
+    borderColor: 'rgba(200, 255, 61, 0.35)',
+  },
+  quickLogSecondaryBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#DCE2EC',
+    letterSpacing: 0.2,
   },
 });
