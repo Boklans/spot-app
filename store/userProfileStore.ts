@@ -61,6 +61,7 @@ export type UserProfile = {
   notificationTime: string;
   soundEnabled: boolean;
   baselineLifts?: BaselineLifts;
+  trialStartedAt?: string;
 };
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
@@ -79,6 +80,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   notificationTime: '09:00',
   soundEnabled: true,
   baselineLifts: undefined,
+  trialStartedAt: undefined,
 };
 
 type UserProfileState = {
@@ -140,6 +142,23 @@ function normalizeLoadedProfile(parsed: unknown): UserProfile {
         : DEFAULT_USER_PROFILE.notificationTime,
     soundEnabled: typeof p.soundEnabled === 'boolean' ? p.soundEnabled : true,
     baselineLifts,
+    trialStartedAt: typeof p.trialStartedAt === 'string' ? p.trialStartedAt : new Date().toISOString(),
+  };
+}
+
+export function getTrialStatus(trialStartedAt?: string): { inTrial: boolean; daysLeft: number; totalDays: number } {
+  const TOTAL_TRIAL_DAYS = 14;
+  if (!trialStartedAt) {
+    return { inTrial: true, daysLeft: TOTAL_TRIAL_DAYS, totalDays: TOTAL_TRIAL_DAYS };
+  }
+  const startedTime = new Date(trialStartedAt).getTime();
+  const elapsedMs = Math.max(0, Date.now() - startedTime);
+  const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
+  const daysLeft = Math.max(0, TOTAL_TRIAL_DAYS - elapsedDays);
+  return {
+    inTrial: daysLeft > 0,
+    daysLeft,
+    totalDays: TOTAL_TRIAL_DAYS,
   };
 }
 

@@ -40,6 +40,7 @@ import { useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
 import {
   BEAST_AVATARS,
+  getTrialStatus,
   useUserProfileStore,
   type UserExperience,
   type UserGoal,
@@ -85,7 +86,9 @@ export default function Profile() {
   const profile = useUserProfileStore((state) => state.profile);
   const updateProfile = useUserProfileStore((state) => state.updateProfile);
   const program = useProgramStore((state) => state.program);
-  const isPro = useSubscriptionStore((state) => state.isPro);
+  const isPurchasedPro = useSubscriptionStore((state) => state.isPro);
+  const trialStatus = getTrialStatus(profile.trialStartedAt);
+  const isPro = isPurchasedPro || trialStatus.inTrial;
   const restorePurchasesAction = useSubscriptionStore((state) => state.restore);
   const [restoringPurchases, setRestoringPurchases] = useState(false);
   const [activePicker, setActivePicker] = useState<ActivePicker>(null);
@@ -934,9 +937,13 @@ export default function Profile() {
               >
                 <Text style={styles.rowTitle}>{t('subscription')}</Text>
                 <View style={styles.badgeRow}>
-                  <View style={[styles.proBadge, isPro && styles.proBadgeActive]}>
-                    <Text style={[styles.proBadgeText, isPro && styles.proBadgeTextActive]}>
-                      {isPro ? (language === 'uk' ? 'PRO АКТИВНО' : 'PRO ACTIVE') : 'PRO'}
+                  <View style={[styles.proBadge, (isPurchasedPro || trialStatus.inTrial) && styles.proBadgeActive]}>
+                    <Text style={[styles.proBadgeText, (isPurchasedPro || trialStatus.inTrial) && styles.proBadgeTextActive]}>
+                      {isPurchasedPro
+                        ? (language === 'uk' ? 'PRO АКТИВНО' : 'PRO ACTIVE')
+                        : trialStatus.inTrial
+                        ? (language === 'uk' ? `ТРІАЛ • ${trialStatus.daysLeft} ДН` : `TRIAL • ${trialStatus.daysLeft}D`)
+                        : 'PRO'}
                     </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />

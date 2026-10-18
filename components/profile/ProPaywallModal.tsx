@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { hapticError, hapticLight, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -29,6 +29,7 @@ export function ProPaywallModal({
 }: ProPaywallModalProps) {
   const { language } = useI18n();
   const isUk = language === 'uk';
+  const insets = useSafeAreaInsets();
 
   const {
     isPro,
@@ -38,27 +39,29 @@ export function ProPaywallModal({
     restore,
   } = useSubscriptionStore();
 
-  const [selectedPkgIndex, setSelectedPkgIndex] = useState(0);
+  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
   const [actionLoading, setActionLoading] = useState(false);
 
-  const selectedPackage = packages[selectedPkgIndex] ?? packages[0] ?? null;
+  const annualPackage = packages.find((p) => p.packageType === 'ANNUAL') || packages.find((p) => p.identifier.toLowerCase().includes('annual') || p.identifier.toLowerCase().includes('year')) || packages[0] || null;
+  const monthlyPackage = packages.find((p) => p.packageType === 'MONTHLY') || packages.find((p) => p.identifier.toLowerCase().includes('monthly') || p.identifier.toLowerCase().includes('month')) || packages[1] || null;
+
+  const targetPackage = selectedPlan === 'annual' ? annualPackage : (monthlyPackage || annualPackage);
 
   const handlePurchase = async () => {
-    if (!selectedPackage) {
-      // If running without live products yet, show friendly feedback
+    if (!targetPackage) {
       hapticLight();
       Alert.alert(
         isUk ? 'Налаштування підписки' : 'Subscription Setup',
         isUk
-          ? 'Продукти ще проходять активацію в Google Play Console. Як тільки Google верифікує профіль, підписка стане доступною.'
-          : 'Products are currently being activated in Google Play Console. Once verified by Google, purchases will be live.'
+          ? 'Продукти підписки ($4.99/місяць або $49.99/рік з 14-денним тріалом) наразі верифікуються в Google Play Console. Як тільки Google активує профіль, підписка стане доступною.'
+          : 'Subscription products ($4.99/month and $49.99/year with 14-day free trial) are currently being verified in Google Play Console.'
       );
       return;
     }
 
     setActionLoading(true);
     try {
-      const result = await purchase(selectedPackage);
+      const result = await purchase(targetPackage);
       if (result.success) {
         hapticSuccess();
         Alert.alert(
@@ -141,10 +144,6 @@ export function ProPaywallModal({
         { title: 'Priority Support', desc: 'Direct line to VanzaLabs engineers' },
       ];
 
-  const priceLabel = selectedPackage?.product?.priceString
-    ? `${selectedPackage.product.priceString} / ${isUk ? 'рік' : 'year'}`
-    : '$49.99 / year';
-
   return (
     <Modal
       visible={visible}
@@ -152,13 +151,13 @@ export function ProPaywallModal({
       transparent={false}
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.safe}>
-        {/* Top Header */}
-        <View style={styles.header}>
+      <View style={styles.safe}>
+        {/* Top Header with Safe Inset */}
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close paywall"
-            hitSlop={12}
+            hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
             onPress={onClose}
             style={styles.closeBtn}
           >
@@ -205,55 +204,88 @@ export function ProPaywallModal({
             ))}
           </View>
 
-          {/* Pricing Options */}
-          {packages.length > 1 ? (
-            <View style={styles.packagesContainer}>
-              {packages.map((pkg, idx) => {
-                const isSelected = selectedPkgIndex === idx;
-                return (
-                  <Pressable
-                    key={pkg.identifier}
-                    onPress={() => {
-                      hapticLight();
-                      setSelectedPkgIndex(idx);
-                    }}
-                    style={[
-                      styles.packageCard,
-                      isSelected && styles.packageCardSelected,
-                    ]}
-                  >
-                    <Text style={[styles.packageTitle, isSelected && styles.packageTitleSelected]}>
-                      {pkg.packageType === 'ANNUAL'
-                        ? (isUk ? 'Річна підписка' : 'Annual')
-                        : pkg.packageType === 'MONTHLY'
-                        ? (isUk ? 'Місячна підписка' : 'Monthly')
-                        : pkg.product.title}
-                    </Text>
-                    <Text style={styles.packagePrice}>
-                      {pkg.product.priceString}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : (
-            <View style={styles.pricingCard}>
-              <View style={styles.trialPill}>
-                <Text style={styles.trialPillText}>
-                  {isUk ? '7 ДНІВ БЕЗКОШТОВНО' : '7 DAYS FREE TRIAL'}
-                </Text>
+          {/* Pricing Options: Annual with 14-day trial vs Monthly */}
+          <View style={styles.planSelectionContainer}>
+            {/* Annual Card */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Select Annual Plan"
+              onPress={() => {
+                hapticLight();
+                setSelectedPlan('annual');
+              }}
+              style={[
+                styles.planCard,
+                selectedPlan === 'annual' && styles.planCardSelected,
+              ]}
+            >
+              <View style={styles.planBadgeRow}>
+                <View style={styles.trialPill}>
+                  <Text style={styles.trialPillText}>
+                    {isUk ? '14 ДНІВ БЕЗКОШТОВНО' : '14 DAYS FREE TRIAL'}
+                  </Text>
+                </View>
+                <View style={styles.savingsPill}>
+                  <Text style={styles.savingsPillText}>
+                    {isUk ? 'ЗНИЖКА 17%' : 'SAVE 17%'}
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.pricingMain}>{priceLabel}</Text>
-              <Text style={styles.pricingSub}>
-                {isUk ? 'Скасувати можна в будь-який момент' : 'Cancel anytime in store settings'}
-              </Text>
-            </View>
-          )}
+
+              <View style={styles.planContentRow}>
+                <View style={styles.planLeftCol}>
+                  <Text style={styles.planTitle}>
+                    {isUk ? 'Річний план' : 'Annual Plan'}
+                  </Text>
+                  <Text style={styles.planSubtitle}>
+                    {isUk ? '$4.16 на місяць ($49.99 на рік)' : '$4.16 / mo ($49.99 billed yearly)'}
+                  </Text>
+                </View>
+                <View style={styles.planPriceCol}>
+                  <Text style={styles.planPriceNumber}>
+                    {annualPackage?.product?.priceString || '$49.99'}
+                  </Text>
+                  <Text style={styles.planPricePeriod}>/ {isUk ? 'рік' : 'yr'}</Text>
+                </View>
+              </View>
+            </Pressable>
+
+            {/* Monthly Card */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Select Monthly Plan"
+              onPress={() => {
+                hapticLight();
+                setSelectedPlan('monthly');
+              }}
+              style={[
+                styles.planCard,
+                selectedPlan === 'monthly' && styles.planCardSelected,
+              ]}
+            >
+              <View style={styles.planContentRow}>
+                <View style={styles.planLeftCol}>
+                  <Text style={styles.planTitle}>
+                    {isUk ? 'Місячний план' : 'Monthly Plan'}
+                  </Text>
+                  <Text style={styles.planSubtitle}>
+                    {isUk ? 'Гнучка помісячна оплата' : 'Flexible monthly billing'}
+                  </Text>
+                </View>
+                <View style={styles.planPriceCol}>
+                  <Text style={styles.planPriceNumber}>
+                    {monthlyPackage?.product?.priceString || '$4.99'}
+                  </Text>
+                  <Text style={styles.planPricePeriod}>/ {isUk ? 'міс' : 'mo'}</Text>
+                </View>
+              </View>
+            </Pressable>
+          </View>
 
           {/* Call to action button */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Start SPOT PRO"
+            accessibilityLabel={selectedPlan === 'annual' ? 'Start 14-Day Free Trial' : 'Subscribe Monthly'}
             disabled={actionLoading || isLoading}
             onPress={handlePurchase}
             style={({ pressed }) => [
@@ -266,10 +298,22 @@ export function ProPaywallModal({
               <ActivityIndicator size="small" color="#0B0D0F" />
             ) : (
               <Text style={styles.ctaBtnText}>
-                {isUk ? 'Спробувати безкоштовно' : 'Start 7-Day Free Trial'}
+                {selectedPlan === 'annual'
+                  ? (isUk ? 'Спробувати 14 днів безкоштовно' : 'Start 14-Day Free Trial')
+                  : (isUk ? 'Оформити за $4.99 / місяць' : 'Subscribe for $4.99 / month')}
               </Text>
             )}
           </Pressable>
+
+          <Text style={styles.legalSubtext}>
+            {selectedPlan === 'annual'
+              ? (isUk
+                  ? 'Перші 14 днів безкоштовно, далі $49.99 на рік. Скасувати можна будь-коли в налаштуваннях Google Play.'
+                  : '14 days free trial, then $49.99/year. Cancel anytime in Google Play settings.')
+              : (isUk
+                  ? '$4.99 щомісяця. Скасувати можна будь-коли в налаштуваннях Google Play.'
+                  : '$4.99 billed monthly. Cancel anytime in Google Play settings.')}
+          </Text>
 
           {/* Restore & Policy Links */}
           <View style={styles.footerLinks}>
@@ -299,8 +343,21 @@ export function ProPaywallModal({
               </Text>
             </Pressable>
           </View>
+
+          {/* Explicit Free Dismiss Option */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Continue with free version"
+            hitSlop={12}
+            onPress={onClose}
+            style={styles.dismissBtn}
+          >
+            <Text style={styles.dismissBtnText}>
+              {isUk ? 'Продовжити безкоштовно' : 'Continue with Free Version'}
+            </Text>
+          </Pressable>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
@@ -420,48 +477,76 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 16,
   },
-  packagesContainer: {
-    flexDirection: 'row',
+  planSelectionContainer: {
+    width: '100%',
     gap: 12,
     marginBottom: 20,
   },
-  packageCard: {
-    flex: 1,
-    backgroundColor: '#12161D',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    alignItems: 'center',
-  },
-  packageCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(200, 255, 61, 0.05)',
-  },
-  packageTitle: {
-    color: '#8E9BAE',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  packageTitleSelected: {
-    color: '#FFFFFF',
-  },
-  packagePrice: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: '900',
-    marginTop: 4,
-  },
-  pricingCard: {
+  planCard: {
     width: '100%',
     backgroundColor: '#12161D',
     borderRadius: 18,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    borderWidth: 1,
+    padding: 16,
+    borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginBottom: 20,
+  },
+  planCardSelected: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(200, 255, 61, 0.06)',
+  },
+  planBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  savingsPill: {
+    backgroundColor: '#7C5CFF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  savingsPillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  planContentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  planLeftCol: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  planTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  planSubtitle: {
+    color: '#8E9BAE',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  planPriceCol: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 3,
+  },
+  planPriceNumber: {
+    color: colors.primary,
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  planPricePeriod: {
+    color: '#8E9BAE',
+    fontSize: 12,
+    fontWeight: '600',
   },
   trialPill: {
     backgroundColor: 'rgba(200, 255, 61, 0.15)',
@@ -470,7 +555,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(200, 255, 61, 0.3)',
-    marginBottom: 8,
   },
   trialPillText: {
     color: colors.primary,
@@ -478,17 +562,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.5,
   },
-  pricingMain: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  pricingSub: {
-    color: '#8E9BAE',
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 4,
+  legalSubtext: {
+    color: '#64748B',
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 16,
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
   ctaBtn: {
     width: '100%',
@@ -526,5 +606,17 @@ const styles = StyleSheet.create({
   footerDot: {
     color: '#4B5565',
     fontSize: 12,
+  },
+  dismissBtn: {
+    marginTop: 18,
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  dismissBtnText: {
+    color: '#8E9BAE',
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });
