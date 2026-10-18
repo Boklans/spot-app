@@ -24,6 +24,7 @@ import { ReminderTimePickerModal } from '@/components/profile/ReminderTimePicker
 import { LanguagePickerModal } from '@/components/profile/LanguagePickerModal';
 import { PrivacyPolicyModal } from '@/components/profile/PrivacyPolicyModal';
 import { ProPaywallModal } from '@/components/profile/ProPaywallModal';
+import { BetaAccessModal } from '@/components/profile/BetaAccessModal';
 import { colors } from '@/constants/colors';
 import { getSyncStatus, subscribeSyncStatus, syncUp, type SyncStatus } from '@/lib/cloudSync';
 import { hapticLight, hapticMedium, hapticSuccess, hapticError } from '@/lib/haptics';
@@ -78,7 +79,8 @@ const SPLIT_OPTIONS = [
 
 type ActivePicker = 'goal' | 'experience' | 'workoutsPerWeek' | 'split' | null;
 
-// PRO subscription enabled via RevenueCat
+// Free Beta Testing mode for initial 100-300 users. Switch to false when ready to monetize.
+export const IS_BETA_MODE = true;
 const SHOW_PRO_SUBSCRIPTION = true;
 
 export default function Profile() {
@@ -924,7 +926,29 @@ export default function Profile() {
         {/* 4. ACCOUNT Section */}
         <Text style={styles.sectionTitle}>{t('account')}</Text>
         <View style={styles.card}>
-          {SHOW_PRO_SUBSCRIPTION && (
+          {IS_BETA_MODE ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="SPOT Beta Access details"
+              onPress={() => {
+                hapticLight();
+                setProModalVisible(true);
+              }}
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            >
+              <Text style={styles.rowTitle}>
+                {language === 'uk' ? 'Статус доступу' : 'Access Status'}
+              </Text>
+              <View style={styles.badgeRow}>
+                <View style={[styles.proBadge, styles.betaBadgeActive]}>
+                  <Text style={[styles.proBadgeText, styles.betaBadgeTextActive]}>
+                    {language === 'uk' ? 'БЕТА • БЕЗКОШТОВНО' : 'BETA • FREE'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+              </View>
+            </Pressable>
+          ) : SHOW_PRO_SUBSCRIPTION && (
             <>
               <Pressable
                 accessibilityRole="button"
@@ -1064,12 +1088,19 @@ export default function Profile() {
         <Text style={styles.versionText}>SPOT v1.0.1 • VanzaLabs</Text>
       </ScrollView>
 
-      {/* SPOT PRO Paywall Modal */}
-      <ProPaywallModal
-        visible={proModalVisible}
-        onClose={() => setProModalVisible(false)}
-        onOpenPrivacy={() => setPrivacyModalVisible(true)}
-      />
+      {/* SPOT Access Modal: Beta Access or Pro Paywall */}
+      {IS_BETA_MODE ? (
+        <BetaAccessModal
+          visible={proModalVisible}
+          onClose={() => setProModalVisible(false)}
+        />
+      ) : (
+        <ProPaywallModal
+          visible={proModalVisible}
+          onClose={() => setProModalVisible(false)}
+          onOpenPrivacy={() => setPrivacyModalVisible(true)}
+        />
+      )}
 
       {/* Preference Picker Modals */}
       <PreferencePickerModal
@@ -1401,6 +1432,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(200, 255, 61, 0.2)',
     borderColor: colors.primary,
   },
+  betaBadgeActive: {
+    backgroundColor: 'rgba(124, 92, 255, 0.2)',
+    borderColor: '#7C5CFF',
+  },
   proBadgeText: {
     color: '#A78BFA',
     fontSize: 10,
@@ -1408,6 +1443,9 @@ const styles = StyleSheet.create({
   },
   proBadgeTextActive: {
     color: colors.primary,
+  },
+  betaBadgeTextActive: {
+    color: '#C4B5FD',
   },
   dangerText: {
     color: '#F87171',
