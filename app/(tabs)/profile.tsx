@@ -1054,7 +1054,7 @@ export default function Profile() {
           </Pressable>
         </View>
 
-        <Text style={styles.versionText}>SPOT v1.0.0 • VanzaLabs</Text>
+        <Text style={styles.versionText}>SPOT v1.0.1 • VanzaLabs</Text>
       </ScrollView>
 
       {/* SPOT PRO Paywall Modal */}
