@@ -7,17 +7,28 @@ import { useProgramStore } from '@/store/programStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { clearPersistedActiveWorkout } from '@/store/workoutSessionStore';
 import { useWorkoutSessionStore, type WorkoutSession } from '@/store/workoutSessionStore';
+import { scheduleWorkoutDayReminders } from '@/lib/notificationService';
 import type { CompletedWorkout } from '@/types/workout';
 
+let activeFinalizePromise: Promise<CompletedWorkout> | null = null;
+let activeFinalizeSessionId: string | null = null;
+
 export async function finalizeWorkoutSession(session: WorkoutSession): Promise<CompletedWorkout> {
-  const historyStore = useWorkoutHistoryStore.getState();
-  const history = await historyStore.loadHistory();
-  const existing = history.find((workout) => workout.id === session.id);
-  if (existing) {
-    useWorkoutSessionStore.getState().setPersonalRecords(existing.personalRecords);
-    await clearPersistedActiveWorkout();
-    return existing;
+  if (activeFinalizePromise && activeFinalizeSessionId === session.id) {
+    return activeFinalizePromise;
   }
+
+  activeFinalizeSessionId = session.id;
+  activeFinalizePromise = (async () => {
+    try {
+      const historyStore = useWorkoutHistoryStore.getState();
+      const history = await historyStore.loadHistory();
+      const existing = history.find((workout) => workout.id === session.id);
+      if (existing) {
+        useWorkoutSessionStore.getState().setPersonalRecords(existing.personalRecords);
+        await clearPersistedActiveWorkout();
+        return existing;
+      }
 
   const baseline = createCompletedWorkoutSnapshot(session);
   const personalRecords = detectPersonalRecords(baseline, history);
@@ -38,9 +49,16 @@ export async function finalizeWorkoutSession(session: WorkoutSession): Promise<C
   await hapticSuccess();
   syncCompletedWorkout(snapshot).catch(() => undefined);
 
-  import('@/lib/notificationService')
-    .then(({ scheduleWorkoutDayReminders }) => scheduleWorkoutDayReminders())
-    .catch(() => undefined);
+  try {
+    scheduleWorkoutDayReminders().catch(() => undefined);
+  } catch {}
 
-  return snapshot;
+      return snapshot;
+    } finally {
+      activeFinalizePromise = null;
+      activeFinalizeSessionId = null;
+    }
+  })();
+
+  return activeFinalizePromise;
 }

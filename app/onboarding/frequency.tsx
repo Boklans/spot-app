@@ -21,44 +21,56 @@ import {
 
 interface DurationChoice {
   minutes: number;
-  title: string;
-  subtitle: string;
-  badge?: string;
+  titleUk: string;
+  titleEn: string;
+  subtitleUk: string;
+  subtitleEn: string;
+  badgeUk?: string;
+  badgeEn?: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
 }
 
 const DURATION_CHOICES: DurationChoice[] = [
   {
     minutes: 30,
-    title: '30 хв · Швидке',
-    subtitle: 'Коротке й інтенсивне тренування без зайвого відпочинку (~4 вправи)',
-    badge: 'EXPRESS',
+    titleUk: '30 хв · Швидке',
+    titleEn: '30 min · Express',
+    subtitleUk: 'Коротке й інтенсивне тренування без зайвого відпочинку (~4 вправи)',
+    subtitleEn: 'Short & intense session without long rest periods (~4 exercises)',
+    badgeUk: 'EXPRESS',
+    badgeEn: 'EXPRESS',
     icon: 'lightning-bolt',
   },
   {
     minutes: 45,
-    title: '45 хв · Оптимальне',
-    subtitle: 'Ідеальний баланс сили, обʼєму та відновлення (~5–6 вправ)',
-    badge: 'РЕКОМЕНДОВАНО',
+    titleUk: '45 хв · Оптимальне',
+    titleEn: '45 min · Optimal',
+    subtitleUk: 'Ідеальний баланс сили, обʼєму та відновлення (~5–6 вправ)',
+    subtitleEn: 'Perfect balance of strength, volume and recovery (~5–6 exercises)',
+    badgeUk: 'РЕКОМЕНДОВАНО',
+    badgeEn: 'RECOMMENDED',
     icon: 'timer-sand',
   },
   {
     minutes: 60,
-    title: '60 хв · Повне',
-    subtitle: 'Глибоке опрацювання цільових мʼязів та повний відпочинок (~6–7 вправ)',
-    badge: 'POWER',
+    titleUk: '60 хв · Повне',
+    titleEn: '60 min · Power',
+    subtitleUk: 'Глибоке опрацювання цільових мʼязів та повний відпочинок (~6–7 вправ)',
+    subtitleEn: 'Deep muscle stimulation and full rest intervals (~6–7 exercises)',
+    badgeUk: 'POWER',
+    badgeEn: 'POWER',
     icon: 'weight-lifter',
   },
 ];
 
 const WEEKDAYS = [
-  { key: 'MON', label: 'ПН' },
-  { key: 'TUE', label: 'ВТ' },
-  { key: 'WED', label: 'СР' },
-  { key: 'THU', label: 'ЧТ' },
-  { key: 'FRI', label: 'ПТ' },
-  { key: 'SAT', label: 'СБ' },
-  { key: 'SUN', label: 'НД' },
+  { key: 'MON', labelUk: 'ПН', labelEn: 'Mon' },
+  { key: 'TUE', labelUk: 'ВТ', labelEn: 'Tue' },
+  { key: 'WED', labelUk: 'СР', labelEn: 'Wed' },
+  { key: 'THU', labelUk: 'ЧТ', labelEn: 'Thu' },
+  { key: 'FRI', labelUk: 'ПТ', labelEn: 'Fri' },
+  { key: 'SAT', labelUk: 'СБ', labelEn: 'Sat' },
+  { key: 'SUN', labelUk: 'НД', labelEn: 'Sun' },
 ];
 
 const SCHEDULE_PATTERNS: Record<number, string[]> = {
@@ -72,7 +84,8 @@ const SCHEDULE_PATTERNS: Record<number, string[]> = {
 };
 
 export default function Frequency() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const isUk = language === 'uk';
   const [selectedDays, setSelectedDays] = useState<string[]>(['MON', 'WED', 'FRI']);
   const [selectedDuration, setSelectedDuration] = useState<number>(45);
 
@@ -158,23 +171,29 @@ export default function Frequency() {
       >
         {/* 2. Title Section */}
         <View style={styles.titleSection}>
-          <Text style={styles.title}>Графік і час</Text>
+          <Text style={styles.title}>{isUk ? 'Графік і час' : 'Schedule & Duration'}</Text>
           <Text style={styles.subtitle}>
-            Скільки днів та скільки часу на тренування вам зручно приділяти?
+            {isUk
+              ? 'Скільки днів та скільки часу на тренування вам зручно приділяти?'
+              : 'How many days and how much time would you like to dedicate to training?'}
           </Text>
         </View>
 
         {/* 3. Days Stepper */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>ДНІ НА ТИЖДЕНЬ</Text>
-          <Text style={styles.sectionSub}>{days} ДНІВ</Text>
+          <Text style={styles.sectionTitle}>{isUk ? 'ДНІ НА ТИЖДЕНЬ' : 'DAYS PER WEEK'}</Text>
+          <Text style={styles.sectionSub}>
+            {isUk
+              ? days === 1 ? '1 ДЕНЬ' : days < 5 ? `${days} ДНІ` : `${days} ДНІВ`
+              : days === 1 ? '1 DAY' : `${days} DAYS`}
+          </Text>
         </View>
 
         <View style={styles.stepperWrap}>
           <View style={styles.stepperRow}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Зменшити кількість днів"
+              accessibilityLabel={isUk ? 'Зменшити кількість днів' : 'Decrease days'}
               onPress={handleDecrease}
               disabled={days <= 1}
               style={[styles.stepBtn, days <= 1 && styles.stepBtnDisabled]}
@@ -185,13 +204,15 @@ export default function Frequency() {
             <View style={styles.numberWrap}>
               <Text style={styles.numberValue}>{days}</Text>
               <Text style={styles.numberUnit}>
-                {days === 1 ? 'ДЕНЬ / ТИЖДЕНЬ' : days < 5 ? 'ДНІ / ТИЖДЕНЬ' : 'ДНІВ / ТИЖДЕНЬ'}
+                {isUk
+                  ? days === 1 ? 'ДЕНЬ / ТИЖДЕНЬ' : days < 5 ? 'ДНІ / ТИЖДЕНЬ' : 'ДНІВ / ТИЖДЕНЬ'
+                  : days === 1 ? 'DAY / WEEK' : 'DAYS / WEEK'}
               </Text>
             </View>
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Збільшити кількість днів"
+              accessibilityLabel={isUk ? 'Збільшити кількість днів' : 'Increase days'}
               onPress={handleIncrease}
               disabled={days >= 7}
               style={[styles.stepBtn, days >= 7 && styles.stepBtnDisabled]}
@@ -201,15 +222,18 @@ export default function Frequency() {
           </View>
 
           {/* Interactive Weekday Chips */}
-          <Text style={styles.daysHint}>Оберіть зручні для вас дні:</Text>
+          <Text style={styles.daysHint}>
+            {isUk ? 'Оберіть зручні для вас дні:' : 'Select your preferred workout days:'}
+          </Text>
           <View style={styles.weekdayRow}>
             {WEEKDAYS.map((w) => {
               const isActive = selectedDays.includes(w.key);
+              const label = isUk ? w.labelUk : w.labelEn;
               return (
                 <Pressable
                   key={w.key}
                   accessibilityRole="button"
-                  accessibilityLabel={`День ${w.label}`}
+                  accessibilityLabel={label}
                   onPress={() => toggleDay(w.key)}
                   style={({ pressed }) => [
                     styles.dayChip,
@@ -218,7 +242,7 @@ export default function Frequency() {
                   ]}
                 >
                   <Text style={[styles.dayChipText, isActive && styles.dayChipTextActive]}>
-                    {w.label}
+                    {label}
                   </Text>
                 </Pressable>
               );
@@ -228,18 +252,21 @@ export default function Frequency() {
 
         {/* 4. Session Duration */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>ЧАС НА ТРЕНУВАННЯ</Text>
-          <Text style={styles.sectionSub}>ТРИВАЛІСТЬ СЕСІЇ</Text>
+          <Text style={styles.sectionTitle}>{isUk ? 'ЧАС НА ТРЕНУВАННЯ' : 'SESSION DURATION'}</Text>
+          <Text style={styles.sectionSub}>{isUk ? 'ТРИВАЛІСТЬ СЕСІЇ' : 'TIME PER WORKOUT'}</Text>
         </View>
 
         <View style={styles.durationList}>
           {DURATION_CHOICES.map((choice) => {
             const isSelected = selectedDuration === choice.minutes;
+            const title = isUk ? choice.titleUk : choice.titleEn;
+            const subtitle = isUk ? choice.subtitleUk : choice.subtitleEn;
+            const badge = isUk ? choice.badgeUk : choice.badgeEn;
             return (
               <Pressable
                 key={choice.minutes}
                 accessibilityRole="button"
-                accessibilityLabel={choice.title}
+                accessibilityLabel={title}
                 onPress={() => {
                   hapticImpact();
                   setSelectedDuration(choice.minutes);
@@ -271,9 +298,9 @@ export default function Frequency() {
                             isSelected && styles.durationCardTitleSelected,
                           ]}
                         >
-                          {choice.title}
+                          {title}
                         </Text>
-                        {choice.badge && (
+                        {badge && (
                           <View
                             style={[
                               styles.durationBadge,
@@ -286,12 +313,12 @@ export default function Frequency() {
                                 isSelected && styles.durationBadgeTextActive,
                               ]}
                             >
-                              {choice.badge}
+                              {badge}
                             </Text>
                           </View>
                         )}
                       </View>
-                      <Text style={styles.durationCardSubtitle}>{choice.subtitle}</Text>
+                      <Text style={styles.durationCardSubtitle}>{subtitle}</Text>
                     </View>
                   </View>
 

@@ -2,12 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
-const rawSupabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+// Production fallback constants (public anon key is safe for client-side distribution with RLS)
+const DEFAULT_SUPABASE_URL = 'https://mnxyrrfgiioovrwwpqll.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_uPUIJ76KTa9J0lFyyS9p2w_Y23YkRd4';
+
+const rawSupabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL).trim();
+const supabaseAnonKey = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY).trim();
 
 // Sanitize URL: strip trailing slashes or '/rest/v1' suffix if user copied from Data API
 export const supabaseUrl = rawSupabaseUrl
-  .trim()
   .replace(/\/rest\/v1\/?$/, '')
   .replace(/\/+$/, '');
 

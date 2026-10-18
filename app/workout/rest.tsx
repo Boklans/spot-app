@@ -59,8 +59,21 @@ export default function Rest() {
     ? Math.max(0, Math.floor((now - new Date(session.startedAt).getTime()) / 1000))
     : 0;
   const isSkippingRef = useRef(false);
+  const isExitingRef = useRef(false);
+  const [isSkipping, setIsSkipping] = useState(false);
   const initialSeconds = restEndsAt ? Math.max(0, Math.ceil((restEndsAt - Date.now()) / 1000)) : 0;
   const lastHapticSecond = useRef<number | null>(initialSeconds === 0 ? 0 : null);
+  const [isHydrating, setIsHydrating] = useState(!session);
+
+  useEffect(() => {
+    if (!session) {
+      useWorkoutSessionStore.getState().hydrateSession().finally(() => {
+        setIsHydrating(false);
+      });
+    } else {
+      setIsHydrating(false);
+    }
+  }, [session]);
 
   // AppState sync: recalculate absolute time immediately when returning from background/lockscreen
   useEffect(() => {
@@ -137,6 +150,8 @@ export default function Rest() {
     );
 
     if (!hasCompletedSets) {
+      if (isExitingRef.current) return;
+      isExitingRef.current = true;
       router.replace('/(tabs)');
       return;
     }
@@ -154,6 +169,8 @@ export default function Rest() {
         {
           text: language === 'uk' ? 'Пауза (на головну)' : 'Pause & Exit',
           onPress: () => {
+            if (isExitingRef.current) return;
+            isExitingRef.current = true;
             hapticLight();
             router.replace('/(tabs)');
           },
@@ -162,6 +179,8 @@ export default function Rest() {
           text: language === 'uk' ? 'Завершити та зберегти' : 'Finish & Save',
           style: 'default',
           onPress: async () => {
+            if (isExitingRef.current) return;
+            isExitingRef.current = true;
             hapticMedium();
             try {
               await finalizeWorkoutSession(session);
@@ -185,7 +204,9 @@ export default function Rest() {
   }, [handleBack]);
 
   const continueWorkout = () => {
+    if (isSkippingRef.current || isSkipping) return;
     isSkippingRef.current = true;
+    setIsSkipping(true);
     hapticMedium();
     cancelRestTimerNotification();
     skipRest();
@@ -201,6 +222,10 @@ export default function Rest() {
     hapticLight();
     addRestTime(30);
   };
+
+  if (isHydrating) {
+    return <SafeAreaView style={styles.safe} />;
+  }
 
   if (!session) {
     return (
@@ -370,10 +395,12 @@ export default function Rest() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Skip rest or start next set"
+            disabled={isSkipping}
             onPress={continueWorkout}
             style={[
               styles.startBtn,
               seconds === 0 && styles.startBtnPulse,
+              isSkipping && { opacity: 0.6 },
             ]}
           >
             <Text numberOfLines={1} style={styles.startBtnText}>

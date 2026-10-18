@@ -289,8 +289,8 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         };
       });
 
-      const isLastSet = session.currentSetIndex === exercise.sets.length - 1;
-      const isLastExercise = session.currentExerciseIndex === session.exercises.length - 1;
+      const isLastSet = session.currentSetIndex >= exercise.sets.length - 1;
+      const isLastExercise = session.currentExerciseIndex >= session.exercises.length - 1;
 
       if (isLastSet && isLastExercise) {
         return {
@@ -307,7 +307,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       }
 
       const nextExerciseIndex = isLastSet
-        ? session.currentExerciseIndex + 1
+        ? Math.min(session.exercises.length - 1, session.currentExerciseIndex + 1)
         : session.currentExerciseIndex;
       const nextSetIndex = isLastSet ? 0 : session.currentSetIndex + 1;
 
@@ -586,6 +586,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
 }));
 
 export async function clearPersistedActiveWorkout() {
+  pendingSnapshot = undefined;
   persistenceQueue = persistenceQueue.then(() => AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY));
   await persistenceQueue;
 }

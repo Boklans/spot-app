@@ -23,9 +23,10 @@ import { RestTimePickerModal } from '@/components/profile/RestTimePickerModal';
 import { ReminderTimePickerModal } from '@/components/profile/ReminderTimePickerModal';
 import { LanguagePickerModal } from '@/components/profile/LanguagePickerModal';
 import { PrivacyPolicyModal } from '@/components/profile/PrivacyPolicyModal';
+import { ProPaywallModal } from '@/components/profile/ProPaywallModal';
 import { colors } from '@/constants/colors';
 import { getSyncStatus, subscribeSyncStatus, syncUp, type SyncStatus } from '@/lib/cloudSync';
-import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
+import { hapticLight, hapticMedium, hapticSuccess, hapticError } from '@/lib/haptics';
 import {
   requestNotificationPermissions,
   sendTestNotification,
@@ -33,6 +34,7 @@ import {
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useAuthStore } from '@/store/authStore';
+import { useSubscriptionStore } from '@/store/subscriptionStore';
 import { useBodyWeightStore } from '@/store/bodyWeightStore';
 import { useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
@@ -75,14 +77,17 @@ const SPLIT_OPTIONS = [
 
 type ActivePicker = 'goal' | 'experience' | 'workoutsPerWeek' | 'split' | null;
 
-// Temporary feature flag: hide PRO subscription until paywall/IAP is ready
-const SHOW_PRO_SUBSCRIPTION = false;
+// PRO subscription enabled via RevenueCat
+const SHOW_PRO_SUBSCRIPTION = true;
 
 export default function Profile() {
   const { t, language } = useI18n();
   const profile = useUserProfileStore((state) => state.profile);
   const updateProfile = useUserProfileStore((state) => state.updateProfile);
   const program = useProgramStore((state) => state.program);
+  const isPro = useSubscriptionStore((state) => state.isPro);
+  const restorePurchasesAction = useSubscriptionStore((state) => state.restore);
+  const [restoringPurchases, setRestoringPurchases] = useState(false);
   const [activePicker, setActivePicker] = useState<ActivePicker>(null);
 
   // Modals
@@ -139,6 +144,37 @@ export default function Profile() {
         },
       ]
     );
+  };
+
+  const handleRestorePurchases = async () => {
+    hapticLight();
+    setRestoringPurchases(true);
+    try {
+      const res = await restorePurchasesAction();
+      if (res.success && res.isPro) {
+        hapticSuccess();
+        Alert.alert(
+          language === 'uk' ? 'Успішно відновлено!' : 'Purchases Restored!',
+          language === 'uk' ? 'Ваш SPOT PRO статус активний.' : 'Your SPOT PRO status is active.'
+        );
+      } else if (res.success) {
+        hapticLight();
+        Alert.alert(
+          language === 'uk' ? 'Підписок не знайдено' : 'No Subscriptions Found',
+          language === 'uk'
+            ? 'Активних підписок SPOT PRO для цього акаунта не виявлено.'
+            : 'No active subscriptions found for this store account.'
+        );
+      } else {
+        hapticError();
+        Alert.alert(
+          language === 'uk' ? 'Помилка відновлення' : 'Restore Failed',
+          res.error || (language === 'uk' ? 'Спробуйте пізніше' : 'Please try again later')
+        );
+      }
+    } finally {
+      setRestoringPurchases(false);
+    }
   };
 
   const currentBeast = BEAST_AVATARS[profile.avatar] ?? BEAST_AVATARS.gorilla;
@@ -889,6 +925,7 @@ export default function Profile() {
             <>
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel="Open SPOT PRO subscription details"
                 onPress={() => {
                   hapticLight();
                   setProModalVisible(true);
@@ -897,8 +934,10 @@ export default function Profile() {
               >
                 <Text style={styles.rowTitle}>{t('subscription')}</Text>
                 <View style={styles.badgeRow}>
-                  <View style={styles.proBadge}>
-                    <Text style={styles.proBadgeText}>PRO</Text>
+                  <View style={[styles.proBadge, isPro && styles.proBadgeActive]}>
+                    <Text style={[styles.proBadgeText, isPro && styles.proBadgeTextActive]}>
+                      {isPro ? (language === 'uk' ? 'PRO АКТИВНО' : 'PRO ACTIVE') : 'PRO'}
+                    </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
                 </View>
@@ -906,14 +945,21 @@ export default function Profile() {
 
               <Pressable
                 accessibilityRole="button"
-                onPress={() => {
-                  hapticLight();
-                  Alert.alert('Purchases Restored', 'Your account has been synced.');
-                }}
-                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                accessibilityLabel="Restore Purchases"
+                disabled={restoringPurchases}
+                onPress={handleRestorePurchases}
+                style={({ pressed }) => [
+                  styles.row,
+                  pressed && styles.rowPressed,
+                  restoringPurchases && { opacity: 0.6 },
+                ]}
               >
                 <Text style={styles.rowTitle}>{t('restorePurchases')}</Text>
-                <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+                {restoringPurchases ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Ionicons name="refresh-outline" size={18} color="#8E9BAE" />
+                )}
               </Pressable>
             </>
           )}
@@ -1011,78 +1057,12 @@ export default function Profile() {
         <Text style={styles.versionText}>SPOT v1.0.0 • VanzaLabs</Text>
       </ScrollView>
 
-      {/* Screen 17: GETTING SMARTER PRO PAYWALL MODAL */}
-      <Modal
+      {/* SPOT PRO Paywall Modal */}
+      <ProPaywallModal
         visible={proModalVisible}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setProModalVisible(false)}
-      >
-        <SafeAreaView style={styles.proModalSafe}>
-          <View style={styles.proModalHeader}>
-            <Pressable
-              accessibilityRole="button"
-              hitSlop={12}
-              onPress={() => setProModalVisible(false)}
-              style={styles.proCloseBtn}
-            >
-              <Ionicons name="close" size={26} color="#FFFFFF" />
-            </Pressable>
-          </View>
-
-          <ScrollView contentContainerStyle={styles.proModalContent}>
-            {/* Banner with gradient aesthetic */}
-            <View style={styles.proHeroCard}>
-              <View style={styles.proBrainWrap}>
-                <MaterialCommunityIcons name="brain" size={32} color="#7C5CFF" />
-              </View>
-              <Text style={styles.proKicker}>YOUR TRAINING IS</Text>
-              <Text style={styles.proHeroTitle}>GETTING SMARTER</Text>
-              <Text style={styles.proHeroSub}>
-                SPOT found 7 patterns in your training.
-              </Text>
-            </View>
-
-            {/* Unlock Feature List */}
-            <View style={styles.unlockList}>
-              <Text style={styles.unlockHeader}>Unlock:</Text>
-
-              {[
-                'Adaptive progression',
-                'AI Coach',
-                'Recovery insights',
-                'Weekly AI reviews',
-                'Advanced analytics',
-              ].map((item) => (
-                <View key={item} style={styles.unlockRow}>
-                  <View style={styles.checkCircleSmall}>
-                    <Ionicons name="checkmark" size={14} color={colors.primary} />
-                  </View>
-                  <Text style={styles.unlockItemText}>{item}</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Trial & Pricing */}
-            <View style={styles.pricingCard}>
-              <Text style={styles.pricingDays}>7 DAYS FREE</Text>
-              <Text style={styles.pricingSub}>$49.99 / YEAR</Text>
-            </View>
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                hapticSuccess();
-                setProModalVisible(false);
-                Alert.alert('Welcome to SPOT Pro', 'All AI features unlocked!');
-              }}
-              style={styles.startProBtn}
-            >
-              <Text style={styles.startProBtnText}>Start</Text>
-            </Pressable>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
+        onClose={() => setProModalVisible(false)}
+        onOpenPrivacy={() => setPrivacyModalVisible(true)}
+      />
 
       {/* Preference Picker Modals */}
       <PreferencePickerModal
@@ -1410,10 +1390,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#7C5CFF',
   },
+  proBadgeActive: {
+    backgroundColor: 'rgba(200, 255, 61, 0.2)',
+    borderColor: colors.primary,
+  },
   proBadgeText: {
     color: '#A78BFA',
     fontSize: 10,
     fontWeight: '900',
+  },
+  proBadgeTextActive: {
+    color: colors.primary,
   },
   dangerText: {
     color: '#F87171',

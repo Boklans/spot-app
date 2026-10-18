@@ -1,6 +1,7 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { useSubscriptionStore } from '@/store/subscriptionStore';
 
 interface AuthState {
   user: User | null;
@@ -84,6 +85,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         loading: false,
       });
 
+      if (data.session?.user?.id) {
+        useSubscriptionStore.getState().syncUser(data.session.user.id);
+      }
+
       // Listen to auth state changes
       supabase.auth.onAuthStateChange((_event, session) => {
         set({
@@ -91,6 +96,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user: session?.user ?? null,
           loading: false,
         });
+        useSubscriptionStore.getState().syncUser(session?.user?.id ?? null);
       });
     } catch {
       set({ initialized: true, loading: false });
@@ -183,8 +189,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true });
     try {
       await supabase.auth.signOut();
+      useSubscriptionStore.getState().syncUser(null);
       set({ user: null, session: null, loading: false, error: null });
     } catch {
+      useSubscriptionStore.getState().syncUser(null);
       set({ user: null, session: null, loading: false });
     }
   },

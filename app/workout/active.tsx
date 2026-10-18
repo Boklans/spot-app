@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -91,9 +91,28 @@ export default function Active() {
   const updateCurrentSet = useWorkoutSessionStore((state) => state.updateCurrentSet);
   const swapExercise = useWorkoutSessionStore((state) => state.swapExercise);
   const [finishing, setFinishing] = useState(false);
+  const [submittingSet, setSubmittingSet] = useState(false);
+  const isSubmittingSetRef = useRef(false);
+  const isExitingRef = useRef(false);
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [isHydrating, setIsHydrating] = useState(!session);
+
+  useEffect(() => {
+    isSubmittingSetRef.current = false;
+    setSubmittingSet(false);
+  }, [session?.currentExerciseIndex, session?.currentSetIndex]);
+
+  useEffect(() => {
+    if (!session) {
+      useWorkoutSessionStore.getState().hydrateSession().finally(() => {
+        setIsHydrating(false);
+      });
+    } else {
+      setIsHydrating(false);
+    }
+  }, [session]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -103,6 +122,8 @@ export default function Active() {
   const progress = session ? getSessionProgress(session) : { completedSets: 0, totalSets: 0, percentage: 0 };
 
   const exitWorkout = useCallback(() => {
+    if (isExitingRef.current) return;
+    isExitingRef.current = true;
     router.replace('/(tabs)');
   }, []);
 
@@ -147,6 +168,10 @@ export default function Active() {
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
   }, [handleClose]);
+
+  if (isHydrating) {
+    return <SafeAreaView style={styles.safe} />;
+  }
 
   if (!session || !session.exercises || session.exercises.length === 0 || !session.exercises[session.currentExerciseIndex]) {
     return (
@@ -205,27 +230,38 @@ export default function Active() {
   const isProgressed = hasWeightIncrease || hasRepsIncrease;
 
   const finishSet = async () => {
-    if (finishing) return;
-    hapticMedium();
-    completeCurrentSet();
+    if (isSubmittingSetRef.current || finishing || submittingSet) return;
+    isSubmittingSetRef.current = true;
+    setSubmittingSet(true);
 
-    if (isFinalSet && isFinalExercise) {
-      setFinishing(true);
-      const completedSession = useWorkoutSessionStore.getState().session;
-      try {
-        if (completedSession) await finalizeWorkoutSession(completedSession);
+    try {
+      hapticMedium();
+      completeCurrentSet();
+
+      const latestSession = useWorkoutSessionStore.getState().session;
+      const isCompleted = latestSession?.completed || (isFinalSet && isFinalExercise);
+
+      if (isCompleted) {
+        setFinishing(true);
+        if (latestSession) await finalizeWorkoutSession(latestSession);
         router.replace('/workout/complete');
-      } catch {
-        setFinishing(false);
-        Alert.alert(
-          t('couldNotSave'),
-          t('couldNotSaveDesc')
-        );
+      } else if (useWorkoutSessionStore.getState().restEndsAt !== null) {
+        router.replace('/workout/rest');
+      } else {
+        // 0s rest (Superset / Circuit): stay on screen and advance directly
+        setTimeout(() => {
+          isSubmittingSetRef.current = false;
+          setSubmittingSet(false);
+        }, 300);
       }
-    } else if (useWorkoutSessionStore.getState().restEndsAt !== null) {
-      router.replace('/workout/rest');
-    } else {
-      // 0s rest (Superset / Circuit): stay on screen and advance directly
+    } catch {
+      setFinishing(false);
+      setSubmittingSet(false);
+      isSubmittingSetRef.current = false;
+      Alert.alert(
+        t('couldNotSave'),
+        t('couldNotSaveDesc')
+      );
     }
   };
 
@@ -585,7 +621,7 @@ export default function Active() {
       {/* 5. Sticky Bottom Action Bar */}
       <View style={styles.bottomBar}>
         <Button
-          disabled={finishing}
+          disabled={finishing || submittingSet}
           style={styles.completeBtn}
           onPress={finishSet}
         >

@@ -1,11 +1,13 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { router } from 'expo-router';
 import { calculateMuscleRecovery, normalizeMuscleGroup } from '@/lib/recoveryEngine';
 import { getScheduledWorkout } from '@/store/programProgressStore';
 import { useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
 import { useUserProfileStore, type AppLanguage } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
+import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { loadOnboarding } from '@/store/workoutStore';
 import type { UserProgram, UserWorkout } from '@/types/userProgram';
 import type { CompletedWorkout } from '@/types/workout';
@@ -27,12 +29,63 @@ const DAY_KEY_TO_EXPO_WEEKDAY: Record<string, number> = {
 };
 
 let isHandlerConfigured = false;
+let isResponseListenerConfigured = false;
+
+function setupNotificationResponseListener(): void {
+  if (Platform.OS === 'web' || isResponseListenerConfigured) return;
+  isResponseListenerConfigured = true;
+
+  Notifications.addNotificationResponseReceivedListener((response) => {
+    try {
+      const data = response?.notification?.request?.content?.data as Record<string, any> | undefined;
+      const targetScreen = data?.screen;
+
+      if (targetScreen === '/workout/rest') {
+        const session = useWorkoutSessionStore.getState().session;
+        const restEndsAt = useWorkoutSessionStore.getState().restEndsAt;
+        if (session) {
+          if (restEndsAt && restEndsAt > Date.now()) {
+            router.replace('/workout/rest');
+          } else {
+            router.replace('/workout/active');
+          }
+        } else {
+          router.replace('/(tabs)');
+        }
+      } else if (targetScreen === '/(tabs)' || data?.isTest || data?.workoutName) {
+        router.replace('/(tabs)');
+      }
+    } catch {
+      // Ignore navigation errors on background tap
+    }
+  });
+
+  Notifications.getLastNotificationResponseAsync()
+    .then((response) => {
+      if (!response) return;
+      const data = response?.notification?.request?.content?.data as Record<string, any> | undefined;
+      const targetScreen = data?.screen;
+      if (targetScreen === '/workout/rest') {
+        const session = useWorkoutSessionStore.getState().session;
+        if (session) {
+          router.replace('/workout/rest');
+        } else {
+          router.replace('/(tabs)');
+        }
+      } else if (targetScreen === '/(tabs)' || data?.isTest || data?.workoutName) {
+        router.replace('/(tabs)');
+      }
+    })
+    .catch(() => undefined);
+}
 
 /**
  * Configure notifications handler and Android notification channels.
  */
 export async function initNotifications(): Promise<void> {
   if (Platform.OS === 'web') return;
+
+  setupNotificationResponseListener();
 
   if (!isHandlerConfigured) {
     Notifications.setNotificationHandler({
@@ -420,6 +473,7 @@ export async function sendTestNotification(): Promise<{
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds: 1,
         channelId: NOTIFICATION_CHANNEL_ID,
+        repeats: false,
       },
     });
 
@@ -471,6 +525,7 @@ export async function scheduleRestTimerNotification(
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds: Math.max(1, Math.round(seconds)),
         channelId: REST_TIMER_CHANNEL_ID,
+        repeats: false,
       },
     });
   } catch {

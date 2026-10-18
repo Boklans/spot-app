@@ -64,3 +64,17 @@ export async function hapticSelection(): Promise<void> {
 
 export const hapticImpact = hapticLight;
 
+/**
+ * Error notification feedback (e.g., failed purchase, validation error).
+ */
+export async function hapticError(): Promise<void> {
+  if (Platform.OS === 'web') return;
+  try {
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+  } catch {
+    try {
+      Vibration.vibrate([0, 50, 100, 50]);
+    } catch {}
+  }
+}
+
