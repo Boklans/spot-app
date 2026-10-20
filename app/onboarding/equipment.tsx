@@ -4,12 +4,12 @@ import React, { useState } from 'react';
 import {
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { hapticImpact, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';

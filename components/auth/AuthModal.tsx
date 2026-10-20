@@ -247,7 +247,7 @@ export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess 
       statusBarTranslucent
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardAvoidContainer}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >

@@ -7,12 +7,12 @@ import {
   Image,
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
 import { getExerciseImage } from '@/lib/exerciseImages';
@@ -1167,7 +1167,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#717B8A',
     letterSpacing: 0.5,
-    width: 40,
+    width: 52,
     textAlign: 'center',
   },
   setsList: {
@@ -1228,7 +1228,7 @@ const styles = StyleSheet.create({
     color: '#5A687A',
   },
   setColStatus: {
-    width: 40,
+    width: 52,
     alignItems: 'center',
     justifyContent: 'center',
   },

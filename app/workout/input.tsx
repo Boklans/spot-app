@@ -6,12 +6,12 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -411,7 +411,7 @@ export default function Input() {
         onRequestClose={() => setWeightModalVisible(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
@@ -451,7 +451,7 @@ export default function Input() {
         onRequestClose={() => setRepsModalVisible(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
@@ -491,7 +491,7 @@ export default function Input() {
         onRequestClose={() => setRestModalVisible(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>

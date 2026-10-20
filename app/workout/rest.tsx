@@ -11,13 +11,13 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
 import { getExerciseImage } from '@/lib/exerciseImages';
@@ -438,7 +438,7 @@ export default function Rest({ embedded = false }: { embedded?: boolean } = {}) 
         onRequestClose={() => setShowRestModal(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
