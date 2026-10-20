@@ -22,6 +22,7 @@ import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { getSessionProgress, useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { ExerciseDetailModal } from '@/components/program/ExerciseDetailModal';
+import Rest from './rest';
 
 const EXERCISE_ALTERNATIVES: Record<string, Array<{ name: string; muscleGroup: string; defaultWeight: number }>> = {
   Chest: [
@@ -87,6 +88,7 @@ export default function Active() {
   const { t, tm, td, te, tw, language } = useI18n();
   const { unit, unitLabel, format, formatWithUnit, fromKg, toKg } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
+  const restEndsAt = useWorkoutSessionStore((state) => state.restEndsAt);
   const completeCurrentSet = useWorkoutSessionStore((state) => state.completeCurrentSet);
   const updateCurrentSet = useWorkoutSessionStore((state) => state.updateCurrentSet);
   const swapExercise = useWorkoutSessionStore((state) => state.swapExercise);
@@ -162,6 +164,9 @@ export default function Active() {
 
   useEffect(() => {
     const onBackPress = () => {
+      if (useWorkoutSessionStore.getState().restEndsAt !== null) {
+        return false;
+      }
       handleClose();
       return true;
     };
@@ -182,6 +187,10 @@ export default function Active() {
         </View>
       </SafeAreaView>
     );
+  }
+
+  if (restEndsAt !== null && !session.completed) {
+    return <Rest embedded />;
   }
 
   const elapsedSeconds = session.startedAt
@@ -245,14 +254,12 @@ export default function Active() {
         setFinishing(true);
         if (latestSession) await finalizeWorkoutSession(latestSession);
         router.replace('/workout/complete');
-      } else if (useWorkoutSessionStore.getState().restEndsAt !== null) {
-        router.replace('/workout/rest');
       } else {
-        // 0s rest (Superset / Circuit): stay on screen and advance directly
+        // Rest view (<Rest embedded />) or 0s Superset renders in-place without native screen replacement
         setTimeout(() => {
           isSubmittingSetRef.current = false;
           setSubmittingSet(false);
-        }, 300);
+        }, 150);
       }
     } catch {
       setFinishing(false);
@@ -634,6 +641,7 @@ export default function Active() {
       </View>
 
       {/* 6. Exercise Swap Modal */}
+      {showSwapModal && (
       <Modal
         visible={showSwapModal}
         animationType="slide"
@@ -729,6 +737,7 @@ export default function Active() {
           </Pressable>
         </Pressable>
       </Modal>
+      )}
 
       {/* Exercise Detail Modal (Anatomy, Technique, Mistakes, Personal Best) */}
       {exercise && (

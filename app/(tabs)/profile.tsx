@@ -1085,7 +1085,7 @@ export default function Profile() {
           </Pressable>
         </View>
 
-        <Text style={styles.versionText}>SPOT v1.0.1 • VanzaLabs</Text>
+        <Text style={styles.versionText}>SPOT v1.0.2 • VanzaLabs</Text>
       </ScrollView>
 
       {/* SPOT Access Modal: Beta Access or Pro Paywall */}

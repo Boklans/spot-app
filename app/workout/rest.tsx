@@ -40,7 +40,7 @@ function formatElapsed(totalSec: number): string {
   return `${pad(mins)}:${pad(secs)}`;
 }
 
-export default function Rest() {
+export default function Rest({ embedded = false }: { embedded?: boolean } = {}) {
   const { t, te, language } = useI18n();
   const { formatWithUnit } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
@@ -103,23 +103,28 @@ export default function Rest() {
   const setNumber = (session?.currentSetIndex ?? 0) + 1;
   const totalSets = targetExercise?.sets?.length ?? 0;
 
-  // Background Push Notification Scheduling
+  // Background Push Notification Scheduling (only when app goes to background)
   useEffect(() => {
-    if (!restEndsAt || !targetExercise) return;
-    const remaining = Math.max(0, Math.ceil((restEndsAt - Date.now()) / 1000));
-    if (remaining > 0) {
-      scheduleRestTimerNotification(
-        remaining,
-        te(targetExercise.name),
-        setNumber,
-        totalSets,
-        language
-      );
-    } else {
-      cancelRestTimerNotification();
-    }
-
+    const handleBgNotification = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        cancelRestTimerNotification();
+      } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+        if (!restEndsAt || !targetExercise) return;
+        const remaining = Math.max(0, Math.ceil((restEndsAt - Date.now()) / 1000));
+        if (remaining > 0) {
+          scheduleRestTimerNotification(
+            remaining,
+            te(targetExercise.name),
+            setNumber,
+            totalSets,
+            language
+          );
+        }
+      }
+    };
+    const sub = AppState.addEventListener('change', handleBgNotification);
     return () => {
+      sub.remove();
       cancelRestTimerNotification();
     };
   }, [restEndsAt, targetExercise?.name, setNumber, totalSets, language]);
@@ -210,7 +215,9 @@ export default function Rest() {
     hapticMedium();
     cancelRestTimerNotification();
     skipRest();
-    router.replace('/workout/active');
+    if (!embedded) {
+      router.replace('/workout/active');
+    }
   };
 
   const handleAdd15 = () => {
@@ -423,6 +430,7 @@ export default function Rest() {
       </ScrollView>
 
       {/* Rest Duration Configuration Modal */}
+      {showRestModal && (
       <Modal
         visible={showRestModal}
         transparent
@@ -452,7 +460,7 @@ export default function Rest() {
                       hapticLight();
                       updateExerciseRest(session.currentExerciseIndex, presetSec, applyToAll);
                       setShowRestModal(false);
-                      if (presetSec === 0) {
+                      if (presetSec === 0 && !embedded) {
                         router.replace('/workout/active');
                       }
                     }}
@@ -516,7 +524,7 @@ export default function Rest() {
                     hapticLight();
                     updateExerciseRest(session.currentExerciseIndex, parsed, applyToAll);
                     setShowRestModal(false);
-                    if (parsed === 0) {
+                    if (parsed === 0 && !embedded) {
                       router.replace('/workout/active');
                     }
                   } else {
@@ -533,6 +541,7 @@ export default function Rest() {
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
+      )}
     </SafeAreaView>
   );
 }
