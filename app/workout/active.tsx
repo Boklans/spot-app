@@ -135,6 +135,19 @@ export default function Active() {
   const restRemainingSeconds = restEndsAt ? Math.max(0, Math.ceil((restEndsAt - now) / 1000)) : 0;
   const isResting = restEndsAt !== null && restRemainingSeconds > 0;
 
+  const [totalRestSeconds, setTotalRestSeconds] = useState<number>(90);
+
+  useEffect(() => {
+    if (restEndsAt && restEndsAt > Date.now()) {
+      const remaining = Math.ceil((restEndsAt - Date.now()) / 1000);
+      setTotalRestSeconds((prev) => Math.max(prev, remaining));
+    }
+  }, [restEndsAt]);
+
+  const restProgress = totalRestSeconds > 0
+    ? Math.min(100, Math.max(0, (restRemainingSeconds / totalRestSeconds) * 100))
+    : 0;
+
   useEffect(() => {
     isSubmittingSetRef.current = false;
     setSubmittingSet(false);
@@ -427,62 +440,65 @@ export default function Active() {
         <View style={[styles.progressBarFill, { width: `${percent}%` }]} />
       </View>
 
-      {/* Non-blocking Compact Rest Banner */}
+      {/* Sleek Hevy-style Rest Timer Pill */}
       {isResting && (
-        <View style={styles.compactRestBanner}>
-          <View style={styles.compactRestLeft}>
-            <View style={styles.compactRestPulseDot} />
-            <View>
-              <Text style={styles.compactRestLabel}>
-                {language === 'uk' ? 'ВІДПОЧИНОК' : 'REST TIMER'}
-              </Text>
-              <Text style={styles.compactRestTime}>
+        <View style={styles.restTimerPill}>
+          {/* Time & Adjusters Block */}
+          <View style={styles.restTimerCenterCol}>
+            <View style={styles.restTimerNumbersRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Subtract 15 seconds"
+                hitSlop={10}
+                onPress={() => {
+                  hapticLight();
+                  addRestTime(-15);
+                }}
+                style={styles.restAdjustBtn}
+              >
+                <Text style={styles.restAdjustText}>-15</Text>
+              </Pressable>
+
+              <Text style={styles.restDigitsText}>
                 {formatElapsed(restRemainingSeconds)}
               </Text>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add 15 seconds"
+                hitSlop={10}
+                onPress={() => {
+                  hapticLight();
+                  addRestTime(15);
+                }}
+                style={styles.restAdjustBtn}
+              >
+                <Text style={styles.restAdjustText}>+15</Text>
+              </Pressable>
+            </View>
+
+            {/* Progress Bar under the timer */}
+            <View style={styles.restProgressTrack}>
+              <View style={[styles.restProgressFill, { width: `${restProgress}%` }]} />
             </View>
           </View>
-          <View style={styles.compactRestActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Subtract 15 seconds"
-              hitSlop={6}
-              onPress={() => {
-                hapticLight();
-                addRestTime(-15);
-              }}
-              style={styles.compactRestChip}
-            >
-              <Text style={styles.compactRestChipText}>-15s</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Add 30 seconds"
-              hitSlop={6}
-              onPress={() => {
-                hapticLight();
-                addRestTime(30);
-              }}
-              style={styles.compactRestChip}
-            >
-              <Text style={styles.compactRestChipText}>+30s</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Skip rest"
-              hitSlop={6}
-              onPress={() => {
-                hapticMedium();
-                cancelRestTimerNotification();
-                skipRest();
-              }}
-              style={styles.compactRestSkipBtn}
-            >
-              <Text style={styles.compactRestSkipText}>
-                {language === 'uk' ? 'Пропустити' : 'Skip'}
-              </Text>
-              <Ionicons name="play-forward" size={11} color="#0B0D0F" style={{ marginLeft: 2 }} />
-            </Pressable>
-          </View>
+
+          {/* Skip Button */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Skip rest"
+            hitSlop={8}
+            onPress={() => {
+              hapticMedium();
+              cancelRestTimerNotification();
+              skipRest();
+            }}
+            style={styles.restSkipBtn}
+          >
+            <Text style={styles.restSkipBtnText}>
+              {language === 'uk' ? 'Пропустити' : 'Skip'}
+            </Text>
+          </Pressable>
         </View>
       )}
 
@@ -1983,74 +1999,75 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  compactRestBanner: {
+  restTimerPill: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
-    borderColor: 'rgba(200, 255, 61, 0.3)',
-    borderWidth: 1,
-    borderRadius: 14,
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  compactRestLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  compactRestPulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-  },
-  compactRestLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#8E99A8',
-    letterSpacing: 0.6,
-  },
-  compactRestTime: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: colors.primary,
-    fontVariant: ['tabular-nums'],
-    letterSpacing: -0.3,
-  },
-  compactRestActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  compactRestChip: {
-    backgroundColor: '#1E2530',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    backgroundColor: '#12161E',
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  compactRestChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  restTimerCenterCol: {
+    flex: 1,
+    gap: 5,
   },
-  compactRestSkipBtn: {
+  restTimerNumbersRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    justifyContent: 'center',
+    gap: 16,
   },
-  compactRestSkipText: {
-    fontSize: 11,
+  restAdjustBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  restAdjustText: {
+    color: colors.primary,
+    fontSize: 13,
     fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  restDigitsText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.2,
+  },
+  restProgressTrack: {
+    width: '100%',
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 1.5,
+    overflow: 'hidden',
+  },
+  restProgressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 1.5,
+  },
+  restSkipBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  restSkipBtnText: {
     color: '#0B0D0F',
+    fontSize: 12.5,
+    fontWeight: '900',
   },
   cellTouchTarget: {
     flex: 1,
