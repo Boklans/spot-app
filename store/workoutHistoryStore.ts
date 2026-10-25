@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { detectPersonalRecords } from '@/lib/personalRecords';
+import { useUserProfileStore } from '@/store/userProfileStore';
 import type { CompletedWorkout } from '@/types/workout';
 
 export const WORKOUT_HISTORY_STORAGE_KEY = 'spot-workout-history';
@@ -10,6 +12,7 @@ type WorkoutHistoryState = {
   error: string | null;
   loadHistory: () => Promise<CompletedWorkout[]>;
   addCompletedWorkout: (workout: CompletedWorkout) => Promise<boolean>;
+  deleteWorkout: (id: string) => Promise<boolean>;
   clearHistory: () => Promise<boolean>;
 };
 
@@ -67,6 +70,26 @@ function parseHistory(value: string | null): CompletedWorkout[] {
   }
 }
 
+function recalculateHistoryPRs(workouts: CompletedWorkout[]): CompletedWorkout[] {
+  const baselineLifts = useUserProfileStore.getState().profile?.baselineLifts;
+  // Sort oldest -> newest to recompute PRs chronologically
+  const chronological = [...workouts].sort(
+    (a, b) =>
+      new Date(a.completedAt || a.startedAt).getTime() -
+      new Date(b.completedAt || b.startedAt).getTime()
+  );
+  const processed: CompletedWorkout[] = [];
+  for (const w of chronological) {
+    const prs = detectPersonalRecords(w, processed, baselineLifts);
+    processed.push({
+      ...w,
+      personalRecords: prs,
+    });
+  }
+  // Return in newest -> oldest order matching store convention
+  return processed.reverse();
+}
+
 export const useWorkoutHistoryStore = create<WorkoutHistoryState>((set, get) => ({
   workouts: [],
   hydrated: false,
@@ -100,6 +123,20 @@ export const useWorkoutHistoryStore = create<WorkoutHistoryState>((set, get) => 
       return true;
     } catch {
       set({ error: 'Workout completed, but history could not be saved.' });
+      return false;
+    }
+  },
+
+  deleteWorkout: async (id: string) => {
+    const current = get().hydrated ? get().workouts : await get().loadHistory();
+    const filtered = current.filter((item) => item.id !== id);
+    const next = recalculateHistoryPRs(filtered);
+    try {
+      await AsyncStorage.setItem(WORKOUT_HISTORY_STORAGE_KEY, JSON.stringify(next));
+      set({ workouts: next, hydrated: true, error: null });
+      return true;
+    } catch {
+      set({ error: 'Workout could not be deleted.' });
       return false;
     }
   },

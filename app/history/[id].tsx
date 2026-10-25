@@ -128,12 +128,9 @@ export default function HistoryDetail() {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Share workout story"
+          accessibilityLabel="Share workout summary"
           hitSlop={12}
-          onPress={() => {
-            hapticLight();
-            setIsStoriesModalVisible(true);
-          }}
+          onPress={handleNativeShare}
           style={styles.topShareBtn}
         >
           <Ionicons name="share-social-outline" size={22} color={colors.primary} />
@@ -146,10 +143,33 @@ export default function HistoryDetail() {
       >
         {/* 2. Hero Section */}
         <View style={styles.heroSection}>
-          <View style={styles.completedBadge}>
-            <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-            <Text style={styles.completedBadgeText}>
-              {language === 'uk' ? 'ЗАВЕРШЕНА СЕСІЯ' : 'COMPLETED SESSION'}
+          <View
+            style={[
+              styles.completedBadge,
+              workout.isPartial && {
+                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                borderColor: 'rgba(245, 158, 11, 0.35)',
+              },
+            ]}
+          >
+            <Ionicons
+              name={workout.isPartial ? 'time-outline' : 'checkmark-circle'}
+              size={16}
+              color={workout.isPartial ? '#F59E0B' : colors.primary}
+            />
+            <Text
+              style={[
+                styles.completedBadgeText,
+                workout.isPartial && { color: '#F59E0B' },
+              ]}
+            >
+              {workout.isPartial
+                ? language === 'uk'
+                  ? `ЧАСТКОВА СЕСІЯ (${workout.totalSets}/${workout.plannedSets || workout.totalSets} ПІДХ.)`
+                  : `PARTIAL SESSION (${workout.totalSets}/${workout.plannedSets || workout.totalSets} SETS)`
+                : language === 'uk'
+                  ? 'ЗАВЕРШЕНА СЕСІЯ'
+                  : 'COMPLETED SESSION'}
             </Text>
           </View>
 
@@ -170,7 +190,11 @@ export default function HistoryDetail() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>{workout.totalSets}</Text>
+            <Text style={styles.statValue}>
+              {workout.isPartial && workout.plannedSets
+                ? `${workout.totalSets}/${workout.plannedSets}`
+                : workout.totalSets}
+            </Text>
             <Text style={styles.statLabel}>{t('sets')}</Text>
           </View>
         </View>
@@ -183,31 +207,21 @@ export default function HistoryDetail() {
           <Text style={styles.volumeLabel}>{t('volume')}</Text>
         </View>
 
-        {/* 5. Personal Records / Baseline Card */}
-        <View style={styles.prsCard}>
-          <View style={styles.prHeader}>
-            <MaterialCommunityIcons
-              name={prs.length === 0 ? 'flag-variant' : 'trophy'}
-              size={16}
-              color={prs.length === 0 ? colors.primary : '#FFD130'}
-            />
-            <Text style={[styles.prSectionTitle, prs.length === 0 && { color: colors.primary }]}>
-              {prs.length === 0
-                ? (language === 'uk' ? 'БАЗУ ЗАФІКСОВАНО' : 'BASELINE ESTABLISHED')
-                : t('personalRecords')}
-            </Text>
-          </View>
-
-          {prs.length === 0 ? (
-            <View style={styles.noPrWrap}>
-              <Text style={styles.noPrText}>
-                {language === 'uk'
-                  ? 'Показники тренування зафіксовано як вашу базу. Прогрес та нові рекорди почнуть відстежуватися вже з наступних сесій!'
-                  : 'Workout metrics saved as your baseline. Progressive overload and new PRs will be tracked from your next workouts!'}
+        {/* 5. Personal Records Card */}
+        {prs.length > 0 && (
+          <View style={styles.prsCard}>
+            <View style={styles.prHeader}>
+              <MaterialCommunityIcons
+                name="trophy"
+                size={16}
+                color="#FFD130"
+              />
+              <Text style={styles.prSectionTitle}>
+                {t('personalRecords')}
               </Text>
             </View>
-          ) : (
-            prs.map((record, index) => (
+
+            {prs.map((record, index) => (
               <View
                 key={record.id || index}
                 style={[styles.prRow, index < prs.length - 1 && styles.prRowBorder]}
@@ -223,11 +237,10 @@ export default function HistoryDetail() {
                   {te(record.exerciseName)}
                 </Text>
                 <Text style={styles.prValueText}>{record.label}</Text>
-                <Ionicons name="chevron-forward" size={16} color="#6C7A8E" />
               </View>
-            ))
-          )}
-        </View>
+            ))}
+          </View>
+        )}
 
         {/* 6. Share to Instagram Stories Banner */}
         {SHOW_INSTAGRAM_STORIES && (
@@ -294,6 +307,65 @@ export default function HistoryDetail() {
             ))}
           </View>
         ))}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Delete workout"
+          onPress={() => {
+            hapticLight();
+            Alert.alert(
+              language === 'uk' ? 'Видалити тренування?' : 'Delete Workout?',
+              language === 'uk'
+                ? 'Цей запис буде видалено з історії, а персональні рекорди перераховано.'
+                : 'This session will be removed from history and personal records will be recalculated.',
+              [
+                {
+                  text: language === 'uk' ? 'Скасувати' : 'Cancel',
+                  style: 'cancel',
+                },
+                {
+                  text: language === 'uk' ? 'Видалити' : 'Delete',
+                  style: 'destructive',
+                  onPress: async () => {
+                    await useWorkoutHistoryStore.getState().deleteWorkout(workout.id);
+                    if (router.canGoBack()) {
+                      router.back();
+                    } else {
+                      router.replace('/history');
+                    }
+                  },
+                },
+              ]
+            );
+          }}
+          style={({ pressed }) => [
+            {
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              marginTop: 12,
+              paddingVertical: 14,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: 'rgba(239, 68, 68, 0.35)',
+              backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            },
+            pressed && { opacity: 0.75 },
+          ]}
+        >
+          <Ionicons name="trash-outline" size={16} color="#EF4444" />
+          <Text
+            style={{
+              color: '#EF4444',
+              fontSize: 13,
+              fontWeight: '800',
+              letterSpacing: 0.4,
+            }}
+          >
+            {language === 'uk' ? 'ВИДАЛИТИ ЗАПИС ТРЕНУВАННЯ' : 'DELETE WORKOUT RECORD'}
+          </Text>
+        </Pressable>
       </ScrollView>
 
       {/* 8. Instagram Stories 9:16 Preview Modal */}

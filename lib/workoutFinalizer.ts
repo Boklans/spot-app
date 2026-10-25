@@ -4,6 +4,7 @@ import { hapticSuccess } from '@/lib/haptics';
 import { detectPersonalRecords } from '@/lib/personalRecords';
 import { useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
+import { useUserProfileStore } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { clearPersistedActiveWorkout } from '@/store/workoutSessionStore';
 import { useWorkoutSessionStore, type WorkoutSession } from '@/store/workoutSessionStore';
@@ -36,7 +37,8 @@ export async function finalizeWorkoutSession(session: WorkoutSession): Promise<C
         return baseline;
       }
 
-      const personalRecords = detectPersonalRecords(baseline, history);
+      const baselineLifts = useUserProfileStore.getState().profile?.baselineLifts;
+      const personalRecords = detectPersonalRecords(baseline, history, baselineLifts);
       const snapshot = createCompletedWorkoutSnapshot(session, personalRecords);
       const saved = await useWorkoutHistoryStore.getState().addCompletedWorkout(snapshot);
       if (!saved) throw new Error('Workout history save failed');

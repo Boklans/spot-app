@@ -35,8 +35,13 @@ export default function Home() {
   // Focus synchronization
   useFocusEffect(
     useCallback(() => {
-      const timer = setTimeout(() => {}, 0);
-      return () => clearTimeout(timer);
+      loadOnboarding().then((data) => {
+        if (data?.name) setName(data.name);
+      });
+      useWorkoutSessionStore.getState().hydrateSession();
+      useUserProfileStore.getState().loadProfile();
+      useProgramStore.getState().getOrLoadProgram();
+      useWorkoutHistoryStore.getState().loadHistory();
     }, [])
   );
 

@@ -42,6 +42,40 @@ export type TrackedExerciseItem = {
 
 const periodDays: Record<Exclude<ProgressPeriod, 'ALL'>, number> = { '7D': 7, '30D': 30 };
 
+export function normalizeMuscleCategory(muscleGroup?: string): string {
+  const lower = (muscleGroup || '').trim().toLowerCase();
+  if (lower === 'chest' || lower === 'груди') return 'Chest';
+  if (lower === 'back' || lower === 'lats' || lower === 'traps' || lower === 'спина') return 'Back';
+  if (lower === 'shoulders' || lower === 'delts' || lower === 'плечі') return 'Shoulders';
+  if (
+    lower === 'arms' ||
+    lower === 'biceps' ||
+    lower === 'triceps' ||
+    lower === 'forearms' ||
+    lower === 'руки' ||
+    lower === 'біцепс' ||
+    lower === 'трицепс'
+  ) {
+    return 'Arms';
+  }
+  if (
+    lower === 'legs' ||
+    lower === 'quads' ||
+    lower === 'hamstrings' ||
+    lower === 'glutes' ||
+    lower === 'calves' ||
+    lower === 'ноги' ||
+    lower === 'квадрицепси' ||
+    lower === 'біцепс стегна' ||
+    lower === 'сідниці' ||
+    lower === 'литки'
+  ) {
+    return 'Legs';
+  }
+  if (lower === 'core' || lower === 'abs' || lower === 'кор' || lower === 'прес') return 'Core';
+  return muscleGroup || 'Other';
+}
+
 function startOfDay(value: Date) {
   const date = new Date(value);
   date.setHours(0, 0, 0, 0);
@@ -106,8 +140,9 @@ function calculateMuscleVolumes(workouts: CompletedWorkout[]) {
   const volumes = new Map<string, number>();
   for (const workout of workouts) {
     for (const exercise of workout.exercises) {
+      const category = normalizeMuscleCategory(exercise.muscleGroup);
       const volume = exercise.sets.reduce((total, set) => total + set.volume, 0);
-      volumes.set(exercise.muscleGroup, (volumes.get(exercise.muscleGroup) ?? 0) + volume);
+      volumes.set(category, (volumes.get(category) ?? 0) + volume);
     }
   }
   return volumes;
@@ -131,15 +166,17 @@ export function calculateExerciseProgress(
   period: ProgressPeriod,
   now = new Date()
 ): StrengthProgress {
-  const targetNameLower = targetExercise.name.trim().toLowerCase();
+  const targetNameLower = (targetExercise.name || '').trim().toLowerCase();
 
-  // Dual matching: match by exerciseId OR case-insensitive name
+  // Match strictly by normalized exerciseName when available; fall back to exerciseId only if name is missing
   const matchingWorkouts = filterWorkoutsByPeriod(history, period, now)
     .map((workout) => {
       const exercise = workout.exercises.find((ex) => {
-        const matchesId = Boolean(targetExercise.id && ex.exerciseId === targetExercise.id);
-        const matchesName = ex.exerciseName.trim().toLowerCase() === targetNameLower;
-        return matchesId || matchesName;
+        const exNameLower = (ex.exerciseName || '').trim().toLowerCase();
+        if (exNameLower && targetNameLower) {
+          return exNameLower === targetNameLower;
+        }
+        return Boolean(targetExercise.id && ex.exerciseId === targetExercise.id);
       });
       return exercise && exercise.sets.length > 0 ? { workout, exercise } : null;
     })
@@ -221,7 +258,33 @@ export function getAvailableExercisesForProgress(
   const seenNames = new Set<string>();
   const seenIds = new Set<string>();
 
-  // 1. Add exercises from the active UserProgram (highest priority)
+  // 1. Add exercises with logged history first so users immediately see chart data on the default selection
+  const sortedHistory = [...history].sort(
+    (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+  );
+
+  for (const workout of sortedHistory) {
+    if (!Array.isArray(workout.exercises)) continue;
+    for (const exercise of workout.exercises) {
+      if (!exercise.sets || exercise.sets.length === 0) continue;
+      const trimmedName = exercise.exerciseName.trim();
+      const key = trimmedName.toLowerCase();
+      const id = exercise.exerciseId;
+
+      if (!seenNames.has(key)) {
+        seenNames.add(key);
+        if (id) seenIds.add(id);
+        result.push({
+          id: id || `history-${key}`,
+          name: trimmedName,
+          source: 'history',
+          muscleGroup: exercise.muscleGroup,
+        });
+      }
+    }
+  }
+
+  // 2. Add remaining exercises from the active UserProgram
   if (program && Array.isArray(program.workouts)) {
     for (const workout of program.workouts) {
       if (!Array.isArray(workout.exercises)) continue;
@@ -238,31 +301,6 @@ export function getAvailableExercisesForProgress(
             muscleGroup: exercise.muscleGroup,
           });
         }
-      }
-    }
-  }
-
-  // 2. Add historical exercises not present in the active program
-  const sortedHistory = [...history].sort(
-    (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
-  );
-
-  for (const workout of sortedHistory) {
-    if (!Array.isArray(workout.exercises)) continue;
-    for (const exercise of workout.exercises) {
-      const trimmedName = exercise.exerciseName.trim();
-      const key = trimmedName.toLowerCase();
-      const id = exercise.exerciseId;
-
-      if (!seenNames.has(key) && (!id || !seenIds.has(id))) {
-        seenNames.add(key);
-        if (id) seenIds.add(id);
-        result.push({
-          id: id || `history-${key}`,
-          name: trimmedName,
-          source: 'history',
-          muscleGroup: exercise.muscleGroup,
-        });
       }
     }
   }

@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useEffect } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
@@ -25,6 +25,12 @@ export default function History() {
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadHistory();
+    }, [loadHistory])
+  );
 
   const groupLabel = (value: string) => {
     const date = new Date(value);
@@ -122,8 +128,44 @@ export default function History() {
               >
                 <Card style={styles.workout}>
                   <View style={styles.workoutTop}>
-                    <View>
-                      <Text style={styles.workoutName}>{tw(workout.workoutName)}</Text>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <Text style={styles.workoutName}>{tw(workout.workoutName)}</Text>
+                        {workout.isPartial && (
+                          <View
+                            style={{
+                              backgroundColor: 'rgba(245, 158, 11, 0.14)',
+                              borderWidth: 1,
+                              borderColor: 'rgba(245, 158, 11, 0.35)',
+                              borderRadius: 6,
+                              paddingHorizontal: 6,
+                              paddingVertical: 2,
+                            }}
+                          >
+                            <Text style={{ color: '#F59E0B', fontSize: 10, fontWeight: '800' }}>
+                              {language === 'uk'
+                                ? `Частково (${workout.totalSets}/${workout.plannedSets || workout.totalSets})`
+                                : `Partial (${workout.totalSets}/${workout.plannedSets || workout.totalSets})`}
+                            </Text>
+                          </View>
+                        )}
+                        {(workout.personalRecords?.length || 0) > 0 && (
+                          <View
+                            style={{
+                              backgroundColor: 'rgba(255, 209, 48, 0.14)',
+                              borderWidth: 1,
+                              borderColor: 'rgba(255, 209, 48, 0.35)',
+                              borderRadius: 6,
+                              paddingHorizontal: 6,
+                              paddingVertical: 2,
+                            }}
+                          >
+                            <Text style={{ color: '#FFD130', fontSize: 10, fontWeight: '800' }}>
+                              🏆 {workout.personalRecords?.length} PR
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.date}>
                         {new Date(workout.completedAt).toLocaleDateString(language === 'uk' ? 'uk-UA' : 'en-US')}
                       </Text>
@@ -135,7 +177,10 @@ export default function History() {
                       {Math.max(1, Math.round(workout.durationSeconds / 60))} {t('min')}
                     </Text>
                     <Text style={styles.detail}>
-                      {workout.totalSets} {t('sets').toLowerCase()}
+                      {workout.isPartial && workout.plannedSets
+                        ? `${workout.totalSets}/${workout.plannedSets}`
+                        : workout.totalSets}{' '}
+                      {t('sets').toLowerCase()}
                     </Text>
                     <Text style={styles.detail}>{formatVolume(workout.totalVolume)}</Text>
                   </View>

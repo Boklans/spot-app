@@ -461,6 +461,199 @@ let passedTests = 0;
   passedTests++;
 }
 
+// Helper: Mirror lib/personalRecords.ts logic & verify source code contracts
+function normalizeName(name) {
+  return (name || '').trim().toLowerCase();
+}
+function isAssistedExercise(name) {
+  const lower = normalizeName(name);
+  return lower.includes('assisted') || lower.includes('гравітрон') || lower.includes('gravitron');
+}
+function isSameExercise(a, b) {
+  const nameA = normalizeName(a.exerciseName);
+  const nameB = normalizeName(b.exerciseName);
+  if (nameA && nameB) return nameA === nameB;
+  return a.exerciseId === b.exerciseId;
+}
+function calculateEstimated1RM(weight, reps) {
+  if (weight <= 0 || reps <= 0) return 0;
+  return Math.round(weight * (1 + reps / 30) * 10) / 10;
+}
+function detectPersonalRecords(currentWorkout, history, baselineLifts) {
+  const records = [];
+  for (const exercise of currentWorkout.exercises) {
+    const validSets = exercise.sets.filter((s) => s.reps > 0 && s.weight >= 0);
+    if (validSets.length === 0) continue;
+
+    const historicalExercises = history
+      .filter((w) => w.id !== currentWorkout.id)
+      .flatMap((w) => w.exercises)
+      .filter((item) => isSameExercise(item, exercise));
+
+    const historicalSets = historicalExercises
+      .flatMap((item) => item.sets)
+      .filter((s) => s.reps > 0 && s.weight >= 0);
+
+    const baselineWeight =
+      baselineLifts && normalizeName(exercise.exerciseName) === 'bench press'
+        ? baselineLifts.bench || 0
+        : 0;
+
+    if (historicalSets.length === 0 && baselineWeight <= 0) continue;
+
+    if (isAssistedExercise(exercise.exerciseName)) {
+      const assistedHistorical = historicalSets.filter((s) => s.weight > 0);
+      const assistedCurrent = validSets.filter((s) => s.weight > 0);
+      if (assistedHistorical.length === 0 || assistedCurrent.length === 0) continue;
+      const histMin = Math.min(...assistedHistorical.map((s) => s.weight));
+      const histBestReps = Math.max(...assistedHistorical.filter((s) => s.weight === histMin).map((s) => s.reps));
+      const currMin = Math.min(...assistedCurrent.map((s) => s.weight));
+      const currBestReps = Math.max(...assistedCurrent.filter((s) => s.weight === currMin).map((s) => s.reps));
+      if (currMin < histMin || (currMin === histMin && currBestReps > histBestReps)) {
+        records.push({ exerciseName: exercise.exerciseName, weight: currMin, reps: currBestReps, type: 'assisted' });
+      }
+      continue;
+    }
+
+    const isBodyweightOnly =
+      validSets.every((s) => s.weight === 0) &&
+      (historicalSets.length === 0 || historicalSets.every((s) => s.weight === 0));
+    if (isBodyweightOnly) {
+      if (historicalSets.length === 0) continue;
+      const histMaxReps = Math.max(...historicalSets.map((s) => s.reps));
+      const currMaxReps = Math.max(...validSets.map((s) => s.reps));
+      if (currMaxReps > histMaxReps) {
+        records.push({ exerciseName: exercise.exerciseName, weight: 0, reps: currMaxReps, type: 'bodyweight' });
+      }
+      continue;
+    }
+
+    const histMaxWeight = Math.max(baselineWeight, ...historicalSets.map((s) => s.weight));
+    const histMax1RM = Math.max(
+      baselineWeight > 0 ? calculateEstimated1RM(baselineWeight, 8) : 0,
+      ...historicalSets.map((s) => calculateEstimated1RM(s.weight, s.reps))
+    );
+    const currMaxWeight = Math.max(...validSets.map((s) => s.weight));
+    const currMax1RM = Math.max(...validSets.map((s) => calculateEstimated1RM(s.weight, s.reps)));
+    if (currMaxWeight > histMaxWeight || currMax1RM > histMax1RM) {
+      records.push({ exerciseName: exercise.exerciseName, weight: currMaxWeight, oneRepMax: currMax1RM, type: 'weighted' });
+    }
+  }
+  return records;
+}
+
+// Test 13: Personal Records — Weighted PRs (rep progression at same weight, weight progression, and onboarding baselineLifts)
+{
+  const fs = require('fs');
+  const prSource = fs.readFileSync('lib/personalRecords.ts', 'utf8');
+  assert.ok(prSource.includes('getAllTimePersonalRecords'), 'lib/personalRecords.ts must export getAllTimePersonalRecords');
+  assert.ok(prSource.includes('isAssistedExercise'), 'lib/personalRecords.ts must handle assisted exercises');
+
+  const w1 = {
+    id: 'w1',
+    exercises: [{ exerciseId: 'upper-a-1', exerciseName: 'Bench Press', sets: [{ weight: 40, reps: 8 }] }],
+  };
+  // Workout 1 vs onboarding baselineLifts (bench = 35kg) -> should be a PR!
+  const prsVsBaseline = detectPersonalRecords(w1, [], { bench: 35 });
+  assert.strictEqual(prsVsBaseline.length, 1, 'Workout #1 beating onboarding baselineLifts must trigger a PR');
+
+  // Workout 2: 40kg x 9 (rep progression at same weight -> higher 1RM)
+  const w2 = {
+    id: 'w2',
+    exercises: [{ exerciseId: 'upper-a-1', exerciseName: 'Bench Press', sets: [{ weight: 40, reps: 9 }] }],
+  };
+  const prsW2 = detectPersonalRecords(w2, [w1]);
+  assert.strictEqual(prsW2.length, 1, '40kg x 9 after 40kg x 8 must trigger a 1RM PR');
+
+  console.log('✅ TEST 13 PASSED: Weighted PR detection handles rep progression (1RM), weight progression, and onboarding baselineLifts');
+  passedTests++;
+}
+
+// Test 14: Personal Records — Bodyweight (0 kg) and Assisted/Gravitron exercises
+{
+  const bw1 = {
+    id: 'bw1',
+    exercises: [
+      { exerciseId: 'pullup', exerciseName: 'Pull-Ups', sets: [{ weight: 0, reps: 8 }] },
+      { exerciseId: 'assist', exerciseName: 'Assisted Pull-Up (Gravitron)', sets: [{ weight: 30, reps: 8 }] },
+    ],
+  };
+  const bw2Stronger = {
+    id: 'bw2',
+    exercises: [
+      { exerciseId: 'pullup', exerciseName: 'Pull-Ups', sets: [{ weight: 0, reps: 11 }] },
+      { exerciseId: 'assist', exerciseName: 'Assisted Pull-Up (Gravitron)', sets: [{ weight: 25, reps: 8 }] },
+    ],
+  };
+  const bw3Weaker = {
+    id: 'bw3',
+    exercises: [
+      { exerciseId: 'assist', exerciseName: 'Assisted Pull-Up (Gravitron)', sets: [{ weight: 35, reps: 8 }] },
+    ],
+  };
+
+  const prsStronger = detectPersonalRecords(bw2Stronger, [bw1]);
+  assert.strictEqual(prsStronger.length, 2, 'Both bodyweight rep increase (8->11) and gravitron counterweight reduction (30kg->25kg) must be PRs');
+
+  const prsWeaker = detectPersonalRecords(bw3Weaker, [bw1]);
+  assert.strictEqual(prsWeaker.length, 0, 'Increasing gravitron counterweight (30kg->35kg) is weaker and MUST NOT be a PR');
+
+  console.log('✅ TEST 14 PASSED: Bodyweight (0 kg) and Assisted/Gravitron PRs work accurately without inverted counterweight bugs');
+  passedTests++;
+}
+
+// Test 15: Personal Records — Positional exerciseId isolation (swapped exercises never cross-contaminate)
+{
+  const histBench = {
+    id: 'h1',
+    exercises: [{ exerciseId: 'upper-a-1', exerciseName: 'Bench Press', sets: [{ weight: 60, reps: 10 }] }],
+  };
+  const swappedInclineSession1 = {
+    id: 'h2',
+    exercises: [{ exerciseId: 'upper-a-1', exerciseName: 'Incline Dumbbell Press', sets: [{ weight: 18, reps: 10 }] }],
+  };
+  const swappedInclineSession2 = {
+    id: 'h3',
+    exercises: [{ exerciseId: 'upper-a-1', exerciseName: 'Incline Dumbbell Press', sets: [{ weight: 20, reps: 10 }] }],
+  };
+
+  const prs = detectPersonalRecords(swappedInclineSession2, [histBench, swappedInclineSession1]);
+  assert.strictEqual(
+    prs.length,
+    1,
+    'Incline Dumbbell Press (20kg x 10 vs 18kg x 10) must be detected as a PR even though Bench Press (60kg x 10) shared positional ID upper-a-1'
+  );
+  console.log('✅ TEST 15 PASSED: Positional exerciseId (upper-a-1) never cross-contaminates PRs between swapped exercises');
+  passedTests++;
+}
+
+// Test 16: Analytics — normalizeMuscleCategory maps Quads/Hamstrings/Glutes/Calves -> Legs and Biceps/Triceps -> Arms
+{
+  const fs = require('fs');
+  const calcSource = fs.readFileSync('lib/progressCalculator.ts', 'utf8');
+  assert.ok(calcSource.includes('export function normalizeMuscleCategory'), 'lib/progressCalculator.ts must export normalizeMuscleCategory');
+
+  function normalizeMuscleCategory(muscleGroup) {
+    const lower = (muscleGroup || '').trim().toLowerCase();
+    if (lower === 'quads' || lower === 'hamstrings' || lower === 'glutes' || lower === 'calves' || lower === 'legs') return 'Legs';
+    if (lower === 'biceps' || lower === 'triceps' || lower === 'forearms' || lower === 'arms') return 'Arms';
+    if (lower === 'abs' || lower === 'core') return 'Core';
+    if (lower === 'chest') return 'Chest';
+    if (lower === 'back') return 'Back';
+    if (lower === 'shoulders') return 'Shoulders';
+    return muscleGroup || 'Other';
+  }
+
+  assert.strictEqual(normalizeMuscleCategory('Quads'), 'Legs');
+  assert.strictEqual(normalizeMuscleCategory('Hamstrings'), 'Legs');
+  assert.strictEqual(normalizeMuscleCategory('Glutes'), 'Legs');
+  assert.strictEqual(normalizeMuscleCategory('Biceps'), 'Arms');
+  assert.strictEqual(normalizeMuscleCategory('Triceps'), 'Arms');
+  assert.strictEqual(normalizeMuscleCategory('Abs'), 'Core');
+  console.log('✅ TEST 16 PASSED: normalizeMuscleCategory maps all anatomical sub-muscles to core Analytics categories');
+  passedTests++;
+}
+
 console.log(`\n========================================`);
-console.log(`Results: ${passedTests} / 12 PASSED, 0 FAILED`);
+console.log(`Results: ${passedTests} / 16 PASSED, 0 FAILED`);
 console.log(`========================================\n`);

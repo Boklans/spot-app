@@ -49,8 +49,7 @@ export default function Program() {
 
   useFocusEffect(
     useCallback(() => {
-      const timer = setTimeout(() => {}, 0);
-      return () => clearTimeout(timer);
+      syncProgramAndOnboarding();
     }, [syncProgramAndOnboarding])
   );
 

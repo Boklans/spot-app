@@ -11,7 +11,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { NeonLineChart } from '@/components/progress/NeonLineChart';
 import {
   RealStrengthGraph,
   type StrengthSessionPoint,
@@ -22,10 +21,12 @@ import { colors } from '@/constants/colors';
 import { analyzeBodyAndStrength } from '@/lib/bodyCompositionAI';
 import { hapticLight } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { getAllTimePersonalRecords } from '@/lib/personalRecords';
 import {
   calculateMuscleProgress,
   calculateProgressSummary,
   getAvailableExercisesForProgress,
+  normalizeMuscleCategory,
   type ProgressPeriod,
 } from '@/lib/progressCalculator';
 import { convertVolumeToActiveUnit, formatWeight, useWeightUnit } from '@/lib/weightUtils';
@@ -36,11 +37,11 @@ import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 
 type ActiveViewTab = 'overview' | 'muscles' | 'weight' | 'prs';
 
-const CORE_MUSCLES = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs'];
+const CORE_MUSCLES = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core'];
 
 export default function Progress() {
   const { t, tm, te, language } = useI18n();
-  const { unit, unitLabel, format, formatWithUnit, formatVolume, fromKg } = useWeightUnit();
+  const { unit, unitLabel, formatVolume, fromKg } = useWeightUnit();
   const profile = useUserProfileStore((state) => state.profile);
   const history = useWorkoutHistoryStore((state) => state.workouts);
   const loadHistory = useWorkoutHistoryStore((state) => state.loadHistory);
@@ -63,11 +64,11 @@ export default function Progress() {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [activeTab]);
 
-  // Sync on tab focus after transition finishes smoothly
+  // Reload history and bodyweight entries whenever Analytics tab gains focus
   useFocusEffect(
     useCallback(() => {
-      const timer = setTimeout(() => {}, 0);
-      return () => clearTimeout(timer);
+      loadHistory();
+      loadBodyWeightHistory();
     }, [loadHistory, loadBodyWeightHistory])
   );
 
@@ -82,78 +83,63 @@ export default function Progress() {
     ? formatVolume(realSummary.volume)
     : formatVolume(0);
 
-  // Baseline PR records from synchronized global userProfileStore
-  const baselinePrs = React.useMemo(() => {
-    const lifts = profile.baselineLifts;
-    if (!lifts) return [];
-    const list: Array<{ id: string; name: string; value: string; date: string; icon: 'dumbbell' }> = [];
-    if (typeof lifts.benchPressKg === 'number' && lifts.benchPressKg > 0) {
-      list.push({
-        id: 'baseline-bench',
-        name: 'Bench Press',
-        value: `${formatWeight(fromKg(lifts.benchPressKg))} ${unitLabel}`,
-        date: language === 'uk' ? 'Базовий рекорд' : 'Baseline Record',
-        icon: 'dumbbell',
-      });
-    }
-    if (typeof lifts.squatKg === 'number' && lifts.squatKg > 0) {
-      list.push({
-        id: 'baseline-squat',
-        name: 'Barbell Squat',
-        value: `${formatWeight(fromKg(lifts.squatKg))} ${unitLabel}`,
-        date: language === 'uk' ? 'Базовий рекорд' : 'Baseline Record',
-        icon: 'dumbbell',
-      });
-    }
-    if (typeof lifts.deadliftKg === 'number' && lifts.deadliftKg > 0) {
-      list.push({
-        id: 'baseline-deadlift',
-        name: 'Barbell Deadlift',
-        value: `${formatWeight(fromKg(lifts.deadliftKg))} ${unitLabel}`,
-        date: language === 'uk' ? 'Базовий рекорд' : 'Baseline Record',
-        icon: 'dumbbell',
-      });
-    }
-    if (typeof lifts.overheadPressKg === 'number' && lifts.overheadPressKg > 0) {
-      list.push({
-        id: 'baseline-ohp',
-        name: 'Overhead Press',
-        value: `${formatWeight(fromKg(lifts.overheadPressKg))} ${unitLabel}`,
-        date: language === 'uk' ? 'Базовий рекорд' : 'Baseline Record',
-        icon: 'dumbbell',
-      });
-    }
-    return list;
-  }, [profile.baselineLifts, fromKg, unitLabel, language]);
+  // Deduplicated all-time Personal Records per exercise across workout history + baseline lifts
+  const allTimeRecords = React.useMemo(
+    () => getAllTimePersonalRecords(history, profile.baselineLifts),
+    [history, profile.baselineLifts]
+  );
 
-  // Combined PR records: user's baseline strength lifts + subsequent workout PRs
   const allHistoryPrs = React.useMemo(() => {
-    const fromHistory = history
-      .flatMap((w) =>
-        (w.personalRecords || []).map((pr) => ({
-          id: pr.id,
-          name: pr.exerciseName,
-          value: pr.label,
-          date: new Date(w.completedAt).toLocaleDateString(language === 'uk' ? 'uk-UA' : 'en-US', {
-            month: 'short',
-            day: 'numeric',
-          }),
-          icon: 'dumbbell' as const,
-        }))
-      );
+    return allTimeRecords.map((rec) => {
+      const dispWeight = formatWeight(fromKg(rec.weightKg));
+      const disp1RM = formatWeight(fromKg(rec.estimated1RMKg));
+      const repsUnit = language === 'uk' ? 'повт' : 'reps';
 
-    const combined = [...fromHistory];
-    for (const bPr of baselinePrs) {
-      if (!combined.some((h) => h.name.toLowerCase() === bPr.name.toLowerCase())) {
-        combined.push(bPr);
+      let valueLabel = '';
+      let subDetail = '';
+      if (rec.isBodyweight) {
+        valueLabel = `${rec.reps} ${repsUnit}`;
+        subDetail = language === 'uk' ? 'Власна вага' : 'Bodyweight';
+      } else if (rec.isAssisted) {
+        valueLabel = `-${dispWeight} ${unitLabel} × ${rec.reps}`;
+        subDetail = language === 'uk' ? 'Мінімальна противага' : 'Min assistance';
+      } else if (rec.reps > 1) {
+        valueLabel = `${dispWeight} ${unitLabel} × ${rec.reps}`;
+        subDetail = `1RM: ${disp1RM} ${unitLabel}`;
+      } else {
+        valueLabel = `${dispWeight} ${unitLabel}`;
+        subDetail = language === 'uk' ? 'Базовий максимум' : 'Baseline max';
       }
-    }
-    return combined.slice(0, 10);
-  }, [history, baselinePrs, language]);
 
-  const prsCount = allHistoryPrs.length > 0 ? allHistoryPrs.length : (hasHistory ? realSummary.personalRecords : 0);
+      const dateLabel = rec.achievedAt
+        ? new Date(rec.achievedAt).toLocaleDateString(
+            language === 'uk' ? 'uk-UA' : 'en-US',
+            { month: 'short', day: 'numeric' }
+          )
+        : language === 'uk'
+          ? 'Базовий показник'
+          : 'Baseline';
 
-  // Real muscle group calculation
+      return {
+        id: rec.id,
+        exerciseId: rec.exerciseId,
+        name: rec.exerciseName,
+        value: valueLabel,
+        subDetail,
+        date: dateLabel,
+        isNewPr: rec.isNewPr,
+        icon: (rec.isNewPr ? 'trophy' : 'dumbbell') as 'trophy' | 'dumbbell',
+      };
+    });
+  }, [allTimeRecords, fromKg, unitLabel, language]);
+
+  const prsCount = hasHistory
+    ? realSummary.personalRecords > 0
+      ? realSummary.personalRecords
+      : allHistoryPrs.length
+    : allHistoryPrs.length;
+
+  // Real muscle group calculation (normalized across Quads/Hamstrings/Glutes -> Legs, Biceps/Triceps -> Arms)
   const realMuscles = calculateMuscleProgress(history, period);
   const displayMuscles = CORE_MUSCLES.map((muscleName) => {
     const found = realMuscles.find(
@@ -162,22 +148,29 @@ export default function Progress() {
     return {
       name: muscleName,
       volume: found?.volume ?? 0,
-      changePercent: found?.changePercent ?? (hasHistory ? 0 : 0),
+      changePercent: found?.changePercent ?? 0,
     };
   });
 
-  // Calculate detailed stats for selected muscle
-  const selectedMuscleWorkouts = history.filter((w) =>
-    w.exercises.some((e) =>
-      e.muscleGroup?.toLowerCase().includes(selectedMuscle.toLowerCase())
+  // Calculate detailed stats for selected muscle using normalized muscle categories
+  const periodFilteredWorkouts = React.useMemo(() => {
+    if (period === 'ALL') return history;
+    const days = period === '7D' ? 7 : 30;
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    return history.filter((w) => new Date(w.completedAt || w.startedAt).getTime() >= cutoff);
+  }, [history, period]);
+
+  const selectedMuscleWorkouts = periodFilteredWorkouts.filter((w) =>
+    w.exercises.some(
+      (e) => normalizeMuscleCategory(e.muscleGroup).toLowerCase() === selectedMuscle.toLowerCase()
     )
   );
   const selectedMuscleSets = selectedMuscleWorkouts.reduce(
     (total, w) =>
       total +
       w.exercises
-        .filter((e) =>
-          e.muscleGroup?.toLowerCase().includes(selectedMuscle.toLowerCase())
+        .filter(
+          (e) => normalizeMuscleCategory(e.muscleGroup).toLowerCase() === selectedMuscle.toLowerCase()
         )
         .reduce((sum, e) => sum + e.sets.length, 0),
     0
@@ -186,8 +179,8 @@ export default function Progress() {
     (total, w) =>
       total +
       w.exercises
-        .filter((e) =>
-          e.muscleGroup?.toLowerCase().includes(selectedMuscle.toLowerCase())
+        .filter(
+          (e) => normalizeMuscleCategory(e.muscleGroup).toLowerCase() === selectedMuscle.toLowerCase()
         )
         .reduce((sum, e) => sum + e.sets.reduce((sSum, s) => sSum + s.volume, 0), 0),
     0
@@ -208,31 +201,52 @@ export default function Progress() {
     };
 
   const exerciseName = selectedExercise.name;
+  const targetNameNormalized = exerciseName.toLowerCase().trim();
 
-  // Real Strength Chart points for the selected exercise
-  const exerciseWorkouts = history
-    .filter((w) =>
-      w.exercises.some((e) =>
-        e.exerciseName.toLowerCase().trim() === exerciseName.toLowerCase().trim() ||
-        e.exerciseName.toLowerCase().includes(exerciseName.toLowerCase()) ||
-        (selectedExercise.id && e.exerciseId === selectedExercise.id)
-      )
-    )
-    .sort(
-      (a, b) =>
-        new Date(a.completedAt || a.startedAt).getTime() -
-        new Date(b.completedAt || b.startedAt).getTime()
-    );
+  // Filter workouts by selected timeRange ('1M' | '3M' | '6M' | 'ALL') and exact exerciseName match
+  const exerciseWorkouts = React.useMemo(() => {
+    const rangeDaysMap: Record<'1M' | '3M' | '6M' | 'ALL', number | null> = {
+      '1M': 30,
+      '3M': 90,
+      '6M': 180,
+      ALL: null,
+    };
+    const daysLimit = rangeDaysMap[timeRange];
+    const cutoffMs = daysLimit ? Date.now() - daysLimit * 24 * 60 * 60 * 1000 : null;
+
+    return history
+      .filter((w) => {
+        if (cutoffMs) {
+          const tMs = new Date(w.completedAt || w.startedAt).getTime();
+          if (tMs < cutoffMs) return false;
+        }
+        return w.exercises.some((e) => {
+          const eName = (e.exerciseName || '').toLowerCase().trim();
+          if (eName && targetNameNormalized) {
+            return eName === targetNameNormalized;
+          }
+          return Boolean(selectedExercise.id && e.exerciseId === selectedExercise.id);
+        });
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.completedAt || a.startedAt).getTime() -
+          new Date(b.completedAt || b.startedAt).getTime()
+      );
+  }, [history, timeRange, targetNameNormalized, selectedExercise.id]);
 
   const rawSessionPoints: StrengthSessionPoint[] = exerciseWorkouts
     .map((w, index) => {
-      const ex = w.exercises.find((e) =>
-        e.exerciseName.toLowerCase().trim() === exerciseName.toLowerCase().trim() ||
-        e.exerciseName.toLowerCase().includes(exerciseName.toLowerCase()) ||
-        (selectedExercise.id && e.exerciseId === selectedExercise.id)
-      );
+      const ex = w.exercises.find((e) => {
+        const eName = (e.exerciseName || '').toLowerCase().trim();
+        if (eName && targetNameNormalized) {
+          return eName === targetNameNormalized;
+        }
+        return Boolean(selectedExercise.id && e.exerciseId === selectedExercise.id);
+      });
 
       const sets = ex?.sets || [];
+      const isBw = sets.length > 0 && sets.every((s) => (s.weight || 0) === 0);
       let bestWeight = 0;
       let bestReps = 0;
       let totalVol = 0;
@@ -241,7 +255,9 @@ export default function Progress() {
         const sw = s.weight || 0;
         const sr = s.reps || 0;
         totalVol += sw * sr;
-        if (sw > bestWeight || (sw === bestWeight && sr > bestReps)) {
+        if (isBw) {
+          if (sr > bestReps) bestReps = sr;
+        } else if (sw > bestWeight || (sw === bestWeight && sr > bestReps)) {
           bestWeight = sw;
           bestReps = sr;
         }
@@ -250,34 +266,42 @@ export default function Progress() {
       const d = new Date(w.completedAt || w.startedAt);
       const isToday = new Date().toDateString() === d.toDateString();
       const formattedDate = isToday
-        ? 'Today'
+        ? language === 'uk'
+          ? 'Сьогодні'
+          : 'Today'
         : !isNaN(d.getTime())
-        ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        : `W${index + 1}`;
+          ? d.toLocaleDateString(language === 'uk' ? 'uk-UA' : 'en-US', {
+              month: 'short',
+              day: 'numeric',
+            })
+          : `W${index + 1}`;
 
-      const est1RM = Math.round(bestWeight * (1 + bestReps / 30));
+      const est1RM = isBw ? bestReps : Math.round(bestWeight * (1 + bestReps / 30));
 
       return {
         date: w.completedAt || w.startedAt,
         formattedDate,
-        weight: fromKg(bestWeight),
+        weight: isBw ? bestReps : fromKg(bestWeight),
         reps: bestReps,
         volume: convertVolumeToActiveUnit(totalVol, unit),
-        est1RM: fromKg(est1RM),
+        est1RM: isBw ? bestReps : fromKg(est1RM),
       };
     })
-    .filter((p) => p.weight > 0);
+    .filter((p) => p.weight > 0 || p.reps > 0);
 
   // If no workouts recorded yet, integrate baseline calibration from global state
   const sessionPoints: StrengthSessionPoint[] = React.useMemo(() => {
     if (rawSessionPoints.length > 0) return rawSessionPoints;
 
     let baselineKg: number | undefined;
-    const nameLower = exerciseName.toLowerCase();
-    if (nameLower.includes('bench')) baselineKg = profile.baselineLifts?.benchPressKg;
-    else if (nameLower.includes('squat')) baselineKg = profile.baselineLifts?.squatKg;
-    else if (nameLower.includes('deadlift')) baselineKg = profile.baselineLifts?.deadliftKg;
-    else if (nameLower.includes('overhead') || nameLower.includes('shoulder press')) {
+    const nameLower = exerciseName.toLowerCase().trim();
+    if (nameLower === 'bench press' || nameLower === 'barbell bench press') {
+      baselineKg = profile.baselineLifts?.benchPressKg;
+    } else if (nameLower === 'barbell squat' || nameLower === 'squat') {
+      baselineKg = profile.baselineLifts?.squatKg;
+    } else if (nameLower === 'deadlift' || nameLower === 'barbell deadlift') {
+      baselineKg = profile.baselineLifts?.deadliftKg;
+    } else if (nameLower === 'overhead press' || nameLower === 'barbell overhead press') {
       baselineKg = profile.baselineLifts?.overheadPressKg;
     }
 
@@ -301,11 +325,23 @@ export default function Progress() {
   const latestSession =
     sessionPoints.length > 0 ? sessionPoints[sessionPoints.length - 1] : null;
 
-  const latestExerciseWeight =
-    latestSession ? `${formatWeight(latestSession.weight)} ${unitLabel}` : `-- ${unitLabel}`;
+  const isSelectedExerciseBw = React.useMemo(() => {
+    const rec = allTimeRecords.find(
+      (r) => r.exerciseName.toLowerCase().trim() === targetNameNormalized
+    );
+    return Boolean(rec?.isBodyweight);
+  }, [allTimeRecords, targetNameNormalized]);
+
+  const latestExerciseWeight = latestSession
+    ? isSelectedExerciseBw
+      ? `${latestSession.reps} ${language === 'uk' ? 'повт' : 'reps'}`
+      : `${formatWeight(latestSession.weight)} ${unitLabel}`
+    : `-- ${unitLabel}`;
 
   const bestExerciseSetText = latestSession
-    ? `Best: ${formatWeight(latestSession.weight)} ${unitLabel} × ${latestSession.reps}`
+    ? isSelectedExerciseBw
+      ? `${language === 'uk' ? 'Макс. повторень' : 'Best reps'}: ${latestSession.reps}`
+      : `${language === 'uk' ? 'Найкращий сет' : 'Best'}: ${formatWeight(latestSession.weight)} ${unitLabel} × ${latestSession.reps}`
     : '';
 
   const periodLabels: Record<ProgressPeriod, string> = {
@@ -333,7 +369,7 @@ export default function Progress() {
     if (bodyWeightEntries && bodyWeightEntries.length > 0) {
       return bodyWeightEntries;
     }
-    const w = profile.weightKg || 78;
+    const w = profile.weightKg || 70;
     return [
       {
         id: 'baseline-today',
@@ -391,7 +427,7 @@ export default function Progress() {
         </View>
       )}
 
-      {/* 2. Top Segment Switcher (Overview / Muscles / Weight / PRs) */}
+      {/* 2. Top Segment Switcher (Overview / Weight / Muscles / PRs) */}
       <View style={styles.segmentBar}>
         <Pressable
           accessibilityRole="button"
@@ -472,7 +508,7 @@ export default function Progress() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* ========================================================================= */}
-        {/* VIEW 1: SCREEN 13 (OVERVIEW)                                              */}
+        {/* VIEW 1: OVERVIEW                                                          */}
         {/* ========================================================================= */}
         {activeTab === 'overview' && (
           <View style={styles.tabContainer}>
@@ -498,296 +534,319 @@ export default function Progress() {
                     </Text>
                   </View>
 
-                  <View style={styles.statCard}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      hapticLight();
+                      setActiveTab('prs');
+                    }}
+                    style={styles.statCard}
+                  >
                     <Text style={styles.statNumber} numberOfLines={1} adjustsFontSizeToFit>
                       {prsCount}
                     </Text>
                     <Text style={styles.statLabel} numberOfLines={1}>
                       {t('prs')}
                     </Text>
-                  </View>
+                  </Pressable>
                 </View>
 
-            {/* Exercise Selector Carousel */}
-            {availableExercises.length > 0 && (
-              <View style={styles.exerciseSelectorWrap}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.exerciseSelectorScroll}
-                >
-                  {availableExercises.map((ex) => {
-                    const isSelected =
-                      selectedExercise.name.toLowerCase() === ex.name.toLowerCase() ||
-                      selectedExercise.id === ex.id;
-                    return (
+                {/* Exercise Selector Carousel */}
+                {availableExercises.length > 0 && (
+                  <View style={styles.exerciseSelectorWrap}>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.exerciseSelectorScroll}
+                    >
+                      {availableExercises.map((ex) => {
+                        const isSelected =
+                          selectedExercise.name.toLowerCase() === ex.name.toLowerCase() ||
+                          selectedExercise.id === ex.id;
+                        return (
+                          <Pressable
+                            key={`${ex.source}-${ex.id || ex.name}`}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Select ${ex.name}`}
+                            onPress={() => {
+                              hapticLight();
+                              setSelectedExerciseId(ex.id || ex.name);
+                            }}
+                            style={[
+                              styles.exercisePill,
+                              isSelected && styles.exercisePillActive,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.exercisePillText,
+                                isSelected && styles.exercisePillTextActive,
+                              ]}
+                            >
+                              {te(ex.name)}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {/* Strength Chart Card */}
+                <View style={styles.strengthCard}>
+                  <View style={styles.strengthHeader}>
+                    <View style={{ flex: 1, marginRight: 12 }}>
+                      <Text style={styles.strengthKicker}>
+                        {language === 'uk' ? 'СИЛОВИЙ ПРОГРЕС' : 'STRENGTH'}
+                      </Text>
+                      <Text numberOfLines={1} style={styles.strengthExerciseName}>
+                        {te(exerciseName)}
+                      </Text>
+                      {bestExerciseSetText ? (
+                        <Text style={styles.strengthSubBest}>{bestExerciseSetText}</Text>
+                      ) : null}
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={styles.strengthBigWeight}>{latestExerciseWeight}</Text>
+                      {latestSession && !isSelectedExerciseBw ? (
+                        <Text style={styles.strengthEst1RM}>
+                          1RM: {formatWeight(latestSession.est1RM)} {unitLabel}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+
+                  {/* Real Interactive Strength Graph or Empty State */}
+                  {sessionPoints.length > 0 ? (
+                    <>
+                      <View style={styles.chartWrap}>
+                        <RealStrengthGraph
+                          data={sessionPoints}
+                          width={chartWidth}
+                          height={165}
+                          unit={isSelectedExerciseBw ? (language === 'uk' ? 'ПОВТ' : 'REPS') : unitLabel}
+                        />
+                      </View>
+
+                      <View style={styles.chartFooter}>
+                        <Text style={styles.chartTrendPositive}>
+                          {language === 'uk' ? '↗ Динаміка по сесіях' : '↗ Progression tracked'}
+                        </Text>
+                        <Text style={styles.chartFraction}>
+                          {sessionPoints.length}{' '}
+                          {language === 'uk'
+                            ? sessionPoints.length === 1
+                              ? 'сесія'
+                              : sessionPoints.length < 5
+                                ? 'сесії'
+                                : 'сесій'
+                            : sessionPoints.length === 1
+                              ? 'session'
+                              : 'sessions'}
+                        </Text>
+                      </View>
+                    </>
+                  ) : (
+                    <View style={styles.chartEmptyWrap}>
+                      <MaterialCommunityIcons
+                        name="chart-line"
+                        size={36}
+                        color="#4B5565"
+                        style={{ marginBottom: 8 }}
+                      />
+                      <Text style={styles.chartEmptyTitle}>
+                        {language === 'uk'
+                          ? `Ще немає записів для «${te(exerciseName)}»`
+                          : `No data for ${exerciseName} yet`}
+                      </Text>
+                      <Text style={styles.chartEmptyBody}>
+                        {language === 'uk'
+                          ? `Виконайте підходи у вправі «${te(exerciseName)}», щоб побудувати графік прогресії.`
+                          : `Log sets for ${exerciseName} in your workouts to track your progressive overload curve.`}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Time Range Pills */}
+                  <View style={styles.timePillsRow}>
+                    {(['1M', '3M', '6M', 'ALL'] as const).map((rangeKey) => (
                       <Pressable
-                        key={`${ex.source}-${ex.id || ex.name}`}
                         accessibilityRole="button"
-                        accessibilityLabel={`Select ${ex.name}`}
+                        key={rangeKey}
                         onPress={() => {
                           hapticLight();
-                          setSelectedExerciseId(ex.id || ex.name);
+                          setTimeRange(rangeKey);
                         }}
-                        style={[
-                          styles.exercisePill,
-                          isSelected && styles.exercisePillActive,
-                        ]}
+                        style={[styles.timePill, timeRange === rangeKey && styles.timePillActive]}
                       >
                         <Text
                           style={[
-                            styles.exercisePillText,
-                            isSelected && styles.exercisePillTextActive,
+                            styles.timePillText,
+                            timeRange === rangeKey && styles.timePillTextActive,
                           ]}
                         >
-                          {te(ex.name)}
+                          {rangeKey}
                         </Text>
                       </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            )}
-
-            {/* Strength Chart Card (Screen 13) */}
-            <View style={styles.strengthCard}>
-              <View style={styles.strengthHeader}>
-                <View style={{ flex: 1, marginRight: 12 }}>
-                  <Text style={styles.strengthKicker}>STRENGTH</Text>
-                  <Text numberOfLines={1} style={styles.strengthExerciseName}>
-                    {te(exerciseName)}
-                  </Text>
-                  {bestExerciseSetText ? (
-                    <Text style={styles.strengthSubBest}>{bestExerciseSetText}</Text>
-                  ) : null}
+                    ))}
+                  </View>
                 </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.strengthBigWeight}>{latestExerciseWeight}</Text>
-                  {latestSession ? (
-                    <Text style={styles.strengthEst1RM}>
-                      Est. 1RM: {formatWeight(latestSession.est1RM)} {unitLabel}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
 
-              {/* Real Interactive Strength Graph or Empty State */}
-              {sessionPoints.length > 0 ? (
-                <>
-                  <View style={styles.chartWrap}>
-                    <RealStrengthGraph
-                      data={sessionPoints}
+                {/* Quick Bodyweight Trend Preview Card */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="View Bodyweight Details"
+                  onPress={() => {
+                    hapticLight();
+                    setActiveTab('weight');
+                    scrollRef.current?.scrollTo({ y: 0, animated: false });
+                  }}
+                  style={[styles.previewSectionCard, { marginBottom: 16 }]}
+                >
+                  <View style={styles.previewSectionHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons
+                        name="scale-bathroom"
+                        size={18}
+                        color={colors.primary}
+                        style={{ marginRight: 8 }}
+                      />
+                      <Text style={styles.previewSectionTitle}>
+                        {language === 'uk' ? 'Динаміка ваги тіла' : 'Bodyweight Trend'}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={styles.previewWeightVal}>
+                        {formatWeight(fromKg(bodyStats.currentWeight))} {unitLabel}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={16} color="#8E9BAE" style={{ marginLeft: 4 }} />
+                    </View>
+                  </View>
+
+                  <View style={{ marginTop: 4, pointerEvents: 'none' }}>
+                    <BodyWeightGraph
+                      entries={bodyWeightEntries}
                       width={chartWidth}
-                      height={165}
+                      height={130}
                       unit={unitLabel}
+                      fromKg={fromKg}
                     />
                   </View>
 
-                  <View style={styles.chartFooter}>
-                    <Text style={styles.chartTrendPositive}>
-                      ↗ Progression tracked
+                  <View style={styles.previewWeightFooter}>
+                    <Text style={styles.previewWeightDelta}>
+                      {bodyStats.deltaWeight > 0
+                        ? `+${formatWeight(fromKg(bodyStats.deltaWeight))}`
+                        : formatWeight(fromKg(bodyStats.deltaWeight))}{' '}
+                      {unitLabel} ({periodLabels[period]})
                     </Text>
-                    <Text style={styles.chartFraction}>
-                      {sessionPoints.length}{' '}
-                      {sessionPoints.length === 1 ? 'session' : 'sessions'}
-                    </Text>
-                  </View>
-                </>
-              ) : (
-                <View style={styles.chartEmptyWrap}>
-                  <MaterialCommunityIcons
-                    name="chart-line"
-                    size={36}
-                    color="#4B5565"
-                    style={{ marginBottom: 8 }}
-                  />
-                  <Text style={styles.chartEmptyTitle}>
-                    {language === 'uk'
-                      ? `Ще немає даних для ${te(exerciseName)}`
-                      : `No data for ${exerciseName} yet`}
-                  </Text>
-                  <Text style={styles.chartEmptyBody}>
-                    {language === 'uk'
-                      ? `Записуйте підходи для ${te(exerciseName)}, щоб відстежувати графік навантаження.`
-                      : `Log sets for ${exerciseName} in your workouts to track your progressive overload curve.`}
-                  </Text>
-                </View>
-              )}
-
-              {/* Time Range Pills */}
-              <View style={styles.timePillsRow}>
-                {(['1M', '3M', '6M', 'ALL'] as const).map((t) => (
-                  <Pressable
-                    accessibilityRole="button"
-                    key={t}
-                    onPress={() => {
-                      hapticLight();
-                      setTimeRange(t);
-                    }}
-                    style={[styles.timePill, timeRange === t && styles.timePillActive]}
-                  >
-                    <Text
-                      style={[
-                        styles.timePillText,
-                        timeRange === t && styles.timePillTextActive,
-                      ]}
-                    >
-                      {t}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-
-            {/* Quick Bodyweight Trend Preview Card */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="View Bodyweight Details"
-              onPress={() => {
-                hapticLight();
-                setActiveTab('weight');
-                scrollRef.current?.scrollTo({ y: 0, animated: false });
-              }}
-              style={[styles.previewSectionCard, { marginBottom: 16 }]}
-            >
-              <View style={styles.previewSectionHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <MaterialCommunityIcons
-                    name="scale-bathroom"
-                    size={18}
-                    color={colors.primary}
-                    style={{ marginRight: 8 }}
-                  />
-                  <Text style={styles.previewSectionTitle}>
-                    {language === 'uk' ? 'Динаміка ваги тіла' : 'Bodyweight Trend'}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={styles.previewWeightVal}>
-                    {formatWeight(fromKg(bodyStats.currentWeight))} {unitLabel}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={16} color="#8E9BAE" style={{ marginLeft: 4 }} />
-                </View>
-              </View>
-
-              <View style={{ marginTop: 4, pointerEvents: 'none' }}>
-                <BodyWeightGraph
-                  entries={bodyWeightEntries}
-                  width={chartWidth}
-                  height={130}
-                  unit={unitLabel}
-                  fromKg={fromKg}
-                />
-              </View>
-
-              <View style={styles.previewWeightFooter}>
-                <Text style={styles.previewWeightDelta}>
-                  {bodyStats.deltaWeight > 0
-                    ? `+${formatWeight(fromKg(bodyStats.deltaWeight))}`
-                    : formatWeight(fromKg(bodyStats.deltaWeight))}{' '}
-                  {unitLabel} ({periodLabels[period]})
-                </Text>
-                <Text style={styles.previewWeightLink}>
-                  {language === 'uk' ? 'Детальніше →' : 'Details →'}
-                </Text>
-              </View>
-            </Pressable>
-
-            {/* Quick Muscle Groups Preview Card */}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                hapticLight();
-                setActiveTab('muscles');
-                scrollRef.current?.scrollTo({ y: 0, animated: false });
-              }}
-              style={styles.previewSectionCard}
-            >
-              <View style={styles.previewSectionHeader}>
-                <Text style={styles.previewSectionTitle}>Muscle Progress</Text>
-                <Ionicons name="chevron-forward" size={16} color="#8E9BAE" />
-              </View>
-              <View style={styles.muscleMiniBars}>
-                {displayMuscles.slice(0, 3).map((m) => (
-                  <View key={m.name} style={styles.muscleMiniRow}>
-                    <Text style={styles.muscleMiniName}>{tm(m.name)}</Text>
-                    <Text style={styles.muscleMiniVal}>
-                      {formatVolume(m.volume)}
+                    <Text style={styles.previewWeightLink}>
+                      {language === 'uk' ? 'Детальніше →' : 'Details →'}
                     </Text>
                   </View>
-                ))}
-              </View>
-            </Pressable>
-          </>
-          ) : (
-            <View style={styles.emptyCard}>
-              <View style={styles.emptyGlowRing}>
-                <View style={styles.emptyIconBadge}>
-                  <MaterialCommunityIcons name="lightning-bolt" size={36} color={colors.primary} />
+                </Pressable>
+
+                {/* Quick Muscle Groups Preview Card */}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    hapticLight();
+                    setActiveTab('muscles');
+                    scrollRef.current?.scrollTo({ y: 0, animated: false });
+                  }}
+                  style={styles.previewSectionCard}
+                >
+                  <View style={styles.previewSectionHeader}>
+                    <Text style={styles.previewSectionTitle}>
+                      {language === 'uk' ? 'Обʼєм по групах мʼязів' : 'Muscle Progress'}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color="#8E9BAE" />
+                  </View>
+                  <View style={styles.muscleMiniBars}>
+                    {displayMuscles
+                      .slice()
+                      .sort((a, b) => b.volume - a.volume)
+                      .slice(0, 3)
+                      .map((m) => (
+                        <View key={m.name} style={styles.muscleMiniRow}>
+                          <Text style={styles.muscleMiniName}>{tm(m.name)}</Text>
+                          <Text style={styles.muscleMiniVal}>
+                            {formatVolume(m.volume)}
+                          </Text>
+                        </View>
+                      ))}
+                  </View>
+                </Pressable>
+              </>
+            ) : (
+              <View style={styles.emptyCard}>
+                <View style={styles.emptyGlowRing}>
+                  <View style={styles.emptyIconBadge}>
+                    <MaterialCommunityIcons name="lightning-bolt" size={36} color={colors.primary} />
+                  </View>
                 </View>
-              </View>
 
-              <Text style={styles.emptyTitle}>
-                {language === 'uk' ? 'ВАШ ПРОГРЕС ПОЧИНАЄТЬСЯ ТУТ' : 'YOUR PROGRESS STARTS HERE'}
-              </Text>
-
-              <Text style={styles.emptySubtitle}>
-                {language === 'uk'
-                  ? 'Завершіть своє перше тренування, щоб відстежувати зростання сили та тоннажу.'
-                  : 'Complete your first workout to start tracking your strength and volume.'}
-              </Text>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Start Workout"
-                onPress={() => {
-                  hapticLight();
-                  router.replace('/(tabs)');
-                }}
-                style={({ pressed }) => [
-                  styles.emptyCtaBtn,
-                  pressed && styles.emptyCtaBtnPressed,
-                ]}
-              >
-                <Ionicons name="play" size={18} color="#0B0D0F" style={{ marginRight: 6 }} />
-                <Text style={styles.emptyCtaBtnText}>
-                  {language === 'uk' ? 'ПОЧАТИ ТРЕНУВАННЯ' : 'START WORKOUT'}
+                <Text style={styles.emptyTitle}>
+                  {language === 'uk' ? 'ВАШ ПРОГРЕС ПОЧИНАЄТЬСЯ ТУТ' : 'YOUR PROGRESS STARTS HERE'}
                 </Text>
-              </Pressable>
 
-              <View style={styles.emptyFeatureList}>
-                <View style={styles.emptyFeatureRow}>
-                  <View style={styles.emptyFeatureDot} />
-                  <Text style={styles.emptyFeatureText}>
-                    {language === 'uk'
-                      ? 'Динаміка сили та розрахунковий 1RM'
-                      : 'Strength curves & estimated 1RM'}
+                <Text style={styles.emptySubtitle}>
+                  {language === 'uk'
+                    ? 'Завершіть своє перше тренування, щоб відстежувати зростання сили та тоннажу.'
+                    : 'Complete your first workout to start tracking your strength and volume.'}
+                </Text>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Start Workout"
+                  onPress={() => {
+                    hapticLight();
+                    router.replace('/(tabs)');
+                  }}
+                  style={({ pressed }) => [
+                    styles.emptyCtaBtn,
+                    pressed && styles.emptyCtaBtnPressed,
+                  ]}
+                >
+                  <Ionicons name="play" size={18} color="#0B0D0F" style={{ marginRight: 6 }} />
+                  <Text style={styles.emptyCtaBtnText}>
+                    {language === 'uk' ? 'ПОЧАТИ ТРЕНУВАННЯ' : 'START WORKOUT'}
                   </Text>
-                </View>
-                <View style={styles.emptyFeatureRow}>
-                  <View style={styles.emptyFeatureDot} />
-                  <Text style={styles.emptyFeatureText}>
-                    {language === 'uk'
-                      ? 'Аналітика робочого об’єму по м’язових групах'
-                      : 'Volume analytics across muscle groups'}
-                  </Text>
-                </View>
-                <View style={styles.emptyFeatureRow}>
-                  <View style={styles.emptyFeatureDot} />
-                  <Text style={styles.emptyFeatureText}>
-                    {language === 'uk'
-                      ? 'Автоматична фіксація особистих рекордів (PR)'
-                      : 'Automatic Personal Record (PR) recognition'}
-                  </Text>
+                </Pressable>
+
+                <View style={styles.emptyFeatureList}>
+                  <View style={styles.emptyFeatureRow}>
+                    <View style={styles.emptyFeatureDot} />
+                    <Text style={styles.emptyFeatureText}>
+                      {language === 'uk'
+                        ? 'Динаміка сили та розрахунковий 1RM'
+                        : 'Strength curves & estimated 1RM'}
+                    </Text>
+                  </View>
+                  <View style={styles.emptyFeatureRow}>
+                    <View style={styles.emptyFeatureDot} />
+                    <Text style={styles.emptyFeatureText}>
+                      {language === 'uk'
+                        ? 'Аналітика робочого об’єму по м’язових групах'
+                        : 'Volume analytics across muscle groups'}
+                    </Text>
+                  </View>
+                  <View style={styles.emptyFeatureRow}>
+                    <View style={styles.emptyFeatureDot} />
+                    <Text style={styles.emptyFeatureText}>
+                      {language === 'uk'
+                        ? 'Автоматична фіксація особистих рекордів (PR)'
+                        : 'Automatic Personal Record (PR) recognition'}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          )}
-        </View>
-      )}
+            )}
+          </View>
+        )}
 
         {/* ========================================================================= */}
-        {/* VIEW 2: SCREEN 14 (MUSCLE PROGRESS)                                       */}
+        {/* VIEW 2: MUSCLE PROGRESS                                                   */}
         {/* ========================================================================= */}
         {activeTab === 'muscles' && (
           <View style={styles.tabContainer}>
@@ -824,8 +883,8 @@ export default function Progress() {
                             {hasVolume
                               ? formatVolume(muscle.volume)
                               : language === 'uk'
-                              ? 'Не треновано'
-                              : 'Not trained'}
+                                ? 'Не треновано'
+                                : 'Not trained'}
                           </Text>
                         </View>
 
@@ -846,7 +905,7 @@ export default function Progress() {
                   })}
                 </View>
 
-                {/* Bottom Muscle Summary Card (Screen 14) */}
+                {/* Bottom Muscle Summary Card */}
                 <View style={styles.muscleSummaryCard}>
                   <Text style={styles.summaryMuscleTitle}>{tm(selectedMuscle)}</Text>
                   <View style={styles.summaryGrid}>
@@ -864,7 +923,7 @@ export default function Progress() {
                         {formatVolume(selectedMuscleVolume)} {t('volume').toLowerCase()}
                       </Text>
                       <Text style={styles.summarySubVal}>
-                        {language === 'uk' ? 'Активний цикл' : 'Active cycle'}
+                        {periodLabels[period]}
                       </Text>
                     </View>
                   </View>
@@ -911,7 +970,7 @@ export default function Progress() {
         )}
 
         {/* ========================================================================= */}
-        {/* VIEW: BODYWEIGHT TRACKER & AI CORRELATION                                 */}
+        {/* VIEW 3: BODYWEIGHT TRACKER                                                */}
         {/* ========================================================================= */}
         {activeTab === 'weight' && (
           <View style={styles.tabContainer}>
@@ -958,15 +1017,25 @@ export default function Progress() {
                     {language === 'uk' ? 'ДИНАМІКА ВАГИ' : 'BODYWEIGHT TREND'}
                   </Text>
                   <Text numberOfLines={1} style={styles.strengthExerciseName}>
-                    {profile.goal}
+                    {profile.goal === 'Lose Fat'
+                      ? language === 'uk'
+                        ? 'Зниження ваги'
+                        : 'Lose Fat'
+                      : profile.goal === 'Get Stronger'
+                        ? language === 'uk'
+                          ? 'Розвиток сили'
+                          : 'Get Stronger'
+                        : language === 'uk'
+                          ? 'Набір мʼязів'
+                          : 'Build Muscle'}
                   </Text>
                   <Text style={styles.strengthSubBest}>
-                    {language === 'uk' ? 'Цільовий тренд' : 'Target Pace'}:{' '}
+                    {language === 'uk' ? 'Орієнтир темпу' : 'Target Pace'}:{' '}
                     {profile.goal === 'Lose Fat'
                       ? '↓ -0.5 kg/тиждень'
                       : profile.goal === 'Build Muscle'
-                      ? '↑ +0.3 kg/тиждень'
-                      : '↔ Стабільна вага'}
+                        ? '↑ +0.25 kg/тиждень'
+                        : '↔ Стабільна вага'}
                   </Text>
                 </View>
 
@@ -997,17 +1066,19 @@ export default function Progress() {
               </View>
             </View>
 
-            {/* 3. AI Correlation Insight Card */}
+            {/* 3. Factual Weight & Strength Trend Card */}
             <View style={styles.aiInsightCard}>
               <View style={styles.aiInsightHeader}>
                 <View style={styles.aiInsightBadge}>
-                  <MaterialCommunityIcons
-                    name="brain"
+                  <Ionicons
+                    name="analytics-outline"
                     size={16}
                     color={colors.primary}
                     style={{ marginRight: 6 }}
                   />
-                  <Text style={styles.aiInsightBadgeText}>SPOT AI • CORRELATION</Text>
+                  <Text style={styles.aiInsightBadgeText}>
+                    {language === 'uk' ? 'СПІВВІДНОШЕННЯ ВАГИ ТА СИЛИ' : 'WEIGHT & STRENGTH TREND'}
+                  </Text>
                 </View>
                 <View style={[styles.aiStatusPill, { borderColor: aiAnalysis.badgeColor }]}>
                   <Text style={[styles.aiStatusPillText, { color: aiAnalysis.badgeColor }]}>
@@ -1021,7 +1092,7 @@ export default function Progress() {
 
               <View style={styles.aiRecoBox}>
                 <Ionicons
-                  name="bulb-outline"
+                  name="checkmark-circle-outline"
                   size={16}
                   color={colors.primary}
                   style={{ marginRight: 8, marginTop: 1 }}
@@ -1106,32 +1177,59 @@ export default function Progress() {
         )}
 
         {/* ========================================================================= */}
-        {/* VIEW 3: SCREEN 15 (PERSONAL RECORDS)                                      */}
+        {/* VIEW 4: PERSONAL RECORDS (ALL-TIME BESTS PER EXERCISE)                    */}
         {/* ========================================================================= */}
         {activeTab === 'prs' && (
           <View style={styles.tabContainer}>
             {allHistoryPrs.length > 0 ? (
               <View style={styles.prsList}>
                 {allHistoryPrs.map((item) => (
-                  <View key={item.id} style={styles.prCard}>
-                    <View style={styles.prCardIconWrap}>
+                  <Pressable
+                    key={item.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${te(item.name)}: ${item.value}`}
+                    onPress={() => {
+                      hapticLight();
+                      setSelectedExerciseId(item.name);
+                      setActiveTab('overview');
+                    }}
+                    style={styles.prCard}
+                  >
+                    <View
+                      style={[
+                        styles.prCardIconWrap,
+                        item.isNewPr && { backgroundColor: 'rgba(255, 209, 48, 0.14)' },
+                      ]}
+                    >
                       <MaterialCommunityIcons
                         name={item.icon}
                         size={20}
-                        color={colors.primary}
+                        color={item.isNewPr ? '#FFD130' : colors.primary}
                       />
                     </View>
 
                     <View style={styles.prCardBody}>
-                      <Text style={styles.prCardName}>{te(item.name)}</Text>
-                      <Text style={styles.prCardDate}>{item.date}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text numberOfLines={1} style={styles.prCardName}>
+                          {te(item.name)}
+                        </Text>
+                        {item.isNewPr && (
+                          <View style={styles.prBadge}>
+                            <Text style={styles.prBadgeText}>PR</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.prCardDate}>
+                        {item.date}
+                        {item.subDetail ? ` · ${item.subDetail}` : ''}
+                      </Text>
                     </View>
 
                     <View style={styles.prCardRight}>
                       <Text style={styles.prCardWeight}>{item.value}</Text>
                       <Ionicons name="chevron-forward" size={16} color="#6C7A8E" />
                     </View>
-                  </View>
+                  </Pressable>
                 ))}
               </View>
             ) : (
@@ -1148,7 +1246,7 @@ export default function Progress() {
 
                 <Text style={styles.emptySubtitle}>
                   {language === 'uk'
-                    ? 'Завершіть своє перше тренування, щоб зафіксувати рекорди.'
+                    ? 'Завершіть своє перше тренування, щоб зафіксувати особисті максимуми у вправах.'
                     : 'Complete your first workout to start tracking your personal records.'}
                 </Text>
 
@@ -1425,6 +1523,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     marginBottom: 6,
+    textAlign: 'center',
   },
   chartEmptyBody: {
     color: '#8E9BAE',
@@ -1622,12 +1721,28 @@ const styles = StyleSheet.create({
   },
   prCardBody: {
     flex: 1,
+    marginRight: 8,
   },
   prCardName: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
+    flexShrink: 1,
+  },
+  prBadge: {
+    backgroundColor: 'rgba(255, 209, 48, 0.18)',
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 209, 48, 0.4)',
+  },
+  prBadgeText: {
+    color: '#FFD130',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.4,
   },
   prCardDate: {
     color: '#8E9BAE',
@@ -1644,37 +1759,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
-  },
-  prEmptyWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 48,
-    backgroundColor: '#12161D',
-    borderRadius: 22,
-    paddingHorizontal: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-  },
-  prEmptyIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#1A212B',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  prEmptyTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  prEmptyBody: {
-    color: '#8E9BAE',
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 20,
   },
   logWeightHeaderBtn: {
     flexDirection: 'row',

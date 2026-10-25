@@ -7,7 +7,7 @@ import { useProgramStore, USER_PROGRAM_STORAGE_KEY } from '@/store/programStore'
 import { useUserProfileStore, USER_PROFILE_STORAGE_KEY } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore, WORKOUT_HISTORY_STORAGE_KEY } from '@/store/workoutHistoryStore';
 import { useExerciseNotesStore, EXERCISE_NOTES_STORAGE_KEY } from '@/store/exerciseNotesStore';
-import { saveOnboarding } from '@/store/workoutStore';
+import { loadOnboarding, saveOnboarding } from '@/store/workoutStore';
 import type { CompletedWorkout } from '@/types/workout';
 
 export interface SyncStatus {
@@ -155,31 +155,47 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
       .maybeSingle();
 
     if (profileRow) {
+      const existingProfile = useUserProfileStore.getState().profile;
       const mergedProfile = {
-        name: profileRow.name || 'Athlete',
-        avatar: profileRow.avatar || 'gorilla',
-        weightKg: Number(profileRow.weight_kg) || 78,
-        heightCm: Number(profileRow.height_cm) || 180,
-        goal: profileRow.goal || 'Build Muscle',
-        experience: profileRow.experience || 'Intermediate',
-        workoutsPerWeek: Number(profileRow.workouts_per_week) || 3,
-        weightUnit: profileRow.weight_unit || 'kg',
-        heightUnit: profileRow.height_unit || 'cm',
-        defaultRestSeconds: Number(profileRow.default_rest_seconds) || 90,
-        language: profileRow.language || 'uk',
-        notifications: true,
-        notificationTime: '09:00',
-        soundEnabled: true,
+        ...existingProfile,
+        name: profileRow.name || existingProfile?.name || 'Athlete',
+        avatar: profileRow.avatar || existingProfile?.avatar || 'gorilla',
+        weightKg: Number(profileRow.weight_kg) || existingProfile?.weightKg || 78,
+        heightCm: Number(profileRow.height_cm) || existingProfile?.heightCm || 180,
+        goal: profileRow.goal || existingProfile?.goal || 'Build Muscle',
+        experience: profileRow.experience || existingProfile?.experience || 'Intermediate',
+        workoutsPerWeek: Number(profileRow.workouts_per_week) || existingProfile?.workoutsPerWeek || 3,
+        weightUnit: profileRow.weight_unit || existingProfile?.weightUnit || 'kg',
+        heightUnit: profileRow.height_unit || existingProfile?.heightUnit || 'cm',
+        defaultRestSeconds: Number(profileRow.default_rest_seconds) || existingProfile?.defaultRestSeconds || 90,
+        language: profileRow.language || existingProfile?.language || 'uk',
+        notifications: existingProfile?.notifications ?? true,
+        notificationTime: existingProfile?.notificationTime || '09:00',
+        soundEnabled: existingProfile?.soundEnabled ?? true,
       };
 
       useUserProfileStore.setState({ profile: mergedProfile, hydrated: true });
       await AsyncStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(mergedProfile));
+      const existingOnboarding = await loadOnboarding();
+      const mappedGoal =
+        mergedProfile.goal === 'Lose Fat'
+          ? 'lose_fat'
+          : mergedProfile.goal === 'Get Stronger'
+            ? 'get_stronger'
+            : 'build_muscle';
+      const mappedExperience =
+        mergedProfile.experience === 'Beginner'
+          ? 'beginner'
+          : mergedProfile.experience === 'Advanced'
+            ? 'advanced'
+            : 'intermediate';
       await saveOnboarding({
+        ...existingOnboarding,
         name: mergedProfile.name,
-        goal: mergedProfile.goal as any,
-        experience: mergedProfile.experience as any,
+        goal: mappedGoal,
+        experience: mappedExperience,
         trainingFrequency: mergedProfile.workoutsPerWeek,
-        equipment: ['full_gym'],
+        equipment: existingOnboarding?.equipment?.length ? existingOnboarding.equipment : ['full_gym'],
         completed: true,
       });
     }
