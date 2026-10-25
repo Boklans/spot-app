@@ -537,7 +537,7 @@ export default function Active() {
             )}
           </View>
 
-          {/* Progressive Overload Real-time Feedback Banner */}
+          {/* Progressive Overload & Recommendation Explanation Banner */}
           {isProgressed ? (
             <View style={styles.overloadHighlightBanner}>
               <View style={styles.overloadPill}>
@@ -548,19 +548,35 @@ export default function Active() {
                     : `+${repsDelta} ${language === 'uk' ? 'повт' : 'reps'}`}
                 </Text>
               </View>
-              <Text numberOfLines={1} style={styles.overloadSubText}>
-                {hasWeightIncrease && repsDelta > 0
+              <Text numberOfLines={2} style={styles.overloadSubText}>
+                {exercise.recommendation?.source === 'history'
+                  ? (language === 'uk'
+                      ? (exercise.recommendation.explanationUk || exercise.recommendation.explanation)
+                      : exercise.recommendation.explanation)
+                  : hasWeightIncrease && repsDelta > 0
                   ? (language === 'uk' ? `+${weightDeltaDisplay} ${unitLabel} та +${repsDelta} повт до минулої сесії` : `+${weightDeltaDisplay} ${unitLabel} & +${repsDelta} reps vs last session`)
                   : hasWeightIncrease
                   ? (language === 'uk' ? `Прогресивне перевантаження ваги 🔥` : `Progressive weight overload 🔥`)
                   : (language === 'uk' ? `Прогресія повторень з тою ж вагою ⚡` : `Reps overload at same weight ⚡`)}
               </Text>
             </View>
-          ) : prevSetForActive && currentWeight === prevWeight && currentReps === prevReps ? (
+          ) : exercise.recommendation ? (
             <View style={styles.matchedBanner}>
-              <Ionicons name="checkmark-circle-outline" size={13} color={colors.primary} />
-              <Text numberOfLines={1} style={styles.matchedSubText}>
-                {language === 'uk' ? 'Навантаження відповідає минулій сесії' : 'Weight & reps match previous session'}
+              <Ionicons
+                name={
+                  exercise.recommendation.recommendationReason === 'reduce'
+                    ? 'shield-checkmark-outline'
+                    : exercise.recommendation.source === 'history'
+                    ? 'checkmark-circle-outline'
+                    : 'compass-outline'
+                }
+                size={14}
+                color={colors.primary}
+              />
+              <Text numberOfLines={2} style={styles.matchedSubText}>
+                {language === 'uk'
+                  ? (exercise.recommendation.explanationUk || exercise.recommendation.explanation)
+                  : exercise.recommendation.explanation}
               </Text>
             </View>
           ) : null}

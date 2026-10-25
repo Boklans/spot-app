@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
+import { inferEquipmentFromName, recommendWeight } from '@/lib/adaptiveProgression';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -26,7 +27,7 @@ const SHOW_INSTAGRAM_STORIES = false;
 
 export default function Complete() {
   const { t, te, tw, language } = useI18n();
-  const { formatVolume } = useWeightUnit();
+  const { formatVolume, formatWithUnit } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
   const clearSession = useWorkoutSessionStore((state) => state.clearSession);
   const workouts = useWorkoutHistoryStore((state) => state.workouts);
@@ -60,6 +61,38 @@ export default function Complete() {
 
   const summary = getSessionSummary(session);
   const prs = session.personalRecords ?? [];
+
+  const nextSessionPlan = session.exercises
+    .map((ex) => {
+      const completedSets = ex.sets
+        .filter((s) => s.completed)
+        .map((s) => ({ weight: s.weight, reps: s.reps }));
+      if (completedSets.length === 0) return null;
+      const targetRange = ex.sets[0]?.targetReps || '8-12';
+      const equipment = inferEquipmentFromName(ex.name);
+      const nextRec = recommendWeight(
+        {
+          id: ex.id,
+          name: ex.name,
+          muscleGroup: ex.muscleGroup,
+          equipment,
+          sets: ex.sets.length,
+          targetRepRange: targetRange,
+          recommendedWeight: completedSets[0]?.weight ?? 0,
+          weightIncrement: ex.weightIncrement || 2.5,
+          restSeconds: ex.restSeconds || 90,
+        },
+        completedSets
+      );
+      return {
+        id: ex.id,
+        name: ex.name,
+        customImageUri: ex.customImageUri,
+        completedSets,
+        nextRec,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   // Find previous session of the same workout (excluding current session)
   const previousWorkout = workouts.find(
@@ -283,6 +316,83 @@ export default function Complete() {
             ))
           )}
         </View>
+
+        {/* 5B. Next Session Progression Targets */}
+        {nextSessionPlan.length > 0 && (
+          <View style={styles.prsCard}>
+            <View style={styles.prHeader}>
+              <Ionicons name="trending-up" size={16} color={colors.primary} />
+              <Text style={[styles.prSectionTitle, { color: colors.primary }]}>
+                {language === 'uk' ? 'НАСТУПНИЙ КРОК ПРОГРЕСІЇ' : 'NEXT WORKOUT PROGRESSION'}
+              </Text>
+            </View>
+            {nextSessionPlan.map((item, idx) => {
+              const isIncrease = item.nextRec.recommendationReason === 'increase';
+              const isReduce = item.nextRec.recommendationReason === 'reduce';
+              const targetWeightStr = item.nextRec.recommendedWeight > 0
+                ? formatWithUnit(item.nextRec.recommendedWeight)
+                : (language === 'uk' ? 'Власна вага' : 'Bodyweight');
+              const targetRepsStr = item.nextRec.recommendedReps ?? 8;
+              return (
+                <View
+                  key={item.id + idx}
+                  style={[
+                    styles.prRow,
+                    { flexDirection: 'column', alignItems: 'stretch', gap: 6 },
+                    idx < nextSessionPlan.length - 1 && styles.prRowBorder,
+                  ]}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={styles.prThumbWrap}>
+                      <Image
+                        source={getExerciseImage(item.name, item.customImageUri)}
+                        style={styles.prThumb}
+                        resizeMode="cover"
+                      />
+                    </View>
+                    <Text numberOfLines={1} style={[styles.prExerciseName, { flex: 1 }]}>
+                      {te(item.name)}
+                    </Text>
+                    <View
+                      style={{
+                        backgroundColor: isIncrease
+                          ? 'rgba(200, 255, 61, 0.16)'
+                          : isReduce
+                          ? 'rgba(255, 159, 28, 0.16)'
+                          : 'rgba(255, 255, 255, 0.08)',
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: isIncrease
+                          ? 'rgba(200, 255, 61, 0.4)'
+                          : isReduce
+                          ? 'rgba(255, 159, 28, 0.35)'
+                          : 'rgba(255, 255, 255, 0.12)',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: '800',
+                          color: isIncrease ? colors.primary : isReduce ? '#FF9F1C' : '#FFFFFF',
+                        }}
+                      >
+                        {isIncrease ? '🔥 ' : isReduce ? '🛡️ ' : '🎯 '}
+                        {targetWeightStr} × {targetRepsStr}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={{ fontSize: 12, color: '#94A3B8', lineHeight: 17 }}>
+                    {language === 'uk'
+                      ? (item.nextRec.explanationUk || item.nextRec.explanation)
+                      : item.nextRec.explanation}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
 
         {/* 6. Share to Instagram Stories Banner */}
         {SHOW_INSTAGRAM_STORIES && (

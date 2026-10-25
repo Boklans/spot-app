@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { generateProgram, resolveRestSeconds, type EquipmentId, type GeneratedExercise, type GeneratedWorkout } from '@/lib/programGenerator';
-import { findLatestExerciseSets, recommendWeight, type WeightRecommendation } from '@/lib/adaptiveProgression';
+import { findLatestExerciseSets, inferEquipmentFromName, practicalIncrement, recommendWeight, type WeightRecommendation } from '@/lib/adaptiveProgression';
 import type { CompletedWorkout, PersonalRecord } from '@/types/workout';
 import type { UserWorkout } from '@/types/userProgram';
 import { defaultOnboarding } from './workoutStore';
@@ -185,9 +185,15 @@ function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history
   return workout.exercises.map((exercise, exerciseIndex) => {
     const previousSets = findLatestExerciseSets(history, exercise as any);
     const recommendation = recommendWeight(exercise as any, previousSets);
-    const weight = typeof exercise.recommendedWeight === 'number' && exercise.recommendedWeight > 0
-      ? exercise.recommendedWeight
-      : recommendation.recommendedWeight;
+    const weight = recommendation.source === 'history'
+      ? recommendation.recommendedWeight
+      : (typeof exercise.recommendedWeight === 'number' && exercise.recommendedWeight > 0
+        ? exercise.recommendedWeight
+        : recommendation.recommendedWeight);
+    const defaultMinReps = Number.parseInt(exercise.targetRepRange ? exercise.targetRepRange.split('-')[0] : '10', 10) || 10;
+    const reps = typeof recommendation.recommendedReps === 'number' && recommendation.recommendedReps > 0
+      ? recommendation.recommendedReps
+      : defaultMinReps;
     const weightIncrement = typeof exercise.weightIncrement === 'number' ? exercise.weightIncrement : 2.5;
     const restSeconds = resolveRestSeconds(exercise as any, workout as any);
 
@@ -205,7 +211,7 @@ function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history
       sets: Array.from({ length: exercise.sets || 3 }, (_, setIndex) => ({
         id: `exercise-${exerciseIndex + 1}-set-${setIndex + 1}`,
         weight,
-        reps: Number.parseInt(exercise.targetRepRange ? exercise.targetRepRange.split('-')[0] : '10', 10) || 10,
+        reps,
         targetReps: exercise.targetRepRange || '8-12',
         completed: false,
       })),
@@ -544,15 +550,17 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       const currentEx = state.session.exercises[currentExerciseIndex];
       const history = useWorkoutHistoryStore.getState().workouts;
       const isBw = typeof newExercise.defaultWeight === 'number' && newExercise.defaultWeight === 0;
+      const inferredEquipment = isBw ? 'bodyweight' : inferEquipmentFromName(newExercise.name, 'barbell');
+      const swappedId = newExercise.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const generatedEx: GeneratedExercise = {
-        id: currentEx?.id ?? `swapped-${Date.now()}`,
+        id: swappedId || `swapped-${Date.now()}`,
         name: newExercise.name,
         muscleGroup: newExercise.muscleGroup,
-        equipment: (isBw ? 'bodyweight' : 'barbell') as EquipmentId,
+        equipment: inferredEquipment,
         sets: currentEx?.sets.length ?? 3,
         targetRepRange: currentEx?.sets[0]?.targetReps ?? '8-12',
         recommendedWeight: newExercise.defaultWeight ?? 20,
-        weightIncrement: currentEx?.weightIncrement ?? 2.5,
+        weightIncrement: practicalIncrement(inferredEquipment, newExercise.defaultWeight ?? 20),
         restSeconds: currentEx?.restSeconds ?? 90,
       };
       const previousSets = findLatestExerciseSets(history, generatedEx);
@@ -566,11 +574,21 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
             if (idx !== currentExerciseIndex) return ex;
             return {
               ...ex,
+              id: generatedEx.id,
               name: newExercise.name,
               muscleGroup: newExercise.muscleGroup,
               previousSets,
               recommendation: rec,
-              sets: ex.sets.map((s) => (s.completed ? s : { ...s, weight: rec.recommendedWeight })),
+              weightIncrement: generatedEx.weightIncrement,
+              sets: ex.sets.map((s) =>
+                s.completed
+                  ? s
+                  : {
+                      ...s,
+                      weight: rec.recommendedWeight,
+                      reps: rec.recommendedReps ?? s.reps,
+                    }
+              ),
             };
           }),
         },
