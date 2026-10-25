@@ -454,12 +454,6 @@ export default function Active() {
               style={styles.exerciseThumb}
               resizeMode="cover"
             />
-            <View style={styles.thumbOverlayTag}>
-              <Ionicons name="book" size={10} color="#0B0D0F" />
-              <Text style={styles.thumbOverlayText}>
-                {language === 'uk' ? 'Гайд' : 'Guide'}
-              </Text>
-            </View>
           </Pressable>
 
           {/* Details & Actions */}

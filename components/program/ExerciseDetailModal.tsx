@@ -51,6 +51,16 @@ export function ExerciseDetailModal({
     [exerciseName, muscleGroup]
   );
 
+  const mistakesList = useMemo(() => {
+    const raw = isUk ? details.mistakesUk : details.mistakesEn;
+    if (!raw) return [];
+    const split = raw
+      .split(/(?<=[.!?])\s+|\s+(?=Уникайте|Не |Avoid|Do not)/i)
+      .map((s) => s.trim().replace(/^[-•–]\s*/, ''))
+      .filter((s) => s.length > 5);
+    return split.length > 0 ? split : [raw];
+  }, [details, isUk]);
+
   const bestPerformance = useMemo(() => {
     if (!workouts || workouts.length === 0 || !exerciseName) return null;
     const normalizedTarget = exerciseName.trim().toLowerCase();
@@ -139,7 +149,7 @@ export function ExerciseDetailModal({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
-            {/* 1. Large Hero Exercise 3D Illustration */}
+            {/* 1. Large Hero Exercise 3D Illustration with Phase Directive */}
             <View style={styles.heroImageCard}>
               <Image
                 source={getExerciseImage(exerciseName, customImageUri)}
@@ -150,6 +160,26 @@ export function ExerciseDetailModal({
                 <Ionicons name="sparkles" size={11} color={colors.primary} />
                 <Text style={styles.heroOverlayBadgeText}>
                   {isUk ? '3D ДЕМОНСТРАЦІЯ ТЕХНІКИ' : '3D EXERCISE GUIDE'}
+                </Text>
+              </View>
+
+              {/* Dynamic Phase Directives over Image */}
+              <View style={styles.heroPhaseOverlay}>
+                <View style={styles.heroPhasePill}>
+                  <Text style={styles.heroPhasePillText}>
+                    {selectedPhase === 1
+                      ? (isUk ? 'ФАЗА 1: ПОЗИЦІЯ' : 'PHASE 1: SETUP')
+                      : selectedPhase === 2
+                      ? (isUk ? 'ФАЗА 2: РУХ' : 'PHASE 2: EXECUTION')
+                      : (isUk ? 'ФАЗА 3: ФІКСАЦІЯ' : 'PHASE 3: LOCKOUT')}
+                  </Text>
+                </View>
+                <Text numberOfLines={2} style={styles.heroPhaseCueText}>
+                  {selectedPhase === 1
+                    ? (isUk ? details.setupUk : details.setupEn)
+                    : selectedPhase === 2
+                    ? (isUk ? details.executionUk : details.executionEn)
+                    : (isUk ? details.tipsUk : details.tipsEn)}
                 </Text>
               </View>
             </View>
@@ -319,17 +349,22 @@ export function ExerciseDetailModal({
               </View>
             </View>
 
-            {/* 4. Common Mistakes */}
+            {/* 4. Common Mistakes (What to avoid) */}
             <View style={styles.mistakesCard}>
               <View style={styles.sectionHeaderRow}>
-                <Ionicons name="alert-circle-outline" size={18} color="#FF9F1C" />
-                <Text style={[styles.sectionHeaderTitle, { color: '#FF9F1C' }]}>
-                  {isUk ? 'ТИПОВІ ПОМИЛКИ' : 'COMMON MISTAKES'}
+                <Ionicons name="warning-outline" size={18} color="#FF5A5F" />
+                <Text style={[styles.sectionHeaderTitle, { color: '#FF5A5F' }]}>
+                  {isUk ? 'ТИПОВІ ПОМИЛКИ (ЧОГО УНИКАТИ)' : 'COMMON MISTAKES TO AVOID'}
                 </Text>
               </View>
-              <Text style={styles.mistakesText}>
-                {isUk ? details.mistakesUk : details.mistakesEn}
-              </Text>
+              <View style={styles.mistakesList}>
+                {mistakesList.map((item, idx) => (
+                  <View key={idx} style={styles.mistakeItem}>
+                    <Ionicons name="close-circle" size={15} color="#FF5A5F" style={{ marginTop: 2 }} />
+                    <Text style={styles.mistakeItemText}>{item}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
 
             {/* 5. Personal Best History */}
@@ -399,7 +434,7 @@ export function ExerciseDetailModal({
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Got it"
+              accessibilityLabel="Got it, back to workout"
               onPress={() => {
                 hapticMedium();
                 onClose();
@@ -409,8 +444,9 @@ export function ExerciseDetailModal({
                 pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] },
               ]}
             >
+              <Ionicons name="checkmark-circle-outline" size={18} color="#0B0D0F" style={{ marginRight: 6 }} />
               <Text style={styles.gotItBtnText}>
-                {isUk ? 'ЗРОЗУМІЛО' : 'GOT IT'}
+                {isUk ? 'Зрозуміло — до підходу' : 'Got It — Back to Workout'}
               </Text>
             </Pressable>
           </View>
@@ -489,18 +525,51 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 130,
     gap: 14,
   },
   heroImageCard: {
     width: '100%',
-    height: 220,
+    height: 230,
     borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#12161D',
     borderWidth: 1,
     borderColor: '#1E2530',
     position: 'relative',
+  },
+  heroPhaseOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(11, 13, 15, 0.88)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  heroPhasePill: {
+    backgroundColor: 'rgba(200, 255, 61, 0.14)',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.3)',
+  },
+  heroPhasePillText: {
+    color: colors.primary,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  heroPhaseCueText: {
+    color: '#F1F5F9',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
   },
   heroOverlayBadge: {
     position: 'absolute',
@@ -704,17 +773,26 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   mistakesCard: {
-    backgroundColor: 'rgba(255, 159, 28, 0.06)',
+    backgroundColor: 'rgba(255, 90, 95, 0.06)',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 159, 28, 0.25)',
+    borderColor: 'rgba(255, 90, 95, 0.22)',
   },
-  mistakesText: {
-    color: '#CBD5E1',
+  mistakesList: {
+    gap: 10,
+  },
+  mistakeItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  mistakeItemText: {
+    color: '#E2E8F0',
     fontSize: 12,
     lineHeight: 18,
     fontWeight: '500',
+    flex: 1,
   },
   historyCard: {
     backgroundColor: '#12161D',
@@ -796,6 +874,7 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 26,
     backgroundColor: colors.primary,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primary,
