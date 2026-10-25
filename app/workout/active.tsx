@@ -644,7 +644,7 @@ export default function Active() {
                   <Text style={styles.stepValueText}>
                     {activeSet?.weight ? format(activeSet.weight) : (language === 'uk' ? 'ВТ' : 'BW')}
                   </Text>
-                  {activeSet?.weight ? <Text style={styles.stepValueUnit}> {unitLabel}</Text> : null}
+
                 </Pressable>
 
                 <Pressable
@@ -690,7 +690,7 @@ export default function Active() {
                   style={styles.stepValueBox}
                 >
                   <Text style={styles.stepValueText}>{activeSet?.reps ?? 8}</Text>
-                  <Text style={styles.stepValueUnit}> {language === 'uk' ? 'повт' : 'reps'}</Text>
+
                 </Pressable>
 
                 <Pressable
@@ -1201,7 +1201,7 @@ const styles = StyleSheet.create({
   },
   stepValueText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: '800',
   },
   stepValueUnit: {
