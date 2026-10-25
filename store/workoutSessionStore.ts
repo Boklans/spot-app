@@ -28,6 +28,7 @@ export type WorkoutExercise = {
   id: string;
   name: string;
   muscleGroup: string;
+  equipment?: EquipmentId;
   previousSets: PreviousSet[];
   recommendation: WeightRecommendation;
   sets: WorkoutSet[];
@@ -183,8 +184,10 @@ function persistSnapshot(snapshot: ActiveWorkoutStorage | null) {
 
 function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history: CompletedWorkout[]): WorkoutExercise[] {
   return workout.exercises.map((exercise, exerciseIndex) => {
-    const previousSets = findLatestExerciseSets(history, exercise as any);
-    const recommendation = recommendWeight(exercise as any, previousSets);
+    const equipment: EquipmentId = (exercise as any).equipment || inferEquipmentFromName(exercise.name);
+    const exerciseWithEquipment = { ...exercise, equipment } as GeneratedExercise;
+    const previousSets = findLatestExerciseSets(history, exerciseWithEquipment);
+    const recommendation = recommendWeight(exerciseWithEquipment, previousSets);
     const weight = recommendation.source === 'history'
       ? recommendation.recommendedWeight
       : (typeof exercise.recommendedWeight === 'number' && exercise.recommendedWeight > 0
@@ -194,13 +197,17 @@ function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history
     const reps = typeof recommendation.recommendedReps === 'number' && recommendation.recommendedReps > 0
       ? recommendation.recommendedReps
       : defaultMinReps;
-    const weightIncrement = typeof exercise.weightIncrement === 'number' ? exercise.weightIncrement : 2.5;
+    const equipIncrement = practicalIncrement(equipment, weight);
+    const weightIncrement = typeof exercise.weightIncrement === 'number' && exercise.weightIncrement > 0
+      ? Math.max(exercise.weightIncrement, equipIncrement)
+      : equipIncrement;
     const restSeconds = resolveRestSeconds(exercise as any, workout as any);
 
     return {
       id: exercise.id,
       name: exercise.name,
       muscleGroup: exercise.muscleGroup,
+      equipment,
       previousSets,
       recommendation,
       weightIncrement,
@@ -565,11 +572,16 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       };
       const previousSets = findLatestExerciseSets(history, generatedEx);
       const rec = recommendWeight(generatedEx, previousSets);
+      const defaultMinReps = Number.parseInt(generatedEx.targetRepRange ? generatedEx.targetRepRange.split('-')[0] : '8', 10) || 8;
+      const resolvedIncrement = practicalIncrement(inferredEquipment, rec.recommendedWeight);
 
       return {
         ...state,
+        restEndsAt: null,
+        restNextType: null,
         session: {
           ...state.session,
+          currentSetIndex: 0,
           exercises: state.session.exercises.map((ex, idx) => {
             if (idx !== currentExerciseIndex) return ex;
             return {
@@ -577,18 +589,17 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
               id: generatedEx.id,
               name: newExercise.name,
               muscleGroup: newExercise.muscleGroup,
+              equipment: inferredEquipment,
               previousSets,
               recommendation: rec,
-              weightIncrement: generatedEx.weightIncrement,
-              sets: ex.sets.map((s) =>
-                s.completed
-                  ? s
-                  : {
-                      ...s,
-                      weight: rec.recommendedWeight,
-                      reps: rec.recommendedReps ?? s.reps,
-                    }
-              ),
+              weightIncrement: resolvedIncrement,
+              sets: ex.sets.map((s) => ({
+                ...s,
+                weight: rec.recommendedWeight,
+                reps: rec.recommendedReps ?? defaultMinReps,
+                completed: false,
+                completedAt: undefined,
+              })),
             };
           }),
         },

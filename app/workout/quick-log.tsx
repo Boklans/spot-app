@@ -17,9 +17,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExercisePickerModal } from '@/components/program/ExercisePickerModal';
 import { colors } from '@/constants/colors';
 import { type LibraryExercise } from '@/lib/exerciseLibrary';
+import {
+  findLatestExerciseSets,
+  inferEquipmentFromName,
+  practicalIncrement,
+  recommendWeight,
+  type WeightRecommendation,
+} from '@/lib/adaptiveProgression';
 import { hapticImpact, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
-import { resolveRestSeconds } from '@/lib/programGenerator';
+import { resolveRestSeconds, type EquipmentId, type GeneratedExercise } from '@/lib/programGenerator';
 import { convertWeightToActiveUnit, formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
@@ -44,8 +51,11 @@ type QuickExercise = {
   id: string;
   name: string;
   muscleGroup: string;
+  equipment?: EquipmentId;
   targetRepRange: string;
   recommendedWeight: number; // in kg
+  recommendedReps: number;
+  recommendation?: WeightRecommendation;
   weight: number; // in kg
   weightText: string; // in user unit
   weightIncrement: number;
@@ -95,12 +105,16 @@ export default function QuickLogScreen() {
         const firstSet = ex.sets[0];
         const weightKg = firstSet?.weight ?? ex.recommendation.recommendedWeight;
         const displayW = convertWeightToActiveUnit(weightKg, unit);
+        const repRange = firstSet?.targetReps ?? '8-12';
         return {
           id: ex.id,
           name: ex.name,
           muscleGroup: ex.muscleGroup,
-          targetRepRange: firstSet?.targetReps ?? '8-12',
+          equipment: ex.equipment || inferEquipmentFromName(ex.name),
+          targetRepRange: repRange,
           recommendedWeight: ex.recommendation.recommendedWeight,
+          recommendedReps: ex.recommendation.recommendedReps ?? firstSet?.reps ?? parseTargetReps(repRange),
+          recommendation: ex.recommendation,
           weight: weightKg,
           weightText: formatWeight(displayW),
           weightIncrement: ex.weightIncrement || 2.5,
@@ -130,21 +144,36 @@ export default function QuickLogScreen() {
       setWorkoutName(target.name);
       setProgramWorkoutId(target.id);
       const mapped: QuickExercise[] = target.exercises.map((ex, exIdx) => {
-        const recWeightKg = ex.recommendedWeight || 0;
-        const displayW = convertWeightToActiveUnit(recWeightKg, unit);
         const repRange = ex.targetRepRange || '8-12';
-        const defaultRep = parseTargetReps(repRange);
         const setsCount = ex.sets || 3;
+        const equipment = (ex as any).equipment || inferEquipmentFromName(ex.name);
+        const exWithEquip = { ...ex, equipment, sets: setsCount, targetRepRange: repRange } as GeneratedExercise;
+        const previousSets = findLatestExerciseSets(history, exWithEquip);
+        const recommendation = recommendWeight(exWithEquip, previousSets);
+        const recWeightKg = recommendation.source === 'history'
+          ? recommendation.recommendedWeight
+          : (typeof ex.recommendedWeight === 'number' && ex.recommendedWeight > 0
+            ? ex.recommendedWeight
+            : recommendation.recommendedWeight);
+        const recReps = recommendation.recommendedReps ?? parseTargetReps(repRange);
+        const displayW = convertWeightToActiveUnit(recWeightKg, unit);
+        const equipInc = practicalIncrement(equipment, recWeightKg);
+        const weightIncrement = typeof ex.weightIncrement === 'number' && ex.weightIncrement > 0
+          ? Math.max(ex.weightIncrement, equipInc)
+          : equipInc;
 
         return {
           id: ex.id || `ex-${exIdx}`,
           name: ex.name,
           muscleGroup: ex.muscleGroup,
+          equipment,
           targetRepRange: repRange,
           recommendedWeight: recWeightKg,
+          recommendedReps: recReps,
+          recommendation,
           weight: recWeightKg,
           weightText: formatWeight(displayW),
-          weightIncrement: ex.weightIncrement || 2.5,
+          weightIncrement,
           restSeconds: ex.restSeconds || resolveRestSeconds(ex as any, target as any),
           sets: Array.from({ length: setsCount }, (_, sIdx) => ({
             id: `set-${exIdx}-${sIdx}`,
@@ -159,14 +188,14 @@ export default function QuickLogScreen() {
       setDurationMinutes(Math.max(20, Math.min(120, mapped.length * 8)));
       isInitializedRef.current = true;
     }
-  }, [workoutId, activeSession, program, progress, unit]);
+  }, [workoutId, activeSession, program, progress, history, unit]);
 
   // Fill all sets with target weights and target reps
   const handleFillAllAsPlanned = useCallback(() => {
     hapticSuccess();
     setExercises((prev) =>
       prev.map((ex) => {
-        const targetRep = parseTargetReps(ex.targetRepRange);
+        const targetRep = ex.recommendedReps || parseTargetReps(ex.targetRepRange);
         const weightKg = ex.recommendedWeight || 0;
         const displayW = fromKg(weightKg);
         return {
@@ -249,7 +278,7 @@ export default function QuickLogScreen() {
     setExercises((prev) =>
       prev.map((ex, idx) => {
         if (idx !== exIdx) return ex;
-        const targetRep = parseTargetReps(ex.targetRepRange);
+        const targetRep = ex.recommendedReps || parseTargetReps(ex.targetRepRange);
         return {
           ...ex,
           sets: ex.sets.map((s) => ({
@@ -270,10 +299,11 @@ export default function QuickLogScreen() {
       prev.map((ex, idx) => {
         if (idx !== exIdx) return ex;
         const lastSet = ex.sets[ex.sets.length - 1];
+        const fallbackRep = ex.recommendedReps || parseTargetReps(ex.targetRepRange);
         const newSet: QuickSet = {
           id: `set-${exIdx}-${Date.now()}`,
-          reps: lastSet?.reps ?? parseTargetReps(ex.targetRepRange),
-          repsText: lastSet?.repsText || parseTargetReps(ex.targetRepRange).toString(),
+          reps: lastSet?.reps ?? fallbackRep,
+          repsText: lastSet?.repsText || fallbackRep.toString(),
           targetReps: ex.targetRepRange,
           completed: true,
         };
@@ -302,29 +332,53 @@ export default function QuickLogScreen() {
   // Add Exercise from Picker
   const handleSelectExerciseFromPicker = useCallback((libEx: LibraryExercise) => {
     hapticSuccess();
-    const defaultReps = parseTargetReps(libEx.defaultRepRange || '8-12');
-    const recWeight = libEx.defaultWeight || 0;
-    const newEx: QuickExercise = {
-      id: `custom-quick-${Date.now()}`,
+    const repRange = libEx.defaultRepRange || '8-12';
+    const setsCount = libEx.defaultSets || 3;
+    const isBw = typeof libEx.defaultWeight === 'number' && libEx.defaultWeight === 0;
+    const equipment: EquipmentId = isBw ? 'bodyweight' : inferEquipmentFromName(libEx.name);
+    const exId = libEx.id || libEx.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const generatedEx: GeneratedExercise = {
+      id: exId,
       name: libEx.name,
       muscleGroup: libEx.muscleGroup,
-      targetRepRange: libEx.defaultRepRange || '8-12',
+      equipment,
+      sets: setsCount,
+      targetRepRange: repRange,
+      recommendedWeight: libEx.defaultWeight || 0,
+      weightIncrement: libEx.weightIncrement || practicalIncrement(equipment, libEx.defaultWeight || 0),
+      restSeconds: 90,
+    };
+    const previousSets = findLatestExerciseSets(history, generatedEx);
+    const recommendation = recommendWeight(generatedEx, previousSets);
+    const recWeight = recommendation.source === 'history'
+      ? recommendation.recommendedWeight
+      : (libEx.defaultWeight || 0);
+    const recReps = recommendation.recommendedReps ?? parseTargetReps(repRange);
+
+    const newEx: QuickExercise = {
+      id: exId,
+      name: libEx.name,
+      muscleGroup: libEx.muscleGroup,
+      equipment,
+      targetRepRange: repRange,
       recommendedWeight: recWeight,
+      recommendedReps: recReps,
+      recommendation,
       weight: recWeight,
       weightText: formatWeight(fromKg(recWeight)),
-      weightIncrement: libEx.weightIncrement || 2.5,
+      weightIncrement: practicalIncrement(equipment, recWeight),
       restSeconds: 90,
-      sets: Array.from({ length: libEx.defaultSets || 3 }, (_, i) => ({
+      sets: Array.from({ length: setsCount }, (_, i) => ({
         id: `set-${Date.now()}-${i}`,
         reps: 0,
         repsText: '',
-        targetReps: libEx.defaultRepRange || '8-12',
+        targetReps: repRange,
         completed: false,
       })),
     };
     setExercises((prev) => [...prev, newEx]);
     setIsAddPickerVisible(false);
-  }, [fromKg]);
+  }, [fromKg, history]);
 
   // Overall Live Stats
   const { totalCompletedSets, totalVolumeKg } = useMemo(() => {
@@ -386,9 +440,11 @@ export default function QuickLogScreen() {
           id: ex.id,
           name: ex.name,
           muscleGroup: ex.muscleGroup,
+          equipment: ex.equipment || inferEquipmentFromName(ex.name),
           previousSets: [],
-          recommendation: {
+          recommendation: ex.recommendation || {
             recommendedWeight: ex.recommendedWeight,
+            recommendedReps: ex.recommendedReps,
             recommendationReason: 'maintain',
             source: 'program_default',
             explanation: '',

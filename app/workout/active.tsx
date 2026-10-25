@@ -307,6 +307,14 @@ export default function Active() {
   const hasRepsIncrease = prevReps > 0 && repsDelta > 0 && weightDeltaDisplay >= 0;
   const isProgressed = hasWeightIncrease || hasRepsIncrease;
 
+  const recWeight = exercise?.recommendation?.recommendedWeight ?? currentWeight;
+  const recReps = exercise?.recommendation?.recommendedReps ?? currentReps;
+  const isManuallyAdjusted = Boolean(
+    exercise?.recommendation &&
+    (Math.abs(currentWeight - recWeight) > 0.01 ||
+      (typeof exercise.recommendation.recommendedReps === 'number' && currentReps !== recReps))
+  );
+
   const finishSet = async () => {
     if (isSubmittingSetRef.current || finishing || submittingSet) return;
     isSubmittingSetRef.current = true;
@@ -549,7 +557,11 @@ export default function Active() {
                 </Text>
               </View>
               <Text numberOfLines={2} style={styles.overloadSubText}>
-                {exercise.recommendation?.source === 'history'
+                {isManuallyAdjusted
+                  ? (language === 'uk'
+                      ? `Власна ціль: ${formatWithUnit(currentWeight)} × ${currentReps} повт (рекомендація: ${formatWithUnit(recWeight)} × ${recReps} повт)`
+                      : `Custom target: ${formatWithUnit(currentWeight)} × ${currentReps} reps (recommended: ${formatWithUnit(recWeight)} × ${recReps} reps)`)
+                  : exercise.recommendation?.source === 'history'
                   ? (language === 'uk'
                       ? (exercise.recommendation.explanationUk || exercise.recommendation.explanation)
                       : exercise.recommendation.explanation)
@@ -564,7 +576,9 @@ export default function Active() {
             <View style={styles.matchedBanner}>
               <Ionicons
                 name={
-                  exercise.recommendation.recommendationReason === 'reduce'
+                  isManuallyAdjusted
+                    ? 'options-outline'
+                    : exercise.recommendation.recommendationReason === 'reduce'
                     ? 'shield-checkmark-outline'
                     : exercise.recommendation.source === 'history'
                     ? 'checkmark-circle-outline'
@@ -574,7 +588,11 @@ export default function Active() {
                 color={colors.primary}
               />
               <Text numberOfLines={2} style={styles.matchedSubText}>
-                {language === 'uk'
+                {isManuallyAdjusted
+                  ? (language === 'uk'
+                      ? `Власна ціль: ${formatWithUnit(currentWeight)} × ${currentReps} повт (рекомендація: ${formatWithUnit(recWeight)} × ${recReps} повт)`
+                      : `Custom target: ${formatWithUnit(currentWeight)} × ${currentReps} reps (recommended: ${formatWithUnit(recWeight)} × ${recReps} reps)`)
+                  : language === 'uk'
                   ? (exercise.recommendation.explanationUk || exercise.recommendation.explanation)
                   : exercise.recommendation.explanation}
               </Text>

@@ -18,16 +18,21 @@ export type HistoricalSet = { weight: number; reps: number };
 
 export function inferEquipmentFromName(name: string, fallback: EquipmentId = 'barbell'): EquipmentId {
   const lower = (name || '').toLowerCase();
+  if (lower.includes('assisted')) {
+    return 'machines';
+  }
   if (
     lower.includes('push-up') ||
     lower.includes('push up') ||
     lower.includes('pull-up') ||
     lower.includes('pull up') ||
     lower.includes('chin-up') ||
+    lower.includes('chin up') ||
     lower.includes('plank') ||
     lower.includes('bodyweight') ||
     lower.includes('hanging knee') ||
-    lower.includes('crunch') && !lower.includes('cable')
+    (lower.includes('dip') && !lower.includes('machine')) ||
+    (lower.includes('crunch') && !lower.includes('cable') && !lower.includes('machine'))
   ) {
     return 'bodyweight';
   }
@@ -88,19 +93,28 @@ export function roundPracticalWeight(value: number, equipment: EquipmentId) {
 export function recommendWeight(exercise: GeneratedExercise, previousSets: HistoricalSet[]): WeightRecommendation {
   const { minimum, maximum } = parseRepRange(exercise.targetRepRange);
   const equipment = exercise.equipment || inferEquipmentFromName(exercise.name);
+  const requiredSets = Math.max(1, exercise.sets || 3);
+  const validSets = previousSets.filter((s) => typeof s.reps === 'number' && s.reps > 0);
+  const completedAllSets = validSets.length >= requiredSets;
 
   if (equipment === 'bodyweight') {
-    if (previousSets.length > 0) {
-      const reps = previousSets.map((s) => s.reps);
+    if (validSets.length > 0) {
+      const reps = validSets.map((s) => s.reps);
       const minHit = Math.min(...reps);
-      const nextReps = minHit >= minimum ? Math.min(maximum, minHit + 1) : minimum;
+      const nextReps = completedAllSets && minHit >= minimum
+        ? Math.min(maximum, minHit + 1)
+        : Math.min(maximum, Math.max(minimum, minHit));
       return {
         recommendedWeight: 0,
         recommendedReps: nextReps,
         recommendationReason: 'maintain',
         source: 'history',
-        explanation: `Last time: ${reps.join('/')} reps. Aim for ${nextReps} controlled reps today.`,
-        explanationUk: `Минулого разу: ${reps.join('/')} повт. Ціль сьогодні — ${nextReps} підконтрольних повторень.`,
+        explanation: completedAllSets
+          ? `Last time: ${reps.join('/')} reps. Aim for ${nextReps} controlled reps today.`
+          : `Last time: ${reps.join('/')} (${validSets.length}/${requiredSets} sets). Complete all ${requiredSets} sets of ${nextReps} reps today.`,
+        explanationUk: completedAllSets
+          ? `Минулого разу: ${reps.join('/')} повт. Ціль сьогодні — ${nextReps} підконтрольних повторень.`
+          : `Минулого разу: ${reps.join('/')} (${validSets.length}/${requiredSets} підх.). Закріпіть усі ${requiredSets} підходи по ${nextReps} повт.`,
       };
     }
     return {
@@ -113,10 +127,10 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
     };
   }
 
-  const maxPrevWeight = previousSets.length > 0 ? Math.max(...previousSets.map((s) => s.weight)) : 0;
+  const maxPrevWeight = validSets.length > 0 ? Math.max(...validSets.map((s) => s.weight)) : 0;
   const weight = maxPrevWeight > 0 ? maxPrevWeight : (exercise.recommendedWeight || 0);
 
-  if (previousSets.length === 0 || weight <= 0) {
+  if (validSets.length === 0 || weight <= 0) {
     return {
       recommendedWeight: Math.max(0, exercise.recommendedWeight || 0),
       recommendedReps: minimum,
@@ -127,16 +141,52 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
     };
   }
 
-  const reps = previousSets.map((set) => set.reps);
+  const reps = validSets.map((set) => set.reps);
   const minRepsHit = Math.min(...reps);
   const maxRepsHit = Math.max(...reps);
+  const equipIncrement = practicalIncrement(equipment, weight);
   const increment = typeof exercise.weightIncrement === 'number' && exercise.weightIncrement > 0
-    ? exercise.weightIncrement
-    : practicalIncrement(equipment, weight);
+    ? Math.max(exercise.weightIncrement, equipIncrement)
+    : equipIncrement;
   const roundedIncrease = addWeight(weight, increment);
 
-  // 1. All sets hit or exceeded top of rep range -> Increase weight, reset target reps to minimum
-  if (reps.every((value) => value >= maximum)) {
+  const setsAtMaxWeight = validSets.filter((s) => Math.abs(s.weight - maxPrevWeight) < 0.01);
+  const allSetsAtMaxWeight = setsAtMaxWeight.length === validSets.length;
+
+  // Mixed-weight sets in the previous workout (e.g., 45x12 then dropped to 40x12, or ramped up 40x10 -> 45x8)
+  if (!allSetsAtMaxWeight) {
+    const maxWeightReps = setsAtMaxWeight.map((s) => s.reps);
+    const minAtMaxWeight = Math.min(...maxWeightReps);
+    if (minAtMaxWeight >= minimum - 1) {
+      const targetRepsAtMax = Math.min(maximum, Math.max(minimum, minAtMaxWeight));
+      return {
+        recommendedWeight: normalizeWeight(weight),
+        recommendedReps: targetRepsAtMax,
+        recommendationReason: 'maintain',
+        source: 'history',
+        explanation: `Last time you used up to ${formatWeight(weight)} kg (${ setsAtMaxWeight.length }/${ requiredSets } sets). Consolidate all ${requiredSets} sets at ${formatWeight(weight)} kg × ${targetRepsAtMax} reps.`,
+        explanationUk: `Минулого разу ви працювали до ${formatWeight(weight)} кг (${setsAtMaxWeight.length}/${requiredSets} підх.). Закріпіть усі ${requiredSets} підходи з вагою ${formatWeight(weight)} кг × ${targetRepsAtMax} повт.`,
+      };
+    }
+  }
+
+  // Incomplete workout (fewer completed sets than prescribed): consolidate before advancing weight or reps
+  if (!completedAllSets) {
+    if (maxRepsHit >= minimum - 1) {
+      const targetRepsConsolidate = Math.min(maximum, Math.max(minimum, minRepsHit));
+      return {
+        recommendedWeight: normalizeWeight(weight),
+        recommendedReps: targetRepsConsolidate,
+        recommendationReason: 'maintain',
+        source: 'history',
+        explanation: `You completed ${validSets.length}/${requiredSets} sets (${reps.join('/')}) at ${formatWeight(weight)} kg. Complete all ${requiredSets} sets of ${targetRepsConsolidate} reps before progressing.`,
+        explanationUk: `Виконано ${validSets.length}/${requiredSets} підх. (${reps.join('/')}) × ${formatWeight(weight)} кг. Закріпіть усі ${requiredSets} підходи по ${targetRepsConsolidate} повт перед підвищенням.`,
+      };
+    }
+  }
+
+  // 1. All prescribed sets completed at working weight and hit/exceeded top of rep range -> Increase weight, reset target reps to minimum
+  if (completedAllSets && allSetsAtMaxWeight && reps.every((value) => value >= maximum)) {
     return {
       recommendedWeight: roundedIncrease,
       recommendedReps: minimum,
@@ -147,11 +197,9 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
     };
   }
 
-  // 2. All sets hit at least minimum -> Maintain weight, progress target reps by +1
-  if (reps.every((value) => value >= minimum)) {
-    const nextReps = minRepsHit === maxRepsHit
-      ? Math.min(maximum, minRepsHit + 1)
-      : Math.min(maximum, maxRepsHit);
+  // 2. All prescribed sets hit at least minimum -> Maintain weight, progress target reps by +1 from lowest set
+  if (completedAllSets && allSetsAtMaxWeight && reps.every((value) => value >= minimum)) {
+    const nextReps = Math.min(maximum, minRepsHit + 1);
     return {
       recommendedWeight: normalizeWeight(weight),
       recommendedReps: nextReps,
