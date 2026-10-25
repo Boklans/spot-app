@@ -774,9 +774,7 @@ export default function Active() {
                         <Ionicons name="checkmark" size={16} color="#0B0D0F" />
                       </View>
                     ) : isCurrent ? (
-                      <View style={styles.statusCurrentBadge}>
-                        <Ionicons name="checkmark" size={13} color={colors.primary} />
-                      </View>
+                      <View style={styles.statusCurrentBadge} />
                     ) : (
                       <View style={styles.statusPendingBadge} />
                     )}
@@ -1444,8 +1442,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   setColDoneText: {
-    textDecorationLine: 'line-through',
-    color: '#5A687A',
+    color: '#94A3B8',
   },
   setColStatus: {
     width: 52,
