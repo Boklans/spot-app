@@ -437,56 +437,83 @@ export default function Active() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* 2. Exercise Header */}
+        {/* 2. Interactive Exercise Guide Card */}
         <View style={styles.exerciseHeader}>
+          {/* Large Exercise Preview with Interactive Guide Trigger */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Exercise Details"
+            accessibilityLabel="Exercise details and technique"
             onPress={() => {
               hapticLight();
               setShowDetailModal(true);
             }}
-            style={styles.exerciseHeaderInteractive}
+            style={styles.exerciseThumbWrap}
           >
-            <View style={styles.exerciseThumbWrap}>
-              <Image
-                source={getExerciseImage(exercise.name, exercise.customImageUri)}
-                style={styles.exerciseThumb}
-                resizeMode="cover"
-              />
-              <View style={styles.thumbInfoBadge}>
-                <Ionicons name="information" size={9} color="#0B0D0F" />
-              </View>
+            <Image
+              source={getExerciseImage(exercise.name, exercise.customImageUri)}
+              style={styles.exerciseThumb}
+              resizeMode="cover"
+            />
+            <View style={styles.thumbOverlayTag}>
+              <Ionicons name="book" size={10} color="#0B0D0F" />
+              <Text style={styles.thumbOverlayText}>
+                {language === 'uk' ? 'Гайд' : 'Guide'}
+              </Text>
             </View>
-            <View style={styles.exerciseInfoCol}>
-              <Text numberOfLines={2} style={styles.exerciseName}>{te(exercise.name)}</Text>
-              <View style={styles.exerciseMuscleRow}>
+          </Pressable>
+
+          {/* Details & Actions */}
+          <View style={styles.exerciseInfoCol}>
+            <View style={styles.exerciseTopRow}>
+              <View style={styles.exerciseMusclePill}>
                 <Text style={styles.exerciseMuscle}>{tm(exercise.muscleGroup)}</Text>
-                <View style={styles.guideBadge}>
-                  <Ionicons name="information-circle" size={12} color={colors.primary} style={{ marginRight: 3 }} />
-                  <Text style={styles.guideBadgeText}>
-                    {language === 'uk' ? 'Техніка' : 'Guide'}
-                  </Text>
-                </View>
               </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Swap exercise"
+                hitSlop={8}
+                onPress={() => {
+                  hapticLight();
+                  setShowSwapModal(true);
+                }}
+                style={({ pressed }) => [
+                  styles.swapBtn,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Ionicons name="swap-horizontal" size={13} color={colors.primary} />
+                <Text style={styles.swapBtnText}>{t('swap')}</Text>
+              </Pressable>
             </View>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Swap exercise"
-            hitSlop={8}
-            onPress={() => {
-              hapticLight();
-              setShowSwapModal(true);
-            }}
-            style={({ pressed }) => [
-              styles.swapBtn,
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
-            <Text style={styles.swapBtnText}>{t('swap')}</Text>
-          </Pressable>
+
+            <Pressable
+              onPress={() => {
+                hapticLight();
+                setShowDetailModal(true);
+              }}
+            >
+              <Text numberOfLines={2} style={styles.exerciseName}>{te(exercise.name)}</Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View technique and form instructions"
+              onPress={() => {
+                hapticLight();
+                setShowDetailModal(true);
+              }}
+              style={({ pressed }) => [
+                styles.guideActionBtn,
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <Ionicons name="fitness-outline" size={13} color={colors.primary} />
+              <Text style={styles.guideActionText}>
+                {language === 'uk' ? 'Техніка виконання' : 'Technique & Form'}
+              </Text>
+              <Ionicons name="chevron-forward" size={12} color={colors.primary} style={{ marginLeft: 'auto' }} />
+            </Pressable>
+          </View>
         </View>
 
         {/* 3. Hero Active Set Target & Zero-Friction Adjustments Card */}
@@ -1042,38 +1069,48 @@ const styles = StyleSheet.create({
     paddingBottom: 140,
   },
   exerciseHeader: {
+    backgroundColor: '#12161D',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    marginBottom: 16,
-  },
-  exerciseHeaderInteractive: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
+    gap: 12,
+    marginBottom: 14,
   },
   exerciseThumbWrap: {
-    width: 58,
-    height: 58,
-    borderRadius: 16,
+    width: 96,
+    height: 96,
+    borderRadius: 14,
     backgroundColor: '#0E1115',
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: 'rgba(200, 255, 61, 0.25)',
     overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'relative',
   },
-  thumbInfoBadge: {
+  thumbOverlayTag: {
     position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#C8FF3D',
+    bottom: 5,
+    left: 5,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 3,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.35,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  thumbOverlayText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#0B0D0F',
+    letterSpacing: 0.4,
   },
   exerciseThumb: {
     width: '100%',
@@ -1081,43 +1118,53 @@ const styles = StyleSheet.create({
   },
   exerciseInfoCol: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    minHeight: 96,
+    paddingVertical: 2,
   },
-  exerciseName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -0.3,
-    lineHeight: 28,
-  },
-  exerciseMuscleRow: {
+  exerciseTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
+    justifyContent: 'space-between',
   },
-  exerciseMuscle: {
-    fontSize: 11,
-    color: colors.primary,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  guideBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+  exerciseMusclePill: {
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
+    borderRadius: 5,
   },
-  guideBadgeText: {
+  exerciseMuscle: {
     fontSize: 10,
+    color: colors.primary,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  exerciseName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+    lineHeight: 22,
+    marginVertical: 4,
+  },
+  guideActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.22)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginTop: 2,
+  },
+  guideActionText: {
+    fontSize: 11,
     fontWeight: '700',
     color: colors.primary,
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   heroTargetCard: {
     backgroundColor: '#12161D',

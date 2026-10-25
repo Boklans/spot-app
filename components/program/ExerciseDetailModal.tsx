@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Image,
   Modal,
@@ -42,6 +42,7 @@ export function ExerciseDetailModal({
   const { te, tm, language } = useI18n();
   const { unitLabel, fromKg } = useWeightUnit();
   const isUk = language === 'uk';
+  const [selectedPhase, setSelectedPhase] = useState<1 | 2 | 3>(1);
 
   const workouts = useWorkoutHistoryStore((state) => state.workouts);
 
@@ -145,6 +146,68 @@ export function ExerciseDetailModal({
                 style={styles.heroImage}
                 resizeMode="cover"
               />
+              <View style={styles.heroOverlayBadge}>
+                <Ionicons name="sparkles" size={11} color={colors.primary} />
+                <Text style={styles.heroOverlayBadgeText}>
+                  {isUk ? '3D ДЕМОНСТРАЦІЯ ТЕХНІКИ' : '3D EXERCISE GUIDE'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Interactive Movement Phases Bar */}
+            <View style={styles.phaseSelectorCard}>
+              <View style={styles.phaseSelectorHeader}>
+                <Ionicons name="layers-outline" size={14} color={colors.primary} />
+                <Text style={styles.phaseSelectorTitle}>
+                  {isUk ? 'ФАЗИ РУХУ ДЛЯ НОВАЧКІВ' : 'KEY MOVEMENT PHASES'}
+                </Text>
+              </View>
+              <View style={styles.phaseTabsRow}>
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityLabel="Phase 1: Setup"
+                  onPress={() => {
+                    hapticLight();
+                    setSelectedPhase(1);
+                  }}
+                  style={[styles.phaseTab, selectedPhase === 1 && styles.phaseTabActive]}
+                >
+                  <Text style={[styles.phaseTabNum, selectedPhase === 1 && styles.phaseTabNumActive]}>1</Text>
+                  <Text style={[styles.phaseTabText, selectedPhase === 1 && styles.phaseTabTextActive]}>
+                    {isUk ? 'Позиція' : 'Setup'}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityLabel="Phase 2: Movement"
+                  onPress={() => {
+                    hapticLight();
+                    setSelectedPhase(2);
+                  }}
+                  style={[styles.phaseTab, selectedPhase === 2 && styles.phaseTabActive]}
+                >
+                  <Text style={[styles.phaseTabNum, selectedPhase === 2 && styles.phaseTabNumActive]}>2</Text>
+                  <Text style={[styles.phaseTabText, selectedPhase === 2 && styles.phaseTabTextActive]}>
+                    {isUk ? 'Робочий рух' : 'Execution'}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityLabel="Phase 3: Tips & Lockout"
+                  onPress={() => {
+                    hapticLight();
+                    setSelectedPhase(3);
+                  }}
+                  style={[styles.phaseTab, selectedPhase === 3 && styles.phaseTabActive]}
+                >
+                  <Text style={[styles.phaseTabNum, selectedPhase === 3 && styles.phaseTabNumActive]}>3</Text>
+                  <Text style={[styles.phaseTabText, selectedPhase === 3 && styles.phaseTabTextActive]}>
+                    {isUk ? 'Фіксація' : 'Lockout'}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
 
             {/* 2. Target Muscle Anatomy */}
@@ -192,49 +255,67 @@ export function ExerciseDetailModal({
 
               <View style={styles.stepsList}>
                 {/* Step 1 */}
-                <View style={styles.stepItem}>
-                  <View style={styles.stepNumberBadge}>
-                    <Text style={styles.stepNumberText}>1</Text>
+                <Pressable
+                  onPress={() => {
+                    hapticLight();
+                    setSelectedPhase(1);
+                  }}
+                  style={[styles.stepItem, selectedPhase === 1 && styles.stepItemActive]}
+                >
+                  <View style={[styles.stepNumberBadge, selectedPhase === 1 && styles.stepNumberBadgeActive]}>
+                    <Text style={[styles.stepNumberText, selectedPhase === 1 && styles.stepNumberTextActive]}>1</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.stepTitle}>
+                    <Text style={[styles.stepTitle, selectedPhase === 1 && styles.stepTitleActive]}>
                       {isUk ? 'Початкове положення' : 'Setup & Grip'}
                     </Text>
                     <Text style={styles.stepDescription}>
                       {isUk ? details.setupUk : details.setupEn}
                     </Text>
                   </View>
-                </View>
+                </Pressable>
 
                 {/* Step 2 */}
-                <View style={styles.stepItem}>
-                  <View style={styles.stepNumberBadge}>
-                    <Text style={styles.stepNumberText}>2</Text>
+                <Pressable
+                  onPress={() => {
+                    hapticLight();
+                    setSelectedPhase(2);
+                  }}
+                  style={[styles.stepItem, selectedPhase === 2 && styles.stepItemActive]}
+                >
+                  <View style={[styles.stepNumberBadge, selectedPhase === 2 && styles.stepNumberBadgeActive]}>
+                    <Text style={[styles.stepNumberText, selectedPhase === 2 && styles.stepNumberTextActive]}>2</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.stepTitle}>
+                    <Text style={[styles.stepTitle, selectedPhase === 2 && styles.stepTitleActive]}>
                       {isUk ? 'Рух та дихання' : 'Movement & Control'}
                     </Text>
                     <Text style={styles.stepDescription}>
                       {isUk ? details.executionUk : details.executionEn}
                     </Text>
                   </View>
-                </View>
+                </Pressable>
 
                 {/* Step 3 */}
-                <View style={styles.stepItem}>
-                  <View style={styles.stepNumberBadge}>
-                    <Text style={styles.stepNumberText}>3</Text>
+                <Pressable
+                  onPress={() => {
+                    hapticLight();
+                    setSelectedPhase(3);
+                  }}
+                  style={[styles.stepItem, selectedPhase === 3 && styles.stepItemActive]}
+                >
+                  <View style={[styles.stepNumberBadge, selectedPhase === 3 && styles.stepNumberBadgeActive]}>
+                    <Text style={[styles.stepNumberText, selectedPhase === 3 && styles.stepNumberTextActive]}>3</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.stepTitle}>
+                    <Text style={[styles.stepTitle, selectedPhase === 3 && styles.stepTitleActive]}>
                       {isUk ? 'Фіксація та поради' : 'Lockout & Pro Tip'}
                     </Text>
                     <Text style={styles.stepDescription}>
                       {isUk ? details.tipsUk : details.tipsEn}
                     </Text>
                   </View>
-                </View>
+                </Pressable>
               </View>
             </View>
 
@@ -419,6 +500,84 @@ const styles = StyleSheet.create({
     backgroundColor: '#12161D',
     borderWidth: 1,
     borderColor: '#1E2530',
+    position: 'relative',
+  },
+  heroOverlayBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(11, 13, 15, 0.85)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.3)',
+  },
+  heroOverlayBadgeText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  phaseSelectorCard: {
+    backgroundColor: '#12161D',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#1E2530',
+  },
+  phaseSelectorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  phaseSelectorTitle: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  phaseTabsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  phaseTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 10,
+    backgroundColor: '#171D26',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  phaseTabActive: {
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    borderColor: colors.primary,
+  },
+  phaseTabNum: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#717B8A',
+  },
+  phaseTabNumActive: {
+    color: colors.primary,
+  },
+  phaseTabText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  phaseTabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
   heroImage: {
     width: '100%',
@@ -520,6 +679,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     marginBottom: 2,
+  },
+  stepTitleActive: {
+    color: colors.primary,
+  },
+  stepItemActive: {
+    backgroundColor: 'rgba(200, 255, 61, 0.06)',
+    borderColor: 'rgba(200, 255, 61, 0.3)',
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+  },
+  stepNumberBadgeActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  stepNumberTextActive: {
+    color: '#0B0D0F',
   },
   stepDescription: {
     color: '#94A3B8',
