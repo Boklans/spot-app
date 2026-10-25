@@ -156,7 +156,7 @@ function recommendWeight(exercise, previousSets) {
     const workingWeightReps = setsAtWorkingWeight.map((s) => s.reps);
     const minAtWorkingWeight = Math.min(...workingWeightReps);
     if (minAtWorkingWeight >= minimum - 1) {
-      const targetRepsAtWorking = Math.min(maximum, Math.max(minimum, minAtWorkingWeight));
+      const targetRepsAtWorking = Math.min(maximum, Math.max(minimum, minRepsHit));
       return {
         recommendedWeight: normalizeWeight(weight),
         recommendedReps: targetRepsAtWorking,
@@ -462,6 +462,16 @@ const benchPress = {
   assert.strictEqual(recFailedPeakDrop.recommendedWeight, 40);
   assert.strictEqual(recFailedPeakDrop.recommendedReps, 10);
   assert.strictEqual(recFailedPeakDrop.recommendationReason, 'reduce');
+
+  // User ramped up 45kg × 8, 45kg × 8, 47.5kg × 10 -> consolidates 47.5kg at 8 reps (not 10 reps across all 3 sets!)
+  const recRampedPeak = recommendWeight(benchPress, [
+    { weight: 45, reps: 8 },
+    { weight: 45, reps: 8 },
+    { weight: 47.5, reps: 10 },
+  ]);
+  assert.strictEqual(recRampedPeak.recommendedWeight, 47.5);
+  assert.strictEqual(recRampedPeak.recommendedReps, 8);
+  assert.strictEqual(recRampedPeak.recommendationReason, 'maintain');
 
   console.log('✅ TEST 7 PASSED: Manual weight override (50kg × 8/8/8 -> 50kg × 9), mixed-weight drop sets, and failed peak fallback verified');
   passed++;

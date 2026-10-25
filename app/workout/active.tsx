@@ -331,7 +331,7 @@ export default function Active() {
   const repsDelta = currentReps - prevReps;
 
   const hasWeightIncrease = prevWeight > 0 && (isAssisted ? weightDeltaDisplay < 0 : weightDeltaDisplay > 0);
-  const hasRepsIncrease = prevReps > 0 && repsDelta > 0 && (isAssisted ? weightDeltaDisplay <= 0 : weightDeltaDisplay >= 0);
+  const hasRepsIncrease = !hasWeightIncrease && prevReps > 0 && repsDelta > 0 && Math.abs(weightDeltaDisplay) < 0.01;
   const isProgressed = hasWeightIncrease || hasRepsIncrease;
 
   const recWeight = exercise?.recommendation?.recommendedWeight ?? currentWeight;
@@ -655,21 +655,29 @@ export default function Active() {
                       ? 'options-outline'
                       : exercise.recommendation?.recommendationReason === 'reduce'
                       ? 'shield-checkmark-outline'
-                      : 'Flag-outline' === 'Flag-outline'
-                      ? 'checkmark-circle-outline'
-                      : 'compass-outline'
+                      : 'checkmark-circle-outline'
                   }
                   size={15}
                   color={colors.primary}
                 />
               )}
 
-              <Text style={styles.progressionTargetSummary} numberOfLines={1}>
+              <Text style={styles.progressionTargetSummary}>
                 {language === 'uk' ? 'Сьогодні ціль: ' : 'Today’s goal: '}
                 <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>
                   {currentWeight ? formatWithUnit(currentWeight) : t('bodyweight')} × {currentReps}{' '}
                   {language === 'uk' ? 'повт' : 'reps'}
                 </Text>
+              </Text>
+            </View>
+
+            <View style={styles.progressionCoachBottomRow}>
+              <Text numberOfLines={2} style={styles.progressionSubExplanation}>
+                {isManuallyAdjusted
+                  ? (language === 'uk'
+                      ? `Власна ціль: ${formatWithUnit(currentWeight)} × ${currentReps} повт (рекомендація: ${formatWithUnit(recWeight)} × ${recReps} повт)`
+                      : `Custom target: ${formatWithUnit(currentWeight)} × ${currentReps} reps (recommended: ${formatWithUnit(recWeight)} × ${recReps} reps)`)
+                  : nextUnlockHint}
               </Text>
 
               <Pressable
@@ -688,14 +696,6 @@ export default function Active() {
                 </Text>
               </Pressable>
             </View>
-
-            <Text numberOfLines={2} style={styles.progressionSubExplanation}>
-              {isManuallyAdjusted
-                ? (language === 'uk'
-                    ? `Власна ціль: ${formatWithUnit(currentWeight)} × ${currentReps} повт (рекомендація: ${formatWithUnit(recWeight)} × ${recReps} повт)`
-                    : `Custom target: ${formatWithUnit(currentWeight)} × ${currentReps} reps (recommended: ${formatWithUnit(recWeight)} × ${recReps} reps)`)
-                : nextUnlockHint}
-            </Text>
           </View>
 
           {/* Steppers & Target Numbers Grid */}
@@ -820,7 +820,7 @@ export default function Active() {
             <Text numberOfLines={1} style={styles.tableHeadSet}>{t('set')}</Text>
             <Text numberOfLines={1} style={styles.tableHeadPrev}>{language === 'uk' ? 'МИНУЛЕ' : 'PREV'}</Text>
             <Text numberOfLines={1} style={styles.tableHeadWeight}>{unitLabel}</Text>
-            <Text numberOfLines={1} style={styles.tableHeadReps}>{t('reps')}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadReps}>{language === 'uk' ? 'ПОВТ.' : t('reps')}</Text>
             <Text numberOfLines={1} style={styles.tableHeadStatus}>{t('status')}</Text>
           </View>
 
@@ -1465,9 +1465,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 7,
   },
+  progressionCoachBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   progressionTargetSummary: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '600',
     color: '#CBD5E1',
   },
@@ -1477,10 +1483,11 @@ const styles = StyleSheet.create({
     gap: 3,
     backgroundColor: 'rgba(182, 240, 0, 0.12)',
     paddingHorizontal: 7,
-    paddingVertical: 3,
+    paddingVertical: 3.5,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(182, 240, 0, 0.28)',
+    flexShrink: 0,
   },
   howProgressionBtnText: {
     color: colors.primary,
@@ -1488,6 +1495,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   progressionSubExplanation: {
+    flex: 1,
     fontSize: 11,
     lineHeight: 15,
     fontWeight: '500',

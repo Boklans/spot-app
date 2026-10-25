@@ -170,12 +170,12 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
   const setsAtWorkingWeight = validSets.filter((s) => Math.abs(s.weight - workingPrevWeight) < 0.01);
   const allSetsAtWorkingWeight = setsAtWorkingWeight.length === validSets.length;
 
-  // Mixed-weight sets in the previous workout (e.g., 45x12 then dropped to 40x12, or ramped up 40x10 -> 45x8)
+  // Mixed-weight sets in the previous workout (e.g., 45x12 then dropped to 40x12, or ramped up 45x8 -> 47.5x10)
   if (!allSetsAtWorkingWeight) {
     const workingWeightReps = setsAtWorkingWeight.map((s) => s.reps);
     const minAtWorkingWeight = Math.min(...workingWeightReps);
     if (minAtWorkingWeight >= minimum - 1) {
-      const targetRepsAtWorking = Math.min(maximum, Math.max(minimum, minAtWorkingWeight));
+      const targetRepsAtWorking = Math.min(maximum, Math.max(minimum, minRepsHit));
       return {
         recommendedWeight: normalizeWeight(weight),
         recommendedReps: targetRepsAtWorking,

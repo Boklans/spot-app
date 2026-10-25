@@ -22,21 +22,79 @@ interface ExerciseNoteModalProps {
   onSave: (note: string) => void;
 }
 
-const PRESETS_UK = [
-  'Сидіння — рівень 4',
-  'Нейтральний хват',
-  'Спинка — кут 30°',
-  'Звести лопатки',
-  'Не підвищувати вагу через дискомфорт',
-];
+function getPresetsForExercise(exerciseName: string, isUk: boolean): string[] {
+  const lower = (exerciseName || '').toLowerCase();
+  const isFreeWeightLowerOrPull =
+    lower.includes('присідання') ||
+    lower.includes('squat') ||
+    lower.includes('румунська') ||
+    lower.includes('станова') ||
+    lower.includes('deadlift') ||
+    lower.includes('випади') ||
+    lower.includes('lunge') ||
+    lower.includes('тяга штанги') ||
+    lower.includes('barbell row');
 
-const PRESETS_EN = [
-  'Seat — level 4',
-  'Neutral grip',
-  'Bench — 30° incline',
-  'Retract scapula',
-  'Hold weight due to joint discomfort',
-];
+  if (isFreeWeightLowerOrPull) {
+    return isUk
+      ? [
+          'Висота стійок — 10',
+          'Пояс / лямки',
+          'Тримати спину нейтрально',
+          'Пауза 1 сек унизу',
+          'Не підвищувати вагу через дискомфорт',
+        ]
+      : [
+          'Rack height — 10',
+          'Belt / straps',
+          'Keep neutral spine',
+          '1 sec pause at bottom',
+          'Hold weight due to joint discomfort',
+        ];
+  }
+
+  const isPress =
+    lower.includes('жим') ||
+    lower.includes('press') ||
+    lower.includes('віджимання') ||
+    lower.includes('push-up') ||
+    lower.includes('брус') ||
+    lower.includes('dip');
+
+  if (isPress) {
+    return isUk
+      ? [
+          'Спинка — кут 30°',
+          'Висота стійок — 6',
+          'Звести лопатки',
+          'Лікті під кутом 45°',
+          'Не підвищувати вагу через дискомфорт',
+        ]
+      : [
+          'Bench — 30° incline',
+          'Rack height — 6',
+          'Retract scapula',
+          'Elbows at 45°',
+          'Hold weight due to joint discomfort',
+        ];
+  }
+
+  return isUk
+    ? [
+        'Сидіння — рівень 4',
+        'Нейтральний хват',
+        'Валик — рівень 3',
+        'Звести лопатки',
+        'Не підвищувати вагу через дискомфорт',
+      ]
+    : [
+        'Seat — level 4',
+        'Neutral grip',
+        'Pad — level 3',
+        'Retract scapula',
+        'Hold weight due to joint discomfort',
+      ];
+}
 
 export function ExerciseNoteModal({
   visible,
@@ -57,7 +115,7 @@ export function ExerciseNoteModal({
 
   if (!visible) return null;
 
-  const presets = isUk ? PRESETS_UK : PRESETS_EN;
+  const presets = getPresetsForExercise(exerciseName, isUk);
 
   const appendPreset = (preset: string) => {
     hapticLight();

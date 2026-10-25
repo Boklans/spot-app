@@ -101,10 +101,26 @@ export default function Complete() {
       const todayTotalReps = completedSets.reduce((acc, s) => acc + s.reps, 0);
       const weightDiff = Math.round((todayWorkingWeight - prevWorkingWeight) * 10) / 10;
       const repsDiff = todayTotalReps - prevTotalReps;
+      const minOverlapSets = Math.min(completedSets.length, prevSets.length);
+      const pairedRepsDiff =
+        minOverlapSets > 0
+          ? completedSets.slice(0, minOverlapSets).reduce((acc, s) => acc + s.reps, 0) -
+            prevSets.slice(0, minOverlapSets).reduce((acc, s) => acc + s.reps, 0)
+          : 0;
+      const setsDiff = completedSets.length - prevSets.length;
+      const minTodayReps = Math.min(...completedSets.map((s) => s.reps));
+      const minPrevReps = hasPrev ? Math.min(...prevSets.map((s) => s.reps)) : 0;
 
       const progressedWeight = hasPrev && (isAssisted ? weightDiff < 0 : weightDiff > 0);
-      const progressedReps = hasPrev && !progressedWeight && Math.abs(weightDiff) < 0.01 && repsDiff > 0;
-      const isProgressedToday = progressedWeight || progressedReps;
+      const progressedReps = hasPrev && !progressedWeight && Math.abs(weightDiff) < 0.01 && pairedRepsDiff > 0;
+      const progressedSets =
+        hasPrev &&
+        !progressedWeight &&
+        !progressedReps &&
+        Math.abs(weightDiff) < 0.01 &&
+        setsDiff > 0 &&
+        minTodayReps >= minPrevReps;
+      const isProgressedToday = progressedWeight || progressedReps || progressedSets;
 
       return {
         id: ex.id,
@@ -119,8 +135,11 @@ export default function Complete() {
         todayRepsStr,
         weightDiff,
         repsDiff,
+        pairedRepsDiff,
+        setsDiff,
         progressedWeight,
         progressedReps,
+        progressedSets,
         isProgressedToday,
         nextRec,
       };
@@ -310,13 +329,15 @@ export default function Complete() {
         <View style={styles.prsCard}>
           <View style={styles.prHeader}>
             <MaterialCommunityIcons
-              name={prs.length === 0 ? 'flag-variant' : 'trophy'}
+              name={prs.length === 0 ? (hasPreviousSession || nextSessionPlan.some((i) => i.hasPrev) ? 'shield-check' : 'flag-variant') : 'trophy'}
               size={16}
               color={prs.length === 0 ? colors.primary : '#FFD130'}
             />
             <Text style={[styles.prSectionTitle, prs.length === 0 && { color: colors.primary }]}>
               {prs.length === 0
-                ? (language === 'uk' ? 'БАЗУ ЗАФІКСОВАНО' : 'BASELINE ESTABLISHED')
+                ? (hasPreviousSession || nextSessionPlan.some((i) => i.hasPrev)
+                    ? (language === 'uk' ? 'РОБОЧІ ПОКАЗНИКИ ЗАКРІПЛЕНО' : 'WORKING VOLUME CONSOLIDATED')
+                    : (language === 'uk' ? 'БАЗУ ЗАФІКСОВАНО' : 'BASELINE ESTABLISHED'))
                 : prsHeaderTitle}
             </Text>
           </View>
@@ -324,9 +345,13 @@ export default function Complete() {
           {prs.length === 0 ? (
             <View style={styles.noPrWrap}>
               <Text style={styles.noPrText}>
-                {language === 'uk'
-                  ? 'Показники тренування зафіксовано як вашу базу. Прогрес та нові рекорди почнуть відстежуватися вже з наступних сесій!'
-                  : 'Workout metrics saved as your baseline. Progressive overload and new PRs will be tracked from your next workouts!'}
+                {hasPreviousSession || nextSessionPlan.some((i) => i.hasPrev)
+                  ? (language === 'uk'
+                      ? 'Ви стабільно виконали робочий об\'єм. Дотримуйтесь цілей нижче на наступному тренуванні для плавної прогресії!'
+                      : 'You completed your working volume with solid consistency. Follow the targets below next session to progress!')
+                  : (language === 'uk'
+                      ? 'Показники тренування зафіксовано як вашу базу. Прогрес та нові рекорди почнуть відстежуватися вже з наступних сесій!'
+                      : 'Workout metrics saved as your baseline. Progressive overload and new PRs will be tracked from your next workouts!')}
               </Text>
             </View>
           ) : (
@@ -356,10 +381,10 @@ export default function Complete() {
         {nextSessionPlan.length > 0 && (
           <View style={styles.prsCard}>
             <View style={[styles.prHeader, { justifyContent: 'space-between' }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 8 }}>
                 <Ionicons name="trending-up" size={16} color={colors.primary} />
-                <Text style={[styles.prSectionTitle, { color: colors.primary }]}>
-                  {language === 'uk' ? 'ПРОГРЕС ПО ВПРАВАХ ТА НАСТУПНА ЦІЛЬ' : 'EXERCISE PROGRESS & NEXT TARGETS'}
+                <Text numberOfLines={1} style={[styles.prSectionTitle, { color: colors.primary, flex: 1 }]}>
+                  {language === 'uk' ? 'ПРОГРЕС ПО ВПРАВАХ' : 'EXERCISE PROGRESS'}
                 </Text>
               </View>
               {progressedExercisesCount > 0 && (
@@ -369,6 +394,7 @@ export default function Complete() {
                     paddingHorizontal: 8,
                     paddingVertical: 3,
                     borderRadius: 8,
+                    flexShrink: 0,
                   }}
                 >
                   <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '900' }}>
@@ -436,7 +462,9 @@ export default function Complete() {
                         <Text style={{ fontSize: 10, fontWeight: '900', color: colors.primary }}>
                           {item.progressedWeight
                             ? `🔥 ${item.weightDiff > 0 ? '+' : ''}${formatWithUnit(item.weightDiff)}`
-                            : `⚡ +${item.repsDiff} ${language === 'uk' ? 'повт' : 'reps'}`}
+                            : item.progressedReps
+                            ? `⚡ +${item.pairedRepsDiff} ${language === 'uk' ? 'повт' : 'reps'}`
+                            : `⚡ +${item.setsDiff} ${language === 'uk' ? 'підх.' : 'sets'}`}
                         </Text>
                       </View>
                     ) : null}
