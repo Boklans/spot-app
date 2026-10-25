@@ -1,16 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import {
-  Animated,
   Image,
   ImageSourcePropType,
-  Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { colors } from '@/constants/colors';
-import { hapticLight } from '@/lib/haptics';
 
 interface ExercisePhaseAnimatorProps {
   imageSource: ImageSourcePropType;
@@ -27,80 +24,11 @@ export function ExercisePhaseAnimator({
   imageSource,
   exerciseName,
   selectedPhase,
-  onSelectPhase,
   setupCue,
   executionCue,
   tipsCue,
   isUk,
 }: ExercisePhaseAnimatorProps) {
-  // Auto-play is disabled by default when there is only a single static frame,
-  // preventing text flickering over a static image.
-  const [isPlaying, setIsPlaying] = useState(false);
-  const breathAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim = useRef(new Animated.Value(0.2)).current;
-  const loopRef = useRef<Animated.CompositeAnimation | null>(null);
-
-  // Auto-play timer syncing phases 1 -> 2 -> 3 -> 1
-  useEffect(() => {
-    if (!isPlaying) {
-      loopRef.current?.stop();
-      return;
-    }
-
-    // Smooth subtle physiological breathing & depth motion (scale 1.0 -> 1.04)
-    loopRef.current = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(breathAnim, {
-            toValue: 1.04,
-            duration: 2200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowAnim, {
-            toValue: 0.45,
-            duration: 2200,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(breathAnim, {
-            toValue: 1.0,
-            duration: 1800,
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowAnim, {
-            toValue: 0.2,
-            duration: 1800,
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
-    );
-    loopRef.current.start();
-
-    // Auto-advance movement phases in realistic cadence
-    // Phase 1 (Setup hold: 1.5s) -> Phase 2 (Movement lowering: 2.5s) -> Phase 3 (Lockout: 1.5s)
-    let timeoutId: any;
-    if (selectedPhase === 1) {
-      timeoutId = setTimeout(() => {
-        onSelectPhase(2);
-      }, 2000);
-    } else if (selectedPhase === 2) {
-      timeoutId = setTimeout(() => {
-        onSelectPhase(3);
-      }, 2600);
-    } else {
-      timeoutId = setTimeout(() => {
-        onSelectPhase(1);
-      }, 1800);
-    }
-
-    return () => {
-      clearTimeout(timeoutId);
-      loopRef.current?.stop();
-    };
-  }, [isPlaying, selectedPhase, onSelectPhase, breathAnim, glowAnim]);
-
   const currentPhaseTitle =
     selectedPhase === 1
       ? isUk ? 'ФАЗА 1: ПОЗИЦІЯ ТА ХВАТ' : 'PHASE 1: SETUP & GRIP'
@@ -120,45 +48,22 @@ export function ExercisePhaseAnimator({
 
   return (
     <View style={styles.container}>
-      {/* 3D Render Image Container with subtle breathing depth */}
+      {/* 3D Render Image Container */}
       <View style={styles.imageCard}>
-        <Animated.View
-          style={[
-            styles.animatedImageWrap,
-            {
-              transform: [{ scale: breathAnim }],
-            },
-          ]}
-        >
-          <Image
-            source={imageSource}
-            style={styles.heroImage}
-            resizeMode="cover"
-          />
-        </Animated.View>
+        <Image
+          source={imageSource}
+          style={styles.heroImage}
+          resizeMode="cover"
+        />
 
-        {/* Top Badges Row */}
+        {/* Top Badge */}
         <View style={styles.topRow}>
           <View style={styles.badge3D}>
             <View style={styles.pulseDot} />
             <Text style={styles.badge3DText}>
-              {isUk ? '3D ДЕМОНСТРАЦІЯ ТА ФАЗИ' : '3D TECHNIQUE GUIDE'}
+              {isUk ? '3D АНАТОМІЯ М’ЯЗІВ ТА ТЕХНІКА' : '3D MUSCLE ANATOMY & TECHNIQUE'}
             </Text>
           </View>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              hapticLight();
-              setIsPlaying((prev) => !prev);
-            }}
-            style={styles.playPauseBtn}
-          >
-            <Ionicons name={isPlaying ? 'pause' : 'play'} size={12} color="#0B0D0F" />
-            <Text style={styles.playPauseText}>
-              {isPlaying ? (isUk ? 'Пауза' : 'Pause') : (isUk ? 'Авто' : 'Auto')}
-            </Text>
-          </Pressable>
         </View>
 
         {/* Dynamic Phase Directives over Image */}
@@ -196,21 +101,19 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'space-between',
   },
-  animatedImageWrap: {
+  heroImage: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-  },
-  heroImage: {
     width: '100%',
     height: '100%',
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     padding: 12,
     zIndex: 10,
   },
@@ -237,22 +140,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.8,
   },
-  playPauseBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  playPauseText: {
-    color: '#0B0D0F',
-    fontSize: 11,
-    fontWeight: '900',
-  },
   phaseOverlayCard: {
-    backgroundColor: 'rgba(11, 13, 15, 0.88)',
+    backgroundColor: 'rgba(11, 13, 15, 0.90)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
     paddingHorizontal: 14,
