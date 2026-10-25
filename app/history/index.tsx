@@ -162,18 +162,6 @@ export default function History() {
         </Pressable>
         <View style={styles.headerTitleRow}>
           <Text style={styles.title}>{t('workoutHistory')}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Quick Log"
-            onPress={() => {
-              hapticLight();
-              router.push('/workout/quick-log');
-            }}
-            style={({ pressed }) => [styles.quickLogBtn, pressed && { opacity: 0.85 }]}
-          >
-            <Ionicons name="flash" size={13} color="#0B0D0F" style={{ marginRight: 4 }} />
-            <Text style={styles.quickLogBtnText}>{t('quickLog')}</Text>
-          </Pressable>
         </View>
         <Text style={styles.headerSubtitle}>
           {isUk

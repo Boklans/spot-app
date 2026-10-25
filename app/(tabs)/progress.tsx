@@ -79,9 +79,17 @@ export default function Progress() {
   const realSummary = calculateProgressSummary(history, period);
 
   const workoutsCount = hasHistory ? realSummary.workouts : 0;
-  const volumeDisplay = hasHistory
-    ? formatVolume(realSummary.volume)
-    : formatVolume(0);
+  const periodFilteredWorkouts = React.useMemo(() => {
+    if (period === 'ALL') return history;
+    const days = period === '7D' ? 7 : 30;
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    return history.filter((w) => new Date(w.completedAt || w.startedAt).getTime() >= cutoff);
+  }, [history, period]);
+
+  const totalCompletedSets = periodFilteredWorkouts.reduce(
+    (sum, w) => sum + (w.totalSets || w.exercises.reduce((exSum, e) => exSum + e.sets.length, 0)),
+    0
+  );
 
   // Deduplicated all-time Personal Records per exercise across workout history + baseline lifts
   const allTimeRecords = React.useMemo(
@@ -153,13 +161,6 @@ export default function Progress() {
   });
 
   // Calculate detailed stats for selected muscle using normalized muscle categories
-  const periodFilteredWorkouts = React.useMemo(() => {
-    if (period === 'ALL') return history;
-    const days = period === '7D' ? 7 : 30;
-    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-    return history.filter((w) => new Date(w.completedAt || w.startedAt).getTime() >= cutoff);
-  }, [history, period]);
-
   const selectedMuscleWorkouts = periodFilteredWorkouts.filter((w) =>
     w.exercises.some(
       (e) => normalizeMuscleCategory(e.muscleGroup).toLowerCase() === selectedMuscle.toLowerCase()
@@ -575,10 +576,10 @@ export default function Progress() {
 
                   <View style={styles.statCard}>
                     <Text style={styles.statNumber} numberOfLines={1} adjustsFontSizeToFit>
-                      {volumeDisplay}
+                      {totalCompletedSets}
                     </Text>
                     <Text style={styles.statLabel} numberOfLines={1}>
-                      {t('volume')}
+                      {t('sets')}
                     </Text>
                   </View>
 

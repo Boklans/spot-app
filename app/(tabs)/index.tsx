@@ -549,16 +549,16 @@ export default function Home() {
               <View style={styles.statDivider} />
               <View style={styles.completedStatItem}>
                 <Text style={styles.completedStatVal}>
-                  {formatVolume(completedSummaryData.volume)}
+                  {completedSummaryData.exerciseCount}
                 </Text>
-                <Text style={styles.completedStatLbl}>{t('volume')}</Text>
+                <Text style={styles.completedStatLbl}>{t('exercises')}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.completedStatItem}>
                 <Text style={styles.completedStatVal}>
-                  {completedSummaryData.exerciseCount}
+                  {completedSummaryData.completedSets}
                 </Text>
-                <Text style={styles.completedStatLbl}>{t('exercises')}</Text>
+                <Text style={styles.completedStatLbl}>{t('sets')}</Text>
               </View>
             </View>
           </View>

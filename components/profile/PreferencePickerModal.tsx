@@ -9,6 +9,7 @@ import {
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { hapticSelection } from '@/lib/haptics';
+import { useI18n } from '@/lib/i18n';
 
 type PreferencePickerModalProps<T extends string | number> = {
   visible: boolean;
@@ -17,6 +18,7 @@ type PreferencePickerModalProps<T extends string | number> = {
   selectedValue: T;
   onSelect: (value: T) => void;
   onClose: () => void;
+  getLabel?: (value: T) => string;
 };
 
 export function PreferencePickerModal<T extends string | number>({
@@ -26,7 +28,34 @@ export function PreferencePickerModal<T extends string | number>({
   selectedValue,
   onSelect,
   onClose,
+  getLabel,
 }: PreferencePickerModalProps<T>) {
+  const { language } = useI18n();
+  const isUk = language === 'uk';
+
+  const formatOptionLabel = (option: T): string => {
+    if (getLabel) return getLabel(option);
+    const s = String(option);
+    if (!isUk) return s;
+
+    // Ukrainian translation dictionary for common options
+    if (s === 'Build Muscle') return 'Набір м’язів';
+    if (s === 'Lose Fat') return 'Зниження ваги / Схуднення';
+    if (s === 'Get Stronger') return 'Розвиток сили';
+    if (s === 'Recomposition') return 'Рекомпозиція тіла';
+    if (s === 'Beginner') return 'Початківець (до 1 року)';
+    if (s === 'Intermediate') return 'Середній (1–3 роки)';
+    if (s === 'Advanced') return 'Досвідчений (3+ роки)';
+    if (s === 'Full Body') return 'Все тіло (Full Body)';
+    if (s === 'Upper / Lower') return 'Верх / Низ (Upper / Lower)';
+    if (s === 'Push / Pull / Legs') return 'Жим / Тяга / Ноги (PPL)';
+    if (s === 'Custom Routine') return 'Власна програма';
+    if (typeof option === 'number') {
+      return `${option} ${option === 1 ? 'день' : option < 5 ? 'дні' : 'днів'} на тиждень`;
+    }
+    return s;
+  };
+
   const handleSelect = (option: T) => {
     hapticSelection();
     onSelect(option);
@@ -62,7 +91,7 @@ export function PreferencePickerModal<T extends string | number>({
               onPress={onClose}
               style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
             >
-              <Text style={styles.closeText}>Done</Text>
+              <Text style={styles.closeText}>{isUk ? 'Готово' : 'Done'}</Text>
             </Pressable>
           </View>
 
@@ -87,7 +116,7 @@ export function PreferencePickerModal<T extends string | number>({
                       isSelected && styles.optionTextSelected,
                     ]}
                   >
-                    {String(option)}
+                    {formatOptionLabel(option)}
                   </Text>
                   {isSelected && <Text style={styles.checkmark}>✓</Text>}
                 </Pressable>

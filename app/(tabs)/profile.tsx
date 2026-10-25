@@ -524,47 +524,11 @@ export default function Profile() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Clean Top Bar with Quick Settings Button */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: 20,
-          paddingTop: 6,
-          paddingBottom: 10,
-        }}
-      >
-        <Text style={{ color: '#FFFFFF', fontSize: 26, fontWeight: '900' }}>
+      {/* Clean Header */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 10 }}>
+        <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '900' }}>
           {language === 'uk' ? 'Профіль' : 'Profile'}
         </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="App Settings"
-          onPress={() => {
-            hapticLight();
-            setAppSettingsVisible(true);
-          }}
-          style={({ pressed }) => [
-            {
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              backgroundColor: '#12161D',
-              borderWidth: 1,
-              borderColor: 'rgba(255, 255, 255, 0.1)',
-              borderRadius: 12,
-              paddingHorizontal: 12,
-              paddingVertical: 7,
-            },
-            pressed && { opacity: 0.75 },
-          ]}
-        >
-          <Ionicons name="settings-outline" size={16} color={colors.primary} />
-          <Text style={{ color: '#E2E8F0', fontSize: 12.5, fontWeight: '800' }}>
-            {language === 'uk' ? 'Налаштування' : 'Settings'}
-          </Text>
-        </Pressable>
       </View>
 
       <ScrollView
@@ -726,131 +690,8 @@ export default function Profile() {
           </Pressable>
         </View>
 
-        {/* 3. Compact Training Program Card */}
-        <Text style={styles.sectionTitle}>{t('training')}</Text>
-        <View style={styles.card}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Configure Training Program"
-            onPress={() => {
-              hapticLight();
-              router.push('/(tabs)/program');
-            }}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.rowTitle, { color: colors.primary }]}>
-                {language === 'uk' ? 'Редагувати програму та вправи' : 'Edit Program & Exercises'}
-              </Text>
-              <Text style={styles.rowSubtitle}>
-                {translateSplit(currentSplitLabel)} • {profile.workoutsPerWeek}{' '}
-                {language === 'uk' ? 'дн/тиждень' : 'days/week'} • {translateGoal(profile.goal)}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              hapticLight();
-              setShowTrainingParams((prev) => !prev);
-            }}
-            style={({ pressed }) => [
-              styles.row,
-              !showTrainingParams && styles.rowLast,
-              pressed && styles.rowPressed,
-            ]}
-          >
-            <View>
-              <Text style={styles.rowTitle}>
-                {language === 'uk'
-                  ? 'Змінити ціль, рівень або спліт'
-                  : 'Change Goal, Level or Split'}
-              </Text>
-              <Text style={styles.rowSubtitle}>
-                {language === 'uk'
-                  ? 'Перегенерувати програму під нові параметри'
-                  : 'Regenerate routine with new parameters'}
-              </Text>
-            </View>
-            <Ionicons
-              name={showTrainingParams ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color="#8E9BAE"
-            />
-          </Pressable>
-
-          {showTrainingParams && (
-            <>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => handleOpenPicker('goal')}
-                style={({ pressed }) => [styles.row, styles.subRow, pressed && styles.rowPressed]}
-              >
-                <View>
-                  <Text style={styles.rowTitle}>
-                    {language === 'uk' ? 'Основна ціль' : 'Primary Goal'}
-                  </Text>
-                  <Text style={styles.rowSubtitle}>{translateGoal(profile.goal)}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => handleOpenPicker('experience')}
-                style={({ pressed }) => [styles.row, styles.subRow, pressed && styles.rowPressed]}
-              >
-                <View>
-                  <Text style={styles.rowTitle}>
-                    {language === 'uk' ? 'Рівень досвіду' : 'Experience Level'}
-                  </Text>
-                  <Text style={styles.rowSubtitle}>{translateExperience(profile.experience)}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => handleOpenPicker('workoutsPerWeek')}
-                style={({ pressed }) => [styles.row, styles.subRow, pressed && styles.rowPressed]}
-              >
-                <View>
-                  <Text style={styles.rowTitle}>
-                    {language === 'uk' ? 'Тренувань на тиждень' : 'Workouts Per Week'}
-                  </Text>
-                  <Text style={styles.rowSubtitle}>
-                    {profile.workoutsPerWeek} {language === 'uk' ? 'днів / тиждень' : 'days / week'}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => handleOpenPicker('split')}
-                style={({ pressed }) => [
-                  styles.row,
-                  styles.subRow,
-                  styles.rowLast,
-                  pressed && styles.rowPressed,
-                ]}
-              >
-                <View>
-                  <Text style={styles.rowTitle}>
-                    {language === 'uk' ? 'Структура програми' : 'Training Split'}
-                  </Text>
-                  <Text style={styles.rowSubtitle}>{translateSplit(currentSplitLabel)}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-              </Pressable>
-            </>
-          )}
-        </View>
-
-        {/* 4. Cloud Account & Backup Section */}
-        <View style={[styles.cloudCard, { marginBottom: 16 }]}>
+        {/* 3. Cloud Account & Backup Section */}
+        <View style={[styles.cloudCard, { marginBottom: 14 }]}>
           <View style={styles.cloudCardLeft}>
             <View style={[styles.cloudIconWrap, isAuthenticated && styles.cloudIconWrapActive]}>
               <Ionicons
@@ -920,7 +761,7 @@ export default function Profile() {
           )}
         </View>
 
-        {/* 5. Compact App Settings & Community Card */}
+        {/* 4. Single Clean App Settings & Support Card */}
         <View style={styles.card}>
           <Pressable
             accessibilityRole="button"
@@ -1345,6 +1186,60 @@ export default function Profile() {
                 </Pressable>
               </View>
 
+              {/* Program & Goal Preferences */}
+              <Text style={styles.sectionTitle}>{language === 'uk' ? 'Ціль та параметри програми' : 'Goal & Program Preferences'}</Text>
+              <View style={styles.card}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => handleOpenPicker('goal')}
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                >
+                  <View>
+                    <Text style={styles.rowTitle}>{language === 'uk' ? 'Основна ціль' : 'Primary Goal'}</Text>
+                    <Text style={styles.rowSubtitle}>{translateGoal(profile.goal)}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => handleOpenPicker('experience')}
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                >
+                  <View>
+                    <Text style={styles.rowTitle}>{language === 'uk' ? 'Рівень досвіду' : 'Experience Level'}</Text>
+                    <Text style={styles.rowSubtitle}>{translateExperience(profile.experience)}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => handleOpenPicker('workoutsPerWeek')}
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                >
+                  <View>
+                    <Text style={styles.rowTitle}>{language === 'uk' ? 'Тренувань на тиждень' : 'Workouts Per Week'}</Text>
+                    <Text style={styles.rowSubtitle}>
+                      {profile.workoutsPerWeek} {language === 'uk' ? 'днів / тиждень' : 'days / week'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => handleOpenPicker('split')}
+                  style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
+                >
+                  <View>
+                    <Text style={styles.rowTitle}>{language === 'uk' ? 'Структура спліту' : 'Training Split'}</Text>
+                    <Text style={styles.rowSubtitle}>{translateSplit(currentSplitLabel)}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+                </Pressable>
+              </View>
+
               {/* Account & Privacy */}
               <Text style={styles.sectionTitle}>{t('account')}</Text>
               <View style={styles.card}>
@@ -1448,7 +1343,7 @@ export default function Profile() {
 
       <PreferencePickerModal
         visible={activePicker === 'workoutsPerWeek'}
-        title="Workouts Per Week"
+        title={language === 'uk' ? 'Тренувань на тиждень' : 'Workouts Per Week'}
         options={WORKOUTS_PER_WEEK_OPTIONS}
         selectedValue={profile.workoutsPerWeek}
         onSelect={(workoutsPerWeek) => handleSelectWorkoutsPerWeek(workoutsPerWeek as number)}
@@ -1457,7 +1352,7 @@ export default function Profile() {
 
       <PreferencePickerModal
         visible={activePicker === 'split'}
-        title="Select Training Split"
+        title={language === 'uk' ? 'Структура програми' : 'Select Training Split'}
         options={SPLIT_OPTIONS}
         selectedValue={currentSplitLabel}
         onSelect={handleSelectSplit}
