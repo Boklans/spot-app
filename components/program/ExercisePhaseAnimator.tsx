@@ -33,7 +33,9 @@ export function ExercisePhaseAnimator({
   tipsCue,
   isUk,
 }: ExercisePhaseAnimatorProps) {
-  const [isPlaying, setIsPlaying] = useState(true);
+  // Auto-play is disabled by default when there is only a single static frame,
+  // preventing text flickering over a static image.
+  const [isPlaying, setIsPlaying] = useState(false);
   const breathAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0.2)).current;
   const loopRef = useRef<Animated.CompositeAnimation | null>(null);
