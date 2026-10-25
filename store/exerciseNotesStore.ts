@@ -13,6 +13,7 @@ type ExerciseNotesState = {
   loadNotes: () => Promise<Record<string, string>>;
   getNote: (exerciseName: string) => string;
   setNote: (exerciseName: string, note: string) => Promise<void>;
+  clearNotes: () => Promise<void>;
 };
 
 export const useExerciseNotesStore = create<ExerciseNotesState>((set, get) => ({
@@ -67,4 +68,14 @@ export const useExerciseNotesStore = create<ExerciseNotesState>((set, get) => ({
       // Ignore storage write errors
     }
   },
+
+  clearNotes: async () => {
+    set({ notes: {}, hydrated: true });
+    try {
+      await AsyncStorage.removeItem(EXERCISE_NOTES_STORAGE_KEY);
+    } catch {
+      // Ignore storage remove errors
+    }
+  },
 }));
+

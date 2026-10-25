@@ -40,15 +40,10 @@ function setupNotificationResponseListener(): void {
       const data = response?.notification?.request?.content?.data as Record<string, any> | undefined;
       const targetScreen = data?.screen;
 
-      if (targetScreen === '/workout/rest') {
+      if (targetScreen === '/workout/active' || targetScreen === '/workout/rest') {
         const session = useWorkoutSessionStore.getState().session;
-        const restEndsAt = useWorkoutSessionStore.getState().restEndsAt;
         if (session) {
-          if (restEndsAt && restEndsAt > Date.now()) {
-            router.replace('/workout/rest');
-          } else {
-            router.replace('/workout/active');
-          }
+          router.replace('/workout/active');
         } else {
           router.replace('/(tabs)');
         }
@@ -65,10 +60,10 @@ function setupNotificationResponseListener(): void {
       if (!response) return;
       const data = response?.notification?.request?.content?.data as Record<string, any> | undefined;
       const targetScreen = data?.screen;
-      if (targetScreen === '/workout/rest') {
+      if (targetScreen === '/workout/active' || targetScreen === '/workout/rest') {
         const session = useWorkoutSessionStore.getState().session;
         if (session) {
-          router.replace('/workout/rest');
+          router.replace('/workout/active');
         } else {
           router.replace('/(tabs)');
         }
@@ -518,7 +513,7 @@ export async function scheduleRestTimerNotification(
         body,
         sound: true,
         data: {
-          screen: '/workout/rest',
+          screen: '/workout/active',
         },
       },
       trigger: {

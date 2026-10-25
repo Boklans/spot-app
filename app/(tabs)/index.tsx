@@ -9,6 +9,7 @@ import { colors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { countWorkoutsThisWeek, getStartOfWeek } from '@/lib/progressCalculator';
 import { calculateMuscleRecovery } from '@/lib/recoveryEngine';
+import { findLatestExerciseSets, inferEquipmentFromName, recommendWeight } from '@/lib/adaptiveProgression';
 import { translateExercise, useI18n } from '@/lib/i18n';
 import { formatWeightWithUnit, useWeightUnit } from '@/lib/weightUtils';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
@@ -92,25 +93,32 @@ function computeSpotInsight(history: CompletedWorkout[], lang: AppLanguage = 'en
   });
 
   if (sorted.length > 0) {
-    const latestPR = sorted.find((w) => w.personalRecords && w.personalRecords.length > 0);
-    if (latestPR && latestPR.personalRecords[0]) {
-      const pr = latestPR.personalRecords[0];
-      const exName = translateExercise(pr.exerciseName, lang);
-      return lang === 'uk'
-        ? `Ваш показник у ${exName} калібровано на ${formatWeightWithUnit(pr.value + 2.5)} на основі недавніх тренувань.`
-        : `Your ${pr.exerciseName} is calibrated for ${formatWeightWithUnit(pr.value + 2.5)} based on your recent training.`;
-    }
-
     for (const w of sorted) {
       if (w.exercises && w.exercises.length > 0) {
         const topEx = w.exercises[0];
-        const lastSet = topEx.sets[topEx.sets.length - 1];
-        if (lastSet && lastSet.weight > 0) {
-          const nextWeight = lastSet.weight + 2.5;
+        if (topEx.sets && topEx.sets.length > 0) {
+          const equipment = inferEquipmentFromName(topEx.exerciseName);
+          const rec = recommendWeight(
+            {
+              id: topEx.exerciseId,
+              name: topEx.exerciseName,
+              muscleGroup: topEx.muscleGroup,
+              equipment,
+              sets: topEx.sets.length,
+              targetRepRange: '8-12',
+              recommendedWeight: topEx.sets[0]?.weight ?? 0,
+              weightIncrement: 2.5,
+              restSeconds: 90,
+            },
+            topEx.sets.map((s) => ({ weight: s.weight, reps: s.reps }))
+          );
           const exName = translateExercise(topEx.exerciseName, lang);
+          const targetWeightStr = rec.recommendedWeight > 0
+            ? formatWeightWithUnit(rec.recommendedWeight)
+            : (lang === 'uk' ? 'власна вага' : 'bodyweight');
           return lang === 'uk'
-            ? `Ваш показник у ${exName} калібровано на ${formatWeightWithUnit(nextWeight)} на основі недавнього тренування.`
-            : `Your ${topEx.exerciseName} is calibrated for ${formatWeightWithUnit(nextWeight)} based on your recent workout.`;
+            ? `Наступна ціль у «${exName}» — ${targetWeightStr} × ${rec.recommendedReps ?? 8} повт на основі вашого прогресу.`
+            : `Next target for ${exName} is ${targetWeightStr} × ${rec.recommendedReps ?? 8} reps based on your recent progress.`;
         }
       }
     }
@@ -417,17 +425,28 @@ export default function Home() {
                 }
                 style={styles.exercisePreviewWrap}
               >
-                {nextWorkout.exercises.slice(0, 3).map((ex, idx) => (
-                  <View key={ex.id || `${ex.name}-${idx}`} style={styles.previewExRow}>
-                    <View style={styles.previewExDot} />
-                    <Text style={styles.previewExName} numberOfLines={1}>
-                      {te(ex.name)}
-                    </Text>
-                    <Text style={styles.previewExSets}>
-                      {ex.sets} × {ex.recommendedWeight ? formatWithUnit(ex.recommendedWeight) : (language === 'uk' ? 'ВТ' : 'BW')}
-                    </Text>
-                  </View>
-                ))}
+                {nextWorkout.exercises.slice(0, 3).map((ex, idx) => {
+                  const equipment = (ex as any).equipment || inferEquipmentFromName(ex.name);
+                  const exWithEquip = { ...ex, equipment } as any;
+                  const prevSets = findLatestExerciseSets(history, exWithEquip);
+                  const rec = recommendWeight(exWithEquip, prevSets);
+                  const effectiveWeight = rec.source === 'history'
+                    ? rec.recommendedWeight
+                    : (typeof ex.recommendedWeight === 'number' && ex.recommendedWeight > 0
+                      ? ex.recommendedWeight
+                      : rec.recommendedWeight);
+                  return (
+                    <View key={ex.id || `${ex.name}-${idx}`} style={styles.previewExRow}>
+                      <View style={styles.previewExDot} />
+                      <Text style={styles.previewExName} numberOfLines={1}>
+                        {te(ex.name)}
+                      </Text>
+                      <Text style={styles.previewExSets}>
+                        {ex.sets} × {effectiveWeight ? formatWithUnit(effectiveWeight) : (language === 'uk' ? 'ВТ' : 'BW')}
+                      </Text>
+                    </View>
+                  );
+                })}
                 {nextWorkout.exercises.length > 3 && (() => {
                   const rem = nextWorkout.exercises.length - 3;
                   const label =
@@ -554,7 +573,7 @@ export default function Home() {
           <Button
             style={styles.ctaButton}
             onPress={() => {
-              router.replace(restEndsAt !== null ? '/workout/rest' : '/workout/active');
+              router.replace('/workout/active');
             }}
           >
             <Text style={styles.ctaButtonText}>

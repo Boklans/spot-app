@@ -48,6 +48,7 @@ import {
 } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
+import { useExerciseNotesStore } from '@/store/exerciseNotesStore';
 import {
   defaultOnboarding,
   loadOnboarding,
@@ -336,6 +337,7 @@ export default function Profile() {
               await useUserProfileStore.getState().resetProfile();
               await useBodyWeightStore.getState().clearHistory();
               await useProgramStore.getState().resetProgram();
+              await useExerciseNotesStore.getState().clearNotes();
 
               await hapticSuccess();
               router.replace('/onboarding/welcome');

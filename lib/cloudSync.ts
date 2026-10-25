@@ -6,6 +6,7 @@ import { useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore, USER_PROGRAM_STORAGE_KEY } from '@/store/programStore';
 import { useUserProfileStore, USER_PROFILE_STORAGE_KEY } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore, WORKOUT_HISTORY_STORAGE_KEY } from '@/store/workoutHistoryStore';
+import { useExerciseNotesStore, EXERCISE_NOTES_STORAGE_KEY } from '@/store/exerciseNotesStore';
 import { saveOnboarding } from '@/store/workoutStore';
 import type { CompletedWorkout } from '@/types/workout';
 
@@ -74,15 +75,19 @@ export async function syncUp(): Promise<{ success: boolean; error?: string }> {
       updated_at: new Date().toISOString(),
     });
 
-    // 2. Sync Program
+    // 2. Sync Program & Exercise Notes
     if (program) {
+      const exerciseNotes = await useExerciseNotesStore.getState().loadNotes();
       await supabase.from('user_programs').upsert({
         id: program.id || `prog-${user.id}`,
         user_id: user.id,
         name: program.name,
         days_per_week: program.daysPerWeek,
         program_data: program,
-        progress_data: progress,
+        progress_data: {
+          ...progress,
+          exerciseNotes,
+        },
         updated_at: new Date().toISOString(),
       });
     }
@@ -194,8 +199,15 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
       await AsyncStorage.setItem('spot-program', JSON.stringify(programRow.program_data));
 
       if (programRow.progress_data) {
-        useProgramProgressStore.setState({ progress: programRow.progress_data });
-        await AsyncStorage.setItem('spot-program-progress', JSON.stringify(programRow.progress_data));
+        const { exerciseNotes, ...cleanProgress } = programRow.progress_data;
+        useProgramProgressStore.setState({ progress: cleanProgress });
+        await AsyncStorage.setItem('spot-program-progress', JSON.stringify(cleanProgress));
+        if (exerciseNotes && typeof exerciseNotes === 'object') {
+          const currentNotes = await useExerciseNotesStore.getState().loadNotes();
+          const mergedNotes = { ...exerciseNotes, ...currentNotes };
+          useExerciseNotesStore.setState({ notes: mergedNotes, hydrated: true });
+          await AsyncStorage.setItem(EXERCISE_NOTES_STORAGE_KEY, JSON.stringify(mergedNotes));
+        }
       }
     }
 

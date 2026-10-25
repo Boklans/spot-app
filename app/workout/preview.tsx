@@ -26,6 +26,7 @@ import {
   type EquipmentId,
 } from '@/lib/programGenerator';
 import { calculateMuscleRecovery } from '@/lib/recoveryEngine';
+import { findLatestExerciseSets, inferEquipmentFromName, recommendWeight } from '@/lib/adaptiveProgression';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
@@ -206,7 +207,14 @@ export default function WorkoutPreview() {
     hapticLight();
     setConfigExercise(ex);
     setConfigSets(ex.sets || 3);
-    const displayW = fromKg(ex.recommendedWeight || 0);
+    const equipment = ex.equipment || inferEquipmentFromName(ex.name);
+    const exWithEquip = { ...ex, equipment } as any;
+    const prevSets = findLatestExerciseSets(history, exWithEquip);
+    const rec = recommendWeight(exWithEquip, prevSets);
+    const effectiveWeight = rec.source === 'history'
+      ? rec.recommendedWeight
+      : (ex.recommendedWeight || 0);
+    const displayW = fromKg(effectiveWeight);
     setConfigWeightText(formatWeight(displayW));
     setConfigRepRange(ex.targetRepRange || '8-10');
     setConfigRestSeconds(ex.restSeconds || 90);
@@ -303,7 +311,7 @@ export default function WorkoutPreview() {
   const startWorkout = async () => {
     if (activeSession && !activeSession.completed) {
       const resume = () =>
-        router.replace(activeRestEndsAt !== null ? '/workout/rest' : '/workout/active');
+        router.replace('/workout/active');
       Alert.alert(
         t('activeWorkout'),
         language === 'uk' ? 'У вас вже є активне тренування.' : 'You already have a workout in progress.',
@@ -411,9 +419,19 @@ export default function WorkoutPreview() {
         {/* Exercise Cards List */}
         <View style={styles.exerciseList}>
           {workout.exercises.map((exercise, index) => {
-            const weightLabel = exercise.recommendedWeight
-              ? formatWithUnit(exercise.recommendedWeight)
+            const equipment = exercise.equipment || inferEquipmentFromName(exercise.name);
+            const exWithEquip = { ...exercise, equipment } as any;
+            const prevSets = findLatestExerciseSets(history, exWithEquip);
+            const rec = recommendWeight(exWithEquip, prevSets);
+            const effectiveWeight = rec.source === 'history'
+              ? rec.recommendedWeight
+              : (exercise.recommendedWeight || 0);
+            const weightLabel = effectiveWeight
+              ? formatWithUnit(effectiveWeight)
               : t('bodyweight');
+            const targetRepsDisplay = rec.source === 'history' && rec.recommendedReps
+              ? `${rec.recommendedReps} ${language === 'uk' ? 'повт' : 'reps'}`
+              : `${exercise.targetRepRange || '8-12'} ${language === 'uk' ? 'повт' : 'reps'}`;
 
             return (
               <Pressable
@@ -442,7 +460,7 @@ export default function WorkoutPreview() {
                 <View style={styles.exerciseInfoCol}>
                   <Text numberOfLines={1} style={styles.exerciseName}>{te(exercise.name)}</Text>
                   <Text style={styles.exerciseMeta}>
-                    {exercise.sets} {t('sets').toLowerCase()} • {weightLabel} • {exercise.targetRepRange || '8-10'}
+                    {exercise.sets} {t('sets').toLowerCase()} • {weightLabel} • {targetRepsDisplay}
                   </Text>
                 </View>
                 <View style={styles.cardActionsRight}>

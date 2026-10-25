@@ -629,12 +629,20 @@ const benchPress = {
   const notesStoreSource = fs.readFileSync(path.join(__dirname, '..', 'store', 'exerciseNotesStore.ts'), 'utf8');
   const detailModalSource = fs.readFileSync(path.join(__dirname, '..', 'components', 'program', 'ExerciseDetailModal.tsx'), 'utf8');
   const activeSource = fs.readFileSync(path.join(__dirname, '..', 'app', 'workout', 'active.tsx'), 'utf8');
+  const homeSource = fs.readFileSync(path.join(__dirname, '..', 'app', '(tabs)', 'index.tsx'), 'utf8');
+  const previewSource = fs.readFileSync(path.join(__dirname, '..', 'app', 'workout', 'preview.tsx'), 'utf8');
+  const notifSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'notificationService.ts'), 'utf8');
+  const cloudSyncSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'cloudSync.ts'), 'utf8');
 
   assert.ok(notesStoreSource.includes('spot_exercise_notes_v1'), 'exerciseNotesStore.ts must persist notes in AsyncStorage');
   assert.ok(detailModalSource.includes('safetyCard') && detailModalSource.includes('movementSummaryBanner'), 'ExerciseDetailModal.tsx must display movement trajectory and joint safety cues');
   assert.ok(activeSource.includes('ProgressionGuideModal') && activeSource.includes('ExerciseNoteModal'), 'active.tsx must integrate ProgressionGuideModal and ExerciseNoteModal');
+  assert.ok(homeSource.includes('recommendWeight') && !homeSource.includes("'/workout/rest'"), 'Home screen must use recommendWeight and never route to blocking /workout/rest');
+  assert.ok(previewSource.includes('recommendWeight') && !previewSource.includes("'/workout/rest'"), 'Workout Preview screen must use recommendWeight and never route to blocking /workout/rest');
+  assert.ok(notifSource.includes("screen: '/workout/active'"), 'Rest timer notification must route to /workout/active');
+  assert.ok(cloudSyncSource.includes('exerciseNotes'), 'cloudSync.ts must sync exerciseNotes to and from Supabase');
 
-  console.log('✅ TEST 12 PASSED: Novice progression guide, persistent exercise notes, and joint safety cues verified');
+  console.log('✅ TEST 12 PASSED: Novice progression guide, persistent exercise notes, cloud sync, and release readiness verified');
   passed++;
 }
 
