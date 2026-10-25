@@ -60,6 +60,7 @@ export function countWorkoutsThisWeek(history: CompletedWorkout[], now = new Dat
   const startOfWeek = getStartOfWeek(now).getTime();
   const currentNow = now.getTime();
   return history.filter((workout) => {
+    if (workout.isPartial) return false;
     const time = new Date(workout.completedAt).getTime();
     return time >= startOfWeek && time <= currentNow;
   }).length;

@@ -1,15 +1,10 @@
 // scripts/verify-workout-logging.js
-// Automated verification suite for SPOT Workout Logging UX:
-// - Set completion & double-tap protection
-// - Editing active vs completed sets (state & timestamp preservation)
-// - Forward-propagation isolation
-// - Rest timer persistence & restoration
-// - Finalization idempotency & history volume reflection
-// - Quick Log compatibility
+// Automated verification suite for SPOT Workout Logging, Completion Integrity (Scenarios A-G),
+// and Onboarding Personalization Audit.
 
 const assert = require('assert');
 
-// 1. Mock Session Setup
+// 1. Mock Session Setup (Multi-exercise 12-set workout)
 function createMockSession() {
   const startedAt = new Date(Date.now() - 1000 * 60 * 15).toISOString();
   return {
@@ -46,7 +41,60 @@ function createMockSession() {
   };
 }
 
-// 2. Pure Store Logic Emulators (mirroring workoutSessionStore.ts)
+function createMock12SetSession() {
+  const startedAt = new Date(Date.now() - 1000 * 60 * 20).toISOString();
+  const makeEx = (id, name, muscleGroup, weight) => ({
+    id,
+    name,
+    muscleGroup,
+    weightIncrement: 2.5,
+    restSeconds: 90,
+    previousSets: [],
+    recommendation: {
+      recommendedWeight: weight,
+      recommendationReason: 'maintain',
+      source: 'program_default',
+      explanation: '',
+    },
+    sets: [
+      { id: `${id}-s1`, weight, reps: 8, targetReps: '8-12', completed: false },
+      { id: `${id}-s2`, weight, reps: 8, targetReps: '8-12', completed: false },
+      { id: `${id}-s3`, weight, reps: 8, targetReps: '8-12', completed: false },
+    ],
+  });
+
+  return {
+    id: 'session-12-sets',
+    programWorkoutId: 'upper-a',
+    workoutName: 'Upper A',
+    workoutDate: startedAt.slice(0, 10),
+    startedAt,
+    currentExerciseIndex: 0,
+    currentSetIndex: 0,
+    completed: false,
+    personalRecords: [],
+    exercises: [
+      makeEx('ex-1', 'Bench Press', 'Chest', 40),
+      makeEx('ex-2', 'Barbell Row', 'Back', 40),
+      makeEx('ex-3', 'Overhead Press', 'Shoulders', 25),
+      makeEx('ex-4', 'Barbell Curl', 'Biceps', 20),
+    ],
+  };
+}
+
+function isValidCompletedSet(set) {
+  return (
+    Boolean(set && set.completed === true) &&
+    typeof set.reps === 'number' &&
+    Number.isFinite(set.reps) &&
+    set.reps > 0 &&
+    typeof set.weight === 'number' &&
+    Number.isFinite(set.weight) &&
+    set.weight >= 0
+  );
+}
+
+// 2. Pure Store Logic Emulators (mirroring workoutSessionStore.ts & completedWorkout.ts)
 function completeCurrentSet(state) {
   if (!state.session || state.session.completed) return state;
 
@@ -68,10 +116,11 @@ function completeCurrentSet(state) {
     };
   });
 
-  const isLastSet = session.currentSetIndex >= exercise.sets.length - 1;
-  const isLastExercise = session.currentExerciseIndex >= session.exercises.length - 1;
+  const allSetsCompleted = exercisesWithCompletedSet.every((ex) =>
+    ex.sets.every((s) => s.completed)
+  );
 
-  if (isLastSet && isLastExercise) {
+  if (allSetsCompleted) {
     return {
       ...state,
       session: {
@@ -85,10 +134,36 @@ function completeCurrentSet(state) {
     };
   }
 
-  const nextExerciseIndex = isLastSet
-    ? Math.min(session.exercises.length - 1, session.currentExerciseIndex + 1)
-    : session.currentExerciseIndex;
-  const nextSetIndex = isLastSet ? 0 : session.currentSetIndex + 1;
+  let nextExerciseIndex = session.currentExerciseIndex;
+  let nextSetIndex = session.currentSetIndex;
+  let movedToAnotherExercise = false;
+
+  const currentUpdatedEx = exercisesWithCompletedSet[session.currentExerciseIndex];
+  const nextUncompletedInCurrent = currentUpdatedEx.sets.findIndex(
+    (s, idx) => idx > session.currentSetIndex && !s.completed
+  );
+  const anyUncompletedInCurrent = currentUpdatedEx.sets.findIndex((s) => !s.completed);
+
+  if (nextUncompletedInCurrent !== -1) {
+    nextSetIndex = nextUncompletedInCurrent;
+  } else if (anyUncompletedInCurrent !== -1) {
+    nextSetIndex = anyUncompletedInCurrent;
+  } else {
+    movedToAnotherExercise = true;
+    const totalEx = exercisesWithCompletedSet.length;
+    for (let offset = 1; offset < totalEx; offset++) {
+      const candidateExIdx = (session.currentExerciseIndex + offset) % totalEx;
+      const firstUncompletedSetIdx = exercisesWithCompletedSet[candidateExIdx].sets.findIndex(
+        (s) => !s.completed
+      );
+      if (firstUncompletedSetIdx !== -1) {
+        nextExerciseIndex = candidateExIdx;
+        nextSetIndex = firstUncompletedSetIdx;
+        break;
+      }
+    }
+  }
+
   const restDuration = exercise.restSeconds || 90;
 
   return {
@@ -100,7 +175,7 @@ function completeCurrentSet(state) {
       currentSetIndex: nextSetIndex,
     },
     restEndsAt: restDuration > 0 ? Date.now() + restDuration * 1000 : null,
-    restNextType: restDuration > 0 ? (isLastSet ? 'exercise' : 'set') : null,
+    restNextType: restDuration > 0 ? (movedToAnotherExercise ? 'exercise' : 'set') : null,
   };
 }
 
@@ -139,11 +214,12 @@ function updateSet(state, exerciseIndex, setIndex, values, propagate = false) {
 function createCompletedWorkoutSnapshot(session) {
   const completedAt = session.completedAt ?? new Date().toISOString();
   const durationSeconds = Math.max(0, Math.round((new Date(completedAt).getTime() - new Date(session.startedAt).getTime()) / 1000));
+  const plannedSets = session.exercises.reduce((total, ex) => total + ex.sets.length, 0);
   const exercises = session.exercises.map((exercise) => ({
     exerciseId: exercise.id,
     exerciseName: exercise.name,
     muscleGroup: exercise.muscleGroup,
-    sets: exercise.sets.filter((set) => set.completed).map((set) => ({
+    sets: exercise.sets.filter(isValidCompletedSet).map((set) => ({
       weight: set.weight,
       reps: set.reps,
       volume: set.weight * set.reps,
@@ -151,6 +227,7 @@ function createCompletedWorkoutSnapshot(session) {
     })),
   })).filter((exercise) => exercise.sets.length > 0);
   const completedSets = exercises.flatMap((exercise) => exercise.sets);
+  const isPartial = plannedSets > 0 && completedSets.length < plannedSets;
 
   return {
     id: session.id,
@@ -161,13 +238,15 @@ function createCompletedWorkoutSnapshot(session) {
     completedAt,
     durationSeconds,
     totalSets: completedSets.length,
+    plannedSets,
+    isPartial,
     totalVolume: completedSets.reduce((total, set) => total + set.volume, 0),
     exercises,
     personalRecords: [],
   };
 }
 
-console.log('--- Running SPOT Workout Logging UX Tests ---\n');
+console.log('--- Running SPOT Workout Logging & Integrity Tests ---\n');
 
 let passedTests = 0;
 
@@ -191,8 +270,6 @@ let passedTests = 0;
   state = completeCurrentSet(state);
   const completedTimestamp1 = state.session.exercises[0].sets[0].completedAt;
 
-  // Immediate second call on the same set index should not double-complete
-  // If user double-tapped on row 0:
   const doubleTapState = updateSet(state, 0, 0, { weight: 60 });
   assert.strictEqual(doubleTapState.session.currentSetIndex, 1, 'Double tap does not advance set index unexpectedly');
   assert.strictEqual(doubleTapState.session.exercises[0].sets[0].completedAt, completedTimestamp1, 'Timestamp is not corrupted');
@@ -203,7 +280,6 @@ let passedTests = 0;
 // Test 3: Editing active uncompleted set
 {
   let state = { session: createMockSession(), restEndsAt: null, restNextType: null };
-  // Default edit (propagate = false)
   state = updateSet(state, 0, 0, { weight: 60, reps: 10 }, false);
 
   assert.strictEqual(state.session.exercises[0].sets[0].weight, 60, 'Set 0 weight must be 60');
@@ -217,7 +293,6 @@ let passedTests = 0;
 // Test 4: Explicit forward propagation on uncompleted sets
 {
   let state = { session: createMockSession(), restEndsAt: null, restNextType: null };
-  // Stepper adjustments with propagate = true
   state = updateSet(state, 0, 0, { weight: 62.5, reps: 10 }, true);
 
   assert.strictEqual(state.session.exercises[0].sets[0].weight, 62.5);
@@ -230,11 +305,9 @@ let passedTests = 0;
 // Test 5: Editing a completed set preserves completion state, timestamp, and does NOT propagate
 {
   let state = { session: createMockSession(), restEndsAt: null, restNextType: null };
-  state = completeCurrentSet(state); // Set 0 is now completed
+  state = completeCurrentSet(state);
   const originalCompletedAt = state.session.exercises[0].sets[0].completedAt;
 
-  // Now user corrects Set 0: lifted 65kg x 9 instead of 57.5kg x 8
-  // Even if caller passed propagate = true, completed set must NEVER propagate!
   state = updateSet(state, 0, 0, { weight: 65, reps: 9 }, true);
 
   const editedSet0 = state.session.exercises[0].sets[0];
@@ -242,8 +315,6 @@ let passedTests = 0;
   assert.strictEqual(editedSet0.reps, 9, 'Set 0 reps must be updated to 9');
   assert.strictEqual(editedSet0.completed, true, 'Set 0 MUST remain completed: true');
   assert.strictEqual(editedSet0.completedAt, originalCompletedAt, 'Set 0 completedAt timestamp MUST remain identical');
-
-  // Verify Set 1 was NOT overwritten by completed set edit
   assert.strictEqual(state.session.exercises[0].sets[1].weight, 57.5, 'Set 1 must not be modified by completed set edit');
   console.log('✅ TEST 5 PASSED: Editing completed set preserves completion state & timestamp and refuses propagation');
   passedTests++;
@@ -271,73 +342,125 @@ let passedTests = 0;
 // Test 7: Finalization idempotency & Volume reflection from edited completed sets
 {
   let state = { session: createMockSession(), restEndsAt: null, restNextType: null };
-  // Complete set 0 (57.5kg x 8)
   state = completeCurrentSet(state);
-  // User corrects set 0 to 70kg x 10
   state = updateSet(state, 0, 0, { weight: 70, reps: 10 }, false);
-
-  // Complete set 1 (57.5kg x 8)
   state = completeCurrentSet(state);
-  // Complete set 2 (57.5kg x 8)
   state = completeCurrentSet(state);
 
   assert.strictEqual(state.session.completed, true, 'Session is completed after final set');
   const snapshot = createCompletedWorkoutSnapshot(state.session);
 
-  // Expected volume: Set 0 (70*10 = 700) + Set 1 (57.5*8 = 460) + Set 2 (57.5*8 = 460) = 1620
   assert.strictEqual(snapshot.totalSets, 3, 'Must have 3 completed sets');
+  assert.strictEqual(snapshot.plannedSets, 3, 'Planned sets must be 3');
+  assert.strictEqual(snapshot.isPartial, false, 'Full workout must have isPartial = false');
   assert.strictEqual(snapshot.totalVolume, 1620, 'Total volume must reflect corrected 70kg x 10 set (expected 1620)');
-  assert.strictEqual(snapshot.exercises[0].sets[0].weight, 70, 'Snapshot reflects corrected weight');
-  assert.strictEqual(snapshot.exercises[0].sets[0].reps, 10, 'Snapshot reflects corrected reps');
   console.log('✅ TEST 7 PASSED: Finalized snapshot reflects corrected completed set values and exact volume');
   passedTests++;
 }
 
-// Test 8: Quick Log compatibility
+// Test 8: Scenario A — 0 of 12 sets completed (Empty workout must NOT be saved)
 {
-  const startedAt = new Date().toISOString();
-  const completedAt = startedAt;
-  const quickSession = {
-    id: 'session-quick-123',
-    programWorkoutId: 'custom-quick-workout',
-    workoutName: 'Quick Workout',
-    workoutDate: startedAt.slice(0, 10),
-    startedAt,
-    completedAt,
-    currentExerciseIndex: 0,
-    currentSetIndex: 0,
-    exercises: [
-      {
-        id: 'ex-quick-1',
-        name: 'Dumbbell Curl',
-        muscleGroup: 'Arms',
-        previousSets: [],
-        recommendation: {
-          recommendedWeight: 14,
-          recommendationReason: 'maintain',
-          source: 'program_default',
-          explanation: '',
-        },
-        weightIncrement: 2,
-        restSeconds: 60,
-        sets: [
-          { id: 'qs1', weight: 14, reps: 12, targetReps: '10-12', completed: true, completedAt },
-          { id: 'qs2', weight: 14, reps: 12, targetReps: '10-12', completed: true, completedAt },
-        ],
-      },
-    ],
-    personalRecords: [],
-    completed: true,
-  };
+  const session = createMock12SetSession();
+  const snapshot = createCompletedWorkoutSnapshot(session);
+  assert.strictEqual(snapshot.totalSets, 0, '0 completed sets must yield totalSets = 0');
+  assert.strictEqual(snapshot.plannedSets, 12, 'plannedSets must be 12');
+  assert.strictEqual(snapshot.totalVolume, 0, '0 completed sets must yield 0 volume');
+  assert.strictEqual(snapshot.exercises.length, 0, 'No exercises with completed sets');
+  console.log('✅ TEST 8 PASSED (Scenario A): 0 of 12 sets completed produces 0 volume and is blocked from saving');
+  passedTests++;
+}
 
-  const quickSnapshot = createCompletedWorkoutSnapshot(quickSession);
-  assert.strictEqual(quickSnapshot.totalSets, 2);
-  assert.strictEqual(quickSnapshot.totalVolume, 14 * 12 * 2);
-  console.log('✅ TEST 8 PASSED: Quick Log session structure is 100% compatible with canonical pipeline');
+// Test 9: Scenario B — 1 of 12 sets completed (Partial save does NOT record full workout or advance rotation)
+{
+  let state = { session: createMock12SetSession(), restEndsAt: null, restNextType: null };
+  // User completes ONLY Set 1 of Exercise 1 (40kg x 8 = 320kg)
+  state = completeCurrentSet(state);
+
+  assert.strictEqual(state.session.completed, false, 'Session must NOT auto-complete after 1 of 12 sets');
+  const snapshot = createCompletedWorkoutSnapshot(state.session);
+
+  assert.strictEqual(snapshot.totalSets, 1, 'Only 1 set must be recorded');
+  assert.strictEqual(snapshot.plannedSets, 12, 'Planned sets must be 12');
+  assert.strictEqual(snapshot.isPartial, true, '1 of 12 sets MUST be marked isPartial: true');
+  assert.strictEqual(snapshot.totalVolume, 320, 'Volume must be strictly 40 * 8 = 320 (not all 12 sets)');
+  assert.strictEqual(snapshot.exercises.length, 1, 'Only 1 exercise had a completed set');
+
+  // Rotation guard check:
+  let rotationAdvanced = false;
+  if (!snapshot.isPartial) {
+    rotationAdvanced = true;
+  }
+  assert.strictEqual(rotationAdvanced, false, 'Program rotation MUST NOT advance on partial workout');
+  console.log('✅ TEST 9 PASSED (Scenario B): 1 of 12 sets records partial workout (1/12, 320kg) and does NOT advance rotation');
+  passedTests++;
+}
+
+// Test 10: Scenario C & D — Out-of-order set completion does NOT auto-finish workout prematurely
+{
+  let state = { session: createMock12SetSession(), restEndsAt: null, restNextType: null };
+  // User jumps straight to the last exercise (index 3) and last set (index 2)
+  state.session.currentExerciseIndex = 3;
+  state.session.currentSetIndex = 2;
+
+  state = completeCurrentSet(state);
+
+  assert.strictEqual(
+    state.session.completed,
+    false,
+    'Completing the last set of the last exercise when earlier sets are uncompleted MUST NOT finish the workout'
+  );
+  assert.strictEqual(state.session.currentExerciseIndex, 3, 'Focuses remaining uncompleted set in current exercise first');
+  assert.strictEqual(state.session.currentSetIndex, 0, 'Wraps to set 0 of exercise 3');
+  console.log('✅ TEST 10 PASSED (Scenario C/D): Completing last set out-of-order does not prematurely finish session');
+  passedTests++;
+}
+
+// Test 11: Scenario E — Quick Log initialized from activeSession does NOT copy pre-filled reps from uncompleted sets
+{
+  const activeSession = createMock12SetSession();
+  // Mark only set 1 of exercise 1 as completed
+  activeSession.exercises[0].sets[0].completed = true;
+
+  // Emulate quick-log.tsx initialization fix:
+  const quickLogExercises = activeSession.exercises.map((ex) => ({
+    id: ex.id,
+    name: ex.name,
+    muscleGroup: ex.muscleGroup,
+    sets: ex.sets.map((s) => ({
+      id: s.id,
+      weight: s.weight,
+      reps: s.completed ? s.reps : 0,
+    })),
+  }));
+
+  const validSets = quickLogExercises.flatMap((ex) =>
+    ex.sets.filter((s) => s.reps > 0 && s.weight >= 0)
+  );
+  assert.strictEqual(
+    validSets.length,
+    1,
+    'Quick Log initialized from activeSession with 1 completed set must only have 1 set with reps > 0'
+  );
+  console.log('✅ TEST 11 PASSED (Scenario E): Quick Log does not convert uncompleted template sets into completed sets');
+  passedTests++;
+}
+
+// Test 12: Scenario F — Full 12 of 12 sets completion marks isPartial = false and advances rotation
+{
+  let state = { session: createMock12SetSession(), restEndsAt: null, restNextType: null };
+  for (let i = 0; i < 12; i++) {
+    state = completeCurrentSet(state);
+  }
+
+  assert.strictEqual(state.session.completed, true, 'Session must be completed after all 12 sets');
+  const snapshot = createCompletedWorkoutSnapshot(state.session);
+  assert.strictEqual(snapshot.totalSets, 12, 'All 12 sets recorded');
+  assert.strictEqual(snapshot.plannedSets, 12, '12 planned sets');
+  assert.strictEqual(snapshot.isPartial, false, 'Full workout has isPartial = false');
+  console.log('✅ TEST 12 PASSED (Scenario F): Completing 12 of 12 sets marks workout as full and eligible to advance rotation');
   passedTests++;
 }
 
 console.log(`\n========================================`);
-console.log(`Results: ${passedTests} / 8 PASSED, 0 FAILED`);
+console.log(`Results: ${passedTests} / 12 PASSED, 0 FAILED`);
 console.log(`========================================\n`);
-

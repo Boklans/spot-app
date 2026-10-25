@@ -13,10 +13,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { hapticImpact, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { useUserProfileStore } from '@/store/userProfileStore';
 import {
   loadOnboarding,
   saveOnboarding,
-  type WorkoutSplitPreference,
 } from '@/store/workoutStore';
 
 interface DurationChoice {
@@ -105,10 +105,10 @@ export default function Frequency() {
   const toggleDay = (dayKey: string) => {
     hapticImpact();
     if (selectedDays.includes(dayKey)) {
-      if (selectedDays.length <= 1) return; // Keep minimum 1 day
+      if (selectedDays.length <= 1) return;
       setSelectedDays(selectedDays.filter((d) => d !== dayKey));
     } else {
-      if (selectedDays.length >= 7) return; // Maximum 7 days
+      if (selectedDays.length >= 7) return;
       setSelectedDays(WEEKDAYS.map((w) => w.key).filter((d) => selectedDays.includes(d) || d === dayKey));
     }
   };
@@ -133,23 +133,23 @@ export default function Frequency() {
 
   const handleContinue = async () => {
     hapticMedium();
-    // Automatically calibrate split according to frequency
-    const autoSplit: WorkoutSplitPreference =
-      days <= 2 ? 'full_body' : days <= 4 ? 'upper_lower' : 'push_pull_legs';
-
-    await saveOnboarding({
-      trainingFrequency: days,
-      trainingDays: selectedDays,
-      sessionDurationMinutes: selectedDuration,
-      splitPreference: autoSplit,
-      equipment: ['full_gym'],
-    });
+    await Promise.all([
+      useUserProfileStore.getState().updateProfile({
+        workoutsPerWeek: days,
+      }),
+      saveOnboarding({
+        trainingFrequency: days,
+        trainingDays: selectedDays,
+        sessionDurationMinutes: selectedDuration,
+        splitPreference: undefined,
+      }),
+    ]);
     router.push('/onboarding/program-ready');
   };
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* 1. Top Bar with 3/3 Progress */}
+      {/* 1. Top Bar with 5/5 Progress */}
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
@@ -160,7 +160,7 @@ export default function Frequency() {
         >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
-        <Text style={styles.stepText}>3/3</Text>
+        <Text style={styles.stepText}>5/5</Text>
         <View style={styles.topBarPlaceholder} />
       </View>
 

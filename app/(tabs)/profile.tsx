@@ -195,6 +195,43 @@ export default function Profile() {
     setActivePicker(picker);
   };
 
+  const handleSelectGoal = async (goal: UserGoal) => {
+    await updateProfile({ goal });
+    const goalKeyMap: Record<UserGoal, 'build_muscle' | 'lose_fat' | 'get_stronger' | 'recomposition'> = {
+      'Build Muscle': 'build_muscle',
+      'Lose Fat': 'lose_fat',
+      'Get Stronger': 'get_stronger',
+      'Recomposition': 'recomposition',
+    };
+    const currentOnboarding = (await loadOnboarding()) ?? defaultOnboarding;
+    const updated = { ...currentOnboarding, goal: goalKeyMap[goal] || 'build_muscle' };
+    await saveOnboarding(updated);
+    await useProgramStore.getState().refreshProgram(updated);
+    const newProgram = useProgramStore.getState().program;
+    await useProgramProgressStore
+      .getState()
+      .resetProgress(newProgram.id, newProgram.workouts[0]?.id);
+    hapticSuccess();
+  };
+
+  const handleSelectExperience = async (experience: UserExperience) => {
+    await updateProfile({ experience });
+    const expKeyMap: Record<UserExperience, 'beginner' | 'intermediate' | 'advanced'> = {
+      Beginner: 'beginner',
+      Intermediate: 'intermediate',
+      Advanced: 'advanced',
+    };
+    const currentOnboarding = (await loadOnboarding()) ?? defaultOnboarding;
+    const updated = { ...currentOnboarding, experience: expKeyMap[experience] || 'beginner' };
+    await saveOnboarding(updated);
+    await useProgramStore.getState().refreshProgram(updated);
+    const newProgram = useProgramStore.getState().program;
+    await useProgramProgressStore
+      .getState()
+      .resetProgress(newProgram.id, newProgram.workouts[0]?.id);
+    hapticSuccess();
+  };
+
   const handleSelectWorkoutsPerWeek = async (count: number) => {
     await updateProfile({ workoutsPerWeek: count });
     const currentOnboarding = (await loadOnboarding()) ?? defaultOnboarding;
@@ -475,11 +512,6 @@ export default function Profile() {
           <View style={styles.headerInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.userName}>{profile.name}</Text>
-              <View style={[styles.beastPill, { borderColor: currentBeast.color }]}>
-                <Text style={[styles.beastPillText, { color: currentBeast.color }]}>
-                  {currentBeast.label}
-                </Text>
-              </View>
             </View>
 
             <Text style={styles.userSubtitle}>
@@ -582,6 +614,64 @@ export default function Profile() {
         <View style={styles.card}>
           <Pressable
             accessibilityRole="button"
+            onPress={() => handleOpenPicker('goal')}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
+            <View>
+              <Text style={styles.rowTitle}>
+                {language === 'uk' ? 'Основна ціль' : 'Primary Goal'}
+              </Text>
+              <Text style={styles.rowSubtitle}>{profile.goal}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleOpenPicker('experience')}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
+            <View>
+              <Text style={styles.rowTitle}>
+                {language === 'uk' ? 'Рівень досвіду' : 'Experience Level'}
+              </Text>
+              <Text style={styles.rowSubtitle}>{profile.experience}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleOpenPicker('workoutsPerWeek')}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
+            <View>
+              <Text style={styles.rowTitle}>
+                {language === 'uk' ? 'Тренувань на тиждень' : 'Workouts Per Week'}
+              </Text>
+              <Text style={styles.rowSubtitle}>
+                {profile.workoutsPerWeek} {language === 'uk' ? 'днів / тиждень' : 'days / week'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => handleOpenPicker('split')}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
+            <View>
+              <Text style={styles.rowTitle}>
+                {language === 'uk' ? 'Структура програми' : 'Training Split'}
+              </Text>
+              <Text style={styles.rowSubtitle}>{currentSplitLabel}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Configure Training Program"
             onPress={() => {
               hapticLight();
@@ -590,12 +680,14 @@ export default function Profile() {
             style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
           >
             <View>
-              <Text style={styles.rowTitle}>{currentSplitLabel}</Text>
+              <Text style={[styles.rowTitle, { color: colors.primary }]}>
+                {language === 'uk' ? 'Редагувати вправи в програмі' : 'Edit Program Exercises'}
+              </Text>
               <Text style={styles.rowSubtitle}>
-                {program.workouts.length} {language === 'uk' ? 'тренувань / тиждень' : 'sessions / week'} • {language === 'uk' ? 'Налаштувати в Програмі' : 'Configure in Program'}
+                {program.workouts.length} {language === 'uk' ? 'тренувальних днів' : 'workout days'}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
           </Pressable>
         </View>
 
@@ -1107,19 +1199,19 @@ export default function Profile() {
       {/* Preference Picker Modals */}
       <PreferencePickerModal
         visible={activePicker === 'goal'}
-        title="Select Primary Goal"
+        title={language === 'uk' ? 'Основна ціль' : 'Select Primary Goal'}
         options={GOAL_OPTIONS}
         selectedValue={profile.goal}
-        onSelect={(goal) => updateProfile({ goal })}
+        onSelect={handleSelectGoal}
         onClose={() => setActivePicker(null)}
       />
 
       <PreferencePickerModal
         visible={activePicker === 'experience'}
-        title="Select Experience Level"
+        title={language === 'uk' ? 'Рівень досвіду' : 'Select Experience Level'}
         options={EXPERIENCE_OPTIONS}
         selectedValue={profile.experience}
-        onSelect={(experience) => updateProfile({ experience })}
+        onSelect={handleSelectExperience}
         onClose={() => setActivePicker(null)}
       />
 

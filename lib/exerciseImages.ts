@@ -76,9 +76,15 @@ const EXERCISE_IMAGES: Record<string, ImageSourcePropType> = {
   'bicep curl': require('@/assets/exercises/biceps_curl.jpg'),
   'curl': require('@/assets/exercises/biceps_curl.jpg'),
 
-  // --- Legs ---
+  // --- Legs & Glutes ---
   'bulgarian split squat': require('@/assets/exercises/bulgarian_split_squat.jpg'),
   'bulgarian': require('@/assets/exercises/bulgarian_split_squat.jpg'),
+  'step-up': require('@/assets/exercises/bulgarian_split_squat.jpg'),
+  'step up': require('@/assets/exercises/bulgarian_split_squat.jpg'),
+  'hip thrust': require('@/assets/exercises/romanian_deadlift.jpg'),
+  'glute bridge': require('@/assets/exercises/romanian_deadlift.jpg'),
+  'pull-through': require('@/assets/exercises/romanian_deadlift.jpg'),
+  'glute': require('@/assets/exercises/romanian_deadlift.jpg'),
   'walking lunge': require('@/assets/exercises/walking_lunges.jpg'),
   'lunge': require('@/assets/exercises/walking_lunges.jpg'),
   'barbell squat': require('@/assets/exercises/barbell_squat.jpg'),

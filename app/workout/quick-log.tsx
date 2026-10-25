@@ -121,10 +121,10 @@ export default function QuickLogScreen() {
           restSeconds: ex.restSeconds || 90,
           sets: ex.sets.map((s) => ({
             id: s.id,
-            reps: s.reps,
-            repsText: s.reps > 0 ? s.reps.toString() : '',
+            reps: s.completed ? s.reps : 0,
+            repsText: s.completed && s.reps > 0 ? s.reps.toString() : '',
             targetReps: s.targetReps || '8-12',
-            completed: s.completed,
+            completed: Boolean(s.completed && s.reps > 0),
           })),
         };
       });

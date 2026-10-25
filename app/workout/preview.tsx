@@ -288,21 +288,10 @@ export default function WorkoutPreview() {
     handleOpenSwapModal(ex);
   };
 
-  // Calculate readiness percentage for this workout's muscle groups
-  const readinessPercent = useMemo(() => {
-    if (!workout) return 85;
-    const recoveryStatuses = calculateMuscleRecovery(history);
-    const targetMuscles = workout.muscleGroups || [];
-    const matching = recoveryStatuses.filter((s) =>
-      targetMuscles.some((tm) => tm.toLowerCase() === s.muscleGroup.toLowerCase())
-    );
-    const active = matching.length > 0 ? matching : recoveryStatuses;
-    if (active.length === 0) return 92;
-    const avg = Math.round(
-      active.reduce((sum, curr) => sum + curr.readinessPercentage, 0) / active.length
-    );
-    return Math.min(100, Math.max(25, avg));
-  }, [history, workout]);
+  const totalSets = useMemo(
+    () => (workout?.exercises || []).reduce((acc, ex) => acc + (ex.sets || 3), 0),
+    [workout]
+  );
 
   if (!workout) {
     return null;
@@ -384,17 +373,11 @@ export default function WorkoutPreview() {
           <Text style={styles.workoutTitle}>{tw(workout.name)}</Text>
           <Text style={styles.workoutMuscles}>{displayMuscles}</Text>
 
-          {/* Readiness Progress Bar */}
+          {/* Factual Workout Summary */}
           <View style={styles.readinessRow}>
-            <View style={styles.progressBarTrack}>
-              <View
-                style={[
-                  styles.progressBarFill,
-                  { width: `${readinessPercent}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.readinessPercentText}>{readinessPercent}%</Text>
+            <Text style={styles.readinessPercentText}>
+              {workout.exercises.length} {t('exercises').toLowerCase()} · {totalSets} {t('sets').toLowerCase()} · ~{workout.estimatedMinutes} {t('min')}
+            </Text>
           </View>
         </View>
 

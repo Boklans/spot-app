@@ -48,6 +48,8 @@ export type BaselineLifts = {
 export type UserProfile = {
   name: string;
   avatar: BeastAvatarId;
+  age?: number;
+  sex?: 'male' | 'female' | 'unspecified';
   weightKg: number;
   heightCm: number;
   goal: UserGoal;
@@ -67,6 +69,8 @@ export type UserProfile = {
 export const DEFAULT_USER_PROFILE: UserProfile = {
   name: 'IHOR',
   avatar: 'gorilla',
+  age: 28,
+  sex: 'unspecified',
   weightKg: 78,
   heightCm: 180,
   goal: 'Build Muscle',

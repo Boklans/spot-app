@@ -302,10 +302,11 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         };
       });
 
-      const isLastSet = session.currentSetIndex >= exercise.sets.length - 1;
-      const isLastExercise = session.currentExerciseIndex >= session.exercises.length - 1;
+      const allSetsCompleted = exercisesWithCompletedSet.every((ex) =>
+        ex.sets.every((s) => s.completed)
+      );
 
-      if (isLastSet && isLastExercise) {
+      if (allSetsCompleted) {
         return {
           ...state,
           session: {
@@ -319,13 +320,44 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         };
       }
 
-      const nextExerciseIndex = isLastSet
-        ? Math.min(session.exercises.length - 1, session.currentExerciseIndex + 1)
-        : session.currentExerciseIndex;
-      const nextSetIndex = isLastSet ? 0 : session.currentSetIndex + 1;
+      const currentExUpdated = exercisesWithCompletedSet[session.currentExerciseIndex];
+      let nextExerciseIndex = session.currentExerciseIndex;
+      let nextSetIndex = session.currentSetIndex;
+      let movedToAnotherExercise = false;
 
-      const targetExerciseForRest = isLastSet
-        ? session.exercises[nextExerciseIndex] ?? exercise
+      // 1. Next uncompleted set in current exercise after currentSetIndex
+      const nextAfterInCurrent = currentExUpdated.sets.findIndex(
+        (s, idx) => idx > session.currentSetIndex && !s.completed
+      );
+      // 2. Any earlier uncompleted set in current exercise
+      const anyUncompletedInCurrent = currentExUpdated.sets.findIndex((s) => !s.completed);
+
+      if (nextAfterInCurrent !== -1) {
+        nextSetIndex = nextAfterInCurrent;
+      } else if (anyUncompletedInCurrent !== -1) {
+        nextSetIndex = anyUncompletedInCurrent;
+      } else {
+        // 3. Find next exercise with uncompleted sets
+        movedToAnotherExercise = true;
+        let foundExIdx = exercisesWithCompletedSet.findIndex(
+          (ex, idx) => idx > session.currentExerciseIndex && ex.sets.some((s) => !s.completed)
+        );
+        if (foundExIdx === -1) {
+          foundExIdx = exercisesWithCompletedSet.findIndex((ex) =>
+            ex.sets.some((s) => !s.completed)
+          );
+        }
+        if (foundExIdx !== -1) {
+          nextExerciseIndex = foundExIdx;
+          nextSetIndex = Math.max(
+            0,
+            exercisesWithCompletedSet[foundExIdx].sets.findIndex((s) => !s.completed)
+          );
+        }
+      }
+
+      const targetExerciseForRest = movedToAnotherExercise
+        ? exercisesWithCompletedSet[nextExerciseIndex] ?? exercise
         : exercise;
       const restDuration = resolveRestSeconds(targetExerciseForRest);
 
@@ -338,7 +370,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
           currentSetIndex: nextSetIndex,
         },
         restEndsAt: restDuration > 0 ? Date.now() + restDuration * 1000 : null,
-        restNextType: restDuration > 0 ? (isLastSet ? 'exercise' : 'set') : null,
+        restNextType: restDuration > 0 ? (movedToAnotherExercise ? 'exercise' : 'set') : null,
       };
     });
     const state = useWorkoutSessionStore.getState();
@@ -627,28 +659,43 @@ export async function clearPersistedActiveWorkout() {
   await persistenceQueue;
 }
 
+function isValidSessionSet(workoutSet: WorkoutSet | null | undefined): boolean {
+  if (!workoutSet || workoutSet.completed !== true) return false;
+  if (typeof workoutSet.reps !== 'number' || !Number.isFinite(workoutSet.reps) || workoutSet.reps <= 0) return false;
+  if (typeof workoutSet.weight !== 'number' || !Number.isFinite(workoutSet.weight) || workoutSet.weight < 0) return false;
+  return true;
+}
+
 export function getSessionProgress(session: WorkoutSession) {
   const totalSets = session.exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
   const completedSets = session.exercises.reduce(
-    (total, exercise) => total + exercise.sets.filter((workoutSet) => workoutSet.completed).length,
+    (total, exercise) => total + exercise.sets.filter(isValidSessionSet).length,
     0,
   );
   return { completedSets, totalSets, percentage: totalSets === 0 ? 0 : (completedSets / totalSets) * 100 };
 }
 
 export function getSessionSummary(session: WorkoutSession) {
-  const completedSets = session.exercises.flatMap((exercise) => exercise.sets.filter((workoutSet) => workoutSet.completed));
+  const plannedSets = session.exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
+  const completedSets = session.exercises.flatMap((exercise) => exercise.sets.filter(isValidSessionSet));
   const durationMs = session.completedAt
     ? Math.max(0, new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime())
     : 0;
   const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
-  const volume = completedSets.reduce((total, workoutSet) => total + workoutSet.weight * workoutSet.reps, 0);
-  const exerciseCount = session.exercises.filter((exercise) => exercise.sets.some((workoutSet) => workoutSet.completed)).length;
+  const volume = Math.round(
+    completedSets.reduce((total, workoutSet) => total + workoutSet.weight * workoutSet.reps, 0) * 100
+  ) / 100;
+  const exerciseCount = session.exercises.filter((exercise) => exercise.sets.some(isValidSessionSet)).length;
+  const plannedExerciseCount = session.exercises.length;
+  const isPartial = plannedSets > 0 && completedSets.length < plannedSets;
 
   return {
     durationMinutes,
     exerciseCount,
+    plannedExerciseCount,
     completedSets: completedSets.length,
+    plannedSets,
+    isPartial,
     volume,
   };
 }

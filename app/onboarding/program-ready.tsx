@@ -98,6 +98,8 @@ export default function ProgramReady() {
     const mergedData: OnboardingData = {
       ...data,
       name: (profile.name && profile.name !== 'IHOR') ? profile.name : data.name,
+      age: (profile.age && profile.age > 0) ? profile.age : data.age,
+      sex: profile.sex || data.sex,
       weightKg: (profile.weightKg && profile.weightKg > 0) ? profile.weightKg : data.weightKg,
       heightCm: (profile.heightCm && profile.heightCm > 0) ? profile.heightCm : data.heightCm,
       baselineLifts: profile.baselineLifts || data.baselineLifts,
@@ -123,28 +125,6 @@ export default function ProgramReady() {
       syncProgramState();
     }, [syncProgramState])
   );
-
-  const handleSelectDuration = async (minutes: number) => {
-    hapticMedium();
-    const updated: OnboardingData = {
-      ...onboarding,
-      sessionDurationMinutes: minutes,
-    };
-    setOnboarding(updated);
-    if (updated.splitPreference === 'custom' && hasEdits) {
-      setProgram((prev) => ({
-        ...prev,
-        estimatedWorkoutMinutes: minutes,
-        workouts: prev.workouts.map((w) => ({
-          ...w,
-          estimatedMinutes: minutes,
-        })),
-      }));
-    } else {
-      setProgram(generateProgram(updated));
-    }
-    await saveOnboarding(updated);
-  };
 
   const handleSelectSplit = async (splitId: WorkoutSplitPreference) => {
     hapticMedium();
@@ -246,7 +226,6 @@ export default function ProgramReady() {
   const currentSplit = onboarding.splitPreference ?? program.splitType;
   const isCustom = currentSplit === 'custom';
 
-  // Build a UserProgram from current local program state (for persisting manual edits)
   const buildUserProgramFromLocal = () => ({
     id: program.id,
     name: program.name,
@@ -297,10 +276,14 @@ export default function ProgramReady() {
     const finalWeightKg = (profile.weightKg && profile.weightKg > 0) ? profile.weightKg : (onboarding.weightKg ?? 78);
     const finalBaselineLifts = profile.baselineLifts || onboarding.baselineLifts;
     const finalName = (profile.name && profile.name !== 'IHOR') ? profile.name : onboarding.name;
+    const finalAge = (profile.age && profile.age > 0) ? profile.age : onboarding.age;
+    const finalSex = profile.sex || onboarding.sex;
 
     const updated = {
       ...onboarding,
       name: finalName,
+      age: finalAge,
+      sex: finalSex,
       weightKg: finalWeightKg,
       baselineLifts: finalBaselineLifts,
       completed: true,
@@ -309,9 +292,10 @@ export default function ProgramReady() {
     setOnboarding(updated);
     await saveOnboarding(updated);
 
-    // Commit strictly to userProfileStore and bodyWeightStore
     await useUserProfileStore.getState().updateProfile({
       name: finalName,
+      age: finalAge,
+      sex: finalSex,
       weightKg: finalWeightKg,
       baselineLifts: finalBaselineLifts,
     });
@@ -335,6 +319,14 @@ export default function ProgramReady() {
     router.replace('/(tabs)');
   };
 
+  const focusTag = (() => {
+    const f = onboarding.priorityMuscles?.[0];
+    if (f === 'lower_glutes') return language === 'uk' ? 'АКЦЕНТ: НОГИ ТА СІДНИЦІ' : 'FOCUS: LEGS & GLUTES';
+    if (f === 'upper_push') return language === 'uk' ? 'АКЦЕНТ: ВЕРХ ТІЛА' : 'FOCUS: UPPER BODY';
+    if (f === 'back_core') return language === 'uk' ? 'АКЦЕНТ: СПИНА ТА КОР' : 'FOCUS: BACK & CORE';
+    return language === 'uk' ? 'ЗБАЛАНСОВАНО' : 'BALANCED';
+  })();
+
   return (
     <SafeAreaView style={styles.safe}>
       {/* 1. Top Bar */}
@@ -349,13 +341,8 @@ export default function ProgramReady() {
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
         <View style={styles.aiBadge}>
-          <MaterialCommunityIcons
-            name="creation"
-            size={14}
-            color={colors.primary}
-          />
           <Text style={styles.aiBadgeText}>
-            {language === 'uk' ? 'СПОТ ПЛАН' : 'SPOT PLAN'}
+            {language === 'uk' ? 'ПРОГРАМА ТРЕНУВАНЬ' : 'TRAINING PROGRAM'}
           </Text>
         </View>
         <View style={styles.topBarPlaceholder} />
@@ -387,9 +374,7 @@ export default function ProgramReady() {
               </Text>
             </View>
             <View style={[styles.metaPill, styles.goalPill]}>
-              <Text style={styles.goalText}>
-                {language === 'uk' ? 'ПЕРСОНАЛІЗОВАНО' : 'PERSONALIZED'}
-              </Text>
+              <Text style={styles.goalText}>{focusTag}</Text>
             </View>
           </View>
         </View>

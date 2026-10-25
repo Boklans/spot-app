@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { hapticImpact, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
-import { saveOnboarding } from '@/store/workoutStore';
+import { loadOnboarding, saveOnboarding } from '@/store/workoutStore';
 
 interface EquipmentOption {
   value: string;
@@ -22,50 +22,31 @@ interface EquipmentOption {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
 }
 
-const EQUIPMENT_OPTIONS: EquipmentOption[] = [
-  {
-    value: 'full_gym',
-    label: 'Full Gym',
-    detail: 'Barbells, dumbbells, cables & machines',
-    icon: 'weight-lifter',
-  },
-  {
-    value: 'barbell',
-    label: 'Barbell & Rack',
-    detail: 'Olympic bar, squat rack & bench',
-    icon: 'dumbbell',
-  },
-  {
-    value: 'dumbbells',
-    label: 'Dumbbells Only',
-    detail: 'Adjustable or fixed weight pairs',
-    icon: 'dumbbell',
-  },
-  {
-    value: 'cables_machines',
-    label: 'Machines & Cables',
-    detail: 'Smith machine, cable crossovers, leg press',
-    icon: 'cog-outline',
-  },
-  {
-    value: 'bodyweight',
-    label: 'Bodyweight & Calisthenics',
-    detail: 'Pull-up bar, dip bars, resistance bands',
-    icon: 'human-handsup',
-  },
-];
-
 export default function Equipment() {
   const { t, language } = useI18n();
   const isUk = language === 'uk';
   const [selected, setSelected] = useState<string[]>(['full_gym']);
 
+  useEffect(() => {
+    loadOnboarding().then((saved) => {
+      if (saved?.equipment && saved.equipment.length > 0) {
+        setSelected(saved.equipment);
+      }
+    }).catch(() => undefined);
+  }, []);
+
   const equipmentOptions: EquipmentOption[] = [
     {
       value: 'full_gym',
       label: isUk ? 'Повноцінний зал' : 'Full Gym',
-      detail: isUk ? 'Штанги, гантелі, тренажери та блоки' : 'Barbells, dumbbells, cables & machines',
+      detail: isUk ? 'Штанги, гантелі, тренажери та блочні станції' : 'Barbells, dumbbells, cables & machines',
       icon: 'weight-lifter',
+    },
+    {
+      value: 'dumbbells',
+      label: isUk ? 'Гантелі (дім або зал)' : 'Dumbbells',
+      detail: isUk ? 'Набірні або фіксовані гантелі' : 'Adjustable or fixed weight pairs',
+      icon: 'dumbbell',
     },
     {
       value: 'barbell',
@@ -74,21 +55,15 @@ export default function Equipment() {
       icon: 'dumbbell',
     },
     {
-      value: 'dumbbells',
-      label: isUk ? 'Тільки гантелі' : 'Dumbbells Only',
-      detail: isUk ? 'Набірні або фіксовані гантелі' : 'Adjustable or fixed weight pairs',
-      icon: 'dumbbell',
-    },
-    {
-      value: 'cables_machines',
+      value: 'machines',
       label: isUk ? 'Тренажери та блоки' : 'Machines & Cables',
-      detail: isUk ? 'Машина Сміта, кросовер, жим ногами' : 'Smith machine, cable crossovers, leg press',
+      detail: isUk ? 'Машина Сміта, кросовер, жим ногами, тяги' : 'Smith machine, cable crossovers, leg press',
       icon: 'cog-outline',
     },
     {
       value: 'bodyweight',
-      label: isUk ? 'Власна вага' : 'Bodyweight & Calisthenics',
-      detail: isUk ? 'Турнік, бруси, гумові петлі' : 'Pull-up bar, dip bars, resistance bands',
+      label: isUk ? 'Власна вага (без заліза)' : 'Bodyweight Only',
+      detail: isUk ? 'Тренування вдома або на майданчику (турнік, бруси)' : 'Home or calisthenics park (pull-up bar, dips)',
       icon: 'human-handsup',
     },
   ];
@@ -96,19 +71,22 @@ export default function Equipment() {
   const toggleEquipment = (value: string) => {
     hapticImpact();
     setSelected((prev) => {
-      if (prev.includes(value)) {
-        if (prev.length === 1) return prev;
-        return prev.filter((item) => item !== value);
-      } else {
-        return [...prev, value];
+      if (value === 'full_gym') {
+        return ['full_gym'];
       }
+      const withoutFullGym = prev.filter((item) => item !== 'full_gym');
+      if (withoutFullGym.includes(value)) {
+        if (withoutFullGym.length === 1) return withoutFullGym;
+        return withoutFullGym.filter((item) => item !== value);
+      }
+      return [...withoutFullGym, value];
     });
   };
 
   const handleContinue = async () => {
     hapticMedium();
     await saveOnboarding({ equipment: selected });
-    router.push('/onboarding/program-ready');
+    router.push('/onboarding/frequency');
   };
 
   return (
@@ -124,7 +102,7 @@ export default function Equipment() {
         >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
-        <Text style={styles.stepText}>4/4</Text>
+        <Text style={styles.stepText}>4/5</Text>
         <View style={styles.topBarPlaceholder} />
       </View>
 
@@ -135,8 +113,14 @@ export default function Equipment() {
       >
         {/* 2. Title Section */}
         <View style={styles.titleSection}>
-          <Text style={styles.title}>{t('equipmentTitle')}</Text>
-          <Text style={styles.subtitle}>{t('equipmentSubtitle')}</Text>
+          <Text style={styles.title}>
+            {isUk ? 'Де та з чим тренуєтесь?' : t('equipmentTitle')}
+          </Text>
+          <Text style={styles.subtitle}>
+            {isUk
+              ? 'У програмі залишаться лише вправи під ваше реальне обладнання.'
+              : t('equipmentSubtitle')}
+          </Text>
         </View>
 
         {/* 3. Options List */}

@@ -19,13 +19,14 @@ import { useI18n } from '@/lib/i18n';
 import { useWeightUnit } from '@/lib/weightUtils';
 import { useUserProfileStore } from '@/store/userProfileStore';
 import { useBodyWeightStore } from '@/store/bodyWeightStore';
-import { saveOnboarding } from '@/store/workoutStore';
+import { loadOnboarding, type OnboardingSex, saveOnboarding } from '@/store/workoutStore';
 
 export default function ParamsSetup() {
   const { t, language } = useI18n();
   const { unitLabel, toKg, fromKg } = useWeightUnit();
 
   const nameRef = useRef<TextInputInstance>(null);
+  const ageRef = useRef<TextInputInstance>(null);
   const weightRef = useRef<TextInputInstance>(null);
   const heightRef = useRef<TextInputInstance>(null);
 
@@ -34,27 +35,41 @@ export default function ParamsSetup() {
 
   const initialProfile = useUserProfileStore.getState().profile;
   const [name, setName] = useState(() => (!isDefaultDummy(initialProfile.name) ? initialProfile.name : ''));
-  const [weight, setWeight] = useState(() => String(fromKg(initialProfile.weightKg || 78)));
-  const [height, setHeight] = useState(() => String(initialProfile.heightCm || 180));
+  const [age, setAge] = useState(() => String(initialProfile.age || 28));
+  const [sex, setSex] = useState<OnboardingSex>(() => initialProfile.sex || 'unspecified');
+  const [weight, setWeight] = useState(() => String(fromKg(initialProfile.weightKg || 70)));
+  const [height, setHeight] = useState(() => String(initialProfile.heightCm || 172));
   const [nameError, setNameError] = useState(false);
 
   const isUk = language === 'uk';
   const hasHydratedRef = useRef(false);
 
-  // Sync state cleanly whenever screen comes into focus without locking user edits
   useFocusEffect(
     useCallback(() => {
       const p = useUserProfileStore.getState().profile;
       if (!hasHydratedRef.current) {
         hasHydratedRef.current = true;
         if (p.name && !isDefaultDummy(p.name) && !name) setName(p.name);
+        if (p.age && p.age > 0) setAge(String(p.age));
+        if (p.sex) setSex(p.sex);
         if (p.weightKg && p.weightKg > 0 && !weight) setWeight(String(fromKg(p.weightKg)));
         if (p.heightCm && p.heightCm > 0 && !height) setHeight(String(p.heightCm));
+        loadOnboarding().then((saved) => {
+          if (!saved) return;
+          if (saved.age && saved.age > 0) setAge(String(saved.age));
+          if (saved.sex) setSex(saved.sex);
+        }).catch(() => undefined);
       }
     }, [fromKg, name, weight, height])
   );
 
   const isNameValid = name.trim().length >= 2;
+
+  const sexOptions: Array<{ value: OnboardingSex; label: string }> = [
+    { value: 'female', label: isUk ? 'Жіноча' : 'Female' },
+    { value: 'male', label: isUk ? 'Чоловіча' : 'Male' },
+    { value: 'unspecified', label: isUk ? 'Не вказувати' : 'Prefer not to say' },
+  ];
 
   const handleContinue = () => {
     if (!isNameValid) {
@@ -69,38 +84,45 @@ export default function ParamsSetup() {
 
     const effectiveName = name.trim();
 
+    const parsedAge = parseInt(age.trim(), 10);
+    const effectiveAge = !isNaN(parsedAge) && parsedAge >= 14 && parsedAge <= 95
+      ? parsedAge
+      : (initialProfile.age || 28);
+
     const parsedWeight = parseFloat(weight.replace(',', '.'));
     const effectiveWeightKg = !isNaN(parsedWeight) && parsedWeight >= 20 && parsedWeight <= 300
       ? Math.round(toKg(parsedWeight) * 10) / 10
-      : (initialProfile.weightKg || 78);
+      : (initialProfile.weightKg || 70);
 
     const parsedHeight = parseFloat(height.replace(',', '.'));
     const effectiveHeightCm = !isNaN(parsedHeight) && parsedHeight >= 80 && parsedHeight <= 250
       ? Math.round(parsedHeight)
-      : (initialProfile.heightCm || 180);
+      : (initialProfile.heightCm || 172);
 
-    // Save in background without blocking screen transition
     Promise.all([
       useUserProfileStore.getState().updateProfile({
         name: effectiveName,
+        age: effectiveAge,
+        sex,
         weightKg: effectiveWeightKg,
         heightCm: effectiveHeightCm,
       }),
       useBodyWeightStore.getState().syncBaselineWeight(effectiveWeightKg),
       saveOnboarding({
         name: effectiveName,
+        age: effectiveAge,
+        sex,
         weightKg: effectiveWeightKg,
         heightCm: effectiveHeightCm,
       }),
     ]).catch((err) => console.warn('Non-blocking onboarding save error:', err));
 
-    // Navigate immediately
-    router.push('/onboarding/experience');
+    router.push('/onboarding/goal');
   };
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* 1. Top Bar with 1/3 Progress */}
+      {/* 1. Top Bar with 1/5 Progress */}
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
@@ -111,7 +133,7 @@ export default function ParamsSetup() {
         >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
-        <Text style={styles.stepText}>1/3</Text>
+        <Text style={styles.stepText}>1/5</Text>
         <View style={styles.topBarPlaceholder} />
       </View>
 
@@ -128,12 +150,12 @@ export default function ParamsSetup() {
           {/* 2. Header */}
           <View style={styles.titleSection}>
             <Text style={styles.title}>
-              {isUk ? 'Ваші параметри' : 'Your Details'}
+              {isUk ? 'Ваші параметри' : 'Your Profile'}
             </Text>
             <Text style={styles.subtitle}>
               {isUk
-                ? 'Ці дані потрібні для точного розрахунку навантаження та калорій.'
-                : 'Helps SPOT calculate baseline working weights and progression.'}
+                ? 'Дані потрібні для точного підбору безпечної стартової ваги у вправах.'
+                : 'Used to calibrate safe starting weights for your exercises.'}
             </Text>
           </View>
 
@@ -170,7 +192,7 @@ export default function ParamsSetup() {
                   }}
                   autoCapitalize="words"
                   returnKeyType="next"
-                  onSubmitEditing={() => weightRef.current?.focus()}
+                  onSubmitEditing={() => ageRef.current?.focus()}
                 />
               </Pressable>
               {nameError && (
@@ -182,54 +204,114 @@ export default function ParamsSetup() {
               )}
             </View>
 
-            {/* Weight */}
+            {/* Optional Sex Selector (for load calibration) */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>
-                {isUk ? 'Вага' : 'Bodyweight'} ({unitLabel})
+                {isUk ? 'Стать (необовʼязково)' : 'Sex (Optional)'}
               </Text>
-              <Pressable
-                onPress={() => weightRef.current?.focus()}
-                style={styles.inputWrap}
-              >
-                <Ionicons name="scale-outline" size={20} color="#717B8A" style={styles.inputIcon} />
-                <TextInput
-                  ref={weightRef}
-                  editable={true}
-                  style={styles.textInput}
-                  placeholder="75"
-                  placeholderTextColor="#4E5A6C"
-                  keyboardType="decimal-pad"
-                  value={weight}
-                  onChangeText={setWeight}
-                  returnKeyType="next"
-                  onSubmitEditing={() => heightRef.current?.focus()}
-                />
-                <Text style={styles.unitSuffix}>{unitLabel}</Text>
-              </Pressable>
+              <View style={styles.sexRow}>
+                {sexOptions.map((opt) => {
+                  const isActive = sex === opt.value;
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      accessibilityRole="button"
+                      accessibilityLabel={opt.label}
+                      onPress={() => {
+                        hapticLight();
+                        setSex(opt.value);
+                      }}
+                      style={[styles.sexChip, isActive && styles.sexChipActive]}
+                    >
+                      <Text style={[styles.sexChipText, isActive && styles.sexChipTextActive]}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={styles.helperHint}>
+                {isUk
+                  ? 'Впливає лише на розрахунок початкової ваги. Вибір вправ і груп мʼязів ви налаштуєте на наступному кроці.'
+                  : 'Only used to calibrate starting weights. Exercise selection is determined by your goals on the next step.'}
+              </Text>
             </View>
 
-            {/* Height */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                {isUk ? 'Зріст (см)' : 'Height (cm)'}
-              </Text>
-              <Pressable
-                onPress={() => heightRef.current?.focus()}
-                style={styles.inputWrap}
-              >
-                <Ionicons name="resize-outline" size={20} color="#717B8A" style={styles.inputIcon} />
-                <TextInput
-                  ref={heightRef}
-                  editable={true}
-                  style={styles.textInput}
-                  placeholder="178"
-                  placeholderTextColor="#4E5A6C"
-                  keyboardType="number-pad"
-                  value={height}
-                  onChangeText={setHeight}
-                />
-                <Text style={styles.unitSuffix}>{isUk ? 'СМ' : 'CM'}</Text>
-              </Pressable>
+            {/* Age, Weight, Height Grid */}
+            <View style={styles.metricsRow}>
+              {/* Age */}
+              <View style={styles.metricCol}>
+                <Text style={styles.inputLabel}>
+                  {isUk ? 'Вік' : 'Age'}
+                </Text>
+                <Pressable
+                  onPress={() => ageRef.current?.focus()}
+                  style={styles.metricInputWrap}
+                >
+                  <TextInput
+                    ref={ageRef}
+                    editable={true}
+                    style={styles.textInput}
+                    placeholder="28"
+                    placeholderTextColor="#4E5A6C"
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    value={age}
+                    onChangeText={setAge}
+                    returnKeyType="next"
+                    onSubmitEditing={() => weightRef.current?.focus()}
+                  />
+                  <Text style={styles.unitSuffix}>{isUk ? 'РОКІВ' : 'YRS'}</Text>
+                </Pressable>
+              </View>
+
+              {/* Weight */}
+              <View style={styles.metricCol}>
+                <Text style={styles.inputLabel}>
+                  {isUk ? 'Вага' : 'Weight'}
+                </Text>
+                <Pressable
+                  onPress={() => weightRef.current?.focus()}
+                  style={styles.metricInputWrap}
+                >
+                  <TextInput
+                    ref={weightRef}
+                    editable={true}
+                    style={styles.textInput}
+                    placeholder="70"
+                    placeholderTextColor="#4E5A6C"
+                    keyboardType="decimal-pad"
+                    value={weight}
+                    onChangeText={setWeight}
+                    returnKeyType="next"
+                    onSubmitEditing={() => heightRef.current?.focus()}
+                  />
+                  <Text style={styles.unitSuffix}>{unitLabel}</Text>
+                </Pressable>
+              </View>
+
+              {/* Height */}
+              <View style={styles.metricCol}>
+                <Text style={styles.inputLabel}>
+                  {isUk ? 'Зріст' : 'Height'}
+                </Text>
+                <Pressable
+                  onPress={() => heightRef.current?.focus()}
+                  style={styles.metricInputWrap}
+                >
+                  <TextInput
+                    ref={heightRef}
+                    editable={true}
+                    style={styles.textInput}
+                    placeholder="172"
+                    placeholderTextColor="#4E5A6C"
+                    keyboardType="number-pad"
+                    value={height}
+                    onChangeText={setHeight}
+                  />
+                  <Text style={styles.unitSuffix}>{isUk ? 'СМ' : 'CM'}</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -309,7 +391,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     gap: 18,
-    marginBottom: 32,
+    marginBottom: 24,
   },
   inputGroup: {
     gap: 8,
@@ -348,7 +430,7 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 12,
     fontWeight: '600',
-    marginTop: 6,
+    marginTop: 4,
     marginLeft: 4,
   },
   inputIcon: {
@@ -363,9 +445,61 @@ const styles = StyleSheet.create({
   },
   unitSuffix: {
     color: '#717B8A',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    marginLeft: 8,
+    marginLeft: 6,
+  },
+  sexRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sexChip: {
+    flex: 1,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#12161D',
+    borderWidth: 1.5,
+    borderColor: '#1E2530',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  sexChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+  },
+  sexChipText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  sexChipTextActive: {
+    color: colors.primary,
+    fontWeight: '800',
+  },
+  helperHint: {
+    color: '#717B8A',
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  metricCol: {
+    flex: 1,
+    gap: 8,
+  },
+  metricInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#12161D',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#1E2530',
+    paddingHorizontal: 12,
+    height: 54,
   },
   bottomBar: {
     width: '100%',
@@ -406,4 +540,3 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
 });
-

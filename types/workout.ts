@@ -32,6 +32,8 @@ export type CompletedWorkout = {
   completedAt: string;
   durationSeconds: number;
   totalSets: number;
+  plannedSets?: number;
+  isPartial?: boolean;
   totalVolume: number;
   exercises: CompletedExercise[];
   personalRecords: PersonalRecord[];

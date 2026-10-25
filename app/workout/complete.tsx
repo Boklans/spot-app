@@ -60,12 +60,13 @@ export default function Complete() {
   }
 
   const summary = getSessionSummary(session);
+  const isPartial = summary.isPartial;
   const prs = session.personalRecords ?? [];
 
   const nextSessionPlan = session.exercises
     .map((ex) => {
       const completedSets = ex.sets
-        .filter((s) => s.completed)
+        .filter((s) => s.completed && s.reps > 0)
         .map((s) => ({ weight: s.weight, reps: s.reps }));
       if (completedSets.length === 0) return null;
       const targetRange = ex.sets[0]?.targetReps || '8-12';
@@ -148,17 +149,18 @@ export default function Complete() {
 
   const progressedExercisesCount = nextSessionPlan.filter((i) => i.isProgressedToday).length;
 
-  // Find previous session of the same workout (excluding current session)
+  // Find previous non-partial session of the same workout (excluding current session)
   const previousWorkout = workouts.find(
     (w) =>
       w.id !== session.id &&
+      !w.isPartial &&
       (w.programWorkoutId === session.programWorkoutId ||
         w.workoutName.trim().toLowerCase() === session.workoutName.trim().toLowerCase())
   );
 
   const prevVolume = previousWorkout?.totalVolume ?? 0;
   const currentVolume = summary.volume;
-  const hasPreviousSession = Boolean(previousWorkout);
+  const hasPreviousSession = Boolean(previousWorkout) && !isPartial;
   const volumeDelta = hasPreviousSession ? currentVolume - prevVolume : 0;
   const volumePercent =
     hasPreviousSession && prevVolume > 0
@@ -190,16 +192,14 @@ export default function Complete() {
         : '';
 
       const message = language === 'uk'
-        ? `🔥 Щойно завершив тренування "${tw(session.workoutName)}" у SPOT!\n\n` +
+        ? `Завершив тренування "${tw(session.workoutName)}" у SPOT\n\n` +
           `⏱️ Тривалість: ${summary.durationMinutes} хв\n` +
           `🏋️ Тоннаж: ${formatVolume(summary.volume)}${surgeShareText}\n` +
-          `📊 Підходів: ${summary.completedSets}${prsText}\n\n` +
-          `Тренуйся розумніше зі SPOT 💪`
-        : `🔥 Just crushed "${tw(session.workoutName)}" on SPOT!\n\n` +
+          `📊 Підходів: ${summary.completedSets}${prsText}`
+        : `Completed "${tw(session.workoutName)}" on SPOT\n\n` +
           `⏱️ Duration: ${summary.durationMinutes} min\n` +
           `🏋️ Volume: ${formatVolume(summary.volume)}${surgeShareText}\n` +
-          `📊 Sets: ${summary.completedSets}${prsText}\n\n` +
-          `Train smarter with SPOT 💪`;
+          `📊 Sets: ${summary.completedSets}${prsText}`;
 
       await Share.share({
         title: 'SPOT Workout Summary',
@@ -231,12 +231,9 @@ export default function Complete() {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Share workout story"
+          accessibilityLabel="Share workout"
           hitSlop={12}
-          onPress={() => {
-            hapticLight();
-            setIsStoriesModalVisible(true);
-          }}
+          onPress={handleNativeShare}
           style={styles.topShareBtn}
         >
           <Ionicons name="share-social-outline" size={22} color={colors.primary} />
@@ -247,13 +244,32 @@ export default function Complete() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* 2. Celebration Hero */}
+        {/* 2. Status Header (Calm for Partial, Clean for Full) */}
         <View style={styles.heroSection}>
-          <View style={styles.confettiIconWrap}>
-            <MaterialCommunityIcons name="party-popper" size={44} color="#FFD130" />
+          <View
+            style={[
+              styles.statusIconWrap,
+              isPartial ? styles.statusIconWrapPartial : styles.statusIconWrapComplete,
+            ]}
+          >
+            <Ionicons
+              name={isPartial ? 'bookmark-outline' : 'checkmark-done'}
+              size={26}
+              color={isPartial ? '#F59E0B' : colors.primary}
+            />
           </View>
-          <Text style={styles.title}>{t('workoutComplete')}</Text>
-          <Text style={styles.workoutSubtitle}>{tw(session.workoutName)}</Text>
+          <Text style={styles.title}>
+            {isPartial
+              ? (language === 'uk' ? 'Тренування збережено частково' : 'Partial Workout Saved')
+              : (language === 'uk' ? 'Тренування виконано' : 'Workout Completed')}
+          </Text>
+          <Text style={styles.workoutSubtitle}>
+            {isPartial
+              ? (language === 'uk'
+                  ? `Виконано ${summary.completedSets} із ${summary.plannedSets} підходів · ${tw(session.workoutName)}`
+                  : `Completed ${summary.completedSets} of ${summary.plannedSets} sets · ${tw(session.workoutName)}`)
+              : tw(session.workoutName)}
+          </Text>
         </View>
 
         {/* 3. Stats Tri-Card Row */}
@@ -264,17 +280,21 @@ export default function Complete() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>{summary.exerciseCount}</Text>
+            <Text style={styles.statValue}>
+              {isPartial ? `${summary.exerciseCount}/${summary.plannedExerciseCount}` : summary.exerciseCount}
+            </Text>
             <Text style={styles.statLabel}>{t('exercises')}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>{summary.completedSets}</Text>
+            <Text style={styles.statValue}>
+              {isPartial ? `${summary.completedSets}/${summary.plannedSets}` : summary.completedSets}
+            </Text>
             <Text style={styles.statLabel}>{t('sets')}</Text>
           </View>
         </View>
 
-        {/* 4. Volume Card with Progression Delta */}
+        {/* 4. Volume Card */}
         <View style={styles.volumeCard}>
           <View style={styles.volumeValueRow}>
             <Text style={styles.volumeValue}>
@@ -289,73 +309,61 @@ export default function Complete() {
               </View>
             ) : null}
           </View>
-          <Text style={styles.volumeLabel}>{t('volume')}</Text>
+          <Text style={styles.volumeLabel}>
+            {isPartial
+              ? (language === 'uk' ? 'Фактичний тоннаж виконаних підходів' : 'Completed sets volume')
+              : t('volume')}
+          </Text>
 
-          {/* Volume Comparison Sub-Banner */}
-          {hasPreviousSession ? (
+          {/* Volume Sub-Banner */}
+          {isPartial ? (
+            <View style={styles.volumeComparisonRow}>
+              <Ionicons name="information-circle-outline" size={15} color="#F59E0B" />
+              <Text style={styles.volumeComparisonText}>
+                {language === 'uk'
+                  ? 'Збережено лише фактично виконані підходи. Це тренування залишається наступним за розкладом.'
+                  : 'Only completed sets were logged. This workout remains next in your schedule.'}
+              </Text>
+            </View>
+          ) : hasPreviousSession ? (
             <View style={styles.volumeComparisonRow}>
               <Ionicons
-                name={volumeDelta > 0 ? 'flame' : volumeDelta < 0 ? 'shield-checkmark-outline' : 'checkmark-circle-outline'}
-                size={14}
+                name={volumeDelta > 0 ? 'trending-up-outline' : volumeDelta < 0 ? 'remove-circle-outline' : 'checkmark-circle-outline'}
+                size={15}
                 color={volumeDelta > 0 ? colors.primary : volumeDelta < 0 ? '#8E99A8' : colors.primary}
               />
               <Text style={styles.volumeComparisonText}>
                 {volumeDelta > 0
                   ? (language === 'uk'
-                    ? `+${volumePercent}% навантаження порівняно з минулим "${tw(previousWorkout?.workoutName || '')}"`
-                    : `+${volumePercent}% volume vs previous "${tw(previousWorkout?.workoutName || '')}"`)
+                    ? `+${volumePercent}% до минулого «${tw(previousWorkout?.workoutName || '')}»`
+                    : `+${volumePercent}% vs previous "${tw(previousWorkout?.workoutName || '')}"`)
                   : volumeDelta === 0
                   ? (language === 'uk'
-                    ? `Тоннаж відповідає минулому тренуванню`
-                    : `Volume matched previous workout`)
+                    ? 'Тоннаж відповідає минулому тренуванню'
+                    : 'Volume matched previous workout')
                   : (language === 'uk'
-                    ? `${volumePercent}% тоннажу (відновлювальне навантаження)`
-                    : `${volumePercent}% volume (recovery session)`)}
+                    ? `${volumePercent}% порівняно з минулим тренуванням`
+                    : `${volumePercent}% vs previous workout`)}
               </Text>
             </View>
-          ) : (
-            <View style={styles.volumeComparisonRow}>
-              <Ionicons name="sparkles" size={13} color={colors.primary} />
-              <Text style={styles.volumeComparisonText}>
-                {language === 'uk'
-                  ? 'Базовий тоннаж зафіксовано для відстеження прогресу'
-                  : 'Baseline volume recorded for progressive overload tracking'}
-              </Text>
-            </View>
-          )}
+          ) : null}
         </View>
 
-        {/* 5. Personal Records / Baseline Card */}
-        <View style={styles.prsCard}>
-          <View style={styles.prHeader}>
-            <MaterialCommunityIcons
-              name={prs.length === 0 ? (hasPreviousSession || nextSessionPlan.some((i) => i.hasPrev) ? 'shield-check' : 'flag-variant') : 'trophy'}
-              size={16}
-              color={prs.length === 0 ? colors.primary : '#FFD130'}
-            />
-            <Text style={[styles.prSectionTitle, prs.length === 0 && { color: colors.primary }]}>
-              {prs.length === 0
-                ? (hasPreviousSession || nextSessionPlan.some((i) => i.hasPrev)
-                    ? (language === 'uk' ? 'РОБОЧІ ПОКАЗНИКИ ЗАКРІПЛЕНО' : 'WORKING VOLUME CONSOLIDATED')
-                    : (language === 'uk' ? 'БАЗУ ЗАФІКСОВАНО' : 'BASELINE ESTABLISHED'))
-                : prsHeaderTitle}
-            </Text>
-          </View>
-
-          {prs.length === 0 ? (
-            <View style={styles.noPrWrap}>
-              <Text style={styles.noPrText}>
-                {hasPreviousSession || nextSessionPlan.some((i) => i.hasPrev)
-                  ? (language === 'uk'
-                      ? 'Ви стабільно виконали робочий об\'єм. Дотримуйтесь цілей нижче на наступному тренуванні для плавної прогресії!'
-                      : 'You completed your working volume with solid consistency. Follow the targets below next session to progress!')
-                  : (language === 'uk'
-                      ? 'Показники тренування зафіксовано як вашу базу. Прогрес та нові рекорди почнуть відстежуватися вже з наступних сесій!'
-                      : 'Workout metrics saved as your baseline. Progressive overload and new PRs will be tracked from your next workouts!')}
+        {/* 5. Personal Records Card (Only shown when real PRs exist) */}
+        {prs.length > 0 && (
+          <View style={styles.prsCard}>
+            <View style={styles.prHeader}>
+              <MaterialCommunityIcons
+                name="trophy"
+                size={16}
+                color="#FFD130"
+              />
+              <Text style={styles.prSectionTitle}>
+                {prsHeaderTitle}
               </Text>
             </View>
-          ) : (
-            prs.map((record, index) => (
+
+            {prs.map((record, index) => (
               <View
                 key={record.id}
                 style={[styles.prRow, index < prs.length - 1 && styles.prRowBorder]}
@@ -373,9 +381,9 @@ export default function Complete() {
                 <Text style={styles.prValueText}>{record.label}</Text>
                 <Ionicons name="chevron-forward" size={16} color="#6C7A8E" />
               </View>
-            ))
-          )}
-        </View>
+            ))}
+          </View>
+        )}
 
         {/* 5B. Exercise Progress Breakdown & Next Session Targets */}
         {nextSessionPlan.length > 0 && (
@@ -397,7 +405,7 @@ export default function Complete() {
                     flexShrink: 0,
                   }}
                 >
-                  <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '900' }}>
+                  <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>
                     {language === 'uk'
                       ? `+${progressedExercisesCount} з прогресом`
                       : `+${progressedExercisesCount} progressed`}
@@ -445,7 +453,7 @@ export default function Complete() {
                       <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
                         {item.hasPrev
                           ? `${language === 'uk' ? 'Минуле' : 'Last'}: ${prevWeightStr} × ${item.prevRepsStr}  ➔  ${language === 'uk' ? 'Сьогодні' : 'Today'}: ${todayWeightStr} × ${item.todayRepsStr}`
-                          : `${language === 'uk' ? 'Сьогодні (перша база)' : 'Today (baseline)'}: ${todayWeightStr} × ${item.todayRepsStr}`}
+                          : `${language === 'uk' ? 'Виконано сьогодні' : 'Logged today'}: ${todayWeightStr} × ${item.todayRepsStr}`}
                       </Text>
                     </View>
                     {item.isProgressedToday ? (
@@ -459,12 +467,12 @@ export default function Complete() {
                           borderColor: 'rgba(182, 240, 0, 0.35)',
                         }}
                       >
-                        <Text style={{ fontSize: 10, fontWeight: '900', color: colors.primary }}>
+                        <Text style={{ fontSize: 10, fontWeight: '800', color: colors.primary }}>
                           {item.progressedWeight
-                            ? `🔥 ${item.weightDiff > 0 ? '+' : ''}${formatWithUnit(item.weightDiff)}`
+                            ? `${item.weightDiff > 0 ? '+' : ''}${formatWithUnit(item.weightDiff)}`
                             : item.progressedReps
-                            ? `⚡ +${item.pairedRepsDiff} ${language === 'uk' ? 'повт' : 'reps'}`
-                            : `⚡ +${item.setsDiff} ${language === 'uk' ? 'підх.' : 'sets'}`}
+                            ? `+${item.pairedRepsDiff} ${language === 'uk' ? 'повт' : 'reps'}`
+                            : `+${item.setsDiff} ${language === 'uk' ? 'підх.' : 'sets'}`}
                         </Text>
                       </View>
                     ) : null}
@@ -487,17 +495,16 @@ export default function Complete() {
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#CBD5E1' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#CBD5E1' }}>
                         {language === 'uk' ? 'Наступна ціль:' : 'Next session target:'}
                       </Text>
                       <Text
                         style={{
                           fontSize: 12,
-                          fontWeight: '900',
+                          fontWeight: '800',
                           color: isIncrease ? colors.primary : isReduce ? '#FF9F1C' : '#FFFFFF',
                         }}
                       >
-                        {isIncrease ? '🔥 ' : isReduce ? '🛡️ ' : '🎯 '}
                         {targetWeightStr} × {targetRepsStr} {language === 'uk' ? 'повт' : 'reps'}
                       </Text>
                     </View>
@@ -526,7 +533,7 @@ export default function Complete() {
           >
             <View style={styles.storyBannerLeft}>
               <View style={styles.storyIconWrap}>
-                <Ionicons name="sparkles" size={20} color="#0B0D0F" />
+                <Ionicons name="share-social" size={20} color="#0B0D0F" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.storyBannerTitle}>
@@ -566,13 +573,10 @@ export default function Complete() {
         onRequestClose={() => setIsStoriesModalVisible(false)}
       >
         <SafeAreaView style={styles.storiesModalOverlay}>
-          {/* Modal Header */}
           <View style={styles.storiesModalHeader}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Ionicons name="logo-instagram" size={18} color="#E1306C" />
-              <Text style={styles.storiesModalHeaderTitle}>
-                {language === 'uk' ? 'INSTAGRAM STORY' : 'INSTAGRAM STORY'}
-              </Text>
+              <Text style={styles.storiesModalHeaderTitle}>INSTAGRAM STORY</Text>
             </View>
             <Pressable
               accessibilityRole="button"
@@ -585,13 +589,11 @@ export default function Complete() {
             </Pressable>
           </View>
 
-          {/* 9:16 Story Card View */}
           <ScrollView
             contentContainerStyle={styles.storyCardScroll}
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.storyCard}>
-              {/* Brand Header */}
               <View style={styles.storyBrandRow}>
                 <View style={styles.storyBrandLeft}>
                   <Text style={styles.storyBrandName}>SPOT</Text>
@@ -601,7 +603,6 @@ export default function Complete() {
                 <Text style={styles.storyDateText}>{workoutDateFormatted}</Text>
               </View>
 
-              {/* Workout Name Banner */}
               <View style={styles.storyWorkoutTag}>
                 <Ionicons name="flash" size={13} color="#0B0D0F" style={{ marginRight: 5 }} />
                 <Text numberOfLines={1} style={styles.storyWorkoutTagText}>
@@ -609,7 +610,6 @@ export default function Complete() {
                 </Text>
               </View>
 
-              {/* Main Volume Stat */}
               <View style={styles.storyHeroStat}>
                 <Text style={styles.storyHeroVolumeNum}>
                   {formatVolume(summary.volume)}
@@ -617,17 +617,8 @@ export default function Complete() {
                 <Text style={styles.storyHeroVolumeLabel}>
                   {language === 'uk' ? 'ЗАГАЛЬНИЙ ТОННАЖ' : 'TOTAL VOLUME'}
                 </Text>
-                {hasPreviousSession && volumeDelta > 0 ? (
-                  <View style={styles.storySurgePill}>
-                    <Ionicons name="trending-up" size={12} color="#0B0D0F" style={{ marginRight: 3 }} />
-                    <Text style={styles.storySurgePillText}>
-                      +{formatVolume(volumeDelta)} (+{volumePercent}%)
-                    </Text>
-                  </View>
-                ) : null}
               </View>
 
-              {/* Tri-Metric Row */}
               <View style={styles.storyTriRow}>
                 <View style={styles.storyTriItem}>
                   <Text style={styles.storyTriNum}>{summary.durationMinutes}</Text>
@@ -644,55 +635,9 @@ export default function Complete() {
                   <Text style={styles.storyTriLabel}>{language === 'uk' ? 'ВПРАВ' : 'EXERCISES'}</Text>
                 </View>
               </View>
-
-              {/* Personal Records Highlight */}
-              {prs.length > 0 && (
-                <View style={styles.storyPrBox}>
-                  <View style={styles.storyPrTitleRow}>
-                    <MaterialCommunityIcons name="trophy" size={15} color="#FFD130" />
-                    <Text style={styles.storyPrTitleText}>
-                      {language === 'uk' ? 'НОВІ ОСОБИСТІ РЕКОРДИ' : 'NEW PERSONAL RECORDS'}
-                    </Text>
-                  </View>
-                  {prs.slice(0, 3).map((p) => (
-                    <View key={p.id} style={styles.storyPrItem}>
-                      <Text numberOfLines={1} style={styles.storyPrExerciseName}>
-                        {te(p.exerciseName)}
-                      </Text>
-                      <Text style={styles.storyPrValue}>{p.label}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* Exercises Summary List */}
-              <View style={styles.storyExercisesList}>
-                <Text style={styles.storyExercisesHeader}>
-                  {language === 'uk' ? 'ВИКОНАНІ ВПРАВИ' : 'EXERCISES COMPLETED'}
-                </Text>
-                {session.exercises.slice(0, 4).map((ex, i) => (
-                  <View key={ex.id || i} style={styles.storyExRow}>
-                    <Text numberOfLines={1} style={styles.storyExName}>
-                      {te(ex.name)}
-                    </Text>
-                    <Text style={styles.storyExSets}>
-                      {ex.sets.filter((s) => s.completed).length} {language === 'uk' ? 'підх.' : 'sets'}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* Footer Watermark */}
-              <View style={styles.storyFooter}>
-                <Ionicons name="barbell-outline" size={14} color="rgba(200, 255, 61, 0.7)" />
-                <Text style={styles.storyFooterText}>
-                  TRAIN SMARTER • SPOT FITNESS
-                </Text>
-              </View>
             </View>
           </ScrollView>
 
-          {/* Modal Action Buttons */}
           <View style={styles.storiesBottomActions}>
             <Pressable
               accessibilityRole="button"
@@ -731,35 +676,44 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingBottom: 32,
     alignItems: 'center',
   },
   heroSection: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 22,
   },
-  confettiIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 209, 48, 0.1)',
+  statusIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  statusIconWrapComplete: {
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    borderColor: 'rgba(200, 255, 61, 0.3)',
+  },
+  statusIconWrapPartial: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderColor: 'rgba(245, 158, 11, 0.3)',
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '700',
     letterSpacing: -0.3,
     textAlign: 'center',
   },
   workoutSubtitle: {
     color: '#8E9BAE',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
-    marginTop: 6,
+    marginTop: 4,
+    textAlign: 'center',
   },
   statsRow: {
     width: '100%',
@@ -769,11 +723,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#12161D',
     borderRadius: 20,
-    paddingVertical: 18,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   statBox: {
     flex: 1,
@@ -801,11 +755,11 @@ const styles = StyleSheet.create({
     maxWidth: 350,
     backgroundColor: '#12161D',
     borderRadius: 20,
-    paddingVertical: 18,
+    paddingVertical: 16,
     paddingHorizontal: 20,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   volumeValueRow: {
     flexDirection: 'row',
@@ -859,22 +813,6 @@ const styles = StyleSheet.create({
     color: '#B0BAC7',
     lineHeight: 16,
   },
-  storySurgePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginTop: 8,
-    alignSelf: 'center',
-  },
-  storySurgePillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0B0D0F',
-    letterSpacing: 0.2,
-  },
   prsCard: {
     width: '100%',
     maxWidth: 350,
@@ -883,27 +821,19 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   prHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   prSectionTitle: {
     color: colors.primary,
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1.0,
-  },
-  noPrWrap: {
-    paddingVertical: 8,
-  },
-  noPrText: {
-    color: '#8E9BAE',
-    fontSize: 13,
-    lineHeight: 19,
+    letterSpacing: 0.8,
   },
   prRow: {
     flexDirection: 'row',
@@ -958,11 +888,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
   },
   doneBtnText: {
     color: '#0B0D0F',
@@ -999,12 +924,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(200, 255, 61, 0.35)',
     borderRadius: 20,
     padding: 16,
-    marginTop: 16,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 3,
+    marginTop: 8,
   },
   storyBannerPressed: {
     opacity: 0.85,
@@ -1027,7 +947,7 @@ const styles = StyleSheet.create({
   },
   storyBannerTitle: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   storyBannerSubtitle: {
@@ -1060,7 +980,7 @@ const styles = StyleSheet.create({
   },
   storiesModalHeaderTitle: {
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 1.5,
   },
@@ -1086,11 +1006,6 @@ const styles = StyleSheet.create({
     padding: 22,
     borderWidth: 1.5,
     borderColor: 'rgba(200, 255, 61, 0.4)',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 8,
   },
   storyBrandRow: {
     flexDirection: 'row',
@@ -1105,7 +1020,7 @@ const styles = StyleSheet.create({
   },
   storyBrandName: {
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 2,
   },
@@ -1117,13 +1032,13 @@ const styles = StyleSheet.create({
   },
   storyBrandSub: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.primary,
     letterSpacing: 1.5,
   },
   storyDateText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#6C7A8E',
     letterSpacing: 0.5,
   },
@@ -1140,7 +1055,7 @@ const styles = StyleSheet.create({
   storyWorkoutTagText: {
     color: '#0B0D0F',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: 0.8,
   },
   storyHeroStat: {
@@ -1154,13 +1069,13 @@ const styles = StyleSheet.create({
   },
   storyHeroVolumeNum: {
     fontSize: 34,
-    fontWeight: '900',
+    fontWeight: '800',
     color: colors.primary,
     letterSpacing: -0.5,
   },
   storyHeroVolumeLabel: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#8E9BAE',
     letterSpacing: 1.5,
     marginTop: 4,
@@ -1173,7 +1088,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 12,
-    marginBottom: 16,
   },
   storyTriItem: {
     flex: 1,
@@ -1181,12 +1095,12 @@ const styles = StyleSheet.create({
   },
   storyTriNum: {
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   storyTriLabel: {
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#6C7A8E',
     letterSpacing: 1,
     marginTop: 2,
@@ -1195,90 +1109,6 @@ const styles = StyleSheet.create({
     width: 1,
     height: 24,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  storyPrBox: {
-    backgroundColor: 'rgba(255, 209, 48, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 209, 48, 0.3)',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 16,
-  },
-  storyPrTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  storyPrTitleText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#FFD130',
-    letterSpacing: 1,
-  },
-  storyPrItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 3,
-  },
-  storyPrExerciseName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    flex: 1,
-  },
-  storyPrValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.primary,
-    marginLeft: 8,
-  },
-  storyExercisesList: {
-    borderTopWidth: 1,
-    borderTopColor: '#1A212D',
-    paddingTop: 12,
-    marginBottom: 14,
-  },
-  storyExercisesHeader: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#6C7A8E',
-    letterSpacing: 1.2,
-    marginBottom: 8,
-  },
-  storyExRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 3,
-  },
-  storyExName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E9BAE',
-    flex: 1,
-  },
-  storyExSets: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
-  storyFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-    paddingTop: 12,
-  },
-  storyFooterText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: 'rgba(200, 255, 61, 0.7)',
-    letterSpacing: 1.5,
   },
   storiesBottomActions: {
     paddingHorizontal: 24,
@@ -1295,16 +1125,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     height: 52,
     borderRadius: 26,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
   },
   storyShareBtnText: {
     color: '#0B0D0F',
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: 0.5,
   },
 });

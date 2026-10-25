@@ -18,7 +18,12 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useWeightUnit } from '@/lib/weightUtils';
 import { useUserProfileStore } from '@/store/userProfileStore';
-import { type OnboardingExperience, saveOnboarding } from '@/store/workoutStore';
+import {
+  loadOnboarding,
+  type OnboardingExperience,
+  saveOnboarding,
+  type TrainingLimitation,
+} from '@/store/workoutStore';
 
 export default function Experience() {
   const { t, language } = useI18n();
@@ -35,8 +40,8 @@ export default function Experience() {
     if (initialProfile.experience === 'Advanced') return 'advanced';
     return 'intermediate';
   });
+  const [limitations, setLimitations] = useState<TrainingLimitation[]>([]);
 
-  // Baseline Strength Inputs for experienced lifters - initialize directly from global store
   const [benchText, setBenchText] = useState(() => {
     const b = initialProfile.baselineLifts?.benchPressKg;
     return typeof b === 'number' && b > 0 ? String(fromKg(b)) : '';
@@ -57,7 +62,6 @@ export default function Experience() {
   const isUk = language === 'uk';
   const hasHydratedRef = useRef(false);
 
-  // Sync state cleanly whenever screen comes into focus without locking user edits
   useFocusEffect(
     useCallback(() => {
       const p = useUserProfileStore.getState().profile;
@@ -73,6 +77,11 @@ export default function Experience() {
           if (typeof deadliftKg === 'number' && deadliftKg > 0 && !deadliftText) setDeadliftText(String(fromKg(deadliftKg)));
           if (typeof overheadPressKg === 'number' && overheadPressKg > 0 && !ohpText) setOhpText(String(fromKg(overheadPressKg)));
         }
+        loadOnboarding().then((saved) => {
+          if (!saved) return;
+          if (saved.experience) setSelected(saved.experience);
+          if (saved.limitations) setLimitations(saved.limitations);
+        }).catch(() => undefined);
       }
     }, [fromKg, benchText, squatText, deadliftText, ohpText])
   );
@@ -85,17 +94,52 @@ export default function Experience() {
   }> = [
     {
       value: 'beginner',
-      label: isUk ? 'Ні, я новачок' : "No, I'm a beginner",
-      detail: isUk ? 'Починаю з нуля або була довга перерва' : 'Starting fresh or returning after a break',
+      label: isUk ? 'Новачок' : 'Beginner',
+      detail: isUk ? 'Починаю з нуля або повертаюсь після перерви' : 'Starting fresh or returning after a break',
       icon: 'account-outline',
     },
     {
       value: 'intermediate',
-      label: isUk ? 'Так, маю досвід' : 'Yes, I have experience',
-      detail: isUk ? 'Регулярно займаюсь, знаю свої робочі ваги' : 'Train consistently, know my working weights',
+      label: isUk ? 'Середній рівень' : 'Intermediate',
+      detail: isUk ? 'Регулярно тренуюсь від 6 місяців, знаю техніку' : 'Train consistently for 6+ months, know my working weights',
       icon: 'weight-lifter',
     },
+    {
+      value: 'advanced',
+      label: isUk ? 'Досвідчений атлет' : 'Advanced',
+      detail: isUk ? 'Понад 2 роки системних силових тренувань' : '2+ years of structured strength training',
+      icon: 'trophy-outline',
+    },
   ];
+
+  const limitationOptions: Array<{
+    value: TrainingLimitation;
+    label: string;
+    detail: string;
+  }> = [
+    {
+      value: 'knees',
+      label: isUk ? 'Берегти коліна' : 'Protect Knees',
+      detail: isUk ? 'Без глибоких випадів у русі' : 'Avoid high-shear lunges',
+    },
+    {
+      value: 'lower_back',
+      label: isUk ? 'Берегти поперек' : 'Protect Lower Back',
+      detail: isUk ? 'Без станової та осьових тяг' : 'Avoid heavy axial spinal loading',
+    },
+    {
+      value: 'shoulders',
+      label: isUk ? 'Берегти плечі' : 'Protect Shoulders',
+      detail: isUk ? 'Щадні кути жимів' : 'Joint-friendly pressing angles',
+    },
+  ];
+
+  const toggleLimitation = (item: TrainingLimitation) => {
+    hapticLight();
+    setLimitations((prev) =>
+      prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item]
+    );
+  };
 
   const handleContinue = async () => {
     hapticMedium();
@@ -125,19 +169,18 @@ export default function Experience() {
     const expEnum =
       selected === 'beginner' ? 'Beginner' : selected === 'advanced' ? 'Advanced' : 'Intermediate';
 
-    // 1. Update userProfileStore (Single Source of Truth)
     await useUserProfileStore.getState().updateProfile({
       experience: expEnum,
       baselineLifts,
     });
 
-    // 2. Save onboarding
     await saveOnboarding({
       experience: selected,
+      limitations,
       baselineLifts,
     });
 
-    router.push('/onboarding/frequency');
+    router.push('/onboarding/equipment');
   };
 
   return (
@@ -153,7 +196,7 @@ export default function Experience() {
         >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </Pressable>
-        <Text style={styles.stepText}>2/3</Text>
+        <Text style={styles.stepText}>3/5</Text>
         <View style={styles.topBarPlaceholder} />
       </View>
 
@@ -170,16 +213,19 @@ export default function Experience() {
           {/* 2. Title Section */}
           <View style={styles.titleSection}>
             <Text style={styles.title}>
-              {isUk ? 'Чи тренуєтесь зараз?' : 'Do you currently train?'}
+              {isUk ? 'Досвід та безпека' : 'Experience & Joint Safety'}
             </Text>
             <Text style={styles.subtitle}>
               {isUk
-                ? 'Для новачків ставимо меншу вагу та вищі повторення, для атлетів — робочі навантаження.'
-                : 'Beginners get higher reps & lighter load; lifters get calibrated working weights.'}
+                ? 'Новачкам підбираємо безпечну базу та помірні ваги, досвідченим — робочі навантаження.'
+                : 'Beginners get joint-friendly loads; experienced lifters get calibrated working weights.'}
             </Text>
           </View>
 
-          {/* 3. Options List */}
+          {/* 3. Experience Options List */}
+          <Text style={styles.sectionLabel}>
+            {isUk ? 'РІВЕНЬ ПІДГОТОВКИ' : 'TRAINING EXPERIENCE'}
+          </Text>
           <View style={styles.optionsList}>
             {experienceOptions.map((opt) => {
               const isSelected = selected === opt.value;
@@ -200,7 +246,7 @@ export default function Experience() {
                   <View style={styles.iconWrap}>
                     <MaterialCommunityIcons
                       name={opt.icon}
-                      size={24}
+                      size={22}
                       color={isSelected ? colors.primary : '#8E9BAE'}
                     />
                   </View>
@@ -217,7 +263,7 @@ export default function Experience() {
                     ]}
                   >
                     {isSelected && (
-                      <Ionicons name="checkmark" size={16} color="#0B0D0F" />
+                      <Ionicons name="checkmark" size={15} color="#0B0D0F" />
                     )}
                   </View>
                 </Pressable>
@@ -225,19 +271,49 @@ export default function Experience() {
             })}
           </View>
 
-          {/* 4. Baseline Strength Calibration Card (for experienced lifters) */}
+          {/* 4. Optional Joint Limitations */}
+          <Text style={styles.sectionLabel}>
+            {isUk ? 'ЧУТЛИВІ СУГЛОБИ (НЕОБОВʼЯЗКОВО)' : 'JOINT SENSITIVITIES (OPTIONAL)'}
+          </Text>
+          <View style={styles.limitationsWrap}>
+            {limitationOptions.map((lim) => {
+              const isChecked = limitations.includes(lim.value);
+              return (
+                <Pressable
+                  key={lim.value}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: isChecked }}
+                  accessibilityLabel={lim.label}
+                  onPress={() => toggleLimitation(lim.value)}
+                  style={[styles.limitationChip, isChecked && styles.limitationChipActive]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.limitationTitle, isChecked && styles.limitationTitleActive]}>
+                      {lim.label}
+                    </Text>
+                    <Text style={styles.limitationSub}>{lim.detail}</Text>
+                  </View>
+                  <View style={[styles.limitationCheck, isChecked && styles.limitationCheckActive]}>
+                    {isChecked && <Ionicons name="checkmark" size={14} color="#0B0D0F" />}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* 5. Baseline Strength Calibration Card (for experienced lifters) */}
           {selected !== 'beginner' && (
             <View style={styles.baselineCard}>
               <View style={styles.baselineHeaderRow}>
-                <Ionicons name="flash-outline" size={18} color={colors.primary} />
+                <Ionicons name="barbell-outline" size={18} color={colors.primary} />
                 <Text style={styles.baselineTitle}>
-                  {isUk ? 'Ваші робочі ваги (необовʼязково)' : 'Baseline Strength (Optional)'}
+                  {isUk ? 'Ваші робочі ваги (необовʼязково)' : 'Baseline Working Weights (Optional)'}
                 </Text>
               </View>
               <Text style={styles.baselineSubtitle}>
                 {isUk
-                  ? `Введіть вагу в ${unitLabel} для вправ, які знаєте. SPOT одразу підлаштує програму під вашу реальну силу.`
-                  : `Enter weights in ${unitLabel} for lifts you know. SPOT will calibrate your starting working weights.`}
+                  ? `Введіть робочу вагу в ${unitLabel} (на 6–10 повторень) для вправ, які знаєте.`
+                  : `Enter your working weight in ${unitLabel} (for 6–10 reps) for lifts you know.`}
               </Text>
 
               <View style={styles.liftsGrid}>
@@ -255,7 +331,7 @@ export default function Experience() {
                       editable={true}
                       style={styles.liftInput}
                       keyboardType="decimal-pad"
-                      placeholder={unitLabel === 'LBS' ? '185' : '80'}
+                      placeholder={unitLabel === 'LBS' ? '135' : '60'}
                       placeholderTextColor="#4E5A6C"
                       value={benchText}
                       onChangeText={setBenchText}
@@ -280,7 +356,7 @@ export default function Experience() {
                       editable={true}
                       style={styles.liftInput}
                       keyboardType="decimal-pad"
-                      placeholder={unitLabel === 'LBS' ? '225' : '100'}
+                      placeholder={unitLabel === 'LBS' ? '185' : '80'}
                       placeholderTextColor="#4E5A6C"
                       value={squatText}
                       onChangeText={setSquatText}
@@ -305,7 +381,7 @@ export default function Experience() {
                       editable={true}
                       style={styles.liftInput}
                       keyboardType="decimal-pad"
-                      placeholder={unitLabel === 'LBS' ? '275' : '120'}
+                      placeholder={unitLabel === 'LBS' ? '225' : '100'}
                       placeholderTextColor="#4E5A6C"
                       value={deadliftText}
                       onChangeText={setDeadliftText}
@@ -330,7 +406,7 @@ export default function Experience() {
                       editable={true}
                       style={styles.liftInput}
                       keyboardType="decimal-pad"
-                      placeholder={unitLabel === 'LBS' ? '115' : '50'}
+                      placeholder={unitLabel === 'LBS' ? '95' : '40'}
                       placeholderTextColor="#4E5A6C"
                       value={ohpText}
                       onChangeText={setOhpText}
@@ -343,7 +419,7 @@ export default function Experience() {
           )}
         </ScrollView>
 
-        {/* 5. Pinned Bottom Continue Button */}
+        {/* 6. Pinned Bottom Continue Button */}
         <View style={styles.bottomBar}>
           <Pressable
             accessibilityRole="button"
@@ -405,50 +481,59 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 20,
   },
+  sectionLabel: {
+    color: '#8E9BAE',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    marginBottom: 10,
+  },
   optionsList: {
-    gap: 12,
-    marginBottom: 20,
+    gap: 10,
+    marginBottom: 22,
   },
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#12161D',
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.07)',
   },
   optionCardSelected: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(200, 255, 61, 0.04)',
+    backgroundColor: 'rgba(200, 255, 61, 0.05)',
   },
   iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 42,
+    height: 42,
+    borderRadius: 13,
     backgroundColor: '#181E27',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 13,
   },
   textWrap: {
     flex: 1,
+    paddingRight: 8,
   },
   optionLabel: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
   },
   optionDetail: {
     color: '#8E9BAE',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     marginTop: 2,
+    lineHeight: 17,
   },
   checkCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
@@ -457,6 +542,51 @@ const styles = StyleSheet.create({
   checkCircleSelected: {
     borderColor: colors.primary,
     backgroundColor: colors.primary,
+  },
+  limitationsWrap: {
+    gap: 8,
+    marginBottom: 22,
+  },
+  limitationChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#12161D',
+    borderRadius: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  limitationChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(200, 255, 61, 0.06)',
+  },
+  limitationTitle: {
+    color: '#E2E8F0',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  limitationTitleActive: {
+    color: '#FFFFFF',
+  },
+  limitationSub: {
+    color: '#717B8A',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  limitationCheck: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#2D3748',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+  },
+  limitationCheckActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   baselineCard: {
     backgroundColor: '#12161D',

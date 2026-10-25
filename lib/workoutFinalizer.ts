@@ -30,28 +30,51 @@ export async function finalizeWorkoutSession(session: WorkoutSession): Promise<C
         return existing;
       }
 
-  const baseline = createCompletedWorkoutSnapshot(session);
-  const personalRecords = detectPersonalRecords(baseline, history);
-  const snapshot = createCompletedWorkoutSnapshot(session, personalRecords);
-  const saved = await useWorkoutHistoryStore.getState().addCompletedWorkout(snapshot);
-  if (!saved) throw new Error('Workout history save failed');
-  useWorkoutSessionStore.getState().setPersonalRecords(personalRecords);
-  await clearPersistedActiveWorkout();
+      const baseline = createCompletedWorkoutSnapshot(session);
+      if (baseline.totalSets === 0) {
+        await clearPersistedActiveWorkout();
+        return baseline;
+      }
 
-  const program = await useProgramStore.getState().getOrLoadProgram();
-  await useProgramProgressStore.getState().advanceProgress(
-    program,
-    session.programWorkoutId,
-    session.id,
-    session.completedAt || session.startedAt
-  );
+      const personalRecords = detectPersonalRecords(baseline, history);
+      const snapshot = createCompletedWorkoutSnapshot(session, personalRecords);
+      const saved = await useWorkoutHistoryStore.getState().addCompletedWorkout(snapshot);
+      if (!saved) throw new Error('Workout history save failed');
 
-  await hapticSuccess();
-  syncCompletedWorkout(snapshot).catch(() => undefined);
+      useWorkoutSessionStore.setState((state) =>
+        state.session && state.session.id === session.id
+          ? {
+              ...state,
+              session: {
+                ...state.session,
+                completed: true,
+                completedAt: snapshot.completedAt,
+                personalRecords,
+              },
+              restEndsAt: null,
+              restNextType: null,
+            }
+          : state
+      );
+      await clearPersistedActiveWorkout();
 
-  try {
-    scheduleWorkoutDayReminders().catch(() => undefined);
-  } catch {}
+      // Advance program rotation ONLY when the workout was fully completed (not an interrupted partial session)
+      if (!snapshot.isPartial) {
+        const program = await useProgramStore.getState().getOrLoadProgram();
+        await useProgramProgressStore.getState().advanceProgress(
+          program,
+          session.programWorkoutId,
+          session.id,
+          snapshot.completedAt || session.startedAt
+        );
+      }
+
+      await hapticSuccess();
+      syncCompletedWorkout(snapshot).catch(() => undefined);
+
+      try {
+        scheduleWorkoutDayReminders().catch(() => undefined);
+      } catch {}
 
       return snapshot;
     } finally {

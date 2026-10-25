@@ -213,11 +213,12 @@ export default function Active() {
       exitWorkout();
       return;
     }
+    const isPartialNow = progress.completedSets < progress.totalSets;
     Alert.alert(
       language === 'uk' ? 'Перервати тренування?' : 'Interrupt Workout?',
       language === 'uk'
-        ? 'Ви можете зберегти виконані підходи в історію або вийти на головну і продовжити пізніше.'
-        : 'You can save completed sets to history, or pause and resume later from the home screen.',
+        ? `Виконано ${progress.completedSets} із ${progress.totalSets} підходів. Зберегти виконані підходи як часткове тренування чи поставити на паузу?`
+        : `You completed ${progress.completedSets} of ${progress.totalSets} sets. Save completed sets as a partial workout, or pause to resume later?`,
       [
         { text: language === 'uk' ? 'Продовжити тренування' : 'Keep Training', style: 'cancel' },
         {
@@ -225,7 +226,9 @@ export default function Active() {
           onPress: exitWorkout,
         },
         {
-          text: language === 'uk' ? 'Завершити та зберегти' : 'Finish & Save',
+          text: isPartialNow
+            ? (language === 'uk' ? `Зберегти частково (${progress.completedSets}/${progress.totalSets})` : `Save Partial (${progress.completedSets}/${progress.totalSets})`)
+            : (language === 'uk' ? 'Завершити та зберегти' : 'Finish & Save'),
           onPress: async () => {
             setFinishing(true);
             try {
@@ -239,7 +242,7 @@ export default function Active() {
         },
       ]
     );
-  }, [session, progress.completedSets, language, exitWorkout]);
+  }, [session, progress.completedSets, progress.totalSets, language, exitWorkout]);
 
   useEffect(() => {
     const onBackPress = () => {
@@ -271,8 +274,11 @@ export default function Active() {
 
   const exercise = session.exercises[session.currentExerciseIndex];
   const activeSet = exercise?.sets[session.currentSetIndex];
-  const isFinalSet = session.currentSetIndex === (exercise?.sets.length ?? 0) - 1;
-  const isFinalExercise = session.currentExerciseIndex === session.exercises.length - 1;
+  const remainingUncompletedSets = session.exercises.reduce(
+    (acc, ex) => acc + ex.sets.filter((s) => !s.completed).length,
+    0
+  );
+  const isLastRemainingSet = remainingUncompletedSets === 1 && Boolean(activeSet && !activeSet.completed);
 
   const adjustActiveWeight = (deltaDisplay: number) => {
     if (!activeSet) return;
@@ -365,7 +371,7 @@ export default function Active() {
       completeCurrentSet();
 
       const latestSession = useWorkoutSessionStore.getState().session;
-      const isCompleted = latestSession?.completed || (isFinalSet && isFinalExercise);
+      const isCompleted = Boolean(latestSession?.completed);
 
       if (isCompleted) {
         setFinishing(true);
@@ -621,14 +627,7 @@ export default function Active() {
                   {language === 'uk' ? 'Минулого разу' : 'Last time'}: {prevContextText}
                 </Text>
               </View>
-            ) : (
-              <View style={styles.heroBaselinePill}>
-                <Ionicons name="sparkles" size={12} color={colors.primary} style={{ marginRight: 4 }} />
-                <Text style={styles.heroBaselineText}>
-                  {language === 'uk' ? 'Стартова вага' : 'Starting weight'}
-                </Text>
-              </View>
-            )}
+            ) : null}
           </View>
 
           {/* Progressive Overload & Novice-Friendly Recommendation Block */}
@@ -992,7 +991,7 @@ export default function Active() {
         >
           {finishing
             ? t('savingWorkout')
-            : isFinalSet && isFinalExercise
+            : isLastRemainingSet
             ? t('finishWorkout')
             : t('completeSet')}
         </Button>

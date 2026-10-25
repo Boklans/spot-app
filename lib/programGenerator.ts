@@ -1,5 +1,5 @@
 import { useUserProfileStore } from '@/store/userProfileStore';
-import type { OnboardingData } from '@/store/workoutStore';
+import type { OnboardingData, PriorityMuscleFocus, TrainingLimitation } from '@/store/workoutStore';
 
 export type WorkoutSplitType = 'upper_lower' | 'full_body' | 'push_pull_legs' | 'custom' | 'blank';
 export type EquipmentId = 'full_gym' | 'dumbbells' | 'barbell' | 'machines' | 'bodyweight';
@@ -110,7 +110,6 @@ export function getNextAvailableWeekday(
       .filter(Boolean)
   );
 
-  // Find the last used weekday in current list
   const lastWeekday = [...existingWorkouts]
     .reverse()
     .map((w, revIdx) => {
@@ -159,77 +158,84 @@ const option = (
 
 const exerciseOptions = {
   horizontalPush: [
-    option('Bench Press', 'Chest', 70, 'barbell'),
-    option('Dumbbell Bench Press', 'Chest', 24, 'dumbbells'),
-    option('Machine Chest Press', 'Chest', 45, 'machines'),
+    option('Bench Press', 'Chest', 65, 'barbell'),
+    option('Dumbbell Bench Press', 'Chest', 20, 'dumbbells'),
+    option('Machine Chest Press', 'Chest', 40, 'machines'),
     option('Push-ups', 'Chest', 0, 'bodyweight'),
   ],
   inclinePush: [
-    option('Incline Dumbbell Press', 'Chest', 24, 'dumbbells'),
-    option('Incline Bench Press', 'Chest', 60, 'barbell'),
-    option('Incline Chest Press', 'Chest', 45, 'machines'),
+    option('Incline Dumbbell Press', 'Chest', 20, 'dumbbells'),
+    option('Incline Bench Press', 'Chest', 55, 'barbell'),
+    option('Incline Chest Press', 'Chest', 40, 'machines'),
     option('Push-ups', 'Chest', 0, 'bodyweight'),
   ],
   verticalPull: [
-    option('Lat Pulldown', 'Back', 65, 'machines'),
-    option('Barbell Row', 'Back', 70, 'barbell'),
-    option('Dumbbell Row', 'Back', 24, 'dumbbells'),
+    option('Lat Pulldown', 'Back', 55, 'machines'),
+    option('Dumbbell Row', 'Back', 20, 'dumbbells'),
+    option('Barbell Row', 'Back', 60, 'barbell'),
     option('Pull-ups', 'Back', 0, 'bodyweight'),
   ],
   row: [
-    option('Barbell Row', 'Back', 70, 'barbell'),
-    option('Dumbbell Row', 'Back', 24, 'dumbbells'),
-    option('Seated Row', 'Back', 55, 'machines'),
+    option('Seated Row', 'Back', 50, 'machines'),
+    option('Dumbbell Row', 'Back', 20, 'dumbbells'),
+    option('Barbell Row', 'Back', 60, 'barbell'),
     option('Inverted Row', 'Back', 0, 'bodyweight'),
   ],
   squat: [
-    option('Squat', 'Quads', 80, 'barbell'),
-    option('Goblet Squat', 'Quads', 28, 'dumbbells'),
-    option('Leg Press', 'Quads', 120, 'machines'),
+    option('Squat', 'Quads', 70, 'barbell'),
+    option('Goblet Squat', 'Quads', 20, 'dumbbells'),
+    option('Leg Press', 'Quads', 100, 'machines'),
     option('Bodyweight Squats', 'Quads', 0, 'bodyweight'),
   ],
   hinge: [
-    option('Romanian Deadlift', 'Hamstrings', 70, 'barbell'),
-    option('Dumbbell Romanian Deadlift', 'Hamstrings', 24, 'dumbbells'),
-    option('Leg Curl', 'Hamstrings', 45, 'machines'),
+    option('Romanian Deadlift', 'Hamstrings', 65, 'barbell'),
+    option('Dumbbell Romanian Deadlift', 'Hamstrings', 20, 'dumbbells'),
+    option('Leg Curl', 'Hamstrings', 40, 'machines'),
     option('Glute Bridge', 'Hamstrings', 0, 'bodyweight'),
   ],
+  glutes: [
+    option('Hip Thrust', 'Glutes', 60, 'barbell'),
+    option('Dumbbell Hip Thrust', 'Glutes', 22, 'dumbbells'),
+    option('Cable Pull-Through', 'Glutes', 35, 'machines'),
+    option('Glute Bridge', 'Glutes', 0, 'bodyweight', '12-15'),
+  ],
   shoulderPush: [
-    option('Overhead Press', 'Shoulders', 45, 'barbell'),
-    option('Dumbbell Shoulder Press', 'Shoulders', 18, 'dumbbells'),
-    option('Machine Shoulder Press', 'Shoulders', 40, 'machines'),
+    option('Dumbbell Shoulder Press', 'Shoulders', 16, 'dumbbells'),
+    option('Overhead Press', 'Shoulders', 40, 'barbell'),
+    option('Machine Shoulder Press', 'Shoulders', 35, 'machines'),
     option('Pike Push-ups', 'Shoulders', 0, 'bodyweight'),
   ],
   biceps: [
     option('Biceps Curl', 'Biceps', 12, 'dumbbells'),
-    option('Barbell Curl', 'Biceps', 25, 'barbell'),
     option('Cable Curl', 'Biceps', 25, 'machines'),
+    option('Barbell Curl', 'Biceps', 25, 'barbell'),
     option('Chin-ups', 'Biceps', 0, 'bodyweight'),
   ],
   triceps: [
-    option('Triceps Pushdown', 'Triceps', 55, 'machines'),
-    option('Dumbbell Overhead Extension', 'Triceps', 16, 'dumbbells'),
-    option('Close-grip Bench Press', 'Triceps', 55, 'barbell'),
+    option('Triceps Pushdown', 'Triceps', 40, 'machines'),
+    option('Dumbbell Overhead Extension', 'Triceps', 14, 'dumbbells'),
+    option('Close-grip Bench Press', 'Triceps', 50, 'barbell'),
     option('Bench Dips', 'Triceps', 0, 'bodyweight'),
   ],
   core: [
     option('Plank', 'Core', 0, 'bodyweight', '30-60 sec'),
-    option('Hanging Knee Raise', 'Core', 0, 'bodyweight', '10-15'),
     option('Cable Crunch', 'Core', 35, 'machines', '10-15'),
+    option('Hanging Knee Raise', 'Core', 0, 'bodyweight', '10-15'),
   ],
   calves: [
     option('Standing Calf Raise', 'Calves', 40, 'machines'),
-    option('Dumbbell Calf Raise', 'Calves', 20, 'dumbbells'),
+    option('Dumbbell Calf Raise', 'Calves', 18, 'dumbbells'),
     option('Calf Raise', 'Calves', 0, 'bodyweight'),
   ],
   legAccessory: [
     option('Leg Extension', 'Quads', 40, 'machines'),
-    option('Dumbbell Step-up', 'Quads', 16, 'dumbbells'),
+    option('Dumbbell Step-up', 'Quads', 14, 'dumbbells'),
     option('Step-ups', 'Quads', 0, 'bodyweight'),
   ],
   lunges: [
-    option('Walking Lunges', 'Legs', 16, 'dumbbells'),
-    option('Barbell Lunges', 'Legs', 40, 'barbell'),
+    option('Bulgarian Split Squat', 'Glutes', 14, 'dumbbells'),
+    option('Walking Lunges', 'Legs', 14, 'dumbbells'),
+    option('Barbell Lunges', 'Legs', 35, 'barbell'),
     option('Reverse Lunges', 'Legs', 0, 'bodyweight'),
   ],
 };
@@ -238,155 +244,415 @@ function isAvailable(required: EquipmentId, equipment: EquipmentId[]) {
   return required === 'bodyweight' || equipment.includes('full_gym') || equipment.includes(required);
 }
 
-function isEquipmentId(value: string): value is EquipmentId {
-  return supportedEquipment.includes(value as EquipmentId);
+function normalizeEquipmentToken(value: string): EquipmentId | null {
+  const cleaned = value.toLowerCase().trim().replaceAll(' ', '_');
+  if (cleaned === 'cables_machines' || cleaned === 'cables_&_machines') return 'machines';
+  if (supportedEquipment.includes(cleaned as EquipmentId)) return cleaned as EquipmentId;
+  return null;
 }
 
-function pick(options: ExerciseOption[], equipment: EquipmentId[]) {
-  return options.find((item) => isAvailable(item.equipment, equipment)) ?? options[options.length - 1];
+function pick(
+  options: ExerciseOption[],
+  equipment: EquipmentId[],
+  limitations: TrainingLimitation[] = []
+): ExerciseOption {
+  const available = options.filter((item) => isAvailable(item.equipment, equipment));
+  const pool = available.length > 0 ? available : [options[options.length - 1]];
+
+  if (limitations.length > 0) {
+    const jointSafe = pool.filter((item) => {
+      const lower = item.name.toLowerCase();
+      if (limitations.includes('lower_back')) {
+        if (lower === 'squat' || lower === 'barbell row' || lower === 'romanian deadlift') {
+          return false;
+        }
+      }
+      if (limitations.includes('knees')) {
+        if (lower.includes('lunge') || lower.includes('split squat') || lower === 'leg extension') {
+          return false;
+        }
+      }
+      if (limitations.includes('shoulders')) {
+        if (lower === 'bench press' || lower === 'overhead press' || lower === 'bench dips') {
+          return false;
+        }
+      }
+      return true;
+    });
+    if (jointSafe.length > 0) {
+      return jointSafe[0];
+    }
+  }
+
+  return pool[0];
 }
 
-function fullBodyTemplates(equipment: EquipmentId[], strength = false): WorkoutTemplate[] {
-  const sets = strength ? 3 : 3;
+function hasPriority(priorities: PriorityMuscleFocus[] | undefined, target: PriorityMuscleFocus): boolean {
+  return Boolean(priorities && priorities.includes(target));
+}
+
+function fullBodyTemplates(
+  equipment: EquipmentId[],
+  strength = false,
+  priorities: PriorityMuscleFocus[] = ['balanced'],
+  limitations: TrainingLimitation[] = []
+): WorkoutTemplate[] {
   const reps = strength ? '3-6' : '8-12';
-  return [
-    { name: 'Full Body A', exercises: [pick(exerciseOptions.squat, equipment), pick(exerciseOptions.horizontalPush, equipment), pick(exerciseOptions.verticalPull, equipment), pick(exerciseOptions.hinge, equipment), pick(exerciseOptions.core, equipment), pick(exerciseOptions.biceps, equipment)], estimatedMinutes: strength ? 50 : 55 },
-    { name: 'Full Body B', exercises: [pick(exerciseOptions.hinge, equipment), pick(exerciseOptions.shoulderPush, equipment), pick(exerciseOptions.row, equipment), pick(exerciseOptions.lunges, equipment), pick(exerciseOptions.core, equipment), pick(exerciseOptions.triceps, equipment)], estimatedMinutes: strength ? 50 : 55 },
-    { name: 'Full Body C', exercises: [pick(exerciseOptions.squat, equipment), pick(exerciseOptions.inclinePush, equipment), pick(exerciseOptions.row, equipment), pick(exerciseOptions.shoulderPush, equipment), pick(exerciseOptions.biceps, equipment), pick(exerciseOptions.triceps, equipment)], estimatedMinutes: 55 },
-  ].map((template) => ({ ...template, exercises: template.exercises.map((exercise) => ({ ...exercise, targetRepRange: strength && !['Core'].includes(exercise.muscleGroup) ? reps : exercise.targetRepRange })) }));
-}
+  const focusLowerGlutes = hasPriority(priorities, 'lower_glutes');
+  const focusBackCore = hasPriority(priorities, 'back_core');
 
-function upperLowerTemplates(equipment: EquipmentId[], strength = false): WorkoutTemplate[] {
-  const primaryReps = strength ? '3-6' : '8-12';
-  const accessoryReps = strength ? '6-12' : '8-12';
-  return [
-    { name: 'Upper A', exercises: [pick(exerciseOptions.horizontalPush, equipment), pick(exerciseOptions.row, equipment), pick(exerciseOptions.verticalPull, equipment), pick(exerciseOptions.shoulderPush, equipment), pick(exerciseOptions.biceps, equipment), pick(exerciseOptions.triceps, equipment)] },
-    { name: 'Lower A', exercises: [pick(exerciseOptions.squat, equipment), pick(exerciseOptions.hinge, equipment), pick(exerciseOptions.lunges, equipment), pick(exerciseOptions.legAccessory, equipment), pick(exerciseOptions.calves, equipment), pick(exerciseOptions.core, equipment)] },
-    { name: 'Upper B', exercises: [pick(exerciseOptions.inclinePush, equipment), pick(exerciseOptions.verticalPull, equipment), pick(exerciseOptions.row, equipment), pick(exerciseOptions.shoulderPush, equipment), pick(exerciseOptions.biceps, equipment), pick(exerciseOptions.triceps, equipment)] },
-    { name: 'Lower B', exercises: [pick(exerciseOptions.hinge, equipment), pick(exerciseOptions.squat, equipment), pick(exerciseOptions.lunges, equipment), pick(exerciseOptions.legAccessory, equipment), pick(exerciseOptions.calves, equipment), pick(exerciseOptions.core, equipment)] },
-  ].map((template) => ({
+  const templates: WorkoutTemplate[] = focusLowerGlutes
+    ? [
+        {
+          name: 'Full Body A',
+          exercises: [
+            pick(exerciseOptions.glutes, equipment, limitations),
+            pick(exerciseOptions.squat, equipment, limitations),
+            pick(exerciseOptions.verticalPull, equipment, limitations),
+            pick(exerciseOptions.horizontalPush, equipment, limitations),
+            pick(exerciseOptions.hinge, equipment, limitations),
+            pick(exerciseOptions.core, equipment, limitations),
+          ],
+          estimatedMinutes: strength ? 50 : 55,
+        },
+        {
+          name: 'Full Body B',
+          exercises: [
+            pick(exerciseOptions.hinge, equipment, limitations),
+            pick(exerciseOptions.lunges, equipment, limitations),
+            pick(exerciseOptions.row, equipment, limitations),
+            pick(exerciseOptions.shoulderPush, equipment, limitations),
+            pick(exerciseOptions.glutes, equipment, limitations),
+            pick(exerciseOptions.core, equipment, limitations),
+          ],
+          estimatedMinutes: strength ? 50 : 55,
+        },
+        {
+          name: 'Full Body C',
+          exercises: [
+            pick(exerciseOptions.squat, equipment, limitations),
+            pick(exerciseOptions.glutes, equipment, limitations),
+            pick(exerciseOptions.inclinePush, equipment, limitations),
+            pick(exerciseOptions.verticalPull, equipment, limitations),
+            pick(exerciseOptions.legAccessory, equipment, limitations),
+            pick(exerciseOptions.core, equipment, limitations),
+          ],
+          estimatedMinutes: 55,
+        },
+      ]
+    : focusBackCore
+    ? [
+        {
+          name: 'Full Body A',
+          exercises: [
+            pick(exerciseOptions.verticalPull, equipment, limitations),
+            pick(exerciseOptions.squat, equipment, limitations),
+            pick(exerciseOptions.row, equipment, limitations),
+            pick(exerciseOptions.horizontalPush, equipment, limitations),
+            pick(exerciseOptions.hinge, equipment, limitations),
+            pick(exerciseOptions.core, equipment, limitations),
+          ],
+          estimatedMinutes: 55,
+        },
+        {
+          name: 'Full Body B',
+          exercises: [
+            pick(exerciseOptions.row, equipment, limitations),
+            pick(exerciseOptions.hinge, equipment, limitations),
+            pick(exerciseOptions.shoulderPush, equipment, limitations),
+            pick(exerciseOptions.lunges, equipment, limitations),
+            pick(exerciseOptions.verticalPull, equipment, limitations),
+            pick(exerciseOptions.core, equipment, limitations),
+          ],
+          estimatedMinutes: 55,
+        },
+        {
+          name: 'Full Body C',
+          exercises: [
+            pick(exerciseOptions.verticalPull, equipment, limitations),
+            pick(exerciseOptions.squat, equipment, limitations),
+            pick(exerciseOptions.inclinePush, equipment, limitations),
+            pick(exerciseOptions.row, equipment, limitations),
+            pick(exerciseOptions.biceps, equipment, limitations),
+            pick(exerciseOptions.core, equipment, limitations),
+          ],
+          estimatedMinutes: 55,
+        },
+      ]
+    : [
+        {
+          name: 'Full Body A',
+          exercises: [
+            pick(exerciseOptions.squat, equipment, limitations),
+            pick(exerciseOptions.horizontalPush, equipment, limitations),
+            pick(exerciseOptions.verticalPull, equipment, limitations),
+            pick(exerciseOptions.hinge, equipment, limitations),
+            pick(exerciseOptions.shoulderPush, equipment, limitations),
+            pick(exerciseOptions.core, equipment, limitations),
+          ],
+          estimatedMinutes: strength ? 50 : 55,
+        },
+        {
+          name: 'Full Body B',
+          exercises: [
+            pick(exerciseOptions.hinge, equipment, limitations),
+            pick(exerciseOptions.inclinePush, equipment, limitations),
+            pick(exerciseOptions.row, equipment, limitations),
+            pick(exerciseOptions.lunges, equipment, limitations),
+            pick(exerciseOptions.biceps, equipment, limitations),
+            pick(exerciseOptions.triceps, equipment, limitations),
+          ],
+          estimatedMinutes: strength ? 50 : 55,
+        },
+        {
+          name: 'Full Body C',
+          exercises: [
+            pick(exerciseOptions.squat, equipment, limitations),
+            pick(exerciseOptions.horizontalPush, equipment, limitations),
+            pick(exerciseOptions.row, equipment, limitations),
+            pick(exerciseOptions.glutes, equipment, limitations),
+            pick(exerciseOptions.shoulderPush, equipment, limitations),
+            pick(exerciseOptions.core, equipment, limitations),
+          ],
+          estimatedMinutes: 55,
+        },
+      ];
+
+  return templates.map((template) => ({
     ...template,
-    exercises: template.exercises.map((exercise) => ({ ...exercise, targetRepRange: ['Chest', 'Back', 'Quads', 'Hamstrings', 'Shoulders'].includes(exercise.muscleGroup) ? primaryReps : accessoryReps })),
+    exercises: template.exercises.map((exercise) => ({
+      ...exercise,
+      targetRepRange:
+        strength && !['Core'].includes(exercise.muscleGroup) ? reps : exercise.targetRepRange,
+    })),
   }));
 }
 
-function pushPullLegsTemplates(equipment: EquipmentId[]): WorkoutTemplate[] {
-  return [
-    {
-      name: 'Push',
-      exercises: [
-        pick(exerciseOptions.horizontalPush, equipment),
-        pick(exerciseOptions.inclinePush, equipment),
-        pick(exerciseOptions.shoulderPush, equipment),
-        pick(exerciseOptions.triceps, equipment),
-        pick(exerciseOptions.core, equipment),
-      ],
-      estimatedMinutes: 50,
-    },
-    {
-      name: 'Pull',
-      exercises: [
-        pick(exerciseOptions.verticalPull, equipment),
-        pick(exerciseOptions.row, equipment),
-        pick(exerciseOptions.biceps, equipment),
-        pick(exerciseOptions.shoulderPush, equipment),
-        pick(exerciseOptions.core, equipment),
-      ],
-      estimatedMinutes: 50,
-    },
-    {
-      name: 'Legs',
-      exercises: [
-        pick(exerciseOptions.squat, equipment),
-        pick(exerciseOptions.hinge, equipment),
-        pick(exerciseOptions.lunges, equipment),
-        pick(exerciseOptions.legAccessory, equipment),
-        pick(exerciseOptions.calves, equipment),
-      ],
-      estimatedMinutes: 55,
-    },
-    {
-      name: 'Push 2',
-      exercises: [
-        pick(exerciseOptions.inclinePush, equipment),
-        pick(exerciseOptions.horizontalPush, equipment),
-        pick(exerciseOptions.shoulderPush, equipment),
-        pick(exerciseOptions.triceps, equipment),
-      ],
-      estimatedMinutes: 50,
-    },
-    {
-      name: 'Pull 2',
-      exercises: [
-        pick(exerciseOptions.row, equipment),
-        pick(exerciseOptions.verticalPull, equipment),
-        pick(exerciseOptions.biceps, equipment),
-        pick(exerciseOptions.core, equipment),
-      ],
-      estimatedMinutes: 50,
-    },
-    {
-      name: 'Legs 2',
-      exercises: [
-        pick(exerciseOptions.hinge, equipment),
-        pick(exerciseOptions.squat, equipment),
-        pick(exerciseOptions.lunges, equipment),
-        pick(exerciseOptions.calves, equipment),
-      ],
-      estimatedMinutes: 50,
-    },
-  ];
+function upperLowerTemplates(
+  equipment: EquipmentId[],
+  strength = false,
+  priorities: PriorityMuscleFocus[] = ['balanced'],
+  limitations: TrainingLimitation[] = []
+): WorkoutTemplate[] {
+  const primaryReps = strength ? '3-6' : '8-12';
+  const accessoryReps = strength ? '6-12' : '8-12';
+  const focusLowerGlutes = hasPriority(priorities, 'lower_glutes');
+  const focusBackCore = hasPriority(priorities, 'back_core');
+
+  const upperA: WorkoutTemplate = {
+    name: 'Upper A',
+    exercises: focusBackCore
+      ? [
+          pick(exerciseOptions.verticalPull, equipment, limitations),
+          pick(exerciseOptions.row, equipment, limitations),
+          pick(exerciseOptions.horizontalPush, equipment, limitations),
+          pick(exerciseOptions.shoulderPush, equipment, limitations),
+          pick(exerciseOptions.biceps, equipment, limitations),
+          pick(exerciseOptions.core, equipment, limitations),
+        ]
+      : [
+          pick(exerciseOptions.horizontalPush, equipment, limitations),
+          pick(exerciseOptions.row, equipment, limitations),
+          pick(exerciseOptions.verticalPull, equipment, limitations),
+          pick(exerciseOptions.shoulderPush, equipment, limitations),
+          pick(exerciseOptions.biceps, equipment, limitations),
+          pick(exerciseOptions.triceps, equipment, limitations),
+        ],
+  };
+
+  const lowerA: WorkoutTemplate = {
+    name: 'Lower A',
+    exercises: focusLowerGlutes
+      ? [
+          pick(exerciseOptions.glutes, equipment, limitations),
+          pick(exerciseOptions.squat, equipment, limitations),
+          pick(exerciseOptions.hinge, equipment, limitations),
+          pick(exerciseOptions.lunges, equipment, limitations),
+          pick(exerciseOptions.legAccessory, equipment, limitations),
+          pick(exerciseOptions.core, equipment, limitations),
+        ]
+      : [
+          pick(exerciseOptions.squat, equipment, limitations),
+          pick(exerciseOptions.hinge, equipment, limitations),
+          pick(exerciseOptions.lunges, equipment, limitations),
+          pick(exerciseOptions.legAccessory, equipment, limitations),
+          pick(exerciseOptions.calves, equipment, limitations),
+          pick(exerciseOptions.core, equipment, limitations),
+        ],
+  };
+
+  const upperB: WorkoutTemplate = {
+    name: 'Upper B',
+    exercises: [
+      pick(exerciseOptions.inclinePush, equipment, limitations),
+      pick(exerciseOptions.verticalPull, equipment, limitations),
+      pick(exerciseOptions.row, equipment, limitations),
+      pick(exerciseOptions.shoulderPush, equipment, limitations),
+      pick(exerciseOptions.biceps, equipment, limitations),
+      pick(exerciseOptions.triceps, equipment, limitations),
+    ],
+  };
+
+  const lowerB: WorkoutTemplate = {
+    name: 'Lower B',
+    exercises: [
+      pick(exerciseOptions.hinge, equipment, limitations),
+      pick(exerciseOptions.glutes, equipment, limitations),
+      pick(exerciseOptions.squat, equipment, limitations),
+      pick(exerciseOptions.lunges, equipment, limitations),
+      pick(exerciseOptions.calves, equipment, limitations),
+      pick(exerciseOptions.core, equipment, limitations),
+    ],
+  };
+
+  const ordered = focusLowerGlutes
+    ? [lowerA, upperA, lowerB, upperB]
+    : [upperA, lowerA, upperB, lowerB];
+
+  return ordered.map((template) => ({
+    ...template,
+    exercises: template.exercises.map((exercise) => ({
+      ...exercise,
+      targetRepRange: ['Chest', 'Back', 'Quads', 'Hamstrings', 'Glutes', 'Shoulders'].includes(
+        exercise.muscleGroup
+      )
+        ? primaryReps
+        : accessoryReps,
+    })),
+  }));
 }
 
-function customSplitTemplates(equipment: EquipmentId[]): WorkoutTemplate[] {
+function pushPullLegsTemplates(
+  equipment: EquipmentId[],
+  priorities: PriorityMuscleFocus[] = ['balanced'],
+  limitations: TrainingLimitation[] = []
+): WorkoutTemplate[] {
+  const push1: WorkoutTemplate = {
+    name: 'Push',
+    exercises: [
+      pick(exerciseOptions.horizontalPush, equipment, limitations),
+      pick(exerciseOptions.inclinePush, equipment, limitations),
+      pick(exerciseOptions.shoulderPush, equipment, limitations),
+      pick(exerciseOptions.triceps, equipment, limitations),
+      pick(exerciseOptions.core, equipment, limitations),
+    ],
+    estimatedMinutes: 50,
+  };
+  const pull1: WorkoutTemplate = {
+    name: 'Pull',
+    exercises: [
+      pick(exerciseOptions.verticalPull, equipment, limitations),
+      pick(exerciseOptions.row, equipment, limitations),
+      pick(exerciseOptions.biceps, equipment, limitations),
+      pick(exerciseOptions.shoulderPush, equipment, limitations),
+      pick(exerciseOptions.core, equipment, limitations),
+    ],
+    estimatedMinutes: 50,
+  };
+  const legs1: WorkoutTemplate = {
+    name: 'Legs',
+    exercises: [
+      pick(exerciseOptions.squat, equipment, limitations),
+      pick(exerciseOptions.hinge, equipment, limitations),
+      pick(exerciseOptions.glutes, equipment, limitations),
+      pick(exerciseOptions.lunges, equipment, limitations),
+      pick(exerciseOptions.calves, equipment, limitations),
+    ],
+    estimatedMinutes: 55,
+  };
+  const push2: WorkoutTemplate = {
+    name: 'Push 2',
+    exercises: [
+      pick(exerciseOptions.inclinePush, equipment, limitations),
+      pick(exerciseOptions.horizontalPush, equipment, limitations),
+      pick(exerciseOptions.shoulderPush, equipment, limitations),
+      pick(exerciseOptions.triceps, equipment, limitations),
+    ],
+    estimatedMinutes: 50,
+  };
+  const pull2: WorkoutTemplate = {
+    name: 'Pull 2',
+    exercises: [
+      pick(exerciseOptions.row, equipment, limitations),
+      pick(exerciseOptions.verticalPull, equipment, limitations),
+      pick(exerciseOptions.biceps, equipment, limitations),
+      pick(exerciseOptions.core, equipment, limitations),
+    ],
+    estimatedMinutes: 50,
+  };
+  const legs2: WorkoutTemplate = {
+    name: 'Legs 2',
+    exercises: [
+      pick(exerciseOptions.glutes, equipment, limitations),
+      pick(exerciseOptions.hinge, equipment, limitations),
+      pick(exerciseOptions.squat, equipment, limitations),
+      pick(exerciseOptions.lunges, equipment, limitations),
+      pick(exerciseOptions.calves, equipment, limitations),
+    ],
+    estimatedMinutes: 50,
+  };
+
+  if (hasPriority(priorities, 'lower_glutes')) {
+    return [legs1, push1, pull1, legs2, push2, pull2];
+  }
+  if (hasPriority(priorities, 'back_core')) {
+    return [pull1, push1, legs1, pull2, push2, legs2];
+  }
+  return [push1, pull1, legs1, push2, pull2, legs2];
+}
+
+function customSplitTemplates(
+  equipment: EquipmentId[],
+  limitations: TrainingLimitation[] = []
+): WorkoutTemplate[] {
   return [
     {
       name: 'Chest & Triceps',
       exercises: [
-        pick(exerciseOptions.horizontalPush, equipment),
-        pick(exerciseOptions.inclinePush, equipment),
-        pick(exerciseOptions.triceps, equipment),
-        pick(exerciseOptions.core, equipment),
+        pick(exerciseOptions.horizontalPush, equipment, limitations),
+        pick(exerciseOptions.inclinePush, equipment, limitations),
+        pick(exerciseOptions.triceps, equipment, limitations),
+        pick(exerciseOptions.core, equipment, limitations),
       ],
       estimatedMinutes: 45,
     },
     {
       name: 'Back & Biceps',
       exercises: [
-        pick(exerciseOptions.verticalPull, equipment),
-        pick(exerciseOptions.row, equipment),
-        pick(exerciseOptions.biceps, equipment),
-        pick(exerciseOptions.core, equipment),
+        pick(exerciseOptions.verticalPull, equipment, limitations),
+        pick(exerciseOptions.row, equipment, limitations),
+        pick(exerciseOptions.biceps, equipment, limitations),
+        pick(exerciseOptions.core, equipment, limitations),
       ],
       estimatedMinutes: 45,
     },
     {
-      name: 'Legs & Shoulders',
+      name: 'Legs & Glutes',
       exercises: [
-        pick(exerciseOptions.squat, equipment),
-        pick(exerciseOptions.hinge, equipment),
-        pick(exerciseOptions.shoulderPush, equipment),
-        pick(exerciseOptions.calves, equipment),
+        pick(exerciseOptions.squat, equipment, limitations),
+        pick(exerciseOptions.glutes, equipment, limitations),
+        pick(exerciseOptions.hinge, equipment, limitations),
+        pick(exerciseOptions.calves, equipment, limitations),
       ],
       estimatedMinutes: 50,
     },
     {
-      name: 'Arms & Core',
+      name: 'Shoulders & Arms',
       exercises: [
-        pick(exerciseOptions.biceps, equipment),
-        pick(exerciseOptions.triceps, equipment),
-        pick(exerciseOptions.shoulderPush, equipment),
-        pick(exerciseOptions.core, equipment),
+        pick(exerciseOptions.shoulderPush, equipment, limitations),
+        pick(exerciseOptions.biceps, equipment, limitations),
+        pick(exerciseOptions.triceps, equipment, limitations),
+        pick(exerciseOptions.core, equipment, limitations),
       ],
       estimatedMinutes: 40,
     },
     {
       name: 'Full Body Conditioning',
       exercises: [
-        pick(exerciseOptions.squat, equipment),
-        pick(exerciseOptions.horizontalPush, equipment),
-        pick(exerciseOptions.verticalPull, equipment),
-        pick(exerciseOptions.lunges, equipment),
+        pick(exerciseOptions.squat, equipment, limitations),
+        pick(exerciseOptions.horizontalPush, equipment, limitations),
+        pick(exerciseOptions.verticalPull, equipment, limitations),
+        pick(exerciseOptions.lunges, equipment, limitations),
       ],
       estimatedMinutes: 50,
     },
@@ -437,6 +703,7 @@ export function calculateRecommendedRest(
       exerciseName.toLowerCase().includes('squat') ||
       exerciseName.toLowerCase().includes('bench') ||
       exerciseName.toLowerCase().includes('deadlift') ||
+      exerciseName.toLowerCase().includes('hip thrust') ||
       exerciseName.toLowerCase().includes('overhead') ||
       exerciseName.toLowerCase().includes('leg press') ||
       exerciseName.toLowerCase().includes('row')
@@ -451,7 +718,6 @@ export function calculateRecommendedRest(
     rest = Math.max(60, rest - 30);
   }
 
-  // Heavier trainees performing compound lifts require extended ATP-CP resynthesis
   if (isCompound && bodyStats?.weightKg && bodyStats.weightKg >= 85) {
     rest = Math.min(180, rest + 15);
   }
@@ -464,7 +730,12 @@ export function calibrateInitialWeight(
   equipment: EquipmentId,
   experience?: string,
   goal?: string,
-  bodyStats?: { weightKg?: number; heightCm?: number },
+  bodyStats?: {
+    weightKg?: number;
+    heightCm?: number;
+    age?: number;
+    sex?: 'male' | 'female' | 'unspecified';
+  },
   exerciseName?: string,
   baselineLifts?: {
     benchPressKg?: number;
@@ -590,7 +861,7 @@ export function calibrateInitialWeight(
 
   // 1. Experience scaling
   let expMultiplier = 1.0;
-  if (experience === 'beginner') expMultiplier = 0.55;
+  if (experience === 'beginner') expMultiplier = 0.50;
   else if (experience === 'advanced') expMultiplier = 1.30;
 
   // 2. Goal scaling
@@ -602,15 +873,38 @@ export function calibrateInitialWeight(
   let bodyMultiplier = 1.0;
   if (bodyStats?.weightKg && bodyStats.weightKg > 35) {
     bodyMultiplier = Math.pow(bodyStats.weightKg / 75, 0.67);
-    bodyMultiplier = Math.max(0.72, Math.min(1.35, bodyMultiplier));
+    bodyMultiplier = Math.max(0.65, Math.min(1.35, bodyMultiplier));
   }
 
-  const raw = baseWeight * expMultiplier * goalMultiplier * bodyMultiplier;
+  // 4. Optional Sex load calibration (ONLY used for safe starting weight estimation)
+  let sexMultiplier = 1.0;
+  if (bodyStats?.sex === 'female') {
+    const lowerName = (exerciseName || '').toLowerCase();
+    const isLowerBody =
+      lowerName.includes('squat') ||
+      lowerName.includes('deadlift') ||
+      lowerName.includes('leg') ||
+      lowerName.includes('lunge') ||
+      lowerName.includes('hip thrust') ||
+      lowerName.includes('glute') ||
+      lowerName.includes('calf');
+    sexMultiplier = isLowerBody ? 0.75 : 0.60;
+  }
 
-  // 4. Equipment-specific roundings
+  // 5. Age load calibration
+  let ageMultiplier = 1.0;
+  if (typeof bodyStats?.age === 'number') {
+    if (bodyStats.age < 18) ageMultiplier = 0.80;
+    else if (bodyStats.age >= 55) ageMultiplier = 0.78;
+    else if (bodyStats.age >= 45) ageMultiplier = 0.90;
+  }
+
+  const raw = baseWeight * expMultiplier * goalMultiplier * bodyMultiplier * sexMultiplier * ageMultiplier;
+
+  // 6. Equipment-specific roundings
   if (equipment === 'barbell') {
     const rounded = Math.round(raw / 2.5) * 2.5;
-    return Math.max(20, rounded);
+    return Math.max(15, rounded);
   }
 
   if (equipment === 'dumbbells') {
@@ -626,6 +920,23 @@ export function calibrateInitialWeight(
   return Math.round(raw / 2.5) * 2.5;
 }
 
+function isPriorityMuscleGroup(
+  muscleGroup: string,
+  priorities: PriorityMuscleFocus[] = ['balanced']
+): boolean {
+  const m = muscleGroup.toLowerCase();
+  if (priorities.includes('lower_glutes') && ['glutes', 'quads', 'hamstrings', 'legs'].includes(m)) {
+    return true;
+  }
+  if (priorities.includes('upper_push') && ['chest', 'shoulders', 'triceps'].includes(m)) {
+    return true;
+  }
+  if (priorities.includes('back_core') && ['back', 'core'].includes(m)) {
+    return true;
+  }
+  return false;
+}
+
 function buildWorkouts(
   templates: WorkoutTemplate[],
   frequency: number,
@@ -638,9 +949,12 @@ function buildWorkouts(
   const profile = useUserProfileStore.getState().profile;
   const activeWeightKg = (onboarding?.weightKg && onboarding.weightKg > 0) ? onboarding.weightKg : profile.weightKg;
   const activeHeightCm = (onboarding?.heightCm && onboarding.heightCm > 0) ? onboarding.heightCm : profile.heightCm;
+  const activeAge = onboarding?.age ?? profile.age;
+  const activeSex = onboarding?.sex ?? profile.sex;
   const activeBaselineLifts = onboarding?.baselineLifts || profile.baselineLifts;
   const activeExperience = onboarding?.experience || (profile.experience === 'Beginner' ? 'beginner' : profile.experience === 'Advanced' ? 'advanced' : 'intermediate');
   const activeGoal = onboarding?.goal || (profile.goal === 'Lose Fat' ? 'lose_fat' : profile.goal === 'Get Stronger' ? 'get_stronger' : 'build_muscle');
+  const activePriorities = onboarding?.priorityMuscles ?? ['balanced'];
 
   return repeatTemplates(templates, frequency).map((template, index) => {
     const candidateExercises =
@@ -654,7 +968,12 @@ function buildWorkouts(
         exercise.equipment,
         activeExperience,
         activeGoal,
-        { weightKg: activeWeightKg, heightCm: activeHeightCm },
+        {
+          weightKg: activeWeightKg,
+          heightCm: activeHeightCm,
+          age: activeAge,
+          sex: activeSex,
+        },
         exercise.name,
         activeBaselineLifts
       );
@@ -667,18 +986,26 @@ function buildWorkouts(
       ) ?? exercise.restSeconds ?? defaultRestSeconds;
 
       const calibratedReps = exercise.targetRepRange ?? (
-        activeExperience === 'beginner'
-          ? '12-15'
+        activeGoal === 'get_stronger'
+          ? '5-8'
+          : activeGoal === 'lose_fat'
+          ? '10-15'
+          : activeExperience === 'beginner'
+          ? '10-12'
           : activeExperience === 'advanced'
           ? '6-10'
           : '8-12'
       );
 
+      const baseSets = exercise.muscleGroup === 'Core' ? 2 : 3;
+      const priorityBonus = isPriorityMuscleGroup(exercise.muscleGroup, activePriorities) ? 1 : 0;
+      const calibratedSets = Math.min(4, baseSets + priorityBonus);
+
       return {
         ...exercise,
         recommendedWeight: calibratedWeight,
         restSeconds: calibratedRest,
-        sets: exercise.muscleGroup === 'Core' ? 2 : 3,
+        sets: calibratedSets,
         targetRepRange: calibratedReps,
         name: exercise.name,
         weightIncrement: exercise.weightIncrement ?? defaultWeightIncrement(exercise.equipment),
@@ -698,8 +1025,13 @@ function buildWorkouts(
 
 export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
   const frequency = Math.min(7, Math.max(1, onboarding.trainingFrequency));
-  const selectedEquipment = onboarding.equipment.filter(isEquipmentId);
+  const selectedEquipment = (onboarding.equipment || [])
+    .map(normalizeEquipmentToken)
+    .filter((item): item is EquipmentId => Boolean(item));
   const equipment = selectedEquipment.length > 0 ? selectedEquipment : defaultEquipment;
+  const priorities = onboarding.priorityMuscles ?? ['balanced'];
+  const limitations = onboarding.limitations ?? [];
+
   let templates: WorkoutTemplate[];
   let name: string;
   let description: string;
@@ -707,22 +1039,22 @@ export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
 
   if (onboarding.splitPreference === 'full_body') {
     splitType = 'full_body';
-    templates = fullBodyTemplates(equipment, onboarding.goal === 'get_stronger');
+    templates = fullBodyTemplates(equipment, onboarding.goal === 'get_stronger', priorities, limitations);
     name = onboarding.goal === 'get_stronger' ? 'Full Body Strength' : 'Full Body Hypertrophy';
     description = 'High-frequency full-body sessions hitting every muscle group with maximum recovery.';
   } else if (onboarding.splitPreference === 'push_pull_legs') {
     splitType = 'push_pull_legs';
-    templates = pushPullLegsTemplates(equipment);
+    templates = pushPullLegsTemplates(equipment, priorities, limitations);
     name = 'Push / Pull / Legs (PPL)';
     description = 'Specialized split targeting synergistic muscle groups with high focus and pump.';
   } else if (onboarding.splitPreference === 'upper_lower') {
     splitType = 'upper_lower';
-    templates = upperLowerTemplates(equipment, onboarding.goal === 'get_stronger');
+    templates = upperLowerTemplates(equipment, onboarding.goal === 'get_stronger', priorities, limitations);
     name = 'Upper / Lower Split';
     description = 'Classic balanced structure separating upper body pushing/pulling and lower body power.';
   } else if (onboarding.splitPreference === 'custom') {
     splitType = 'custom';
-    templates = customSplitTemplates(equipment);
+    templates = customSplitTemplates(equipment, limitations);
     name = 'Custom Athlete Split';
     description = 'Targeted muscle group split with freedom to customize exercises.';
   } else if (onboarding.splitPreference === 'blank') {
@@ -736,34 +1068,45 @@ export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
     description = 'Your custom workouts built from scratch.';
   } else if (onboarding.goal === 'get_stronger') {
     const isPpl = frequency >= 5;
-    splitType = isPpl ? 'push_pull_legs' : 'upper_lower';
-    const strengthBase = isPpl ? pushPullLegsTemplates(equipment) : upperLowerTemplates(equipment, true);
+    splitType = isPpl ? 'push_pull_legs' : frequency <= 2 ? 'full_body' : 'upper_lower';
+    const strengthBase =
+      splitType === 'push_pull_legs'
+        ? pushPullLegsTemplates(equipment, priorities, limitations)
+        : splitType === 'full_body'
+        ? fullBodyTemplates(equipment, true, priorities, limitations)
+        : upperLowerTemplates(equipment, true, priorities, limitations);
     templates = strengthBase.map((template) => ({ ...template, exercises: template.exercises.slice(0, 5) }));
     name = 'Strength Foundation';
     description = 'Compound-focused training with steady, measurable progress.';
   } else if (onboarding.goal === 'lose_fat') {
     splitType = frequency <= 3 ? 'full_body' : 'upper_lower';
-    templates = frequency <= 3 ? fullBodyTemplates(equipment) : upperLowerTemplates(equipment);
+    templates =
+      frequency <= 3
+        ? fullBodyTemplates(equipment, false, priorities, limitations)
+        : upperLowerTemplates(equipment, false, priorities, limitations);
     name = 'Lean Strength';
-    description = 'Efficient full-body training built for consistent progress.';
+    description = 'Efficient training built for fat loss and muscle retention.';
   } else if (onboarding.goal === 'recomposition') {
-    splitType = onboarding.experience === 'beginner' ? 'full_body' : 'upper_lower';
-    templates = onboarding.experience === 'beginner' ? fullBodyTemplates(equipment) : upperLowerTemplates(equipment);
+    splitType = onboarding.experience === 'beginner' || frequency <= 3 ? 'full_body' : 'upper_lower';
+    templates =
+      splitType === 'full_body'
+        ? fullBodyTemplates(equipment, false, priorities, limitations)
+        : upperLowerTemplates(equipment, false, priorities, limitations);
     name = 'Build & Refine';
     description = 'Moderate-volume hypertrophy training for strength and shape.';
-  } else if (onboarding.experience === 'beginner') {
+  } else if (onboarding.experience === 'beginner' || frequency <= 2) {
     splitType = 'full_body';
-    templates = fullBodyTemplates(equipment);
+    templates = fullBodyTemplates(equipment, false, priorities, limitations);
     name = 'Foundation Builder';
-    description = 'Simple full-body sessions to build consistency and confidence.';
-  } else if (onboarding.experience === 'advanced' && frequency >= 5) {
+    description = 'Balanced full-body sessions to build consistency and technique.';
+  } else if (frequency >= 5) {
     splitType = 'push_pull_legs';
-    templates = pushPullLegsTemplates(equipment);
+    templates = pushPullLegsTemplates(equipment, priorities, limitations);
     name = 'Performance Split';
-    description = 'A focused five-day structure for experienced training.';
+    description = 'Focused multi-day structure for higher training volume.';
   } else {
     splitType = 'upper_lower';
-    templates = upperLowerTemplates(equipment);
+    templates = upperLowerTemplates(equipment, false, priorities, limitations);
     name = 'Upper Lower';
     description = 'A balanced split that makes every training day count.';
   }
@@ -807,7 +1150,9 @@ export function generateFocusWorkout(
   onboarding?: OnboardingData,
   cycle = 0
 ): GeneratedWorkout {
-  const selectedEquipment = onboarding?.equipment?.filter(isEquipmentId) ?? defaultEquipment;
+  const selectedEquipment = (onboarding?.equipment ?? defaultEquipment)
+    .map(normalizeEquipmentToken)
+    .filter((item): item is EquipmentId => Boolean(item));
   const equipment = selectedEquipment.length > 0 ? selectedEquipment : defaultEquipment;
   const duration = onboarding?.sessionDurationMinutes ?? 45;
 
@@ -847,10 +1192,10 @@ export function generateFocusWorkout(
           name: 'Низ тіла · Варіант A',
           pools: [
             exerciseOptions.squat,
+            exerciseOptions.glutes,
             exerciseOptions.hinge,
             exerciseOptions.lunges,
             exerciseOptions.legAccessory,
-            exerciseOptions.calves,
             exerciseOptions.core,
           ],
         },
@@ -858,9 +1203,9 @@ export function generateFocusWorkout(
           name: 'Низ тіла · Варіант B',
           pools: [
             exerciseOptions.hinge,
+            exerciseOptions.glutes,
             exerciseOptions.squat,
             exerciseOptions.lunges,
-            exerciseOptions.legAccessory,
             exerciseOptions.calves,
             exerciseOptions.core,
           ],
@@ -898,9 +1243,9 @@ export function generateFocusWorkout(
             exerciseOptions.squat,
             exerciseOptions.inclinePush,
             exerciseOptions.row,
+            exerciseOptions.glutes,
             exerciseOptions.shoulderPush,
-            exerciseOptions.biceps,
-            exerciseOptions.triceps,
+            exerciseOptions.core,
           ],
         },
       ];
@@ -983,16 +1328,12 @@ export function generateFocusWorkout(
   }
 
   const selectedVariant = variants[Math.abs(cycle) % variants.length];
-
-  // Adjust exercise count based on chosen session duration
   const targetExerciseCount = duration <= 30 ? 4 : duration <= 45 ? 5 : 6;
   const poolsToUse = selectedVariant.pools.slice(0, targetExerciseCount);
 
-  // Pick suitable exercise for available equipment, cycling through options if multiple exist
   const selectedOptions = poolsToUse.map((pool, poolIdx) => {
     const valid = pool.filter((item) => isAvailable(item.equipment, equipment));
     if (valid.length === 0) return pool[pool.length - 1];
-    // Rotate alternative exercise inside the pool based on cycle
     const itemIdx = (Math.floor(cycle / variants.length) + poolIdx) % valid.length;
     return valid[itemIdx] ?? valid[0];
   });
@@ -1004,7 +1345,12 @@ export function generateFocusWorkout(
           exercise.equipment,
           onboarding.experience,
           onboarding.goal,
-          { weightKg: onboarding.weightKg, heightCm: onboarding.heightCm },
+          {
+            weightKg: onboarding.weightKg,
+            heightCm: onboarding.heightCm,
+            age: onboarding.age,
+            sex: onboarding.sex,
+          },
           exercise.name,
           onboarding.baselineLifts
         )
@@ -1021,7 +1367,7 @@ export function generateFocusWorkout(
 
     const calibratedReps = exercise.targetRepRange ?? (
       onboarding?.experience === 'beginner'
-        ? '12-15'
+        ? '10-12'
         : onboarding?.experience === 'advanced'
         ? '6-10'
         : '8-12'
@@ -1053,7 +1399,6 @@ export function getExerciseAlternatives(
   currentExerciseName: string,
   equipment: EquipmentId[] = defaultEquipment
 ): ExerciseOption[] {
-  // Find which pool current exercise belongs to
   for (const pool of Object.values(exerciseOptions)) {
     const found = pool.some((e) => e.name.toLowerCase() === currentExerciseName.toLowerCase());
     if (found) {
@@ -1065,11 +1410,11 @@ export function getExerciseAlternatives(
     }
   }
 
-  // Fallback: match by general equipment
   return [
     ...exerciseOptions.horizontalPush,
     ...exerciseOptions.verticalPull,
     ...exerciseOptions.squat,
+    ...exerciseOptions.glutes,
     ...exerciseOptions.shoulderPush,
   ].filter(
     (e) =>
@@ -1077,4 +1422,3 @@ export function getExerciseAlternatives(
       isAvailable(e.equipment, equipment)
   );
 }
-

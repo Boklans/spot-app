@@ -182,6 +182,7 @@ const en = {
   core: 'Core',
   quads: 'Quads',
   hamstrings: 'Hamstrings',
+  glutes: 'Glutes',
   calves: 'Calves',
   biceps: 'Biceps',
   triceps: 'Triceps',
@@ -196,7 +197,7 @@ const en = {
 
   // Onboarding
   welcomeTagline: 'Train your way.\nSPOT keeps the record.',
-  welcomeSubTagline: 'Your personal AI-powered training system.',
+  welcomeSubTagline: 'Personalized workouts, clear technique, and adaptive progression.',
   getStarted: 'Get started',
   logIn: 'Log in',
   whatsYourGoal: "What's your goal?",
@@ -226,10 +227,10 @@ const en = {
   bodyweightOnly: 'Bodyweight & Calisthenics',
   bodyweightDetail: 'Pull-up bar, dip station, or floor space',
   planCreationMode: 'HOW DO YOU WANT TO BUILD YOUR ROUTINE?',
-  creationModeSubtitle: 'Choose between an AI-calibrated routine or full manual control.',
-  aiSmartPlan: 'AI-Calibrated Routine',
+  creationModeSubtitle: 'Choose between a personalized routine or full manual control.',
+  aiSmartPlan: 'Personalized Routine',
   aiSmartPlanBadge: 'RECOMMENDED',
-  aiSmartPlanDesc: 'SPOT analyzes your goal, experience, and equipment to calculate optimal volume and progressive overload.',
+  aiSmartPlanDesc: 'SPOT uses your goal, experience, and equipment to calculate optimal volume and starting weights.',
   customRoutineMode: 'Custom Routine',
   customRoutineBadge: 'ATHLETE',
   customRoutineDesc: 'For experienced lifters who already follow a specific program, split, or custom exercise sequence.',
@@ -474,6 +475,7 @@ const uk: Record<TranslationKey, string> = {
   core: 'Кор',
   quads: 'Квадрицепси',
   hamstrings: 'Біцепс стегна',
+  glutes: 'Сідниці',
   calves: 'Литки',
   biceps: 'Біцепс',
   triceps: 'Трицепс',
@@ -487,8 +489,8 @@ const uk: Record<TranslationKey, string> = {
   rest240: '240с (4:00) — Макс. сила',
 
   // Onboarding
-  welcomeTagline: 'Тренуйся по-своєму.\nSPOT фіксує все.',
-  welcomeSubTagline: 'Ваша персональна тренувальна система на базі ШІ.',
+  welcomeTagline: 'Тренуйся свідомо.\nSPOT веде до прогресу.',
+  welcomeSubTagline: 'Персональна програма, техніка вправ і зрозуміла прогресія ваги.',
   getStarted: 'Почати',
   logIn: 'Увійти',
   whatsYourGoal: 'Яка ваша мета?',
@@ -518,10 +520,10 @@ const uk: Record<TranslationKey, string> = {
   bodyweightOnly: 'Власна вага / Калістеніка',
   bodyweightDetail: 'Турнік, бруси або домашні тренування',
   planCreationMode: 'ЯК ВИ ХОЧЕТЕ СТВОРИТИ ПРОГРАМУ?',
-  creationModeSubtitle: 'Оберіть між автоматичним калібруванням ШІ або повним контролем.',
-  aiSmartPlan: 'ШІ-програма SPOT',
+  creationModeSubtitle: 'Оберіть між автоматичним підбором або власним розкладом.',
+  aiSmartPlan: 'Персональна програма SPOT',
   aiSmartPlanBadge: 'РЕКОМЕНДОВАНО',
-  aiSmartPlanDesc: 'SPOT аналізує ваші цілі, досвід та інвентар для розрахунку оптимального навантаження та прогресії.',
+  aiSmartPlanDesc: 'SPOT аналізує ваші цілі, досвід та інвентар для підбору оптимального навантаження та стартової ваги.',
   customRoutineMode: 'Власна програма',
   customRoutineBadge: 'ДЛЯ АТЛЕТІВ',
   customRoutineDesc: 'Для досвідчених атлетів, які мають власний спліт, послідовність або хочуть скласти тренування з нуля.',
@@ -576,7 +578,7 @@ const uk: Record<TranslationKey, string> = {
   fillTarget: 'Ціль',
 
   // Common UI
-  cancel: 'Скасувати',
+  cancel: 'Cancel',
   save: 'Зберегти',
   done: 'Готово',
   navBack: 'Назад',
@@ -607,6 +609,7 @@ export function translateMuscle(muscle: string, lang: AppLanguage = 'en'): strin
     core: 'Кор',
     quads: 'Квадрицепси',
     hamstrings: 'Біцепс стегна',
+    glutes: 'Сідниці',
     calves: 'Литки',
     biceps: 'Біцепс',
     triceps: 'Трицепс',
@@ -718,6 +721,9 @@ const UKRAINIAN_EXERCISES: Record<string, string> = {
   'leg extension': 'Розгинання ніг у тренажері',
   'lying leg curl': 'Згинання ніг лежачи',
   'leg curl': 'Згинання ніг у тренажері',
+  'dumbbell hip thrust': 'Сідничний місток з гантеллю',
+  'hip thrust': 'Сідничний місток зі штангою',
+  'cable pull-through': 'Тяга між ногами в кросовері',
   'glute bridge': 'Сідничний місток',
   'walking lunges': 'Крокуючі випади',
   'barbell lunges': 'Випади зі штангою',
@@ -775,7 +781,6 @@ export function translateExercise(name?: string, lang: AppLanguage = 'en'): stri
     return clean;
   }
 
-  // When switching to English, translate any Ukrainian exercise names back to English
   if (ENGLISH_EXERCISES[lower]) {
     return ENGLISH_EXERCISES[lower];
   }
@@ -810,7 +815,9 @@ const UKRAINIAN_WORKOUTS: Record<string, string> = {
   'legs 2': 'Ноги 2',
   'chest & triceps': 'Груди та трицепс',
   'back & biceps': 'Спина та біцепс',
+  'legs & glutes': 'Ноги та сідниці',
   'legs & shoulders': 'Ноги та плечі',
+  'shoulders & arms': 'Плечі та руки',
   'arms & core': 'Руки та прес',
   'full body conditioning': 'Фулбоді кондиція',
   'custom routine': 'Власна програма',
@@ -843,7 +850,9 @@ const ENGLISH_WORKOUTS: Record<string, string> = {
   'ноги 2': 'Legs 2',
   'груди та трицепс': 'Chest & Triceps',
   'спина та біцепс': 'Back & Biceps',
+  'ноги та сідниці': 'Legs & Glutes',
   'ноги та плечі': 'Legs & Shoulders',
+  'плечі та руки': 'Shoulders & Arms',
   'руки та прес': 'Arms & Core',
   'фулбоді кондиція': 'Full Body Conditioning',
   'власна програма': 'Custom Routine',
@@ -868,7 +877,6 @@ export function translateWorkoutName(name?: string, lang: AppLanguage = 'en'): s
     return clean;
   }
 
-  // When switching to English, translate any Ukrainian workout names back to English
   if (ENGLISH_WORKOUTS[lower]) {
     return ENGLISH_WORKOUTS[lower];
   }

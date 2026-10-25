@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -8,137 +7,25 @@ import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { countWorkoutsThisWeek, getStartOfWeek } from '@/lib/progressCalculator';
-import { calculateMuscleRecovery } from '@/lib/recoveryEngine';
 import { findLatestExerciseSets, inferEquipmentFromName, recommendWeight } from '@/lib/adaptiveProgression';
-import { translateExercise, useI18n } from '@/lib/i18n';
-import { formatWeightWithUnit, useWeightUnit } from '@/lib/weightUtils';
+import { useI18n } from '@/lib/i18n';
+import { useWeightUnit } from '@/lib/weightUtils';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
-import { useUserProfileStore, type AppLanguage } from '@/store/userProfileStore';
-import { WORKOUT_HISTORY_STORAGE_KEY, useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
+import { useUserProfileStore } from '@/store/userProfileStore';
+import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { getSessionProgress, getSessionSummary, useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { loadOnboarding } from '@/store/workoutStore';
-import type { CompletedWorkout } from '@/types/workout';
-
-import { ReadinessRing } from '@/components/ui/ReadinessRing';
-
-function computeReadinessScore(
-  history: CompletedWorkout[],
-  nextWorkout?: { muscleGroups?: string[] } | null,
-  lang: 'en' | 'uk' = 'uk'
-) {
-  const isUk = lang === 'uk';
-  if (!history || history.length === 0) {
-    return {
-      percentage: 100,
-      label: isUk ? 'ГОТОВІ ДО ТРЕНУВАННЯ' : 'READY TO TRAIN',
-      subtitle: isUk ? 'Оцінка на основі ваших тренувань' : 'Based on your recent training',
-      color: colors.primary,
-    };
-  }
-
-  const recoveryStatuses = calculateMuscleRecovery(history);
-  if (!recoveryStatuses || recoveryStatuses.length === 0) {
-    return {
-      percentage: 100,
-      label: isUk ? 'ГОТОВІ ДО ТРЕНУВАННЯ' : 'READY TO TRAIN',
-      subtitle: isUk ? 'Оцінка на основі ваших тренувань' : 'Based on your recent training',
-      color: colors.primary,
-    };
-  }
-
-  // Focus readiness on the target muscles for the upcoming workout
-  const targetMuscles = nextWorkout?.muscleGroups || [];
-  const relevantStatuses =
-    targetMuscles.length > 0
-      ? recoveryStatuses.filter((s) =>
-          targetMuscles.some(
-            (tm) => tm.toLowerCase() === s.muscleGroup.toLowerCase()
-          )
-        )
-      : recoveryStatuses;
-
-  const activeList = relevantStatuses.length > 0 ? relevantStatuses : recoveryStatuses;
-  const avg = Math.round(
-    activeList.reduce((acc, curr) => acc + curr.readinessPercentage, 0) / activeList.length
-  );
-  const percentage = Math.min(100, Math.max(15, avg));
-
-  let label = isUk ? 'ГОТОВІ ДО ТРЕНУВАННЯ' : 'READY TO TRAIN';
-  let subtitle = isUk ? 'Оцінка на основі ваших тренувань' : 'Based on your recent training';
-  let color: string = colors.primary;
-
-  if (percentage >= 85) {
-    label = isUk ? 'ГОТОВІ ДО ТРЕНУВАННЯ' : 'READY TO TRAIN';
-    subtitle = isUk ? 'Оцінка на основі ваших тренувань' : 'Based on your recent training';
-    color = colors.primary;
-  } else if (percentage >= 60) {
-    label = isUk ? 'ОПТИМАЛЬНИЙ СТАН' : 'OPTIMAL STATE';
-    subtitle = isUk ? 'Цільові м’язи ще відновлюються' : 'Target muscles still recovering';
-    color = colors.warning;
-  } else {
-    label = isUk ? 'ВІДНОВЛЕННЯ' : 'RECOVERING';
-    subtitle = isUk ? 'Виявлено високе навантаження' : 'High fatigue detected';
-    color = colors.danger;
-  }
-
-  return { percentage, label, subtitle, color };
-}
-
-function computeSpotInsight(history: CompletedWorkout[], lang: AppLanguage = 'en'): string {
-  const sorted = [...(history || [])].sort((a, b) => {
-    const timeA = new Date(a.completedAt || a.startedAt || 0).getTime();
-    const timeB = new Date(b.completedAt || b.startedAt || 0).getTime();
-    return timeB - timeA;
-  });
-
-  if (sorted.length > 0) {
-    for (const w of sorted) {
-      if (w.exercises && w.exercises.length > 0) {
-        const topEx = w.exercises[0];
-        if (topEx.sets && topEx.sets.length > 0) {
-          const equipment = inferEquipmentFromName(topEx.exerciseName);
-          const rec = recommendWeight(
-            {
-              id: topEx.exerciseId,
-              name: topEx.exerciseName,
-              muscleGroup: topEx.muscleGroup,
-              equipment,
-              sets: topEx.sets.length,
-              targetRepRange: '8-12',
-              recommendedWeight: topEx.sets[0]?.weight ?? 0,
-              weightIncrement: 2.5,
-              restSeconds: 90,
-            },
-            topEx.sets.map((s) => ({ weight: s.weight, reps: s.reps }))
-          );
-          const exName = translateExercise(topEx.exerciseName, lang);
-          const targetWeightStr = rec.recommendedWeight > 0
-            ? formatWeightWithUnit(rec.recommendedWeight)
-            : (lang === 'uk' ? 'власна вага' : 'bodyweight');
-          return lang === 'uk'
-            ? `Наступна ціль у «${exName}» — ${targetWeightStr} × ${rec.recommendedReps ?? 8} повт на основі вашого прогресу.`
-            : `Next target for ${exName} is ${targetWeightStr} × ${rec.recommendedReps ?? 8} reps based on your recent progress.`;
-        }
-      }
-    }
-  }
-
-  return lang === 'uk'
-    ? 'Почніть перше тренування, щоб встановити базову вагу та активувати прогресивне перевантаження.'
-    : 'Start your workout to establish your baseline and activate progressive overload.';
-}
 
 export default function Home() {
-  const { t, tm, td, te, tw, language } = useI18n();
+  const { t, tm, te, tw, language } = useI18n();
   const { formatVolume, formatWithUnit } = useWeightUnit();
   const [name, setName] = useState('');
-  const [focusKey, setFocusKey] = useState(0);
+  const [focusKey] = useState(0);
 
   const profile = useUserProfileStore((state) => state.profile);
   const program = useProgramStore((state) => state.program);
   const activeSession = useWorkoutSessionStore((state) => state.session);
-  const restEndsAt = useWorkoutSessionStore((state) => state.restEndsAt);
   const progress = useProgramProgressStore((state) => state.progress);
   const setNextWorkout = useProgramProgressStore((state) => state.setNextWorkout);
   const history = useWorkoutHistoryStore((state) => state.workouts);
@@ -164,18 +51,6 @@ export default function Home() {
   }, []);
 
   const nextWorkout = program && program.workouts?.length ? getScheduledWorkout(program, progress) : null;
-
-  // Dynamic Readiness Score
-  const readiness = useMemo(
-    () => computeReadinessScore(history, nextWorkout, language),
-    [history, nextWorkout, focusKey, language]
-  );
-
-  // Dynamic SPOT Insight
-  const spotInsight = useMemo(
-    () => computeSpotInsight(history, language),
-    [history, focusKey, language]
-  );
 
   const currentHour = new Date().getHours();
   const greetingPrefix =
@@ -213,6 +88,7 @@ export default function Home() {
     targetDayEnd.setHours(23, 59, 59, 999);
 
     const isCompleted = (history || []).some((w) => {
+      if (w.isPartial) return false;
       const dateStr = w.completedAt || w.startedAt;
       if (!dateStr) return false;
       const workoutTime = new Date(dateStr).getTime();
@@ -232,10 +108,11 @@ export default function Home() {
   // STATE B: Active session exists and is NOT completed
   const isSessionInProgress = Boolean(activeSession && !activeSession.completed);
 
-  // STATE C: Session completed today or a workout was completed today
+  // STATE C: Full session completed today or a full workout was completed today
   const isSessionCompletedToday = Boolean(
     activeSession &&
     activeSession.completed &&
+    !getSessionSummary(activeSession).isPartial &&
     activeSession.completedAt &&
     new Date(activeSession.completedAt).toDateString() === new Date().toDateString()
   );
@@ -247,6 +124,23 @@ export default function Home() {
 
     return (
       (history || []).find((w) => {
+        if (w.isPartial) return false;
+        const timeStr = w.completedAt || w.startedAt;
+        if (!timeStr) return false;
+        const time = new Date(timeStr).getTime();
+        return time >= startOfDay && time <= endOfDay;
+      }) || null
+    );
+  }, [history, focusKey]);
+
+  const todayPartialHistoryWorkout = useMemo(() => {
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const endOfDay = startOfDay + 24 * 60 * 60 * 1000 - 1;
+
+    return (
+      (history || []).find((w) => {
+        if (!w.isPartial) return false;
         const timeStr = w.completedAt || w.startedAt;
         if (!timeStr) return false;
         const time = new Date(timeStr).getTime();
@@ -337,8 +231,8 @@ export default function Home() {
 
   const userGreetingName = (profile?.name && profile.name.trim().length > 0 ? profile.name.trim() : name) || '';
   const greetingText = userGreetingName
-    ? `${greetingPrefix}, ${userGreetingName} 👋`
-    : `${greetingPrefix} 👋`;
+    ? `${greetingPrefix}, ${userGreetingName}`
+    : greetingPrefix;
 
   if (!program || !program.workouts || program.workouts.length === 0 || !nextWorkout) {
     return (
@@ -356,32 +250,50 @@ export default function Home() {
     <Screen style={styles.screenContent}>
       {/* 1. Header */}
       <View style={styles.header}>
-        <Text numberOfLines={2} ellipsizeMode="tail" style={styles.greetingTitle}>
-          {greetingText}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text numberOfLines={1} ellipsizeMode="tail" style={styles.greetingTitle}>
+            {greetingText}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {homeState === 'IN_PROGRESS'
+              ? (language === 'uk' ? 'Активна сесія триває' : 'Active session in progress')
+              : homeState === 'COMPLETED_TODAY'
+              ? (language === 'uk' ? 'Тренування за сьогодні виконано' : 'Today’s workout completed')
+              : (language === 'uk' ? `Сьогодні за планом — ${tw(nextWorkout.name)}` : `Scheduled today — ${tw(nextWorkout.name)}`)}
+          </Text>
+        </View>
       </View>
 
-      {/* STATE A: No Active Workout */}
+      {/* STATE A: Ready to Train */}
       {homeState === 'READY_TO_TRAIN' && (
         <>
-          {/* 2. Readiness Section with Big Ring & Dynamic Recovery */}
-          <View style={styles.readinessRow}>
-            <ReadinessRing
-              percentage={readiness.percentage}
-              color={readiness.color}
-              size={88}
-              strokeWidth={6.5}
-            />
-            <View style={styles.readinessTextCol}>
-              <Text style={styles.readinessLabel}>{readiness.label}</Text>
-              <Text style={styles.readinessSubtitle}>{readiness.subtitle}</Text>
-            </View>
-          </View>
+          {todayPartialHistoryWorkout && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                router.push({
+                  pathname: '/history/[id]',
+                  params: { id: todayPartialHistoryWorkout.id },
+                })
+              }
+              style={styles.partialSavedBanner}
+            >
+              <Ionicons name="bookmark-outline" size={16} color="#F59E0B" />
+              <Text style={styles.partialSavedBannerText} numberOfLines={1}>
+                {language === 'uk'
+                  ? `Сьогодні збережено частково: ${todayPartialHistoryWorkout.totalSets}/${todayPartialHistoryWorkout.plannedSets || todayPartialHistoryWorkout.totalSets} підх.`
+                  : `Partial workout saved today: ${todayPartialHistoryWorkout.totalSets}/${todayPartialHistoryWorkout.plannedSets || todayPartialHistoryWorkout.totalSets} sets`}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color="#8E959F" />
+            </Pressable>
+          )}
 
-          {/* 3. Today's Workout Card */}
+          {/* 2. Today's Workout Card */}
           <View style={styles.workoutCard}>
             <View style={styles.workoutCardHeaderRow}>
-              <Text style={styles.workoutCardLabel}>{t('todaysWorkout')}</Text>
+              <Text style={styles.workoutCardLabel}>
+                {language === 'uk' ? 'НАСТУПНЕ ТРЕНУВАННЯ' : 'NEXT WORKOUT'}
+              </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 {program.workouts && program.workouts.length > 1 && (
                   <Pressable
@@ -397,7 +309,7 @@ export default function Home() {
                   >
                     <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
                     <Text style={styles.switchWorkoutBtnText}>
-                      {language === 'uk' ? 'СПИСОК' : 'LIST'}
+                      {language === 'uk' ? 'ЗМІНИТИ ДЕНЬ' : 'CHANGE DAY'}
                     </Text>
                   </Pressable>
                 )}
@@ -412,7 +324,7 @@ export default function Home() {
               style={styles.workoutMainRow}
             >
               <Text style={styles.workoutName}>{tw(nextWorkout.name)}</Text>
-              <Ionicons name="chevron-forward" size={24} color="#8E959F" />
+              <Ionicons name="chevron-forward" size={22} color="#8E959F" />
             </Pressable>
 
             <Text style={styles.workoutMuscles}>{displayMuscles}</Text>
@@ -425,7 +337,7 @@ export default function Home() {
                 }
                 style={styles.exercisePreviewWrap}
               >
-                {nextWorkout.exercises.slice(0, 3).map((ex, idx) => {
+                {nextWorkout.exercises.slice(0, 4).map((ex, idx) => {
                   const equipment = (ex as any).equipment || inferEquipmentFromName(ex.name);
                   const exWithEquip = { ...ex, equipment } as any;
                   const prevSets = findLatestExerciseSets(history, exWithEquip);
@@ -447,8 +359,8 @@ export default function Home() {
                     </View>
                   );
                 })}
-                {nextWorkout.exercises.length > 3 && (() => {
-                  const rem = nextWorkout.exercises.length - 3;
+                {nextWorkout.exercises.length > 4 && (() => {
+                  const rem = nextWorkout.exercises.length - 4;
                   const label =
                     language === 'uk'
                       ? rem === 1
@@ -468,13 +380,19 @@ export default function Home() {
 
             <View style={styles.workoutFooterRow}>
               <View style={styles.metaItem}>
-                <MaterialCommunityIcons name="dumbbell" size={18} color="#8E959F" />
+                <MaterialCommunityIcons name="dumbbell" size={16} color="#8E959F" />
                 <Text style={styles.metaText}>
                   {nextWorkout.exercises.length} {t('exercises').toLowerCase()}
                 </Text>
               </View>
               <View style={styles.metaItem}>
-                <Ionicons name="time-outline" size={18} color="#8E959F" />
+                <Ionicons name="layers-outline" size={16} color="#8E959F" />
+                <Text style={styles.metaText}>
+                  {nextWorkout.exercises.reduce((sum, ex) => sum + (ex.sets || 3), 0)} {t('sets').toLowerCase()}
+                </Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Ionicons name="time-outline" size={16} color="#8E959F" />
                 <Text style={styles.metaText}>
                   ~{nextWorkout.estimatedMinutes} {t('min')}
                 </Text>
@@ -504,7 +422,7 @@ export default function Home() {
               pressed && styles.quickLogSecondaryBtnPressed,
             ]}
           >
-            <Ionicons name="flash" size={15} color={colors.primary} />
+            <Ionicons name="list-outline" size={16} color={colors.primary} />
             <Text style={styles.quickLogSecondaryBtnText}>
               {language === 'uk' ? 'Швидкий запис (без таймерів)' : 'Quick Log (no timers)'}
             </Text>
@@ -569,7 +487,6 @@ export default function Home() {
             ) : null}
           </View>
 
-          {/* Electric Neon Lime Dynamic CTA Button */}
           <Button
             style={styles.ctaButton}
             onPress={() => {
@@ -578,8 +495,8 @@ export default function Home() {
           >
             <Text style={styles.ctaButtonText}>
               {inProgressData.completedSets > 0 || inProgressData.completedExercises > 0
-                ? (language === 'uk' ? '▶ ПРОДОВЖИТИ ТРЕНУВАННЯ' : '▶ RESUME WORKOUT')
-                : (language === 'uk' ? '▶ ПОЧАТИ ТРЕНУВАННЯ' : '▶ START WORKOUT')}
+                ? (language === 'uk' ? 'ПРОДОВЖИТИ ТРЕНУВАННЯ' : 'RESUME WORKOUT')
+                : (language === 'uk' ? 'ПОЧАТИ ТРЕНУВАННЯ' : 'START WORKOUT')}
             </Text>
           </Button>
 
@@ -595,7 +512,7 @@ export default function Home() {
               pressed && styles.quickLogSecondaryBtnPressed,
             ]}
           >
-            <Ionicons name="flash" size={15} color={colors.primary} />
+            <Ionicons name="list-outline" size={16} color={colors.primary} />
             <Text style={styles.quickLogSecondaryBtnText}>
               {language === 'uk' ? 'Швидкий запис списком' : 'Switch to Quick Log'}
             </Text>
@@ -641,7 +558,6 @@ export default function Home() {
             </View>
           </View>
 
-          {/* Electric Neon Lime [VIEW SUMMARY] CTA */}
           <Button
             style={[styles.ctaButton, { marginBottom: 24 }]}
             onPress={() => {
@@ -660,7 +576,7 @@ export default function Home() {
             </View>
           </Button>
 
-          {/* NEXT UP Card - Closes the training loop: READY -> TRAIN -> IN PROGRESS -> COMPLETE -> NEXT UP */}
+          {/* NEXT UP Card */}
           {nextWorkout && (
             <Pressable
               accessibilityRole="button"
@@ -705,58 +621,44 @@ export default function Home() {
         </>
       )}
 
-      {/* 5. This Week Tracker & 6. AI SPOT Insight Card (Hidden when workout is in progress) */}
+      {/* This Week Tracker */}
       {homeState !== 'IN_PROGRESS' && (
-        <>
-          {/* 5. This Week Tracker (Dots above, labels below) */}
-          <View style={styles.weekSection}>
-            <View style={styles.weekHeader}>
-              <Text style={styles.weekLabel}>{t('thisWeek')}</Text>
-              <Text style={styles.weekCounter}>
-                {completedWorkoutsThisWeek} / {targetWorkouts}
-              </Text>
-            </View>
-            <View style={styles.weekRow}>
-              {weekDayStatuses.map((item, idx) => (
-                <View key={idx} style={styles.weekDayCol}>
-                  <View style={styles.weekSlot}>
-                    {item.completed ? (
-                      <View style={styles.indicatorCompleted}>
-                        <Ionicons name="checkmark" size={15} color="#0B0D0F" />
-                      </View>
-                    ) : item.isToday ? (
-                      <View style={styles.indicatorToday}>
-                        <View style={styles.indicatorTodayDot} />
-                      </View>
-                    ) : (
-                      <View style={styles.indicatorFuture} />
-                    )}
-                  </View>
-                  <Text
-                    style={[
-                      styles.weekDayLabel,
-                      item.isToday && styles.weekDayLabelToday,
-                      item.completed && styles.weekDayLabelCompleted,
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
+        <View style={styles.weekSection}>
+          <View style={styles.weekHeader}>
+            <Text style={styles.weekLabel}>{t('thisWeek')}</Text>
+            <Text style={styles.weekCounter}>
+              {completedWorkoutsThisWeek} / {targetWorkouts} {language === 'uk' ? 'тренувань' : 'workouts'}
+            </Text>
+          </View>
+          <View style={styles.weekRow}>
+            {weekDayStatuses.map((item, idx) => (
+              <View key={idx} style={styles.weekDayCol}>
+                <View style={styles.weekSlot}>
+                  {item.completed ? (
+                    <View style={styles.indicatorCompleted}>
+                      <Ionicons name="checkmark" size={15} color="#0B0D0F" />
+                    </View>
+                  ) : item.isToday ? (
+                    <View style={styles.indicatorToday}>
+                      <View style={styles.indicatorTodayDot} />
+                    </View>
+                  ) : (
+                    <View style={styles.indicatorFuture} />
+                  )}
                 </View>
-              ))}
-            </View>
+                <Text
+                  style={[
+                    styles.weekDayLabel,
+                    item.isToday && styles.weekDayLabelToday,
+                    item.completed && styles.weekDayLabelCompleted,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </View>
+            ))}
           </View>
-
-          {/* 6. AI SPOT Insight Card */}
-          <View style={styles.insightCard}>
-            <View style={styles.insightIconBadge}>
-              <Ionicons name="sparkles" size={18} color="#FFFFFF" />
-            </View>
-            <View style={styles.insightTextCol}>
-              <Text style={styles.insightLabel}>{t('spotInsight')}</Text>
-              <Text style={styles.insightMessage}>{spotInsight}</Text>
-            </View>
-          </View>
-        </>
+        </View>
       )}
 
       {/* Workout Switch Modal */}
@@ -862,106 +764,36 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   greetingTitle: {
-    flex: 1,
     fontSize: 22,
     lineHeight: 28,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.3,
   },
-  readinessRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 18,
-    gap: 16,
-  },
-  readinessPercentText: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -0.4,
-    fontVariant: ['tabular-nums'],
-  },
-  readinessTextCol: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 4,
-  },
-  readinessLabel: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.8,
-  },
-  readinessSubtitle: {
+  headerSubtitle: {
     fontSize: 13,
-    color: '#8E959F',
-    fontWeight: '400',
     lineHeight: 18,
-  },
-  focusSection: {
-    marginBottom: 20,
-  },
-  focusHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-    paddingHorizontal: 2,
-  },
-  focusSectionTitle: {
-    fontSize: 11,
-    fontWeight: '800',
     color: '#8E959F',
-    letterSpacing: 1.2,
+    marginTop: 2,
+    fontWeight: '500',
   },
-  shuffleBtn: {
+  partialSavedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-  },
-  shuffleBtnText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 0.5,
-  },
-  focusScrollContent: {
     gap: 8,
-    paddingVertical: 2,
-  },
-  focusChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
-    backgroundColor: '#15191F',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 14,
   },
-  focusChipActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
-    borderColor: colors.primary,
-  },
-  focusChipIcon: {
-    fontSize: 14,
-  },
-  focusChipLabel: {
+  partialSavedBannerText: {
+    flex: 1,
     fontSize: 13,
-    fontWeight: '700',
-    color: '#8E959F',
-  },
-  focusChipLabelActive: {
-    color: colors.primary,
-    fontWeight: '900',
+    fontWeight: '600',
+    color: '#FDE68A',
   },
   workoutCard: {
     backgroundColor: '#15191F',
@@ -970,17 +802,12 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 3,
   },
   workoutCardLabel: {
     fontSize: 11,
     fontWeight: '700',
     color: '#717B8A',
-    letterSpacing: 1.1,
+    letterSpacing: 1.0,
   },
   workoutCardHeaderRow: {
     flexDirection: 'row',
@@ -1008,9 +835,9 @@ const styles = StyleSheet.create({
   exercisePreviewWrap: {
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 12,
-    padding: 10,
+    padding: 12,
     marginBottom: 14,
-    gap: 6,
+    gap: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.04)',
   },
@@ -1033,7 +860,7 @@ const styles = StyleSheet.create({
   },
   previewExSets: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#8E959F',
     fontVariant: ['tabular-nums'],
   },
@@ -1066,12 +893,12 @@ const styles = StyleSheet.create({
   workoutFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
+    gap: 18,
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   metaText: {
     fontSize: 13,
@@ -1080,37 +907,37 @@ const styles = StyleSheet.create({
   },
   ctaButton: {
     width: '100%',
-    minHeight: 56,
+    minHeight: 54,
     borderRadius: 24,
     backgroundColor: '#C8FF3D',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
-    shadowColor: '#C8FF3D',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    elevation: 5,
   },
   weekSection: {
+    backgroundColor: '#15191F',
+    borderColor: '#242B35',
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 18,
     marginBottom: 24,
   },
   weekHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   weekLabel: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#717B8A',
-    letterSpacing: 1.5,
+    letterSpacing: 1.0,
   },
   weekCounter: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#8E959F',
+    color: '#D8DEE9',
   },
   weekRow: {
     flexDirection: 'row',
@@ -1145,10 +972,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(200, 255, 61, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#C8FF3D',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
   },
   indicatorTodayDot: {
     width: 6,
@@ -1169,56 +992,11 @@ const styles = StyleSheet.create({
   },
   weekDayLabelToday: {
     color: '#C8FF3D',
-    fontWeight: '800',
+    fontWeight: '700',
   },
   weekDayLabelCompleted: {
     color: '#FFFFFF',
     fontWeight: '600',
-  },
-  insightCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 16,
-    backgroundColor: '#15191F',
-    borderColor: '#242B35',
-    borderWidth: 1,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#7C5CFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  insightIconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#7C5CFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-    shadowColor: '#7C5CFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  insightTextCol: {
-    flex: 1,
-  },
-  insightLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#A78BFA',
-    letterSpacing: 1.5,
-    marginBottom: 6,
-  },
-  insightMessage: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#F0F3F8',
-    fontWeight: '500',
   },
   modalOverlay: {
     flex: 1,
@@ -1235,11 +1013,6 @@ const styles = StyleSheet.create({
     borderColor: '#242B35',
     borderWidth: 1,
     padding: 20,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 8,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1252,7 +1025,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.3,
   },
@@ -1294,7 +1067,7 @@ const styles = StyleSheet.create({
   },
   switchItemBadgeText: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#8E959F',
   },
   switchItemBadgeTextActive: {
@@ -1320,11 +1093,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 3,
   },
   stateCardHeaderRow: {
     flexDirection: 'row',
@@ -1452,39 +1220,6 @@ const styles = StyleSheet.create({
     color: '#0B0D0F',
     letterSpacing: 0.8,
   },
-  prMiniBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255, 209, 48, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 209, 48, 0.3)',
-  },
-  prMiniBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FFD130',
-  },
-  baselineMiniBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-  },
-  baselineMiniBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: 0.5,
-  },
   completedSubtitle: {
     fontSize: 13,
     color: '#8E959F',
@@ -1566,7 +1301,7 @@ const styles = StyleSheet.create({
   },
   nextUpKickerText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.primary,
     letterSpacing: 0.8,
   },
@@ -1583,7 +1318,7 @@ const styles = StyleSheet.create({
   },
   nextUpWorkoutName: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.3,
     flex: 1,
@@ -1606,7 +1341,7 @@ const styles = StyleSheet.create({
   modalSubtitle: {
     fontSize: 12,
     color: '#8E959F',
-    fontWeight: '600',
+    fontWeight: '500',
     marginTop: 3,
   },
   switchItemStartBadge: {
@@ -1619,13 +1354,13 @@ const styles = StyleSheet.create({
   },
   switchItemStartBadgeText: {
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '800',
     color: '#0B0D0F',
     letterSpacing: 0.6,
   },
   quickLogSecondaryBtn: {
     width: '100%',
-    height: 48,
+    height: 46,
     borderRadius: 20,
     backgroundColor: '#141820',
     borderWidth: 1,
@@ -1634,7 +1369,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 26,
+    marginBottom: 20,
   },
   quickLogSecondaryBtnPressed: {
     backgroundColor: '#1B222D',
@@ -1642,8 +1377,8 @@ const styles = StyleSheet.create({
   },
   quickLogSecondaryBtnText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#DCE2EC',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
 });
