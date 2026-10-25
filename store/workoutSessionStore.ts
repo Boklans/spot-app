@@ -69,8 +69,8 @@ type WorkoutSessionState = {
   initializeSession: (workout?: GeneratedWorkout | UserWorkout) => Promise<void>;
   completeCurrentSet: () => void;
   setPersonalRecords: (personalRecords: PersonalRecord[]) => void;
-  updateCurrentSet: (values: { weight?: number; reps?: number }) => void;
-  updateSet: (exerciseIndex: number, setIndex: number, values: { weight?: number; reps?: number }) => void;
+  updateCurrentSet: (values: { weight?: number; reps?: number }, propagate?: boolean) => void;
+  updateSet: (exerciseIndex: number, setIndex: number, values: { weight?: number; reps?: number }, propagate?: boolean) => void;
   updateExerciseRest: (exerciseIndex: number, restSeconds: number, applyToAll?: boolean) => void;
   addRestTime: (seconds: number) => void;
   skipRest: () => void;
@@ -332,15 +332,22 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
     if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
   },
 
-  updateCurrentSet: (values) => {
+  updateCurrentSet: (values, propagate = false) => {
     const session = useWorkoutSessionStore.getState().session;
     if (!session) return;
-    useWorkoutSessionStore.getState().updateSet(session.currentExerciseIndex, session.currentSetIndex, values);
+    useWorkoutSessionStore.getState().updateSet(session.currentExerciseIndex, session.currentSetIndex, values, propagate);
   },
 
-  updateSet: (exerciseIndex, setIndex, values) => {
+  updateSet: (exerciseIndex, setIndex, values, propagate = false) => {
     set((state) => {
       if (!state.session) return state;
+      const targetExercise = state.session.exercises[exerciseIndex];
+      const targetSet = targetExercise?.sets[setIndex];
+      if (!targetExercise || !targetSet) return state;
+
+      // Completed sets must never propagate changes to other sets
+      const shouldPropagate = propagate && !targetSet.completed;
+
       return {
         ...state,
         session: {
@@ -351,12 +358,12 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
               : {
                   ...exercise,
                   sets: exercise.sets.map((workoutSet, sIdx) => {
-                    // Update target set
+                    // Update target set (preserves completed and completedAt)
                     if (sIdx === setIndex) {
                       return { ...workoutSet, ...values };
                     }
-                    // Forward-propagate weight and reps to subsequent uncompleted sets!
-                    if (sIdx > setIndex && !workoutSet.completed) {
+                    // Forward-propagate weight and reps ONLY if explicitly requested AND target is uncompleted
+                    if (shouldPropagate && sIdx > setIndex && !workoutSet.completed) {
                       return { ...workoutSet, ...values };
                     }
                     return workoutSet;

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  AppState,
   BackHandler,
   Image,
   Modal,
@@ -16,13 +17,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
 import { getExerciseImage } from '@/lib/exerciseImages';
-import { hapticLight, hapticMedium } from '@/lib/haptics';
+import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { cancelRestTimerNotification, scheduleRestTimerNotification } from '@/lib/notificationService';
+import { playRestCompleteSound } from '@/lib/soundEffects';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { getSessionProgress, useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { ExerciseDetailModal } from '@/components/program/ExerciseDetailModal';
-import Rest from './rest';
+import { EditSetModal } from '@/components/workout/EditSetModal';
 
 const EXERCISE_ALTERNATIVES: Record<string, Array<{ name: string; muscleGroup: string; defaultWeight: number }>> = {
   Chest: [
@@ -92,14 +95,28 @@ export default function Active() {
   const completeCurrentSet = useWorkoutSessionStore((state) => state.completeCurrentSet);
   const updateCurrentSet = useWorkoutSessionStore((state) => state.updateCurrentSet);
   const swapExercise = useWorkoutSessionStore((state) => state.swapExercise);
+  const addRestTime = useWorkoutSessionStore((state) => state.addRestTime);
+  const skipRest = useWorkoutSessionStore((state) => state.skipRest);
+
   const [finishing, setFinishing] = useState(false);
   const [submittingSet, setSubmittingSet] = useState(false);
   const isSubmittingSetRef = useRef(false);
   const isExitingRef = useRef(false);
+  const lastHapticSecond = useRef<number | null>(null);
+
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [editingTarget, setEditingTarget] = useState<{
+    exerciseIndex: number;
+    setIndex: number;
+    initialFocusField?: 'weight' | 'reps';
+  } | null>(null);
+
   const [now, setNow] = useState(Date.now());
   const [isHydrating, setIsHydrating] = useState(!session);
+
+  const restRemainingSeconds = restEndsAt ? Math.max(0, Math.ceil((restEndsAt - now) / 1000)) : 0;
+  const isResting = restEndsAt !== null && restRemainingSeconds > 0;
 
   useEffect(() => {
     isSubmittingSetRef.current = false;
@@ -120,6 +137,51 @@ export default function Active() {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Audio, haptics & countdown alert for active rest
+  useEffect(() => {
+    if (!restEndsAt) {
+      lastHapticSecond.current = null;
+      return;
+    }
+    const remaining = Math.max(0, Math.ceil((restEndsAt - now) / 1000));
+    if (remaining <= 3 && remaining > 0 && lastHapticSecond.current !== remaining) {
+      lastHapticSecond.current = remaining;
+      hapticLight();
+    } else if (remaining === 0 && lastHapticSecond.current !== 0) {
+      lastHapticSecond.current = 0;
+      hapticSuccess();
+      playRestCompleteSound();
+      cancelRestTimerNotification();
+      skipRest();
+    }
+  }, [restEndsAt, now, skipRest]);
+
+  // Background notifications for rest timer
+  useEffect(() => {
+    const handleBgNotification = (nextState: string) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        if (restEndsAt && restEndsAt > Date.now()) {
+          const remaining = Math.max(1, Math.ceil((restEndsAt - Date.now()) / 1000));
+          const currentEx = session?.exercises[session.currentExerciseIndex];
+          scheduleRestTimerNotification(
+            remaining,
+            te(currentEx?.name || 'Workout'),
+            (session?.currentSetIndex ?? 0) + 1,
+            currentEx?.sets.length ?? 3,
+            language
+          );
+        }
+      } else if (nextState === 'active') {
+        cancelRestTimerNotification();
+      }
+    };
+    const sub = AppState.addEventListener('change', handleBgNotification);
+    return () => {
+      sub.remove();
+      cancelRestTimerNotification();
+    };
+  }, [restEndsAt, session, te, language]);
 
   const progress = session ? getSessionProgress(session) : { completedSets: 0, totalSets: 0, percentage: 0 };
 
@@ -164,9 +226,6 @@ export default function Active() {
 
   useEffect(() => {
     const onBackPress = () => {
-      if (useWorkoutSessionStore.getState().restEndsAt !== null) {
-        return false;
-      }
       handleClose();
       return true;
     };
@@ -189,10 +248,6 @@ export default function Active() {
     );
   }
 
-  if (restEndsAt !== null && !session.completed) {
-    return <Rest embedded />;
-  }
-
   const elapsedSeconds = session.startedAt
     ? Math.max(0, Math.floor((now - new Date(session.startedAt).getTime()) / 1000))
     : 0;
@@ -208,7 +263,7 @@ export default function Active() {
     const currentDisplay = fromKg(activeSet.weight ?? 0);
     const newDisplay = Math.max(0, Math.round((currentDisplay + deltaDisplay) * 10) / 10);
     const newKg = toKg(newDisplay);
-    updateCurrentSet({ weight: Math.round(newKg * 100) / 100 });
+    updateCurrentSet({ weight: Math.round(newKg * 100) / 100 }, true);
   };
 
   const adjustActiveReps = (deltaReps: number) => {
@@ -216,8 +271,22 @@ export default function Active() {
     hapticLight();
     const currentR = activeSet.reps ?? 8;
     const newR = Math.max(1, Math.min(100, currentR + deltaReps));
-    updateCurrentSet({ reps: newR });
+    updateCurrentSet({ reps: newR }, true);
   };
+
+  const handleSaveEditedSet = ({ weight, reps }: { weight: number; reps: number }) => {
+    if (!editingTarget) return;
+    const { exerciseIndex, setIndex } = editingTarget;
+    useWorkoutSessionStore.getState().updateSet(exerciseIndex, setIndex, { weight, reps }, false);
+    setEditingTarget(null);
+  };
+
+  const targetExerciseForEditing = editingTarget !== null && session
+    ? session.exercises[editingTarget.exerciseIndex]
+    : null;
+  const targetSetForEditing = targetExerciseForEditing && editingTarget !== null
+    ? targetExerciseForEditing.sets[editingTarget.setIndex]
+    : null;
 
   const prevSetForActive = exercise?.previousSets?.[session.currentSetIndex] || exercise?.previousSets?.[0];
   const prevContextText = prevSetForActive
@@ -303,6 +372,65 @@ export default function Active() {
       <View style={styles.progressBarTrack}>
         <View style={[styles.progressBarFill, { width: `${percent}%` }]} />
       </View>
+
+      {/* Non-blocking Compact Rest Banner */}
+      {isResting && (
+        <View style={styles.compactRestBanner}>
+          <View style={styles.compactRestLeft}>
+            <View style={styles.compactRestPulseDot} />
+            <View>
+              <Text style={styles.compactRestLabel}>
+                {language === 'uk' ? 'ВІДПОЧИНОК' : 'REST TIMER'}
+              </Text>
+              <Text style={styles.compactRestTime}>
+                {formatElapsed(restRemainingSeconds)}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.compactRestActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Subtract 15 seconds"
+              hitSlop={6}
+              onPress={() => {
+                hapticLight();
+                addRestTime(-15);
+              }}
+              style={styles.compactRestChip}
+            >
+              <Text style={styles.compactRestChipText}>-15s</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add 30 seconds"
+              hitSlop={6}
+              onPress={() => {
+                hapticLight();
+                addRestTime(30);
+              }}
+              style={styles.compactRestChip}
+            >
+              <Text style={styles.compactRestChipText}>+30s</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Skip rest"
+              hitSlop={6}
+              onPress={() => {
+                hapticMedium();
+                cancelRestTimerNotification();
+                skipRest();
+              }}
+              style={styles.compactRestSkipBtn}
+            >
+              <Text style={styles.compactRestSkipText}>
+                {language === 'uk' ? 'Пропустити' : 'Skip'}
+              </Text>
+              <Ionicons name="play-forward" size={11} color="#0B0D0F" style={{ marginLeft: 2 }} />
+            </Pressable>
+          </View>
+        </View>
+      )}
 
       {/* Scrollable Content */}
       <ScrollView
@@ -441,12 +569,25 @@ export default function Active() {
                   <Ionicons name="remove" size={18} color="#FFFFFF" />
                 </Pressable>
 
-                <View style={styles.heroValueBtn}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit active set weight"
+                  hitSlop={8}
+                  onPress={() => {
+                    hapticLight();
+                    setEditingTarget({
+                      exerciseIndex: session.currentExerciseIndex,
+                      setIndex: session.currentSetIndex,
+                      initialFocusField: 'weight',
+                    });
+                  }}
+                  style={({ pressed }) => [styles.heroValueBtn, pressed && styles.heroValueBtnPressed]}
+                >
                   <Text style={styles.heroValueText}>
                     {activeSet?.weight ? format(activeSet.weight) : (language === 'uk' ? 'ВТ' : 'BW')}
                   </Text>
                   {activeSet?.weight ? <Text style={styles.heroValueSub}>{unitLabel}</Text> : null}
-                </View>
+                </Pressable>
 
                 <Pressable
                   accessibilityRole="button"
@@ -481,10 +622,23 @@ export default function Active() {
                   <Ionicons name="remove" size={18} color="#FFFFFF" />
                 </Pressable>
 
-                <View style={styles.heroValueBtn}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit active set reps"
+                  hitSlop={8}
+                  onPress={() => {
+                    hapticLight();
+                    setEditingTarget({
+                      exerciseIndex: session.currentExerciseIndex,
+                      setIndex: session.currentSetIndex,
+                      initialFocusField: 'reps',
+                    });
+                  }}
+                  style={({ pressed }) => [styles.heroValueBtn, pressed && styles.heroValueBtnPressed]}
+                >
                   <Text style={styles.heroValueText}>{activeSet?.reps ?? 8}</Text>
                   <Text style={styles.heroValueSub}>{language === 'uk' ? 'повт' : 'reps'}</Text>
-                </View>
+                </Pressable>
 
                 <Pressable
                   accessibilityRole="button"
@@ -527,7 +681,14 @@ export default function Active() {
                 <Pressable
                   key={set.id || index}
                   onPress={() => {
-                    if (!isDone && !isCurrent) {
+                    if (isDone) {
+                      hapticLight();
+                      setEditingTarget({
+                        exerciseIndex: session.currentExerciseIndex,
+                        setIndex: index,
+                        initialFocusField: 'weight',
+                      });
+                    } else if (!isCurrent) {
                       hapticLight();
                       useWorkoutSessionStore.getState().setCurrentSetIndex(index);
                     }
@@ -536,7 +697,7 @@ export default function Active() {
                     styles.setRow,
                     isCurrent && styles.setRowActive,
                     isDone && styles.setRowDone,
-                    !isDone && pressed && { opacity: 0.8 },
+                    pressed && { opacity: 0.8 },
                   ]}
                 >
                   <Text style={[styles.setColNum, isCurrent && styles.textHighlight, isDone && styles.setColDoneText]}>
@@ -547,22 +708,61 @@ export default function Active() {
                     {prevSetText}
                   </Text>
 
-                  <Text style={[styles.setColWeight, isCurrent && styles.textHighlight, isDone && styles.setColDoneText, setWeightIncreased && styles.textProgressionHighlight]}>
-                    {weightDisplay}{setWeightIncreased ? ' ↑' : ''}
-                  </Text>
+                  {/* Direct Editable Weight */}
+                  <Pressable
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit weight for set ${index + 1}`}
+                    onPress={() => {
+                      hapticLight();
+                      setEditingTarget({
+                        exerciseIndex: session.currentExerciseIndex,
+                        setIndex: index,
+                        initialFocusField: 'weight',
+                      });
+                    }}
+                    style={styles.cellTouchTarget}
+                  >
+                    <Text style={[styles.setColWeight, isCurrent && styles.textHighlight, isDone && styles.setColDoneText, setWeightIncreased && styles.textProgressionHighlight]}>
+                      {weightDisplay}{setWeightIncreased ? ' ↑' : ''}
+                    </Text>
+                  </Pressable>
 
-                  <Text style={[styles.setColReps, isCurrent && styles.textHighlight, isDone && styles.setColDoneText, setRepsIncreased && styles.textProgressionHighlight]}>
-                    {set.reps}{setRepsIncreased ? ' ↑' : ''}
-                  </Text>
+                  {/* Direct Editable Reps */}
+                  <Pressable
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit reps for set ${index + 1}`}
+                    onPress={() => {
+                      hapticLight();
+                      setEditingTarget({
+                        exerciseIndex: session.currentExerciseIndex,
+                        setIndex: index,
+                        initialFocusField: 'reps',
+                      });
+                    }}
+                    style={styles.cellTouchTarget}
+                  >
+                    <Text style={[styles.setColReps, isCurrent && styles.textHighlight, isDone && styles.setColDoneText, setRepsIncreased && styles.textProgressionHighlight]}>
+                      {set.reps}{setRepsIncreased ? ' ↑' : ''}
+                    </Text>
+                  </Pressable>
 
                   <Pressable
                     hitSlop={12}
                     accessibilityRole="button"
-                    accessibilityLabel={isDone ? 'Set completed' : isCurrent ? 'Complete current set' : 'Set pending'}
+                    accessibilityLabel={isDone ? 'Set completed, tap to edit' : isCurrent ? 'Complete current set' : 'Set pending'}
                     onPress={() => {
                       if (isCurrent) {
                         finishSet();
-                      } else if (!isDone) {
+                      } else if (isDone) {
+                        hapticLight();
+                        setEditingTarget({
+                          exerciseIndex: session.currentExerciseIndex,
+                          setIndex: index,
+                          initialFocusField: 'weight',
+                        });
+                      } else {
                         hapticLight();
                         useWorkoutSessionStore.getState().setCurrentSetIndex(index);
                       }
@@ -747,6 +947,26 @@ export default function Active() {
           exerciseName={exercise.name}
           muscleGroup={exercise.muscleGroup}
           customImageUri={exercise.customImageUri}
+        />
+      )}
+
+      {/* Edit Set Modal (Direct Weight & Reps Keypad / Quick Delta Entry) */}
+      {targetSetForEditing && (
+        <EditSetModal
+          visible={editingTarget !== null}
+          exerciseName={te(targetExerciseForEditing?.name || '')}
+          setNumber={(editingTarget?.setIndex ?? 0) + 1}
+          totalSets={targetExerciseForEditing?.sets.length ?? 3}
+          isCompleted={targetSetForEditing.completed}
+          initialWeightKg={targetSetForEditing.weight}
+          initialReps={targetSetForEditing.reps}
+          unitLabel={unitLabel}
+          unit={unit}
+          toKg={toKg}
+          fromKg={fromKg}
+          initialFocusField={editingTarget?.initialFocusField ?? 'weight'}
+          onClose={() => setEditingTarget(null)}
+          onSave={handleSaveEditedSet}
         />
       )}
     </SafeAreaView>
@@ -1461,5 +1681,80 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  compactRestBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    borderColor: 'rgba(200, 255, 61, 0.3)',
+    borderWidth: 1,
+    borderRadius: 14,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  compactRestLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  compactRestPulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
+  compactRestLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#8E99A8',
+    letterSpacing: 0.6,
+  },
+  compactRestTime: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: colors.primary,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.3,
+  },
+  compactRestActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  compactRestChip: {
+    backgroundColor: '#1E2530',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  compactRestChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  compactRestSkipBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  compactRestSkipText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0B0D0F',
+  },
+  cellTouchTarget: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
   },
 });
