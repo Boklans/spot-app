@@ -294,60 +294,30 @@ export default function Complete() {
           </View>
         </View>
 
-        {/* 4. Volume Card */}
-        <View style={styles.volumeCard}>
-          <View style={styles.volumeValueRow}>
-            <Text style={styles.volumeValue}>
-              {formatVolume(summary.volume)}
+        {/* 4. Partial Session Notice (only if workout was ended early) */}
+        {isPartial && (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              borderWidth: 1,
+              borderColor: 'rgba(245, 158, 11, 0.3)',
+              borderRadius: 14,
+              paddingHorizontal: 14,
+              paddingVertical: 11,
+              marginBottom: 14,
+            }}
+          >
+            <Ionicons name="information-circle-outline" size={18} color="#F59E0B" />
+            <Text style={{ color: '#E2E8F0', fontSize: 12.5, lineHeight: 17, flex: 1 }}>
+              {language === 'uk'
+                ? 'Збережено лише фактично виконані підходи. Це тренування залишається наступним за розкладом.'
+                : 'Only completed sets were logged. This workout remains next in your schedule.'}
             </Text>
-            {hasPreviousSession && volumeDelta > 0 ? (
-              <View style={styles.volumeSurgeBadge}>
-                <Ionicons name="trending-up" size={13} color="#0B0D0F" />
-                <Text style={styles.volumeSurgeBadgeText}>
-                  +{formatVolume(volumeDelta)}
-                </Text>
-              </View>
-            ) : null}
           </View>
-          <Text style={styles.volumeLabel}>
-            {isPartial
-              ? (language === 'uk' ? 'Фактичний тоннаж виконаних підходів' : 'Completed sets volume')
-              : t('volume')}
-          </Text>
-
-          {/* Volume Sub-Banner */}
-          {isPartial ? (
-            <View style={styles.volumeComparisonRow}>
-              <Ionicons name="information-circle-outline" size={15} color="#F59E0B" />
-              <Text style={styles.volumeComparisonText}>
-                {language === 'uk'
-                  ? 'Збережено лише фактично виконані підходи. Це тренування залишається наступним за розкладом.'
-                  : 'Only completed sets were logged. This workout remains next in your schedule.'}
-              </Text>
-            </View>
-          ) : hasPreviousSession ? (
-            <View style={styles.volumeComparisonRow}>
-              <Ionicons
-                name={volumeDelta > 0 ? 'trending-up-outline' : volumeDelta < 0 ? 'remove-circle-outline' : 'checkmark-circle-outline'}
-                size={15}
-                color={volumeDelta > 0 ? colors.primary : volumeDelta < 0 ? '#8E99A8' : colors.primary}
-              />
-              <Text style={styles.volumeComparisonText}>
-                {volumeDelta > 0
-                  ? (language === 'uk'
-                    ? `+${volumePercent}% до минулого «${tw(previousWorkout?.workoutName || '')}»`
-                    : `+${volumePercent}% vs previous "${tw(previousWorkout?.workoutName || '')}"`)
-                  : volumeDelta === 0
-                  ? (language === 'uk'
-                    ? 'Тоннаж відповідає минулому тренуванню'
-                    : 'Volume matched previous workout')
-                  : (language === 'uk'
-                    ? `${volumePercent}% порівняно з минулим тренуванням`
-                    : `${volumePercent}% vs previous workout`)}
-              </Text>
-            </View>
-          ) : null}
-        </View>
+        )}
 
         {/* 5. Personal Records Card (Only shown when real PRs exist) */}
         {prs.length > 0 && (

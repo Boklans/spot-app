@@ -25,6 +25,7 @@ import { LanguagePickerModal } from '@/components/profile/LanguagePickerModal';
 import { PrivacyPolicyModal } from '@/components/profile/PrivacyPolicyModal';
 import { ProPaywallModal } from '@/components/profile/ProPaywallModal';
 import { BetaAccessModal } from '@/components/profile/BetaAccessModal';
+import { ExerciseNoteModal } from '@/components/workout/ExerciseNoteModal';
 import { colors } from '@/constants/colors';
 import { getSyncStatus, subscribeSyncStatus, syncUp, type SyncStatus } from '@/lib/cloudSync';
 import { hapticLight, hapticMedium, hapticSuccess, hapticError } from '@/lib/haptics';
@@ -85,10 +86,13 @@ export const IS_BETA_MODE = true;
 const SHOW_PRO_SUBSCRIPTION = true;
 
 export default function Profile() {
-  const { t, language } = useI18n();
+  const { t, te, language } = useI18n();
   const profile = useUserProfileStore((state) => state.profile);
   const updateProfile = useUserProfileStore((state) => state.updateProfile);
   const program = useProgramStore((state) => state.program);
+  const workouts = useWorkoutHistoryStore((state) => state.workouts);
+  const notes = useExerciseNotesStore((state) => state.notes);
+  const setNote = useExerciseNotesStore((state) => state.setNote);
   const isPurchasedPro = useSubscriptionStore((state) => state.isPro);
   const trialStatus = getTrialStatus(profile.trialStartedAt);
   const isPro = isPurchasedPro || trialStatus.inTrial;
@@ -96,7 +100,7 @@ export default function Profile() {
   const [restoringPurchases, setRestoringPurchases] = useState(false);
   const [activePicker, setActivePicker] = useState<ActivePicker>(null);
 
-  // Modals
+  // Modals & Collapsible States
   const [editProfileVisible, setEditProfileVisible] = useState(false);
   const [restModalVisible, setRestModalVisible] = useState(false);
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
@@ -104,6 +108,10 @@ export default function Profile() {
   const [proModalVisible, setProModalVisible] = useState(false);
   const [authModalVisible, setAuthModalVisible] = useState(false);
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
+  const [appSettingsVisible, setAppSettingsVisible] = useState(false);
+  const [notesModalVisible, setNotesModalVisible] = useState(false);
+  const [editingNoteExercise, setEditingNoteExercise] = useState<string | null>(null);
+  const [showTrainingParams, setShowTrainingParams] = useState(false);
   const [isSendingTest, setIsSendingTest] = useState(false);
 
   // Auth & Sync State
@@ -113,8 +121,38 @@ export default function Profile() {
 
   useEffect(() => {
     useUserProfileStore.getState().loadProfile();
+    useWorkoutHistoryStore.getState().loadHistory();
+    useExerciseNotesStore.getState().loadNotes();
     return subscribeSyncStatus(setSyncStatus);
   }, []);
+
+  const notesEntries = Object.entries(notes).filter(([, text]) => text && text.trim().length > 0);
+
+  const translateGoal = (g: string) => {
+    if (language !== 'uk') return g;
+    if (g === 'Build Muscle') return 'Набір м’язів';
+    if (g === 'Lose Fat') return 'Зниження ваги';
+    if (g === 'Get Stronger') return 'Розвиток сили';
+    if (g === 'Recomposition') return 'Рекомпозиція';
+    return g;
+  };
+
+  const translateExperience = (exp: string) => {
+    if (language !== 'uk') return exp;
+    if (exp === 'Beginner') return 'Початківець';
+    if (exp === 'Intermediate') return 'Середній';
+    if (exp === 'Advanced') return 'Досвідчений';
+    return exp;
+  };
+
+  const translateSplit = (s: string) => {
+    if (language !== 'uk') return s;
+    if (s === 'Full Body') return 'Все тіло (Full Body)';
+    if (s === 'Upper / Lower') return 'Верх / Низ';
+    if (s === 'Push / Pull / Legs') return 'Жим / Тяга / Ноги';
+    if (s === 'Custom Routine') return 'Власна програма';
+    return s;
+  };
 
   const isAuthenticated = Boolean(user);
 
@@ -486,6 +524,49 @@ export default function Profile() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      {/* Clean Top Bar with Quick Settings Button */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 20,
+          paddingTop: 6,
+          paddingBottom: 10,
+        }}
+      >
+        <Text style={{ color: '#FFFFFF', fontSize: 26, fontWeight: '900' }}>
+          {language === 'uk' ? 'Профіль' : 'Profile'}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="App Settings"
+          onPress={() => {
+            hapticLight();
+            setAppSettingsVisible(true);
+          }}
+          style={({ pressed }) => [
+            {
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: '#12161D',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 7,
+            },
+            pressed && { opacity: 0.75 },
+          ]}
+        >
+          <Ionicons name="settings-outline" size={16} color={colors.primary} />
+          <Text style={{ color: '#E2E8F0', fontSize: 12.5, fontWeight: '800' }}>
+            {language === 'uk' ? 'Налаштування' : 'Settings'}
+          </Text>
+        </Pressable>
+      </View>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -515,20 +596,20 @@ export default function Profile() {
             </View>
 
             <Text style={styles.userSubtitle}>
-              {profile.experience} • {profile.goal}
+              {translateExperience(profile.experience)} • {translateGoal(profile.goal)}
             </Text>
 
             <View style={styles.statsRow}>
               <Text style={styles.statsText}>
                 {profile.weightUnit === 'lbs'
                   ? `${Math.round(profile.weightKg * 2.20462)} lbs`
-                  : `${profile.weightKg} kg`}
+                  : `${profile.weightKg} ${language === 'uk' ? 'кг' : 'kg'}`}
                 {' • '}
                 {profile.heightUnit === 'ft'
                   ? `${(profile.heightCm / 30.48).toFixed(1)} ft`
-                  : `${profile.heightCm} cm`}
+                  : `${profile.heightCm} ${language === 'uk' ? 'см' : 'cm'}`}
                 {' • '}
-                BMI {bmi}
+                {language === 'uk' ? 'ІМТ' : 'BMI'} {bmi}
               </Text>
             </View>
           </View>
@@ -538,8 +619,238 @@ export default function Profile() {
           </View>
         </Pressable>
 
-        {/* Cloud Account & Backup Section */}
-        <View style={styles.cloudCard}>
+        {/* 2. Quick Access Hub: Workout History & Saved Exercise Notes */}
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              hapticLight();
+              router.push('/history');
+            }}
+            style={({ pressed }) => [
+              {
+                flex: 1,
+                backgroundColor: '#12161D',
+                borderRadius: 18,
+                padding: 14,
+                borderWidth: 1,
+                borderColor: 'rgba(200, 255, 61, 0.25)',
+                gap: 8,
+              },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <View
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  backgroundColor: 'rgba(200, 255, 61, 0.12)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <MaterialCommunityIcons name="history" size={19} color={colors.primary} />
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+            </View>
+            <View>
+              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>
+                {language === 'uk' ? 'Історія тренувань' : 'Workout History'}
+              </Text>
+              <Text style={{ color: '#8E9BAE', fontSize: 11.5, marginTop: 2 }}>
+                {language === 'uk'
+                  ? `${workouts.length} сесій • Тоді vs Зараз`
+                  : `${workouts.length} sessions • Compare`}
+              </Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              hapticLight();
+              setNotesModalVisible(true);
+            }}
+            style={({ pressed }) => [
+              {
+                flex: 1,
+                backgroundColor: '#12161D',
+                borderRadius: 18,
+                padding: 14,
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.08)',
+                gap: 8,
+              },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <View
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="bookmark" size={17} color={colors.primary} />
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#8E9BAE" />
+            </View>
+            <View>
+              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>
+                {language === 'uk' ? 'Мої нотатки' : 'Exercise Notes'}
+              </Text>
+              <Text style={{ color: '#8E9BAE', fontSize: 11.5, marginTop: 2 }}>
+                {language === 'uk'
+                  ? `${notesEntries.length} шпаргалок до вправ`
+                  : `${notesEntries.length} saved cues`}
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+
+        {/* 3. Compact Training Program Card */}
+        <Text style={styles.sectionTitle}>{t('training')}</Text>
+        <View style={styles.card}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Configure Training Program"
+            onPress={() => {
+              hapticLight();
+              router.push('/(tabs)/program');
+            }}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.rowTitle, { color: colors.primary }]}>
+                {language === 'uk' ? 'Редагувати програму та вправи' : 'Edit Program & Exercises'}
+              </Text>
+              <Text style={styles.rowSubtitle}>
+                {translateSplit(currentSplitLabel)} • {profile.workoutsPerWeek}{' '}
+                {language === 'uk' ? 'дн/тиждень' : 'days/week'} • {translateGoal(profile.goal)}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              hapticLight();
+              setShowTrainingParams((prev) => !prev);
+            }}
+            style={({ pressed }) => [
+              styles.row,
+              !showTrainingParams && styles.rowLast,
+              pressed && styles.rowPressed,
+            ]}
+          >
+            <View>
+              <Text style={styles.rowTitle}>
+                {language === 'uk'
+                  ? 'Змінити ціль, рівень або спліт'
+                  : 'Change Goal, Level or Split'}
+              </Text>
+              <Text style={styles.rowSubtitle}>
+                {language === 'uk'
+                  ? 'Перегенерувати програму під нові параметри'
+                  : 'Regenerate routine with new parameters'}
+              </Text>
+            </View>
+            <Ionicons
+              name={showTrainingParams ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color="#8E9BAE"
+            />
+          </Pressable>
+
+          {showTrainingParams && (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => handleOpenPicker('goal')}
+                style={({ pressed }) => [styles.row, styles.subRow, pressed && styles.rowPressed]}
+              >
+                <View>
+                  <Text style={styles.rowTitle}>
+                    {language === 'uk' ? 'Основна ціль' : 'Primary Goal'}
+                  </Text>
+                  <Text style={styles.rowSubtitle}>{translateGoal(profile.goal)}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => handleOpenPicker('experience')}
+                style={({ pressed }) => [styles.row, styles.subRow, pressed && styles.rowPressed]}
+              >
+                <View>
+                  <Text style={styles.rowTitle}>
+                    {language === 'uk' ? 'Рівень досвіду' : 'Experience Level'}
+                  </Text>
+                  <Text style={styles.rowSubtitle}>{translateExperience(profile.experience)}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => handleOpenPicker('workoutsPerWeek')}
+                style={({ pressed }) => [styles.row, styles.subRow, pressed && styles.rowPressed]}
+              >
+                <View>
+                  <Text style={styles.rowTitle}>
+                    {language === 'uk' ? 'Тренувань на тиждень' : 'Workouts Per Week'}
+                  </Text>
+                  <Text style={styles.rowSubtitle}>
+                    {profile.workoutsPerWeek} {language === 'uk' ? 'днів / тиждень' : 'days / week'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => handleOpenPicker('split')}
+                style={({ pressed }) => [
+                  styles.row,
+                  styles.subRow,
+                  styles.rowLast,
+                  pressed && styles.rowPressed,
+                ]}
+              >
+                <View>
+                  <Text style={styles.rowTitle}>
+                    {language === 'uk' ? 'Структура програми' : 'Training Split'}
+                  </Text>
+                  <Text style={styles.rowSubtitle}>{translateSplit(currentSplitLabel)}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+              </Pressable>
+            </>
+          )}
+        </View>
+
+        {/* 4. Cloud Account & Backup Section */}
+        <View style={[styles.cloudCard, { marginBottom: 16 }]}>
           <View style={styles.cloudCardLeft}>
             <View style={[styles.cloudIconWrap, isAuthenticated && styles.cloudIconWrapActive]}>
               <Ionicons
@@ -609,578 +920,498 @@ export default function Profile() {
           )}
         </View>
 
-        {/* 2. TRAINING Section */}
-        <Text style={styles.sectionTitle}>{t('training')}</Text>
+        {/* 5. Compact App Settings & Community Card */}
         <View style={styles.card}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => handleOpenPicker('goal')}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View>
-              <Text style={styles.rowTitle}>
-                {language === 'uk' ? 'Основна ціль' : 'Primary Goal'}
-              </Text>
-              <Text style={styles.rowSubtitle}>{profile.goal}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleOpenPicker('experience')}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View>
-              <Text style={styles.rowTitle}>
-                {language === 'uk' ? 'Рівень досвіду' : 'Experience Level'}
-              </Text>
-              <Text style={styles.rowSubtitle}>{profile.experience}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleOpenPicker('workoutsPerWeek')}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View>
-              <Text style={styles.rowTitle}>
-                {language === 'uk' ? 'Тренувань на тиждень' : 'Workouts Per Week'}
-              </Text>
-              <Text style={styles.rowSubtitle}>
-                {profile.workoutsPerWeek} {language === 'uk' ? 'днів / тиждень' : 'days / week'}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => handleOpenPicker('split')}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View>
-              <Text style={styles.rowTitle}>
-                {language === 'uk' ? 'Структура програми' : 'Training Split'}
-              </Text>
-              <Text style={styles.rowSubtitle}>{currentSplitLabel}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Configure Training Program"
             onPress={() => {
               hapticLight();
-              router.push('/(tabs)/program');
-            }}
-            style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
-          >
-            <View>
-              <Text style={[styles.rowTitle, { color: colors.primary }]}>
-                {language === 'uk' ? 'Редагувати вправи в програмі' : 'Edit Program Exercises'}
-              </Text>
-              <Text style={styles.rowSubtitle}>
-                {program.workouts.length} {language === 'uk' ? 'тренувальних днів' : 'workout days'}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-          </Pressable>
-        </View>
-
-        {/* 3. PREFERENCES Section */}
-        <Text style={styles.sectionTitle}>{t('preferences')}</Text>
-        <View style={styles.card}>
-          {/* Weight Unit */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Toggle Weight Unit"
-            onPress={() => {
-              hapticLight();
-              updateProfile({ weightUnit: profile.weightUnit === 'kg' ? 'lbs' : 'kg' });
+              setAppSettingsVisible(true);
             }}
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
           >
             <View style={styles.rowLeftWithIcon}>
-              <MaterialCommunityIcons name="weight-kilogram" size={20} color="#8E9BAE" />
+              <Ionicons name="options-outline" size={20} color={colors.primary} />
               <View>
-                <Text style={styles.rowTitle}>{t('weightUnit')}</Text>
+                <Text style={styles.rowTitle}>
+                  {language === 'uk' ? 'Налаштування застосунку' : 'App Preferences & Units'}
+                </Text>
                 <Text style={styles.rowSubtitle}>
-                  {profile.weightUnit === 'kg'
-                    ? (language === 'uk' ? 'Кілограми (кг)' : 'Kilograms (kg)')
-                    : (language === 'uk' ? 'Фунти (lbs)' : 'Pounds (lbs)')}
+                  {profile.language === 'uk' ? 'УКР' : 'EN'} • {profile.weightUnit.toUpperCase()} •{' '}
+                  {Math.floor(profile.defaultRestSeconds / 60)}:
+                  {(profile.defaultRestSeconds % 60).toString().padStart(2, '0')} •{' '}
+                  {language === 'uk' ? 'Сповіщення та дані' : 'Alerts & Data'}
                 </Text>
               </View>
             </View>
-            <View style={styles.segmentWrap}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Set Kilograms"
-                onPress={() => {
-                  hapticLight();
-                  updateProfile({ weightUnit: 'kg' });
-                }}
-                style={[styles.segmentBtn, profile.weightUnit === 'kg' && styles.segmentBtnActive]}
-              >
-                <Text
-                  style={[
-                    styles.segmentBtnText,
-                    profile.weightUnit === 'kg' && styles.segmentBtnTextActive,
-                  ]}
-                >
-                  KG
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Set Pounds"
-                onPress={() => {
-                  hapticLight();
-                  updateProfile({ weightUnit: 'lbs' });
-                }}
-                style={[styles.segmentBtn, profile.weightUnit === 'lbs' && styles.segmentBtnActive]}
-              >
-                <Text
-                  style={[
-                    styles.segmentBtnText,
-                    profile.weightUnit === 'lbs' && styles.segmentBtnTextActive,
-                  ]}
-                >
-                  LBS
-                </Text>
-              </Pressable>
-            </View>
-          </Pressable>
-
-          {/* Height / Body Unit */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Toggle Height Unit"
-            onPress={() => {
-              hapticLight();
-              updateProfile({ heightUnit: profile.heightUnit === 'cm' ? 'ft' : 'cm' });
-            }}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View style={styles.rowLeftWithIcon}>
-              <MaterialCommunityIcons name="ruler" size={20} color="#8E9BAE" />
-              <View>
-                <Text style={styles.rowTitle}>{t('heightUnit')}</Text>
-                <Text style={styles.rowSubtitle}>
-                  {profile.heightUnit === 'cm'
-                    ? (language === 'uk' ? 'Сантиметри (см)' : 'Centimeters (cm)')
-                    : (language === 'uk' ? 'Фути та дюйми (фути)' : 'Feet & Inches (ft)')}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.segmentWrap}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Set Centimeters"
-                onPress={() => {
-                  hapticLight();
-                  updateProfile({ heightUnit: 'cm' });
-                }}
-                style={[styles.segmentBtn, profile.heightUnit === 'cm' && styles.segmentBtnActive]}
-              >
-                <Text
-                  style={[
-                    styles.segmentBtnText,
-                    profile.heightUnit === 'cm' && styles.segmentBtnTextActive,
-                  ]}
-                >
-                  CM
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Set Feet"
-                onPress={() => {
-                  hapticLight();
-                  updateProfile({ heightUnit: 'ft' });
-                }}
-                style={[styles.segmentBtn, profile.heightUnit === 'ft' && styles.segmentBtnActive]}
-              >
-                <Text
-                  style={[
-                    styles.segmentBtnText,
-                    profile.heightUnit === 'ft' && styles.segmentBtnTextActive,
-                  ]}
-                >
-                  FT
-                </Text>
-              </Pressable>
-            </View>
-          </Pressable>
-
-          {/* Rest Timer */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Change Rest Timer"
-            onPress={() => {
-              hapticLight();
-              setRestModalVisible(true);
-            }}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View style={styles.rowLeftWithIcon}>
-              <MaterialCommunityIcons name="timer-outline" size={20} color="#8E9BAE" />
-              <View>
-                <Text style={styles.rowTitle}>{t('restTimerSetting')}</Text>
-                <Text style={styles.rowSubtitle}>
-                  {Math.floor(profile.defaultRestSeconds / 60)}:{(profile.defaultRestSeconds % 60).toString().padStart(2, '0')} {t('min')}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.valueRow}>
-              <Text style={styles.valuePill}>
-                {Math.floor(profile.defaultRestSeconds / 60)}:{(profile.defaultRestSeconds % 60).toString().padStart(2, '0')}
-              </Text>
-              <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-            </View>
-          </Pressable>
-
-          {/* Language Selector */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Change language"
-            onPress={() => {
-              hapticLight();
-              updateProfile({ language: profile.language === 'uk' ? 'en' : 'uk' });
-            }}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View style={styles.rowLeftWithIcon}>
-              <Ionicons name="globe-outline" size={20} color="#8E9BAE" />
-              <View>
-                <Text style={styles.rowTitle}>{t('language')}</Text>
-                <Text style={styles.rowSubtitle}>
-                  {profile.language === 'uk' ? 'Українська' : 'English'}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.segmentWrap}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Set Ukrainian"
-                hitSlop={8}
-                onPress={() => {
-                  hapticLight();
-                  updateProfile({ language: 'uk' });
-                }}
-                style={[styles.segmentBtn, profile.language === 'uk' && styles.segmentBtnActive]}
-              >
-                <Text
-                  style={[
-                    styles.segmentBtnText,
-                    profile.language === 'uk' && styles.segmentBtnTextActive,
-                  ]}
-                >
-                  🇺🇦 UK
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Set English"
-                hitSlop={8}
-                onPress={() => {
-                  hapticLight();
-                  updateProfile({ language: 'en' });
-                }}
-                style={[styles.segmentBtn, profile.language === 'en' && styles.segmentBtnActive]}
-              >
-                <Text
-                  style={[
-                    styles.segmentBtnText,
-                    profile.language === 'en' && styles.segmentBtnTextActive,
-                  ]}
-                >
-                  🇺🇸 EN
-                </Text>
-              </Pressable>
-            </View>
-          </Pressable>
-
-          {/* Notifications Toggle */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Toggle Notifications"
-            onPress={() => handleToggleNotifications(!profile.notifications)}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View style={styles.rowLeftWithIcon}>
-              <Ionicons name="notifications-outline" size={20} color="#8E9BAE" />
-              <View>
-                <Text style={styles.rowTitle}>{t('notifications')}</Text>
-                <Text style={styles.rowSubtitle}>
-                  {profile.notifications
-                    ? (language === 'uk' ? 'Розумні нагадування в день тренування' : 'Smart workout day reminders')
-                    : (language === 'uk' ? 'Вимкнено' : 'Disabled')}
-                </Text>
-              </View>
-            </View>
-            <Switch
-              trackColor={{ false: '#1A212B', true: colors.primary }}
-              thumbColor={profile.notifications ? '#0B0D0F' : '#8E9BAE'}
-              ios_backgroundColor="#1A212B"
-              onValueChange={handleToggleNotifications}
-              value={profile.notifications}
-            />
-          </Pressable>
-
-          {/* Reminder Time & Test Notification (when enabled) */}
-          {profile.notifications && (
-            <>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Set Reminder Time"
-                onPress={() => {
-                  hapticLight();
-                  setReminderModalVisible(true);
-                }}
-                style={({ pressed }) => [styles.row, styles.subRow, pressed && styles.rowPressed]}
-              >
-                <View style={styles.rowLeftWithIcon}>
-                  <Ionicons name="time-outline" size={18} color={colors.primary} />
-                  <View>
-                    <Text style={styles.rowTitle}>{t('reminderTime')}</Text>
-                    <Text style={styles.rowSubtitle}>{t('reminderTimeDesc')}</Text>
-                  </View>
-                </View>
-                <View style={styles.valueRow}>
-                  <Text style={styles.valuePill}>{profile.notificationTime || '09:00'}</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#8E9BAE" />
-                </View>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Send Test Notification"
-                disabled={isSendingTest}
-                onPress={handleSendTestNotification}
-                style={({ pressed }) => [
-                  styles.row,
-                  styles.subRow,
-                  pressed && styles.rowPressed,
-                  isSendingTest && { opacity: 0.6 },
-                ]}
-              >
-                <View style={styles.rowLeftWithIcon}>
-                  <Ionicons name="paper-plane-outline" size={18} color={colors.primary} />
-                  <View>
-                    <Text style={[styles.rowTitle, { color: colors.primary }]}>
-                      {t('sendTestNotification')}
-                    </Text>
-                    <Text style={styles.rowSubtitle}>
-                      {language === 'uk'
-                        ? 'Перевірити вигляд сповіщення зараз'
-                        : 'Preview notification message right now'}
-                    </Text>
-                  </View>
-                </View>
-                {isSendingTest ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Ionicons name="send" size={15} color={colors.primary} />
-                )}
-              </Pressable>
-            </>
-          )}
-
-          {/* Sound Effects */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Toggle Sound Effects"
-            onPress={() => {
-              hapticLight();
-              updateProfile({ soundEnabled: !profile.soundEnabled });
-            }}
-            style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
-          >
-            <View style={styles.rowLeftWithIcon}>
-              <MaterialCommunityIcons name="volume-high" size={20} color="#8E9BAE" />
-              <Text style={styles.rowTitle}>{t('soundEffects')}</Text>
-            </View>
-            <Switch
-              trackColor={{ false: '#1A212B', true: colors.primary }}
-              thumbColor={profile.soundEnabled ? '#0B0D0F' : '#8E9BAE'}
-              ios_backgroundColor="#1A212B"
-              onValueChange={(val) => {
-                hapticLight();
-                updateProfile({ soundEnabled: val });
-              }}
-              value={profile.soundEnabled}
-            />
-          </Pressable>
-        </View>
-
-        {/* 4. ACCOUNT Section */}
-        <Text style={styles.sectionTitle}>{t('account')}</Text>
-        <View style={styles.card}>
-          {IS_BETA_MODE ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="SPOT Beta Access details"
-              onPress={() => {
-                hapticLight();
-                setProModalVisible(true);
-              }}
-              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-            >
-              <Text style={styles.rowTitle}>
-                {language === 'uk' ? 'Статус доступу' : 'Access Status'}
-              </Text>
-              <View style={styles.badgeRow}>
-                <View style={[styles.proBadge, styles.betaBadgeActive]}>
-                  <Text style={[styles.proBadgeText, styles.betaBadgeTextActive]}>
-                    {language === 'uk' ? 'БЕТА • БЕЗКОШТОВНО' : 'BETA • FREE'}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-              </View>
-            </Pressable>
-          ) : SHOW_PRO_SUBSCRIPTION && (
-            <>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Open SPOT PRO subscription details"
-                onPress={() => {
-                  hapticLight();
-                  setProModalVisible(true);
-                }}
-                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-              >
-                <Text style={styles.rowTitle}>{t('subscription')}</Text>
-                <View style={styles.badgeRow}>
-                  <View style={[styles.proBadge, (isPurchasedPro || trialStatus.inTrial) && styles.proBadgeActive]}>
-                    <Text style={[styles.proBadgeText, (isPurchasedPro || trialStatus.inTrial) && styles.proBadgeTextActive]}>
-                      {isPurchasedPro
-                        ? (language === 'uk' ? 'PRO АКТИВНО' : 'PRO ACTIVE')
-                        : trialStatus.inTrial
-                        ? (language === 'uk' ? `ТРІАЛ • ${trialStatus.daysLeft} ДН` : `TRIAL • ${trialStatus.daysLeft}D`)
-                        : 'PRO'}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-                </View>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Restore Purchases"
-                disabled={restoringPurchases}
-                onPress={handleRestorePurchases}
-                style={({ pressed }) => [
-                  styles.row,
-                  pressed && styles.rowPressed,
-                  restoringPurchases && { opacity: 0.6 },
-                ]}
-              >
-                <Text style={styles.rowTitle}>{t('restorePurchases')}</Text>
-                {restoringPurchases ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Ionicons name="refresh-outline" size={18} color="#8E9BAE" />
-                )}
-              </Pressable>
-            </>
-          )}
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Privacy Policy"
-            onPress={() => {
-              hapticLight();
-              setPrivacyModalVisible(true);
-            }}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <Text style={styles.rowTitle}>{t('privacy')}</Text>
             <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Contact Support"
-            onPress={handleContactSupport}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <Text style={styles.rowTitle}>{t('support')}</Text>
-            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Feedback and Feature Request"
-            onPress={handleSendFeedback}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View>
-              <Text style={styles.rowTitle}>
-                {language === 'uk' ? 'Запропонувати ідею / Відгук' : 'Suggest Feature / Feedback'}
-              </Text>
-              <Text style={styles.rowSubtitle}>
-                {language === 'uk' ? 'Напишіть на vanzalabs@gmail.com' : 'Email to vanzalabs@gmail.com'}
-              </Text>
-            </View>
-            <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.primary} />
           </Pressable>
 
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Telegram Community"
             onPress={handleOpenTelegram}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View>
-              <Text style={styles.rowTitle}>Telegram @vanzalabs</Text>
-              <Text style={styles.rowSubtitle}>
-                {language === 'uk' ? 'Чат спільноти, фідбек та прямий зв’язок' : 'Community chat, feedback & direct contact'}
-              </Text>
-            </View>
-            <Ionicons name="paper-plane" size={18} color="#2AABEE" />
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Restart Onboarding"
-            onPress={handleRestartOnboarding}
             style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
           >
-            <View>
-              <Text style={[styles.rowTitle, { color: colors.primary }]}>{t('restartOnboarding')}</Text>
-              <Text style={styles.rowSubtitle}>{t('restartSubtitle')}</Text>
+            <View style={styles.rowLeftWithIcon}>
+              <Ionicons name="paper-plane" size={19} color="#2AABEE" />
+              <View>
+                <Text style={styles.rowTitle}>
+                  {language === 'uk' ? 'Спільнота та підтримка в Telegram' : 'Telegram Community & Support'}
+                </Text>
+                <Text style={styles.rowSubtitle}>@vanzalabs • {language === 'uk' ? 'Запропонувати ідею або написати нам' : 'Feedback & direct contact'}</Text>
+              </View>
             </View>
-            <Ionicons name="refresh" size={18} color={colors.primary} />
-          </Pressable>
-        </View>
-
-        {/* 5. Danger Zone */}
-        <Text style={[styles.sectionTitle, styles.dangerTitle]}>{t('dangerZone')}</Text>
-        <View style={[styles.card, styles.dangerCard]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isAuthenticated ? t('deleteAccountAndData') : t('resetAppData')}
-            onPress={handleResetPress}
-            style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
-          >
-            <View style={{ flex: 1, paddingRight: 8 }}>
-              <Text style={styles.dangerText}>
-                {isAuthenticated ? t('deleteAccountAndData') : t('resetAppData')}
-              </Text>
-              <Text style={styles.dangerSubText}>
-                {isAuthenticated ? t('deleteAccountSubtitle') : t('resetSubtitle')}
-              </Text>
-            </View>
-            <Ionicons name="trash-outline" size={18} color="#F87171" />
+            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
           </Pressable>
         </View>
 
         <Text style={styles.versionText}>SPOT v1.0.2 • VanzaLabs</Text>
       </ScrollView>
+
+      {/* Saved Exercise Notes Modal */}
+      <Modal
+        visible={notesModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setNotesModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', justifyContent: 'flex-end' }}>
+          <SafeAreaView
+            style={{
+              backgroundColor: '#0E1218',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              maxHeight: '82%',
+              borderTopWidth: 1,
+              borderColor: 'rgba(255,255,255,0.1)',
+            }}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(255,255,255,0.08)',
+              }}
+            >
+              <View>
+                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>
+                  {language === 'uk' ? 'Мої нотатки до вправ' : 'My Exercise Notes'}
+                </Text>
+                <Text style={{ color: '#8E9BAE', fontSize: 12, marginTop: 2 }}>
+                  {language === 'uk'
+                    ? 'Зберігаються між тренуваннями й показуються під назвою вправи'
+                    : 'Saved across workouts and shown under the exercise name'}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setNotesModalVisible(false)}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 17,
+                  backgroundColor: '#181E27',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="close" size={20} color="#FFFFFF" />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={{ padding: 20, gap: 10 }}>
+              {notesEntries.length === 0 ? (
+                <View style={{ paddingVertical: 32, alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="bookmark-outline" size={32} color="#64748B" />
+                  <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '800', textAlign: 'center' }}>
+                    {language === 'uk' ? 'Поки немає збережених нотаток' : 'No saved notes yet'}
+                  </Text>
+                  <Text style={{ color: '#8E9BAE', fontSize: 13, textAlign: 'center', lineHeight: 18 }}>
+                    {language === 'uk'
+                      ? 'Під час тренування натисніть «Нотатка» біля будь-якої вправи, щоб записати рівень сидіння, хват або підказку.'
+                      : 'Tap "Note" on any exercise during a workout to save seat settings, grip, or cues.'}
+                  </Text>
+                </View>
+              ) : (
+                notesEntries.map(([exKey, noteText]) => (
+                  <Pressable
+                    key={exKey}
+                    onPress={() => {
+                      hapticLight();
+                      setEditingNoteExercise(exKey);
+                    }}
+                    style={{
+                      backgroundColor: '#141922',
+                      borderRadius: 14,
+                      padding: 14,
+                      borderWidth: 1,
+                      borderColor: 'rgba(200, 255, 61, 0.22)',
+                      gap: 6,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '800' }}>
+                        {te(exKey)}
+                      </Text>
+                      <Ionicons name="create-outline" size={16} color="#8E9BAE" />
+                    </View>
+                    <Text style={{ color: '#E2E8F0', fontSize: 13, lineHeight: 18 }}>{noteText}</Text>
+                  </Pressable>
+                ))
+              )}
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+      </Modal>
+
+      {editingNoteExercise && (
+        <ExerciseNoteModal
+          visible={Boolean(editingNoteExercise)}
+          exerciseName={te(editingNoteExercise)}
+          initialNote={notes[editingNoteExercise] || ''}
+          language={language}
+          onClose={() => setEditingNoteExercise(null)}
+          onSave={(newNote) => setNote(editingNoteExercise, newNote)}
+        />
+      )}
+
+      {/* App Settings Modal (One-time preferences tucked cleanly) */}
+      <Modal
+        visible={appSettingsVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setAppSettingsVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', justifyContent: 'flex-end' }}>
+          <SafeAreaView
+            style={{
+              backgroundColor: '#0B0D0F',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              maxHeight: '88%',
+              borderTopWidth: 1,
+              borderColor: 'rgba(255,255,255,0.1)',
+            }}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(255,255,255,0.08)',
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>
+                {language === 'uk' ? 'Налаштування застосунку' : 'App Preferences'}
+              </Text>
+              <Pressable
+                onPress={() => setAppSettingsVisible(false)}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 17,
+                  backgroundColor: '#181E27',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="close" size={20} color="#FFFFFF" />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={{ padding: 20 }}>
+              <Text style={styles.sectionTitle}>{t('preferences')}</Text>
+              <View style={styles.card}>
+                {/* Weight Unit */}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    hapticLight();
+                    updateProfile({ weightUnit: profile.weightUnit === 'kg' ? 'lbs' : 'kg' });
+                  }}
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                >
+                  <View style={styles.rowLeftWithIcon}>
+                    <MaterialCommunityIcons name="weight-kilogram" size={20} color="#8E9BAE" />
+                    <View>
+                      <Text style={styles.rowTitle}>{t('weightUnit')}</Text>
+                      <Text style={styles.rowSubtitle}>
+                        {profile.weightUnit === 'kg'
+                          ? language === 'uk' ? 'Кілограми (кг)' : 'Kilograms (kg)'
+                          : language === 'uk' ? 'Фунти (lbs)' : 'Pounds (lbs)'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.segmentWrap}>
+                    <Pressable
+                      onPress={() => {
+                        hapticLight();
+                        updateProfile({ weightUnit: 'kg' });
+                      }}
+                      style={[styles.segmentBtn, profile.weightUnit === 'kg' && styles.segmentBtnActive]}
+                    >
+                      <Text style={[styles.segmentBtnText, profile.weightUnit === 'kg' && styles.segmentBtnTextActive]}>
+                        KG
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        hapticLight();
+                        updateProfile({ weightUnit: 'lbs' });
+                      }}
+                      style={[styles.segmentBtn, profile.weightUnit === 'lbs' && styles.segmentBtnActive]}
+                    >
+                      <Text style={[styles.segmentBtnText, profile.weightUnit === 'lbs' && styles.segmentBtnTextActive]}>
+                        LBS
+                      </Text>
+                    </Pressable>
+                  </View>
+                </Pressable>
+
+                {/* Height Unit */}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    hapticLight();
+                    updateProfile({ heightUnit: profile.heightUnit === 'cm' ? 'ft' : 'cm' });
+                  }}
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                >
+                  <View style={styles.rowLeftWithIcon}>
+                    <MaterialCommunityIcons name="ruler" size={20} color="#8E9BAE" />
+                    <View>
+                      <Text style={styles.rowTitle}>{t('heightUnit')}</Text>
+                      <Text style={styles.rowSubtitle}>
+                        {profile.heightUnit === 'cm'
+                          ? language === 'uk' ? 'Сантиметри (см)' : 'Centimeters (cm)'
+                          : language === 'uk' ? 'Фути та дюйми (ft)' : 'Feet & Inches (ft)'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.segmentWrap}>
+                    <Pressable
+                      onPress={() => {
+                        hapticLight();
+                        updateProfile({ heightUnit: 'cm' });
+                      }}
+                      style={[styles.segmentBtn, profile.heightUnit === 'cm' && styles.segmentBtnActive]}
+                    >
+                      <Text style={[styles.segmentBtnText, profile.heightUnit === 'cm' && styles.segmentBtnTextActive]}>
+                        CM
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        hapticLight();
+                        updateProfile({ heightUnit: 'ft' });
+                      }}
+                      style={[styles.segmentBtn, profile.heightUnit === 'ft' && styles.segmentBtnActive]}
+                    >
+                      <Text style={[styles.segmentBtnText, profile.heightUnit === 'ft' && styles.segmentBtnTextActive]}>
+                        FT
+                      </Text>
+                    </Pressable>
+                  </View>
+                </Pressable>
+
+                {/* Rest Timer */}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    hapticLight();
+                    setRestModalVisible(true);
+                  }}
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                >
+                  <View style={styles.rowLeftWithIcon}>
+                    <MaterialCommunityIcons name="timer-outline" size={20} color="#8E9BAE" />
+                    <View>
+                      <Text style={styles.rowTitle}>{t('restTimerSetting')}</Text>
+                      <Text style={styles.rowSubtitle}>
+                        {Math.floor(profile.defaultRestSeconds / 60)}:
+                        {(profile.defaultRestSeconds % 60).toString().padStart(2, '0')} {t('min')}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.valueRow}>
+                    <Text style={styles.valuePill}>
+                      {Math.floor(profile.defaultRestSeconds / 60)}:
+                      {(profile.defaultRestSeconds % 60).toString().padStart(2, '0')}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+                  </View>
+                </Pressable>
+
+                {/* Language Selector */}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    hapticLight();
+                    updateProfile({ language: profile.language === 'uk' ? 'en' : 'uk' });
+                  }}
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                >
+                  <View style={styles.rowLeftWithIcon}>
+                    <Ionicons name="globe-outline" size={20} color="#8E9BAE" />
+                    <View>
+                      <Text style={styles.rowTitle}>{t('language')}</Text>
+                      <Text style={styles.rowSubtitle}>
+                        {profile.language === 'uk' ? 'Українська' : 'English'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.segmentWrap}>
+                    <Pressable
+                      onPress={() => {
+                        hapticLight();
+                        updateProfile({ language: 'uk' });
+                      }}
+                      style={[styles.segmentBtn, profile.language === 'uk' && styles.segmentBtnActive]}
+                    >
+                      <Text style={[styles.segmentBtnText, profile.language === 'uk' && styles.segmentBtnTextActive]}>
+                        🇺🇦 UK
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        hapticLight();
+                        updateProfile({ language: 'en' });
+                      }}
+                      style={[styles.segmentBtn, profile.language === 'en' && styles.segmentBtnActive]}
+                    >
+                      <Text style={[styles.segmentBtnText, profile.language === 'en' && styles.segmentBtnTextActive]}>
+                        🇺🇸 EN
+                      </Text>
+                    </Pressable>
+                  </View>
+                </Pressable>
+
+                {/* Notifications Toggle */}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => handleToggleNotifications(!profile.notifications)}
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                >
+                  <View style={styles.rowLeftWithIcon}>
+                    <Ionicons name="notifications-outline" size={20} color="#8E9BAE" />
+                    <View>
+                      <Text style={styles.rowTitle}>{t('notifications')}</Text>
+                      <Text style={styles.rowSubtitle}>
+                        {profile.notifications
+                          ? language === 'uk' ? 'Розумні нагадування' : 'Smart workout reminders'
+                          : language === 'uk' ? 'Вимкнено' : 'Disabled'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    trackColor={{ false: '#1A212B', true: colors.primary }}
+                    thumbColor={profile.notifications ? '#0B0D0F' : '#8E9BAE'}
+                    ios_backgroundColor="#1A212B"
+                    onValueChange={handleToggleNotifications}
+                    value={profile.notifications}
+                  />
+                </Pressable>
+
+                {/* Sound Effects */}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    hapticLight();
+                    updateProfile({ soundEnabled: !profile.soundEnabled });
+                  }}
+                  style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
+                >
+                  <View style={styles.rowLeftWithIcon}>
+                    <MaterialCommunityIcons name="volume-high" size={20} color="#8E9BAE" />
+                    <Text style={styles.rowTitle}>{t('soundEffects')}</Text>
+                  </View>
+                  <Switch
+                    trackColor={{ false: '#1A212B', true: colors.primary }}
+                    thumbColor={profile.soundEnabled ? '#0B0D0F' : '#8E9BAE'}
+                    ios_backgroundColor="#1A212B"
+                    onValueChange={(val) => {
+                      hapticLight();
+                      updateProfile({ soundEnabled: val });
+                    }}
+                    value={profile.soundEnabled}
+                  />
+                </Pressable>
+              </View>
+
+              {/* Account & Privacy */}
+              <Text style={styles.sectionTitle}>{t('account')}</Text>
+              <View style={styles.card}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    hapticLight();
+                    setAppSettingsVisible(false);
+                    setPrivacyModalVisible(true);
+                  }}
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                >
+                  <Text style={styles.rowTitle}>{t('privacy')}</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleContactSupport}
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                >
+                  <Text style={styles.rowTitle}>{t('support')}</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setAppSettingsVisible(false);
+                    handleRestartOnboarding();
+                  }}
+                  style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
+                >
+                  <View>
+                    <Text style={[styles.rowTitle, { color: colors.primary }]}>{t('restartOnboarding')}</Text>
+                    <Text style={styles.rowSubtitle}>{t('restartSubtitle')}</Text>
+                  </View>
+                  <Ionicons name="refresh" size={18} color={colors.primary} />
+                </Pressable>
+              </View>
+
+              {/* Danger Zone */}
+              <Text style={[styles.sectionTitle, styles.dangerTitle]}>{t('dangerZone')}</Text>
+              <View style={[styles.card, styles.dangerCard]}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setAppSettingsVisible(false);
+                    handleResetPress();
+                  }}
+                  style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
+                >
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={styles.dangerText}>
+                      {isAuthenticated ? t('deleteAccountAndData') : t('resetAppData')}
+                    </Text>
+                    <Text style={styles.dangerSubText}>
+                      {isAuthenticated ? t('deleteAccountSubtitle') : t('resetSubtitle')}
+                    </Text>
+                  </View>
+                  <Ionicons name="trash-outline" size={18} color="#F87171" />
+                </Pressable>
+              </View>
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+      </Modal>
 
       {/* SPOT Access Modal: Beta Access or Pro Paywall */}
       {IS_BETA_MODE ? (

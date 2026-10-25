@@ -20,7 +20,9 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { formatVolume } from '@/lib/progressCalculator';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
+import { useExerciseNotesStore } from '@/store/exerciseNotesStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
+import { ExerciseDetailModal } from '@/components/program/ExerciseDetailModal';
 
 // Temporary feature flag: hide Instagram Stories sharing
 const SHOW_INSTAGRAM_STORIES = false;
@@ -31,12 +33,19 @@ export default function HistoryDetail() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const workouts = useWorkoutHistoryStore((state) => state.workouts);
   const loadHistory = useWorkoutHistoryStore((state) => state.loadHistory);
+  const notes = useExerciseNotesStore((state) => state.notes);
+  const loadNotes = useExerciseNotesStore((state) => state.loadNotes);
   const [isStoriesModalVisible, setIsStoriesModalVisible] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [selectedGuideExercise, setSelectedGuideExercise] = useState<{
+    name: string;
+    muscleGroup?: string;
+  } | null>(null);
 
   useEffect(() => {
     loadHistory();
-  }, [loadHistory]);
+    loadNotes();
+  }, [loadHistory, loadNotes]);
 
   const workout = workouts.find((item) => item.id === id);
 
@@ -199,15 +208,7 @@ export default function HistoryDetail() {
           </View>
         </View>
 
-        {/* 4. Volume Card */}
-        <View style={styles.volumeCard}>
-          <Text style={styles.volumeValue}>
-            {formatVolume(workout.totalVolume)}
-          </Text>
-          <Text style={styles.volumeLabel}>{t('volume')}</Text>
-        </View>
-
-        {/* 5. Personal Records Card */}
+        {/* 4. Personal Records Card */}
         {prs.length > 0 && (
           <View style={styles.prsCard}>
             <View style={styles.prHeader}>
@@ -276,37 +277,102 @@ export default function HistoryDetail() {
 
         {/* 7. Exercises Breakdown */}
         <Text style={styles.sectionTitle}>{t('exercises').toUpperCase()}</Text>
-        {workout.exercises.map((exercise) => (
-          <View key={exercise.exerciseId} style={styles.exerciseCard}>
-            <View style={styles.exerciseHeaderRow}>
-              <View style={styles.exerciseThumbWrap}>
-                <Image
-                  source={getExerciseImage(exercise.exerciseName)}
-                  style={styles.exerciseThumb}
-                  resizeMode="cover"
-                />
-              </View>
-              <View style={styles.exerciseHeaderInfo}>
-                <Text style={styles.exerciseName}>{te(exercise.exerciseName)}</Text>
-                <Text style={styles.muscle}>{tm(exercise.muscleGroup)}</Text>
-              </View>
-            </View>
-            {exercise.sets.map((set, index) => (
-              <View
-                key={`${exercise.exerciseId}-${set.completedAt || index}-${index}`}
-                style={styles.setRow}
+        {workout.exercises.map((exercise) => {
+          const savedNote = notes[exercise.exerciseName.trim().toLowerCase()] || '';
+          const bestWeight = Math.max(0, ...exercise.sets.map((s) => s.weight));
+          return (
+            <View key={exercise.exerciseId} style={styles.exerciseCard}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  hapticLight();
+                  setSelectedGuideExercise({
+                    name: exercise.exerciseName,
+                    muscleGroup: exercise.muscleGroup,
+                  });
+                }}
+                style={styles.exerciseHeaderRow}
               >
-                <Text style={styles.setLabel}>
-                  {t('set')} {index + 1}
-                </Text>
-                <Text style={styles.setValue}>
-                  {set.weight ? formatWithUnit(set.weight) : t('bodyweight')} × {set.reps}
-                </Text>
-                <Text style={styles.setVolume}>{formatVolume(set.volume)}</Text>
-              </View>
-            ))}
-          </View>
-        ))}
+                <View style={styles.exerciseThumbWrap}>
+                  <Image
+                    source={getExerciseImage(exercise.exerciseName)}
+                    style={styles.exerciseThumb}
+                    resizeMode="cover"
+                  />
+                </View>
+                <View style={styles.exerciseHeaderInfo}>
+                  <Text style={styles.exerciseName}>{te(exercise.exerciseName)}</Text>
+                  <Text style={styles.muscle}>{tm(exercise.muscleGroup)}</Text>
+                </View>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(200, 255, 61, 0.22)',
+                    borderRadius: 8,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                  }}
+                >
+                  <Ionicons name="play-circle-outline" size={13} color={colors.primary} />
+                  <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>
+                    {language === 'uk' ? 'Техніка' : 'Guide'}
+                  </Text>
+                </View>
+              </Pressable>
+
+              {savedNote ? (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    backgroundColor: 'rgba(200, 255, 61, 0.07)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(200, 255, 61, 0.2)',
+                    borderRadius: 10,
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    marginBottom: 8,
+                  }}
+                >
+                  <Ionicons name="bookmark" size={13} color={colors.primary} />
+                  <Text style={{ color: '#E2E8F0', fontSize: 12, fontWeight: '600', flex: 1 }}>
+                    {savedNote}
+                  </Text>
+                </View>
+              ) : null}
+
+              {exercise.sets.map((set, index) => {
+                const isTopSet = set.weight > 0 && set.weight === bestWeight && index === 0;
+                return (
+                  <View
+                    key={`${exercise.exerciseId}-${set.completedAt || index}-${index}`}
+                    style={styles.setRow}
+                  >
+                    <Text style={styles.setLabel}>
+                      {t('set')} {index + 1}
+                    </Text>
+                    <Text style={styles.setValue}>
+                      {set.weight ? formatWithUnit(set.weight) : t('bodyweight')} × {set.reps}{' '}
+                      {language === 'uk' ? 'повт' : 'reps'}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={15}
+                        color={isTopSet ? colors.primary : '#64748B'}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          );
+        })}
 
         <Pressable
           accessibilityRole="button"
@@ -367,6 +433,15 @@ export default function HistoryDetail() {
           </Text>
         </Pressable>
       </ScrollView>
+
+      {selectedGuideExercise && (
+        <ExerciseDetailModal
+          visible={Boolean(selectedGuideExercise)}
+          onClose={() => setSelectedGuideExercise(null)}
+          exerciseName={selectedGuideExercise.name}
+          muscleGroup={selectedGuideExercise.muscleGroup}
+        />
+      )}
 
       {/* 8. Instagram Stories 9:16 Preview Modal */}
       <Modal

@@ -18,7 +18,9 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { calculateEstimated1RM } from '@/lib/personalRecords';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
+import { useExerciseNotesStore } from '@/store/exerciseNotesStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
+import { ExerciseAnimationView } from './ExerciseAnimationView';
 
 export interface ExerciseDetailModalProps {
   visible: boolean;
@@ -43,8 +45,10 @@ export function ExerciseDetailModal({
   const { unitLabel, fromKg } = useWeightUnit();
   const isUk = language === 'uk';
   const [selectedPhase, setSelectedPhase] = useState<1 | 2 | 3>(1);
+  const [visualMode, setVisualMode] = useState<'animation' | '3d'>('animation');
 
   const workouts = useWorkoutHistoryStore((state) => state.workouts);
+  const savedNote = useExerciseNotesStore((state) => state.getNote(exerciseName));
 
   const details = useMemo(
     () => getExerciseDetails(exerciseName, muscleGroup),
@@ -149,40 +153,165 @@ export function ExerciseDetailModal({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
-            {/* 1. Large Hero Exercise 3D Illustration with Phase Directive */}
-            <View style={styles.heroImageCard}>
-              <Image
-                source={getExerciseImage(exerciseName, customImageUri)}
-                style={styles.heroImage}
-                resizeMode="cover"
-              />
-              <View style={styles.heroOverlayBadge}>
-                <Ionicons name="sparkles" size={11} color={colors.primary} />
-                <Text style={styles.heroOverlayBadgeText}>
-                  {isUk ? '3D ДЕМОНСТРАЦІЯ ТЕХНІКИ' : '3D EXERCISE GUIDE'}
+            {/* Visual Mode Switcher: Live Biomechanics Animation vs 3D Muscle Highlight */}
+            <View
+              style={{
+                flexDirection: 'row',
+                backgroundColor: '#12161D',
+                borderRadius: 14,
+                padding: 4,
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.08)',
+                marginBottom: 12,
+              }}
+            >
+              <Pressable
+                accessibilityRole="tab"
+                onPress={() => {
+                  hapticLight();
+                  setVisualMode('animation');
+                }}
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  backgroundColor: visualMode === 'animation' ? colors.primary : 'transparent',
+                }}
+              >
+                <Ionicons
+                  name="play-circle"
+                  size={15}
+                  color={visualMode === 'animation' ? '#0B0D0F' : '#8E9BAE'}
+                />
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '800',
+                    color: visualMode === 'animation' ? '#0B0D0F' : '#CBD5E1',
+                  }}
+                >
+                  {isUk ? 'Анімація руху' : 'Live Animation'}
                 </Text>
-              </View>
+              </Pressable>
 
-              {/* Dynamic Phase Directives over Image */}
-              <View style={styles.heroPhaseOverlay}>
-                <View style={styles.heroPhasePill}>
-                  <Text style={styles.heroPhasePillText}>
-                    {selectedPhase === 1
-                      ? (isUk ? 'ФАЗА 1: ПОЗИЦІЯ' : 'PHASE 1: SETUP')
-                      : selectedPhase === 2
-                      ? (isUk ? 'ФАЗА 2: РУХ' : 'PHASE 2: EXECUTION')
-                      : (isUk ? 'ФАЗА 3: ФІКСАЦІЯ' : 'PHASE 3: LOCKOUT')}
+              <Pressable
+                accessibilityRole="tab"
+                onPress={() => {
+                  hapticLight();
+                  setVisualMode('3d');
+                }}
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  backgroundColor: visualMode === '3d' ? colors.primary : 'transparent',
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="arm-flex"
+                  size={15}
+                  color={visualMode === '3d' ? '#0B0D0F' : '#8E9BAE'}
+                />
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '800',
+                    color: visualMode === '3d' ? '#0B0D0F' : '#CBD5E1',
+                  }}
+                >
+                  {isUk ? '3D М’язи' : '3D Anatomy'}
+                </Text>
+              </Pressable>
+            </View>
+
+            {visualMode === 'animation' ? (
+              <ExerciseAnimationView
+                exerciseName={exerciseName}
+                muscleGroup={muscleGroup}
+                selectedPhase={selectedPhase}
+                onSelectPhase={setSelectedPhase}
+                isUk={isUk}
+              />
+            ) : (
+              /* 1. Large Hero Exercise 3D Illustration with Phase Directive */
+              <View style={styles.heroImageCard}>
+                <Image
+                  source={getExerciseImage(exerciseName, customImageUri)}
+                  style={styles.heroImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.heroOverlayBadge}>
+                  <Ionicons name="sparkles" size={11} color={colors.primary} />
+                  <Text style={styles.heroOverlayBadgeText}>
+                    {isUk ? '3D АНАТОМІЯ М’ЯЗІВ' : '3D MUSCLE ANATOMY'}
                   </Text>
                 </View>
-                <Text numberOfLines={2} style={styles.heroPhaseCueText}>
-                  {selectedPhase === 1
-                    ? (isUk ? details.setupUk : details.setupEn)
-                    : selectedPhase === 2
-                    ? (isUk ? details.executionUk : details.executionEn)
-                    : (isUk ? details.tipsUk : details.tipsEn)}
-                </Text>
+
+                {/* Dynamic Phase Directives over Image */}
+                <View style={styles.heroPhaseOverlay}>
+                  <View style={styles.heroPhasePill}>
+                    <Text style={styles.heroPhasePillText}>
+                      {selectedPhase === 1
+                        ? (isUk ? 'ФАЗА 1: ПОЗИЦІЯ' : 'PHASE 1: SETUP')
+                        : selectedPhase === 2
+                        ? (isUk ? 'ФАЗА 2: РУХ' : 'PHASE 2: EXECUTION')
+                        : (isUk ? 'ФАЗА 3: ФІКСАЦІЯ' : 'PHASE 3: LOCKOUT')}
+                    </Text>
+                  </View>
+                  <Text numberOfLines={2} style={styles.heroPhaseCueText}>
+                    {selectedPhase === 1
+                      ? (isUk ? details.setupUk : details.setupEn)
+                      : selectedPhase === 2
+                      ? (isUk ? details.executionUk : details.executionEn)
+                      : (isUk ? details.tipsUk : details.tipsEn)}
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
+
+            {/* Saved Exercise Note Banner (if user has a note for this exercise) */}
+            {savedNote ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  backgroundColor: 'rgba(200, 255, 61, 0.08)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(200, 255, 61, 0.28)',
+                  borderRadius: 14,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  marginBottom: 14,
+                }}
+              >
+                <Ionicons name="bookmark" size={16} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      color: colors.primary,
+                      fontSize: 10,
+                      fontWeight: '800',
+                      letterSpacing: 0.6,
+                      marginBottom: 2,
+                    }}
+                  >
+                    {isUk ? 'МОЯ НОТАТКА ДО ВПРАВИ' : 'MY EXERCISE NOTE'}
+                  </Text>
+                  <Text style={{ color: '#F1F5F9', fontSize: 13, fontWeight: '600', lineHeight: 18 }}>
+                    {savedNote}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
 
             {/* Interactive Movement Phases Bar */}
             <View style={styles.phaseSelectorCard}>

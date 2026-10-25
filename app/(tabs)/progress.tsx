@@ -507,6 +507,54 @@ export default function Progress() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            hapticLight();
+            router.push('/history');
+          }}
+          style={({ pressed }) => [
+            {
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: '#12161D',
+              borderWidth: 1,
+              borderColor: 'rgba(200, 255, 61, 0.25)',
+              borderRadius: 16,
+              paddingHorizontal: 14,
+              paddingVertical: 11,
+              marginBottom: 14,
+            },
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                backgroundColor: 'rgba(200, 255, 61, 0.12)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="git-compare-outline" size={18} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 13.5, fontWeight: '800' }}>
+                {language === 'uk' ? 'Журнал тренувань та «Тоді vs Зараз»' : 'Full Workout Log & Then vs Now'}
+              </Text>
+              <Text style={{ color: '#8E9BAE', fontSize: 11.5, marginTop: 1 }}>
+                {language === 'uk'
+                  ? `Усі сесії (${history.length}) і порівняння робочих ваг зі стартом`
+                  : `All sessions (${history.length}) & working weight comparison`}
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+        </Pressable>
         {/* ========================================================================= */}
         {/* VIEW 1: OVERVIEW                                                          */}
         {/* ========================================================================= */}
