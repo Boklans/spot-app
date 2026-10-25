@@ -16,9 +16,14 @@ export type WeightRecommendation = {
 
 export type HistoricalSet = { weight: number; reps: number };
 
+export function isAssistedExercise(name: string): boolean {
+  const lower = (name || '').toLowerCase();
+  return lower.includes('assisted') || lower.includes('гравітрон') || lower.includes('gravitron');
+}
+
 export function inferEquipmentFromName(name: string, fallback: EquipmentId = 'barbell'): EquipmentId {
   const lower = (name || '').toLowerCase();
-  if (lower.includes('assisted')) {
+  if (isAssistedExercise(lower)) {
     return 'machines';
   }
   if (
@@ -127,8 +132,13 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
     };
   }
 
-  const maxPrevWeight = validSets.length > 0 ? Math.max(...validSets.map((s) => s.weight)) : 0;
-  const weight = maxPrevWeight > 0 ? maxPrevWeight : (exercise.recommendedWeight || 0);
+  const isAssisted = isAssistedExercise(exercise.name);
+  const workingPrevWeight = validSets.length > 0
+    ? (isAssisted
+        ? Math.min(...validSets.map((s) => s.weight))
+        : Math.max(...validSets.map((s) => s.weight)))
+    : 0;
+  const weight = workingPrevWeight > 0 ? workingPrevWeight : (exercise.recommendedWeight || 0);
 
   if (validSets.length === 0 || weight <= 0) {
     return {
@@ -136,8 +146,12 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
       recommendedReps: minimum,
       recommendationReason: 'program_default',
       source: 'program_default',
-      explanation: `Starting weight from your program (${minimum}-${maximum} reps). Hit ${maximum} reps on all sets to increase weight.`,
-      explanationUk: `Стартова вага за програмою (${minimum}–${maximum} повт). Виконайте всі підходи по ${maximum} повт для переходу на більшу вагу.`,
+      explanation: isAssisted
+        ? `Starting assistance weight (${minimum}-${maximum} reps). Hit ${maximum} reps on all sets to reduce assistance.`
+        : `Starting weight from your program (${minimum}-${maximum} reps). Hit ${maximum} reps on all sets to increase weight.`,
+      explanationUk: isAssisted
+        ? `Стартова противага (${minimum}–${maximum} повт). Виконайте всі підходи по ${maximum} повт, щоб зменшити допомогу тренажера.`
+        : `Стартова вага за програмою (${minimum}–${maximum} повт). Виконайте всі підходи по ${maximum} повт для переходу на більшу вагу.`,
     };
   }
 
@@ -148,31 +162,52 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
   const increment = typeof exercise.weightIncrement === 'number' && exercise.weightIncrement > 0
     ? Math.max(exercise.weightIncrement, equipIncrement)
     : equipIncrement;
-  const roundedIncrease = addWeight(weight, increment);
+  // For assisted exercises (gravitron), progression means LESS counterweight; for standard exercises, MORE weight.
+  const progressedWeight = isAssisted
+    ? Math.max(0, subtractWeight(weight, increment))
+    : addWeight(weight, increment);
 
-  const setsAtMaxWeight = validSets.filter((s) => Math.abs(s.weight - maxPrevWeight) < 0.01);
-  const allSetsAtMaxWeight = setsAtMaxWeight.length === validSets.length;
+  const setsAtWorkingWeight = validSets.filter((s) => Math.abs(s.weight - workingPrevWeight) < 0.01);
+  const allSetsAtWorkingWeight = setsAtWorkingWeight.length === validSets.length;
 
   // Mixed-weight sets in the previous workout (e.g., 45x12 then dropped to 40x12, or ramped up 40x10 -> 45x8)
-  if (!allSetsAtMaxWeight) {
-    const maxWeightReps = setsAtMaxWeight.map((s) => s.reps);
-    const minAtMaxWeight = Math.min(...maxWeightReps);
-    if (minAtMaxWeight >= minimum - 1) {
-      const targetRepsAtMax = Math.min(maximum, Math.max(minimum, minAtMaxWeight));
+  if (!allSetsAtWorkingWeight) {
+    const workingWeightReps = setsAtWorkingWeight.map((s) => s.reps);
+    const minAtWorkingWeight = Math.min(...workingWeightReps);
+    if (minAtWorkingWeight >= minimum - 1) {
+      const targetRepsAtWorking = Math.min(maximum, Math.max(minimum, minAtWorkingWeight));
       return {
         recommendedWeight: normalizeWeight(weight),
-        recommendedReps: targetRepsAtMax,
+        recommendedReps: targetRepsAtWorking,
         recommendationReason: 'maintain',
         source: 'history',
-        explanation: `Last time you used up to ${formatWeight(weight)} kg (${ setsAtMaxWeight.length }/${ requiredSets } sets). Consolidate all ${requiredSets} sets at ${formatWeight(weight)} kg × ${targetRepsAtMax} reps.`,
-        explanationUk: `Минулого разу ви працювали до ${formatWeight(weight)} кг (${setsAtMaxWeight.length}/${requiredSets} підх.). Закріпіть усі ${requiredSets} підходи з вагою ${formatWeight(weight)} кг × ${targetRepsAtMax} повт.`,
+        explanation: `Last time you used ${formatWeight(weight)} kg on ${setsAtWorkingWeight.length}/${requiredSets} sets. Consolidate all ${requiredSets} sets at ${formatWeight(weight)} kg × ${targetRepsAtWorking} reps.`,
+        explanationUk: `Минулого разу вага ${formatWeight(weight)} кг була у ${setsAtWorkingWeight.length}/${requiredSets} підх. Закріпіть усі ${requiredSets} підходи з вагою ${formatWeight(weight)} кг × ${targetRepsAtWorking} повт.`,
+      };
+    }
+    // User failed at the peak weight (e.g. 45x5) and dropped to a lighter weight (e.g. 40x10, 40x10)
+    const fallbackSets = validSets.filter((s) => Math.abs(s.weight - workingPrevWeight) >= 0.01);
+    const successfulFallbackSets = fallbackSets.filter((s) => s.reps >= minimum - 1);
+    if (successfulFallbackSets.length > 0) {
+      const fallbackWeight = isAssisted
+        ? Math.min(...successfulFallbackSets.map((s) => s.weight))
+        : Math.max(...successfulFallbackSets.map((s) => s.weight));
+      const minFallbackReps = Math.min(...successfulFallbackSets.map((s) => s.reps));
+      const targetRepsFallback = Math.min(maximum, Math.max(minimum, minFallbackReps));
+      return {
+        recommendedWeight: normalizeWeight(fallbackWeight),
+        recommendedReps: targetRepsFallback,
+        recommendationReason: 'reduce',
+        source: 'history',
+        explanation: `Peak weight ${formatWeight(weight)} kg was below target range (${minAtWorkingWeight} reps). Consolidate ${formatWeight(fallbackWeight)} kg × ${targetRepsFallback} reps across all ${requiredSets} sets.`,
+        explanationUk: `Вага ${formatWeight(weight)} кг виявилася заважкою (${minAtWorkingWeight} повт). Закріпіть усі ${requiredSets} підходи з робочою вагою ${formatWeight(fallbackWeight)} кг × ${targetRepsFallback} повт.`,
       };
     }
   }
 
   // Incomplete workout (fewer completed sets than prescribed): consolidate before advancing weight or reps
   if (!completedAllSets) {
-    if (maxRepsHit >= minimum - 1) {
+    if (minRepsHit >= minimum - 2 && maxRepsHit >= minimum - 1) {
       const targetRepsConsolidate = Math.min(maximum, Math.max(minimum, minRepsHit));
       return {
         recommendedWeight: normalizeWeight(weight),
@@ -185,34 +220,42 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
     }
   }
 
-  // 1. All prescribed sets completed at working weight and hit/exceeded top of rep range -> Increase weight, reset target reps to minimum
-  if (completedAllSets && allSetsAtMaxWeight && reps.every((value) => value >= maximum)) {
+  // 1. All prescribed sets completed at working weight and hit/exceeded top of rep range -> Progress weight, reset target reps to minimum
+  if (completedAllSets && allSetsAtWorkingWeight && reps.every((value) => value >= maximum)) {
     return {
-      recommendedWeight: roundedIncrease,
+      recommendedWeight: progressedWeight,
       recommendedReps: minimum,
       recommendationReason: 'increase',
       source: 'history',
-      explanation: `You hit ${reps.join('/')} at ${formatWeight(weight)} kg last time (top of ${minimum}-${maximum}). Try ${formatWeight(roundedIncrease)} kg × ${minimum} reps today.`,
-      explanationUk: `Минулого разу ви виконали ${reps.join('/')} × ${formatWeight(weight)} кг (верхня межа ${minimum}–${maximum}). Переходимо на ${formatWeight(roundedIncrease)} кг × ${minimum} повт.`,
+      explanation: isAssisted
+        ? `You hit ${reps.join('/')} with ${formatWeight(weight)} kg assistance (top of ${minimum}-${maximum}). Reduce assistance to ${formatWeight(progressedWeight)} kg × ${minimum} reps today.`
+        : `You hit ${reps.join('/')} at ${formatWeight(weight)} kg last time (top of ${minimum}-${maximum}). Try ${formatWeight(progressedWeight)} kg × ${minimum} reps today.`,
+      explanationUk: isAssisted
+        ? `Минулого разу: ${reps.join('/')} з противагою ${formatWeight(weight)} кг (верхня межа ${minimum}–${maximum}). Зменшуємо противагу до ${formatWeight(progressedWeight)} кг × ${minimum} повт (менша противага = важче).`
+        : `Минулого разу ви виконали ${reps.join('/')} × ${formatWeight(weight)} кг (верхня межа ${minimum}–${maximum}). Переходимо на ${formatWeight(progressedWeight)} кг × ${minimum} повт.`,
     };
   }
 
   // 2. All prescribed sets hit at least minimum -> Maintain weight, progress target reps by +1 from lowest set
-  if (completedAllSets && allSetsAtMaxWeight && reps.every((value) => value >= minimum)) {
+  if (completedAllSets && allSetsAtWorkingWeight && reps.every((value) => value >= minimum)) {
     const nextReps = Math.min(maximum, minRepsHit + 1);
     return {
       recommendedWeight: normalizeWeight(weight),
       recommendedReps: nextReps,
       recommendationReason: 'maintain',
       source: 'history',
-      explanation: `You hit ${reps.join('/')} at ${formatWeight(weight)} kg. Stay at ${formatWeight(weight)} kg and aim for ${nextReps} reps (${formatWeight(roundedIncrease)} kg unlocks at ${maximum} reps).`,
-      explanationUk: `Минулого разу: ${reps.join('/')} × ${formatWeight(weight)} кг. Залишаємо ${formatWeight(weight)} кг, ціль — ${nextReps} повт у підході (перехід на ${formatWeight(roundedIncrease)} кг після ${maximum} повт).`,
+      explanation: isAssisted
+        ? `You hit ${reps.join('/')} with ${formatWeight(weight)} kg assistance. Keep ${formatWeight(weight)} kg and aim for ${nextReps} reps (${formatWeight(progressedWeight)} kg assistance unlocks at ${maximum} reps).`
+        : `You hit ${reps.join('/')} at ${formatWeight(weight)} kg. Stay at ${formatWeight(weight)} kg and aim for ${nextReps} reps (${formatWeight(progressedWeight)} kg unlocks at ${maximum} reps).`,
+      explanationUk: isAssisted
+        ? `Минулого разу: ${reps.join('/')} з противагою ${formatWeight(weight)} кг. Сьогодні ціль — ${nextReps} повт у всіх підходах (перехід на ${formatWeight(progressedWeight)} кг противаги після ${maximum} повт).`
+        : `Минулого разу: ${reps.join('/')} × ${formatWeight(weight)} кг. Залишаємо ${formatWeight(weight)} кг, ціль — ${nextReps} повт у підході (перехід на ${formatWeight(progressedWeight)} кг після ${maximum} повт).`,
     };
   }
 
   // 3. Minor fatigue on later sets (at least half sets hit minimum, and worst set within 2 reps of minimum) -> Maintain weight & consolidate minimum reps
   const setsAtMinimum = reps.filter((r) => r >= minimum).length;
-  if (setsAtMinimum >= Math.ceil(reps.length / 2) && minRepsHit >= minimum - 2) {
+  if (allSetsAtWorkingWeight && setsAtMinimum >= Math.ceil(reps.length / 2) && minRepsHit >= minimum - 2) {
     return {
       recommendedWeight: normalizeWeight(weight),
       recommendedReps: minimum,
@@ -223,7 +266,19 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
     };
   }
 
-  // 4. Significant miss below target rep range -> Reduce weight (-5% or 1 practical step) to rebuild form
+  // 4. Significant miss below target rep range -> Deload (-5% or 1 practical step; for assisted exercises, ADD counterweight)
+  if (isAssisted) {
+    const easierAssistance = addWeight(weight, increment);
+    return {
+      recommendedWeight: easierAssistance,
+      recommendedReps: minimum,
+      recommendationReason: 'reduce',
+      source: 'history',
+      explanation: `Last session (${reps.join('/')} with ${formatWeight(weight)} kg assistance) was below ${minimum}-${maximum} reps. Increase assistance to ${formatWeight(easierAssistance)} kg × ${minimum} reps.`,
+      explanationUk: `Минулого разу (${reps.join('/')} з противагою ${formatWeight(weight)} кг) було нижче діапазону ${minimum}–${maximum}. Збільшуємо противагу до ${formatWeight(easierAssistance)} кг × ${minimum} повт для чистої техніки.`,
+    };
+  }
+
   const rawReduced = weight * 0.95;
   const candidate = increment > 0
     ? normalizeWeight(Math.round(rawReduced / increment) * increment)

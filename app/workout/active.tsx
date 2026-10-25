@@ -23,9 +23,13 @@ import { cancelRestTimerNotification, scheduleRestTimerNotification } from '@/li
 import { playRestCompleteSound } from '@/lib/soundEffects';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
+import { inferEquipmentFromName, isAssistedExercise, parseRepRange, practicalIncrement } from '@/lib/adaptiveProgression';
 import { getSessionProgress, useWorkoutSessionStore } from '@/store/workoutSessionStore';
+import { useExerciseNotesStore } from '@/store/exerciseNotesStore';
 import { ExerciseDetailModal } from '@/components/program/ExerciseDetailModal';
 import { EditSetModal } from '@/components/workout/EditSetModal';
+import { ProgressionGuideModal } from '@/components/workout/ProgressionGuideModal';
+import { ExerciseNoteModal } from '@/components/workout/ExerciseNoteModal';
 
 const EXERCISE_ALTERNATIVES: Record<string, Array<{ name: string; muscleGroup: string; defaultWeight: number }>> = {
   Chest: [
@@ -106,11 +110,24 @@ export default function Active() {
 
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showProgressionModal, setShowProgressionModal] = useState(false);
+  const [showNoteModal, setShowNoteModal] = useState(false);
   const [editingTarget, setEditingTarget] = useState<{
     exerciseIndex: number;
     setIndex: number;
     initialFocusField?: 'weight' | 'reps';
   } | null>(null);
+
+  const exerciseNotes = useExerciseNotesStore((state) => state.notes);
+  const notesHydrated = useExerciseNotesStore((state) => state.hydrated);
+  const loadExerciseNotes = useExerciseNotesStore((state) => state.loadNotes);
+  const saveExerciseNote = useExerciseNotesStore((state) => state.setNote);
+
+  useEffect(() => {
+    if (!notesHydrated) {
+      loadExerciseNotes();
+    }
+  }, [notesHydrated, loadExerciseNotes]);
 
   const [now, setNow] = useState(Date.now());
   const [isHydrating, setIsHydrating] = useState(!session);
@@ -275,9 +292,14 @@ export default function Active() {
   };
 
   const handleSaveEditedSet = ({ weight, reps }: { weight: number; reps: number }) => {
-    if (!editingTarget) return;
+    if (!editingTarget || !session) return;
     const { exerciseIndex, setIndex } = editingTarget;
-    useWorkoutSessionStore.getState().updateSet(exerciseIndex, setIndex, { weight, reps }, false);
+    const editedSet = session.exercises[exerciseIndex]?.sets[setIndex];
+    const shouldPropagate =
+      exerciseIndex === session.currentExerciseIndex &&
+      setIndex === session.currentSetIndex &&
+      Boolean(editedSet && !editedSet.completed);
+    useWorkoutSessionStore.getState().updateSet(exerciseIndex, setIndex, { weight, reps }, shouldPropagate);
     setEditingTarget(null);
   };
 
@@ -298,13 +320,18 @@ export default function Active() {
   const prevReps = prevSetForActive?.reps ?? 0;
   const currentReps = activeSet?.reps ?? 0;
 
+  const currentEquip = exercise?.equipment || inferEquipmentFromName(exercise?.name || '');
+  const isAssisted = isAssistedExercise(exercise?.name || '');
+  const { maximum: maxTargetReps } = parseRepRange(activeSet?.targetReps || '8-12');
+  const currentNote = exercise ? (exerciseNotes[exercise.name.trim().toLowerCase()] || '') : '';
+
   const prevDisplayWeight = fromKg(prevWeight);
   const currentDisplayWeight = fromKg(currentWeight);
   const weightDeltaDisplay = Math.round((currentDisplayWeight - prevDisplayWeight) * 10) / 10;
   const repsDelta = currentReps - prevReps;
 
-  const hasWeightIncrease = prevWeight > 0 && weightDeltaDisplay > 0;
-  const hasRepsIncrease = prevReps > 0 && repsDelta > 0 && weightDeltaDisplay >= 0;
+  const hasWeightIncrease = prevWeight > 0 && (isAssisted ? weightDeltaDisplay < 0 : weightDeltaDisplay > 0);
+  const hasRepsIncrease = prevReps > 0 && repsDelta > 0 && (isAssisted ? weightDeltaDisplay <= 0 : weightDeltaDisplay >= 0);
   const isProgressed = hasWeightIncrease || hasRepsIncrease;
 
   const recWeight = exercise?.recommendation?.recommendedWeight ?? currentWeight;
@@ -314,6 +341,19 @@ export default function Active() {
     (Math.abs(currentWeight - recWeight) > 0.01 ||
       (typeof exercise.recommendation.recommendedReps === 'number' && currentReps !== recReps))
   );
+
+  const nextUnlockHint =
+    currentEquip === 'bodyweight'
+      ? (language === 'uk'
+          ? `Коли виконаєш ${maxTargetReps} повт у всіх підходах — перейдемо на наступний рівень`
+          : `Hit ${maxTargetReps} reps on all sets to unlock the next level`)
+      : isAssisted
+      ? (language === 'uk'
+          ? `Коли виконаєш ${maxTargetReps} повт у всіх підходах — зменшимо противагу`
+          : `Hit ${maxTargetReps} reps on all sets to reduce assistance`)
+      : (language === 'uk'
+          ? `Коли виконаєш ${maxTargetReps} повт у всіх підходах — збільшимо вагу`
+          : `Hit ${maxTargetReps} reps on all sets to increase weight`);
 
   const finishSet = async () => {
     if (isSubmittingSetRef.current || finishing || submittingSet) return;
@@ -497,24 +537,70 @@ export default function Active() {
               <Text numberOfLines={2} style={styles.exerciseName}>{te(exercise.name)}</Text>
             </Pressable>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="View technique and form instructions"
-              onPress={() => {
-                hapticLight();
-                setShowDetailModal(true);
-              }}
-              style={({ pressed }) => [
-                styles.guideActionBtn,
-                pressed && { opacity: 0.8 },
-              ]}
-            >
-              <Ionicons name="fitness-outline" size={13} color={colors.primary} />
-              <Text style={styles.guideActionText}>
-                {language === 'uk' ? 'Техніка виконання' : 'Technique & Form'}
-              </Text>
-              <Ionicons name="chevron-forward" size={12} color={colors.primary} style={{ marginLeft: 'auto' }} />
-            </Pressable>
+            <View style={styles.guideAndNoteRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="View technique and form instructions"
+                onPress={() => {
+                  hapticLight();
+                  setShowDetailModal(true);
+                }}
+                style={({ pressed }) => [
+                  styles.guideActionBtn,
+                  { flex: 1 },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Ionicons name="fitness-outline" size={13} color={colors.primary} />
+                <Text numberOfLines={1} style={styles.guideActionText}>
+                  {language === 'uk' ? 'Техніка виконання' : 'Technique & Form'}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add or edit exercise note"
+                onPress={() => {
+                  hapticLight();
+                  setShowNoteModal(true);
+                }}
+                style={({ pressed }) => [
+                  styles.noteActionBtn,
+                  currentNote ? styles.noteActionBtnActive : null,
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Ionicons
+                  name={currentNote ? 'bookmark' : 'create-outline'}
+                  size={13}
+                  color={currentNote ? colors.primary : '#94A3B8'}
+                />
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.noteActionText,
+                    currentNote ? { color: colors.primary } : null,
+                  ]}
+                >
+                  {language === 'uk' ? 'Нотатка' : 'Note'}
+                </Text>
+              </Pressable>
+            </View>
+
+            {currentNote ? (
+              <Pressable
+                onPress={() => {
+                  hapticLight();
+                  setShowNoteModal(true);
+                }}
+                style={styles.savedNotePill}
+              >
+                <Ionicons name="pin" size={12} color={colors.primary} />
+                <Text numberOfLines={2} style={styles.savedNoteText}>
+                  {currentNote}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
 
@@ -532,84 +618,103 @@ export default function Active() {
               <View style={styles.heroPrevContextPill}>
                 <Ionicons name="time-outline" size={13} color="#9BA1A6" style={{ marginRight: 4 }} />
                 <Text style={styles.heroPrevContextText}>
-                  {language === 'uk' ? 'Минуле' : 'Last'}: {prevContextText}
+                  {language === 'uk' ? 'Минулого разу' : 'Last time'}: {prevContextText}
                 </Text>
               </View>
             ) : (
               <View style={styles.heroBaselinePill}>
                 <Ionicons name="sparkles" size={12} color={colors.primary} style={{ marginRight: 4 }} />
                 <Text style={styles.heroBaselineText}>
-                  {language === 'uk' ? 'Нова вправа' : 'New exercise'}
+                  {language === 'uk' ? 'Стартова вага' : 'Starting weight'}
                 </Text>
               </View>
             )}
           </View>
 
-          {/* Progressive Overload & Recommendation Explanation Banner */}
-          {isProgressed ? (
-            <View style={styles.overloadHighlightBanner}>
-              <View style={styles.overloadPill}>
-                <Ionicons name="trending-up" size={13} color="#0B0D0F" />
-                <Text style={styles.overloadPillText}>
-                  {hasWeightIncrease
-                    ? `+${weightDeltaDisplay} ${unitLabel}`
-                    : `+${repsDelta} ${language === 'uk' ? 'повт' : 'reps'}`}
+          {/* Progressive Overload & Novice-Friendly Recommendation Block */}
+          <View
+            style={[
+              styles.progressionCoachCard,
+              isProgressed && styles.progressionCoachCardActive,
+            ]}
+          >
+            <View style={styles.progressionCoachTopRow}>
+              {isProgressed ? (
+                <View style={styles.overloadPill}>
+                  <Ionicons name="trending-up" size={12} color="#0B0D0F" />
+                  <Text style={styles.overloadPillText}>
+                    {hasWeightIncrease
+                      ? `${weightDeltaDisplay > 0 ? '+' : ''}${weightDeltaDisplay} ${unitLabel}`
+                      : `+${repsDelta} ${language === 'uk' ? 'повт' : 'reps'}`}
+                  </Text>
+                </View>
+              ) : (
+                <Ionicons
+                  name={
+                    isManuallyAdjusted
+                      ? 'options-outline'
+                      : exercise.recommendation?.recommendationReason === 'reduce'
+                      ? 'shield-checkmark-outline'
+                      : 'Flag-outline' === 'Flag-outline'
+                      ? 'checkmark-circle-outline'
+                      : 'compass-outline'
+                  }
+                  size={15}
+                  color={colors.primary}
+                />
+              )}
+
+              <Text style={styles.progressionTargetSummary} numberOfLines={1}>
+                {language === 'uk' ? 'Сьогодні ціль: ' : 'Today’s goal: '}
+                <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>
+                  {currentWeight ? formatWithUnit(currentWeight) : t('bodyweight')} × {currentReps}{' '}
+                  {language === 'uk' ? 'повт' : 'reps'}
                 </Text>
-              </View>
-              <Text numberOfLines={2} style={styles.overloadSubText}>
-                {isManuallyAdjusted
-                  ? (language === 'uk'
-                      ? `Власна ціль: ${formatWithUnit(currentWeight)} × ${currentReps} повт (рекомендація: ${formatWithUnit(recWeight)} × ${recReps} повт)`
-                      : `Custom target: ${formatWithUnit(currentWeight)} × ${currentReps} reps (recommended: ${formatWithUnit(recWeight)} × ${recReps} reps)`)
-                  : exercise.recommendation?.source === 'history'
-                  ? (language === 'uk'
-                      ? (exercise.recommendation.explanationUk || exercise.recommendation.explanation)
-                      : exercise.recommendation.explanation)
-                  : hasWeightIncrease && repsDelta > 0
-                  ? (language === 'uk' ? `+${weightDeltaDisplay} ${unitLabel} та +${repsDelta} повт до минулої сесії` : `+${weightDeltaDisplay} ${unitLabel} & +${repsDelta} reps vs last session`)
-                  : hasWeightIncrease
-                  ? (language === 'uk' ? `Прогресивне перевантаження ваги 🔥` : `Progressive weight overload 🔥`)
-                  : (language === 'uk' ? `Прогресія повторень з тою ж вагою ⚡` : `Reps overload at same weight ⚡`)}
               </Text>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="How progression works"
+                hitSlop={8}
+                onPress={() => {
+                  hapticLight();
+                  setShowProgressionModal(true);
+                }}
+                style={styles.howProgressionBtn}
+              >
+                <Ionicons name="help-circle-outline" size={13} color={colors.primary} />
+                <Text style={styles.howProgressionBtnText}>
+                  {language === 'uk' ? 'Як працює?' : 'How it works'}
+                </Text>
+              </Pressable>
             </View>
-          ) : exercise.recommendation ? (
-            <View style={styles.matchedBanner}>
-              <Ionicons
-                name={
-                  isManuallyAdjusted
-                    ? 'options-outline'
-                    : exercise.recommendation.recommendationReason === 'reduce'
-                    ? 'shield-checkmark-outline'
-                    : exercise.recommendation.source === 'history'
-                    ? 'checkmark-circle-outline'
-                    : 'compass-outline'
-                }
-                size={14}
-                color={colors.primary}
-              />
-              <Text numberOfLines={2} style={styles.matchedSubText}>
-                {isManuallyAdjusted
-                  ? (language === 'uk'
-                      ? `Власна ціль: ${formatWithUnit(currentWeight)} × ${currentReps} повт (рекомендація: ${formatWithUnit(recWeight)} × ${recReps} повт)`
-                      : `Custom target: ${formatWithUnit(currentWeight)} × ${currentReps} reps (recommended: ${formatWithUnit(recWeight)} × ${recReps} reps)`)
-                  : language === 'uk'
-                  ? (exercise.recommendation.explanationUk || exercise.recommendation.explanation)
-                  : exercise.recommendation.explanation}
-              </Text>
-            </View>
-          ) : null}
+
+            <Text numberOfLines={2} style={styles.progressionSubExplanation}>
+              {isManuallyAdjusted
+                ? (language === 'uk'
+                    ? `Власна ціль: ${formatWithUnit(currentWeight)} × ${currentReps} повт (рекомендація: ${formatWithUnit(recWeight)} × ${recReps} повт)`
+                    : `Custom target: ${formatWithUnit(currentWeight)} × ${currentReps} reps (recommended: ${formatWithUnit(recWeight)} × ${recReps} reps)`)
+                : nextUnlockHint}
+            </Text>
+          </View>
 
           {/* Steppers & Target Numbers Grid */}
           <View style={styles.heroControlsRow}>
             {/* Weight Stepper Control */}
             <View style={styles.heroControlBox}>
               <View style={styles.heroControlLabelRow}>
-                <Text style={styles.heroControlLabel}>
-                  {t('weight')} ({unitLabel})
+                <Text style={styles.heroControlLabel} numberOfLines={1}>
+                  {isAssisted
+                    ? (language === 'uk' ? `ПРОТИВАГА (${unitLabel})` : `ASSIST (${unitLabel})`)
+                    : currentEquip === 'dumbbells'
+                    ? `${t('weight')} (${unitLabel}) · ${language === 'uk' ? '1 ГАНТ.' : '1 DB'}`
+                    : `${t('weight')} (${unitLabel})`}
                 </Text>
                 {hasWeightIncrease && (
                   <View style={styles.deltaMicroBadge}>
-                    <Text style={styles.deltaMicroText}>+{weightDeltaDisplay}</Text>
+                    <Text style={styles.deltaMicroText}>
+                      {weightDeltaDisplay > 0 ? `+${weightDeltaDisplay}` : `${weightDeltaDisplay}`}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -1022,6 +1127,25 @@ export default function Active() {
           onSave={handleSaveEditedSet}
         />
       )}
+
+      {/* How Progression Works Modal */}
+      <ProgressionGuideModal
+        visible={showProgressionModal}
+        onClose={() => setShowProgressionModal(false)}
+        language={language}
+      />
+
+      {/* Persistent Exercise Note Modal */}
+      {exercise && (
+        <ExerciseNoteModal
+          visible={showNoteModal}
+          exerciseName={te(exercise.name)}
+          initialNote={currentNote}
+          language={language}
+          onClose={() => setShowNoteModal(false)}
+          onSave={(newNote) => saveExerciseNote(exercise.name, newNote)}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -1277,6 +1401,97 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(200, 255, 61, 0.3)',
     gap: 8,
+  },
+  guideAndNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  noteActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#171C24',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  noteActionBtnActive: {
+    backgroundColor: 'rgba(182, 240, 0, 0.1)',
+    borderColor: 'rgba(182, 240, 0, 0.35)',
+  },
+  noteActionText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  savedNotePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 7,
+    backgroundColor: 'rgba(182, 240, 0, 0.07)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(182, 240, 0, 0.2)',
+  },
+  savedNoteText: {
+    color: '#E2E8F0',
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '600',
+    flex: 1,
+  },
+  progressionCoachCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 4,
+  },
+  progressionCoachCardActive: {
+    backgroundColor: 'rgba(200, 255, 61, 0.09)',
+    borderColor: 'rgba(200, 255, 61, 0.28)',
+  },
+  progressionCoachTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  progressionTargetSummary: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#CBD5E1',
+  },
+  howProgressionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(182, 240, 0, 0.12)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(182, 240, 0, 0.28)',
+  },
+  howProgressionBtnText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  progressionSubExplanation: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '500',
+    color: '#94A3B8',
   },
   overloadPill: {
     flexDirection: 'row',

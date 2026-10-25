@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
-import { inferEquipmentFromName, recommendWeight } from '@/lib/adaptiveProgression';
+import { inferEquipmentFromName, isAssistedExercise, recommendWeight } from '@/lib/adaptiveProgression';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -70,6 +70,7 @@ export default function Complete() {
       if (completedSets.length === 0) return null;
       const targetRange = ex.sets[0]?.targetReps || '8-12';
       const equipment = ex.equipment || inferEquipmentFromName(ex.name);
+      const isAssisted = isAssistedExercise(ex.name);
       const nextRec = recommendWeight(
         {
           id: ex.id,
@@ -84,15 +85,49 @@ export default function Complete() {
         },
         completedSets
       );
+
+      const prevSets = ex.previousSets || [];
+      const hasPrev = prevSets.length > 0;
+      const prevWorkingWeight = hasPrev
+        ? (isAssisted ? Math.min(...prevSets.map((s) => s.weight)) : Math.max(...prevSets.map((s) => s.weight)))
+        : 0;
+      const todayWorkingWeight = isAssisted
+        ? Math.min(...completedSets.map((s) => s.weight))
+        : Math.max(...completedSets.map((s) => s.weight));
+      const prevRepsStr = hasPrev ? prevSets.map((s) => s.reps).join('/') : null;
+      const todayRepsStr = completedSets.map((s) => s.reps).join('/');
+
+      const prevTotalReps = prevSets.reduce((acc, s) => acc + s.reps, 0);
+      const todayTotalReps = completedSets.reduce((acc, s) => acc + s.reps, 0);
+      const weightDiff = Math.round((todayWorkingWeight - prevWorkingWeight) * 10) / 10;
+      const repsDiff = todayTotalReps - prevTotalReps;
+
+      const progressedWeight = hasPrev && (isAssisted ? weightDiff < 0 : weightDiff > 0);
+      const progressedReps = hasPrev && !progressedWeight && Math.abs(weightDiff) < 0.01 && repsDiff > 0;
+      const isProgressedToday = progressedWeight || progressedReps;
+
       return {
         id: ex.id,
         name: ex.name,
         customImageUri: ex.customImageUri,
         completedSets,
+        prevSets,
+        hasPrev,
+        prevWorkingWeight,
+        todayWorkingWeight,
+        prevRepsStr,
+        todayRepsStr,
+        weightDiff,
+        repsDiff,
+        progressedWeight,
+        progressedReps,
+        isProgressedToday,
         nextRec,
       };
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+  const progressedExercisesCount = nextSessionPlan.filter((i) => i.isProgressedToday).length;
 
   // Find previous session of the same workout (excluding current session)
   const previousWorkout = workouts.find(
@@ -317,14 +352,32 @@ export default function Complete() {
           )}
         </View>
 
-        {/* 5B. Next Session Progression Targets */}
+        {/* 5B. Exercise Progress Breakdown & Next Session Targets */}
         {nextSessionPlan.length > 0 && (
           <View style={styles.prsCard}>
-            <View style={styles.prHeader}>
-              <Ionicons name="trending-up" size={16} color={colors.primary} />
-              <Text style={[styles.prSectionTitle, { color: colors.primary }]}>
-                {language === 'uk' ? 'НАСТУПНИЙ КРОК ПРОГРЕСІЇ' : 'NEXT WORKOUT PROGRESSION'}
-              </Text>
+            <View style={[styles.prHeader, { justifyContent: 'space-between' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="trending-up" size={16} color={colors.primary} />
+                <Text style={[styles.prSectionTitle, { color: colors.primary }]}>
+                  {language === 'uk' ? 'ПРОГРЕС ПО ВПРАВАХ ТА НАСТУПНА ЦІЛЬ' : 'EXERCISE PROGRESS & NEXT TARGETS'}
+                </Text>
+              </View>
+              {progressedExercisesCount > 0 && (
+                <View
+                  style={{
+                    backgroundColor: 'rgba(182, 240, 0, 0.16)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '900' }}>
+                    {language === 'uk'
+                      ? `+${progressedExercisesCount} з прогресом`
+                      : `+${progressedExercisesCount} progressed`}
+                  </Text>
+                </View>
+              )}
             </View>
             {nextSessionPlan.map((item, idx) => {
               const isIncrease = item.nextRec.recommendationReason === 'increase';
@@ -333,15 +386,24 @@ export default function Complete() {
                 ? formatWithUnit(item.nextRec.recommendedWeight)
                 : (language === 'uk' ? 'Власна вага' : 'Bodyweight');
               const targetRepsStr = item.nextRec.recommendedReps ?? 8;
+
+              const prevWeightStr = item.prevWorkingWeight > 0
+                ? formatWithUnit(item.prevWorkingWeight)
+                : (language === 'uk' ? 'ВТ' : 'BW');
+              const todayWeightStr = item.todayWorkingWeight > 0
+                ? formatWithUnit(item.todayWorkingWeight)
+                : (language === 'uk' ? 'ВТ' : 'BW');
+
               return (
                 <View
                   key={item.id + idx}
                   style={[
                     styles.prRow,
-                    { flexDirection: 'column', alignItems: 'stretch', gap: 6 },
+                    { flexDirection: 'column', alignItems: 'stretch', gap: 8 },
                     idx < nextSessionPlan.length - 1 && styles.prRowBorder,
                   ]}
                 >
+                  {/* Top Row: Exercise Name + Next Session Target Badge */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <View style={styles.prThumbWrap}>
                       <Image
@@ -350,44 +412,73 @@ export default function Complete() {
                         resizeMode="cover"
                       />
                     </View>
-                    <Text numberOfLines={1} style={[styles.prExerciseName, { flex: 1 }]}>
-                      {te(item.name)}
-                    </Text>
-                    <View
-                      style={{
-                        backgroundColor: isIncrease
-                          ? 'rgba(200, 255, 61, 0.16)'
-                          : isReduce
-                          ? 'rgba(255, 159, 28, 0.16)'
-                          : 'rgba(255, 255, 255, 0.08)',
-                        paddingHorizontal: 8,
-                        paddingVertical: 4,
-                        borderRadius: 8,
-                        borderWidth: 1,
-                        borderColor: isIncrease
-                          ? 'rgba(200, 255, 61, 0.4)'
-                          : isReduce
-                          ? 'rgba(255, 159, 28, 0.35)'
-                          : 'rgba(255, 255, 255, 0.12)',
-                      }}
-                    >
+                    <View style={{ flex: 1 }}>
+                      <Text numberOfLines={1} style={styles.prExerciseName}>
+                        {te(item.name)}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
+                        {item.hasPrev
+                          ? `${language === 'uk' ? 'Минуле' : 'Last'}: ${prevWeightStr} × ${item.prevRepsStr}  ➔  ${language === 'uk' ? 'Сьогодні' : 'Today'}: ${todayWeightStr} × ${item.todayRepsStr}`
+                          : `${language === 'uk' ? 'Сьогодні (перша база)' : 'Today (baseline)'}: ${todayWeightStr} × ${item.todayRepsStr}`}
+                      </Text>
+                    </View>
+                    {item.isProgressedToday ? (
+                      <View
+                        style={{
+                          backgroundColor: 'rgba(182, 240, 0, 0.16)',
+                          paddingHorizontal: 7,
+                          paddingVertical: 3,
+                          borderRadius: 7,
+                          borderWidth: 1,
+                          borderColor: 'rgba(182, 240, 0, 0.35)',
+                        }}
+                      >
+                        <Text style={{ fontSize: 10, fontWeight: '900', color: colors.primary }}>
+                          {item.progressedWeight
+                            ? `🔥 ${item.weightDiff > 0 ? '+' : ''}${formatWithUnit(item.weightDiff)}`
+                            : `⚡ +${item.repsDiff} ${language === 'uk' ? 'повт' : 'reps'}`}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {/* Next Session Goal Box */}
+                  <View
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                      borderRadius: 10,
+                      paddingHorizontal: 10,
+                      paddingVertical: 8,
+                      borderWidth: 1,
+                      borderColor: isIncrease
+                        ? 'rgba(200, 255, 61, 0.28)'
+                        : isReduce
+                        ? 'rgba(255, 159, 28, 0.25)'
+                        : 'rgba(255, 255, 255, 0.07)',
+                      gap: 4,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#CBD5E1' }}>
+                        {language === 'uk' ? 'Наступна ціль:' : 'Next session target:'}
+                      </Text>
                       <Text
                         style={{
                           fontSize: 12,
-                          fontWeight: '800',
+                          fontWeight: '900',
                           color: isIncrease ? colors.primary : isReduce ? '#FF9F1C' : '#FFFFFF',
                         }}
                       >
                         {isIncrease ? '🔥 ' : isReduce ? '🛡️ ' : '🎯 '}
-                        {targetWeightStr} × {targetRepsStr}
+                        {targetWeightStr} × {targetRepsStr} {language === 'uk' ? 'повт' : 'reps'}
                       </Text>
                     </View>
+                    <Text style={{ fontSize: 11, color: '#94A3B8', lineHeight: 16 }}>
+                      {language === 'uk'
+                        ? (item.nextRec.explanationUk || item.nextRec.explanation)
+                        : item.nextRec.explanation}
+                    </Text>
                   </View>
-                  <Text style={{ fontSize: 12, color: '#94A3B8', lineHeight: 17 }}>
-                    {language === 'uk'
-                      ? (item.nextRec.explanationUk || item.nextRec.explanation)
-                      : item.nextRec.explanation}
-                  </Text>
                 </View>
               );
             })}

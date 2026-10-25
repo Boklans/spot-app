@@ -283,6 +283,22 @@ export function ExerciseDetailModal({
                 </Text>
               </View>
 
+              {(details.movementSummaryUk || details.movementSummaryEn) ? (
+                <View style={styles.movementSummaryBanner}>
+                  <View style={styles.movementSummaryIconWrap}>
+                    <Ionicons name="swap-vertical" size={16} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.movementSummaryLabel}>
+                      {isUk ? 'ЯК РУХАТИСЯ (ТРАЄКТОРІЯ ТА ТЕМП)' : 'MOVEMENT PATH & TEMPO'}
+                    </Text>
+                    <Text style={styles.movementSummaryText}>
+                      {isUk ? details.movementSummaryUk : details.movementSummaryEn}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
               <View style={styles.stepsList}>
                 {/* Step 1 */}
                 <Pressable
@@ -366,6 +382,21 @@ export function ExerciseDetailModal({
                 ))}
               </View>
             </View>
+
+            {/* 4b. Joint Safety & Protection Cue */}
+            {(details.safetyUk || details.safetyEn) ? (
+              <View style={styles.safetyCard}>
+                <View style={styles.sectionHeaderRow}>
+                  <Ionicons name="shield-checkmark-outline" size={18} color="#38BDF8" />
+                  <Text style={[styles.sectionHeaderTitle, { color: '#38BDF8' }]}>
+                    {isUk ? 'БЕЗПЕКА ТА ЗАХИСТ СУГЛОБІВ' : 'JOINT SAFETY & PROTECTION'}
+                  </Text>
+                </View>
+                <Text style={styles.safetyText}>
+                  {isUk ? details.safetyUk : details.safetyEn}
+                </Text>
+              </View>
+            ) : null}
 
             {/* 5. Personal Best History */}
             <View style={styles.historyCard}>
@@ -793,6 +824,52 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '500',
     flex: 1,
+  },
+  movementSummaryBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(182, 240, 0, 0.07)',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(182, 240, 0, 0.2)',
+    gap: 10,
+  },
+  movementSummaryIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(182, 240, 0, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  movementSummaryLabel: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+    marginBottom: 3,
+  },
+  movementSummaryText: {
+    color: '#F1F5F9',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  safetyCard: {
+    backgroundColor: 'rgba(56, 189, 248, 0.06)',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.24)',
+  },
+  safetyText: {
+    color: '#E2E8F0',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '500',
   },
   historyCard: {
     backgroundColor: '#12161D',

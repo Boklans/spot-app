@@ -11,6 +11,10 @@ export interface ExerciseDetailInfo {
   tipsEn: string;
   mistakesUk: string;
   mistakesEn: string;
+  movementSummaryUk?: string;
+  movementSummaryEn?: string;
+  safetyUk?: string;
+  safetyEn?: string;
 }
 
 const DETAILS_MAP: Record<string, ExerciseDetailInfo> = {
@@ -277,15 +281,87 @@ const DETAILS_MAP: Record<string, ExerciseDetailInfo> = {
   },
 };
 
+function resolveSafetyAndMovement(exerciseName: string, muscleGroup?: string): {
+  movementSummaryUk: string;
+  movementSummaryEn: string;
+  safetyUk: string;
+  safetyEn: string;
+} {
+  const lower = (exerciseName || '').trim().toLowerCase();
+  const mg = (muscleGroup || '').toLowerCase();
+
+  if (lower.includes('bench press') || lower.includes('dumbbell press') || lower.includes('chest press')) {
+    return {
+      movementSummaryUk: 'Траєкторія (J-дуга): опускайте снаряд під контролем (2 сек, вдих) до лінії низу грудей → без паузи на розслаблення потужно витискайте вгору над плечима (1 сек, видих).',
+      movementSummaryEn: 'Movement path (J-curve): lower under control (2s inhale) to lower-chest line → press smoothly back up over shoulders (1s exhale) without bouncing.',
+      safetyUk: 'Використовуйте закритий хват (великий палець охоплює гриф/рукоять). Тримайте лопатки зведеними та притиснутими до лави протягом усього підходу — це захищає плечові суглоби. На важких підходах зі штангою обов’язково ставте страхувальні упори або кличте страхуючого.',
+      safetyEn: 'Always use a closed thumb-around grip. Keep shoulder blades retracted and pinned to the bench to protect your rotator cuffs. Use safety pins or a spotter on heavy barbell sets.',
+    };
+  }
+
+  if (lower.includes('squat') || lower.includes('leg press') || lower.includes('lunge') || lower.includes('split squat')) {
+    return {
+      movementSummaryUk: 'Траєкторія: вдих і напруження кора → плавне опускання тазу вниз і назад (2–3 сек) до паралелі стегон → потужний підйом через усю стопу (1–2 сек, видих).',
+      movementSummaryEn: 'Movement path: brace core on inhale → descend under control (2-3s) tracking knees over toes → drive up through mid-foot (1-2s exhale).',
+      safetyUk: 'Тримайте коліна спрямованими строго в напрямку носків (не дозволяйте їм завалюватися всередину). Не «вистрілюйте» колінами в повний замок у верхній точці під навантаженням і зберігайте нейтральний поперек.',
+      safetyEn: 'Keep knees tracking in line with your toes (avoid knee valgus). Do not slam knees into full hyperextension at the top, and maintain a neutral lower back.',
+    };
+  }
+
+  if (lower.includes('deadlift') || lower.includes('romanian') || lower.includes('rdl') || lower.includes('barbell row')) {
+    return {
+      movementSummaryUk: 'Траєкторія (Hip Hinge): гриф рухається строго вертикально впритул до ніг. Рух починається з відведення тазу назад при ідеально рівній спині.',
+      movementSummaryEn: 'Movement path (Hip Hinge): keep the bar grazing your legs in a vertical line. Initiate by hinging at the hips while maintaining a rigid, flat spine.',
+      safetyUk: 'Перед кожним повторенням робіть глибокий вдих у живіт (внутрішньочеревний тиск) і фіксуйте кор. Ніколи не тягніть вагу округленим попереком і не робіть різких ривків зі старту.',
+      safetyEn: 'Create 360° core bracing before every rep. Never pull with a rounded lower back or jerk the weight off the floor.',
+    };
+  }
+
+  if (lower.includes('overhead press') || lower.includes('shoulder press') || lower.includes('military press') || lower.includes('lateral raise')) {
+    return {
+      movementSummaryUk: 'Траєкторія: лікті трохи виведені вперед (площина лопатки ~30°). Підйом по плавній дузі без підкидання корпусом → контрольоване опускання (2 сек).',
+      movementSummaryEn: 'Movement path: keep elbows slightly forward in the scapular plane (~30°). Press or raise smoothly without torso momentum → 2s controlled lowering.',
+      safetyUk: 'Напружуйте сідниці та прес, щоб не перегинатися в попереку під вагою. Уникайте різкого опускання ваги нижче комфортної амплітуди плечового суглоба.',
+      safetyEn: 'Squeeze glutes and abs to prevent lower-back hyperextension. Avoid dropping weights aggressively at the bottom of shoulder range.',
+    };
+  }
+
+  if (lower.includes('dip')) {
+    return {
+      movementSummaryUk: 'Траєкторія: контрольоване опускання з легким нахилом корпусу вперед до кута 90° у ліктях → плавне вижимання вгору без розгойдування.',
+      movementSummaryEn: 'Movement path: controlled descent with slight forward torso lean to 90° elbow flexion → smooth press up without swinging.',
+      safetyUk: 'Не опускайтеся глибше паралелі плечей із підлогою, щоб не перевантажувати передню капсулу плеча. Якщо важко — використовуйте гравітрон або гумову петлю.',
+      safetyEn: 'Do not descend past 90° elbow bend if you feel anterior shoulder stretch. Use an assisted dip machine or band until strength builds.',
+    };
+  }
+
+  if (mg.includes('back') || mg.includes('спин') || lower.includes('pull-up') || lower.includes('pulldown') || lower.includes('row')) {
+    return {
+      movementSummaryUk: 'Траєкторія: починайте рух зі зведення й опускання лопаток → тягніть лікті вниз/назад до корпусу (1 сек) → плавно повертайте вагу під контролем (2 сек).',
+      movementSummaryEn: 'Movement path: initiate by depressing shoulder blades → drive elbows back/down (1s) → return weight under full control (2s).',
+      safetyUk: 'Уникайте ривків попереком для розгону ваги. У нижній/передній точці розтягуйте м’язи спини, але не «висніть» на розслаблених плечових зв’язках.',
+      safetyEn: 'Avoid yanking with your lower back. Allow lats to stretch on the return without relaxing shoulder sockets completely.',
+    };
+  }
+
+  return {
+    movementSummaryUk: 'Траєкторія та темп: 1–2 сек на плавне зусилля (видих) → коротка фіксація в піковій точці → 2 сек на підконтрольне повернення у вихідне положення (вдих).',
+    movementSummaryEn: 'Tempo & path: 1-2s smooth concentric effort (exhale) → brief squeeze at peak contraction → 2s controlled eccentric return (inhale).',
+    safetyUk: 'Працюйте у власній безболісній амплітуді без використання інерції. Якщо відчуваєте гострий дискомфорт у суглобах — зупиніть підхід і зменшіть вагу.',
+    safetyEn: 'Work within a pain-free range of motion without momentum. Stop immediately and reduce load if you feel sharp joint discomfort.',
+  };
+}
+
 /**
  * Intelligent helper to resolve exercise details with graceful fallback
  */
 export function getExerciseDetails(exerciseName: string, muscleGroup?: string): ExerciseDetailInfo {
   const normalized = exerciseName.trim().toLowerCase();
+  const extra = resolveSafetyAndMovement(exerciseName, muscleGroup);
 
   for (const [key, details] of Object.entries(DETAILS_MAP)) {
     if (normalized.includes(key)) {
-      return details;
+      return { ...extra, ...details };
     }
   }
 
@@ -294,6 +370,7 @@ export function getExerciseDetails(exerciseName: string, muscleGroup?: string): 
 
   if (mg.includes('chest') || mg.includes('груд')) {
     return {
+      ...extra,
       primaryMusclesUk: 'Груди (велика та мала грудні)',
       primaryMusclesEn: 'Chest (Pectorals)',
       secondaryMusclesUk: 'Трицепс, передні дельти',
@@ -311,6 +388,7 @@ export function getExerciseDetails(exerciseName: string, muscleGroup?: string): 
 
   if (mg.includes('back') || mg.includes('спин')) {
     return {
+      ...extra,
       primaryMusclesUk: 'Найширші м’язи, середина спини',
       primaryMusclesEn: 'Latissimus Dorsi, Mid-Back',
       secondaryMusclesUk: 'Біцепс, задня дельта, передпліччя',
@@ -328,6 +406,7 @@ export function getExerciseDetails(exerciseName: string, muscleGroup?: string): 
 
   if (mg.includes('leg') || mg.includes('ніг') || mg.includes('quad') || mg.includes('hamstring')) {
     return {
+      ...extra,
       primaryMusclesUk: 'Квадрицепси, сідниці, біцепс стегна',
       primaryMusclesEn: 'Quadriceps, Glutes, Hamstrings',
       secondaryMusclesUk: 'Литкові, розгиначі спини, кор',
@@ -345,6 +424,7 @@ export function getExerciseDetails(exerciseName: string, muscleGroup?: string): 
 
   if (mg.includes('shoulder') || mg.includes('плеч') || mg.includes('delt')) {
     return {
+      ...extra,
       primaryMusclesUk: 'Дельтоподібні м’язи (плечі)',
       primaryMusclesEn: 'Deltoids (Shoulders)',
       secondaryMusclesUk: 'Трапеції, трицепс',
@@ -362,6 +442,7 @@ export function getExerciseDetails(exerciseName: string, muscleGroup?: string): 
 
   if (mg.includes('arm') || mg.includes('рук') || mg.includes('bicep') || mg.includes('tricep')) {
     return {
+      ...extra,
       primaryMusclesUk: 'М’язи рук (біцепс / трицепс)',
       primaryMusclesEn: 'Arms (Biceps / Triceps)',
       secondaryMusclesUk: 'Передпліччя',
@@ -379,6 +460,7 @@ export function getExerciseDetails(exerciseName: string, muscleGroup?: string): 
 
   // Generic core / general fitness
   return {
+    ...extra,
     primaryMusclesUk: 'Цільова група м’язів',
     primaryMusclesEn: 'Target Muscle Group',
     secondaryMusclesUk: 'М’язи-стабілізатори, кор',
