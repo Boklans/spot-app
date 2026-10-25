@@ -491,31 +491,57 @@ export default function Active() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* 2. Interactive Exercise Guide Card */}
-        <View style={styles.exerciseHeader}>
-          {/* Large Exercise Preview with Interactive Guide Trigger */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Exercise details and technique"
-            onPress={() => {
-              hapticLight();
-              setShowDetailModal(true);
-            }}
-            style={styles.exerciseThumbWrap}
-          >
-            <Image
-              source={getExerciseImage(exercise.name, exercise.customImageUri)}
-              style={styles.exerciseThumb}
-              resizeMode="cover"
-            />
-          </Pressable>
+        {/* Unified Hevy Pro-style Exercise Card */}
+        <View style={styles.exerciseCard}>
+          {/* Header Row: Thumbnail + Info + Actions */}
+          <View style={styles.exerciseHeaderRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Exercise details and technique"
+              onPress={() => {
+                hapticLight();
+                setShowDetailModal(true);
+              }}
+              style={styles.exerciseThumbWrap}
+            >
+              <Image
+                source={getExerciseImage(exercise.name, exercise.customImageUri)}
+                style={styles.exerciseThumb}
+                resizeMode="cover"
+              />
+            </Pressable>
 
-          {/* Details & Actions */}
-          <View style={styles.exerciseInfoCol}>
-            <View style={styles.exerciseTopRow}>
-              <View style={styles.exerciseMusclePill}>
-                <Text style={styles.exerciseMuscle}>{tm(exercise.muscleGroup)}</Text>
+            <View style={styles.exerciseInfoCol}>
+              <View style={styles.exerciseMuscleRow}>
+                <Text style={styles.exerciseMuscleText}>{tm(exercise.muscleGroup).toUpperCase()}</Text>
               </View>
+              <Pressable
+                onPress={() => {
+                  hapticLight();
+                  setShowDetailModal(true);
+                }}
+              >
+                <Text numberOfLines={2} style={styles.exerciseNameText}>
+                  {te(exercise.name)}
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Quick Action Icons */}
+            <View style={styles.exerciseActionsRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="View technique guide"
+                hitSlop={8}
+                onPress={() => {
+                  hapticLight();
+                  setShowDetailModal(true);
+                }}
+                style={({ pressed }) => [styles.iconActionBtn, pressed && { opacity: 0.7 }]}
+              >
+                <Ionicons name="help-circle-outline" size={20} color="#CBD5E1" />
+              </Pressable>
+
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Swap exercise"
@@ -524,214 +550,87 @@ export default function Active() {
                   hapticLight();
                   setShowSwapModal(true);
                 }}
-                style={({ pressed }) => [
-                  styles.swapBtn,
-                  pressed && { opacity: 0.7 },
-                ]}
+                style={({ pressed }) => [styles.iconActionBtn, pressed && { opacity: 0.7 }]}
               >
-                <Ionicons name="swap-horizontal" size={13} color={colors.primary} />
-                <Text style={styles.swapBtnText}>{t('swap')}</Text>
+                <Ionicons name="swap-horizontal" size={20} color="#CBD5E1" />
               </Pressable>
             </View>
+          </View>
 
+          {/* Sub-header Context Chips Row: Adaptive Target + Note */}
+          <View style={styles.contextChipsRow}>
+            {/* Target chip */}
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="View progression details"
+              hitSlop={6}
               onPress={() => {
                 hapticLight();
-                setShowDetailModal(true);
+                setShowProgressionModal(true);
               }}
+              style={styles.targetChip}
             >
-              <Text numberOfLines={2} style={styles.exerciseName}>{te(exercise.name)}</Text>
+              <Ionicons name="trending-up" size={13} color={colors.primary} />
+              <Text style={styles.targetChipText}>
+                {language === 'uk' ? 'Ціль: ' : 'Goal: '}
+                <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>
+                  {currentWeight ? formatWithUnit(currentWeight) : t('bodyweight')} × {currentReps}
+                </Text>
+                {hasWeightIncrease
+                  ? ` (+${weightDeltaDisplay} ${unitLabel})`
+                  : hasRepsIncrease
+                  ? ` (+${repsDelta} ${language === 'uk' ? 'повт' : 'reps'})`
+                  : ''}
+              </Text>
+              <Ionicons name="information-circle-outline" size={13} color="#8E9BAE" style={{ marginLeft: 3 }} />
             </Pressable>
 
-            <View style={styles.guideAndNoteRow}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="View technique and form instructions"
-                onPress={() => {
-                  hapticLight();
-                  setShowDetailModal(true);
-                }}
-                style={({ pressed }) => [
-                  styles.guideActionBtn,
-                  { flex: 1 },
-                  pressed && { opacity: 0.8 },
-                ]}
-              >
-                <Ionicons name="fitness-outline" size={13} color={colors.primary} />
-                <Text numberOfLines={1} style={styles.guideActionText}>
-                  {language === 'uk' ? 'Техніка виконання' : 'Technique & Form'}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Add or edit exercise note"
-                onPress={() => {
-                  hapticLight();
-                  setShowNoteModal(true);
-                }}
-                style={({ pressed }) => [
-                  styles.noteActionBtn,
-                  currentNote ? styles.noteActionBtnActive : null,
-                  pressed && { opacity: 0.8 },
-                ]}
-              >
-                <Ionicons
-                  name={currentNote ? 'bookmark' : 'create-outline'}
-                  size={13}
-                  color={currentNote ? colors.primary : '#94A3B8'}
-                />
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.noteActionText,
-                    currentNote ? { color: colors.primary } : null,
-                  ]}
-                >
-                  {language === 'uk' ? 'Нотатка' : 'Note'}
-                </Text>
-              </Pressable>
-            </View>
-
-            {currentNote ? (
-              <Pressable
-                onPress={() => {
-                  hapticLight();
-                  setShowNoteModal(true);
-                }}
-                style={styles.savedNotePill}
-              >
-                <Ionicons name="pin" size={12} color={colors.primary} />
-                <Text numberOfLines={2} style={styles.savedNoteText}>
-                  {currentNote}
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </View>
-
-        {/* 3. Hero Active Set Target & Zero-Friction Adjustments Card */}
-        <View style={styles.heroTargetCard}>
-          <View style={styles.heroTargetTopRow}>
-            <View style={styles.setKickerBadge}>
-              <View style={styles.setKickerDot} />
-              <Text style={styles.setKickerText}>
-                {t('set')} {session.currentSetIndex + 1} {t('of')} {exercise.sets.length}
+            {/* Note chip */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add or edit note"
+              hitSlop={6}
+              onPress={() => {
+                hapticLight();
+                setShowNoteModal(true);
+              }}
+              style={[styles.noteChip, currentNote ? styles.noteChipActive : null]}
+            >
+              <Ionicons
+                name={currentNote ? 'bookmark' : 'create-outline'}
+                size={12}
+                color={currentNote ? colors.primary : '#8E9BAE'}
+              />
+              <Text numberOfLines={1} style={[styles.noteChipText, currentNote ? styles.noteChipTextActive : null]}>
+                {currentNote ? currentNote : (language === 'uk' ? 'Нотатка' : 'Note')}
               </Text>
-            </View>
-
-            {prevContextText ? (
-              <View style={styles.heroPrevContextPill}>
-                <Ionicons name="time-outline" size={13} color="#9BA1A6" style={{ marginRight: 4 }} />
-                <Text style={styles.heroPrevContextText}>
-                  {language === 'uk' ? 'Минулого разу' : 'Last time'}: {prevContextText}
-                </Text>
-              </View>
-            ) : null}
+            </Pressable>
           </View>
 
-          {/* Progressive Overload & Novice-Friendly Recommendation Block */}
-          <View
-            style={[
-              styles.progressionCoachCard,
-              isProgressed && styles.progressionCoachCardActive,
-            ]}
-          >
-            <View style={styles.progressionCoachTopRow}>
-              {isProgressed ? (
-                <View style={styles.overloadPill}>
-                  <Ionicons name="trending-up" size={12} color="#0B0D0F" />
-                  <Text style={styles.overloadPillText}>
-                    {hasWeightIncrease
-                      ? `${weightDeltaDisplay > 0 ? '+' : ''}${weightDeltaDisplay} ${unitLabel}`
-                      : `+${repsDelta} ${language === 'uk' ? 'повт' : 'reps'}`}
-                  </Text>
-                </View>
-              ) : (
-                <Ionicons
-                  name={
-                    isManuallyAdjusted
-                      ? 'options-outline'
-                      : exercise.recommendation?.recommendationReason === 'reduce'
-                      ? 'shield-checkmark-outline'
-                      : 'checkmark-circle-outline'
-                  }
-                  size={15}
-                  color={colors.primary}
-                />
-              )}
-
-              <Text style={styles.progressionTargetSummary}>
-                {language === 'uk' ? 'Сьогодні ціль: ' : 'Today’s goal: '}
-                <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>
-                  {currentWeight ? formatWithUnit(currentWeight) : t('bodyweight')} × {currentReps}{' '}
-                  {language === 'uk' ? 'повт' : 'reps'}
-                </Text>
+          {/* Active Set Quick Stepper Bar (Clean, unified, non-cluttered) */}
+          <View style={styles.quickAdjustBar}>
+            {/* Weight Segment */}
+            <View style={styles.quickAdjustSegment}>
+              <Text style={styles.quickAdjustLabel} numberOfLines={1}>
+                {isAssisted
+                  ? (language === 'uk' ? `ПРОТИВАГА (${unitLabel})` : `ASSIST (${unitLabel})`)
+                  : `${t('weight').toUpperCase()} (${unitLabel})`}
               </Text>
-            </View>
-
-            <View style={styles.progressionCoachBottomRow}>
-              <Text numberOfLines={2} style={styles.progressionSubExplanation}>
-                {isManuallyAdjusted
-                  ? (language === 'uk'
-                      ? `Власна ціль: ${formatWithUnit(currentWeight)} × ${currentReps} повт (рекомендація: ${formatWithUnit(recWeight)} × ${recReps} повт)`
-                      : `Custom target: ${formatWithUnit(currentWeight)} × ${currentReps} reps (recommended: ${formatWithUnit(recWeight)} × ${recReps} reps)`)
-                  : nextUnlockHint}
-              </Text>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="How progression works"
-                hitSlop={8}
-                onPress={() => {
-                  hapticLight();
-                  setShowProgressionModal(true);
-                }}
-                style={styles.howProgressionBtn}
-              >
-                <Ionicons name="help-circle-outline" size={13} color={colors.primary} />
-                <Text style={styles.howProgressionBtnText}>
-                  {language === 'uk' ? 'Як працює?' : 'How it works'}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-
-          {/* Steppers & Target Numbers Grid */}
-          <View style={styles.heroControlsRow}>
-            {/* Weight Stepper Control */}
-            <View style={styles.heroControlBox}>
-              <View style={styles.heroControlLabelRow}>
-                <Text style={styles.heroControlLabel} numberOfLines={1}>
-                  {isAssisted
-                    ? (language === 'uk' ? `ПРОТИВАГА (${unitLabel})` : `ASSIST (${unitLabel})`)
-                    : currentEquip === 'dumbbells'
-                    ? `${t('weight')} (${unitLabel}) · ${language === 'uk' ? '1 ГАНТ.' : '1 DB'}`
-                    : `${t('weight')} (${unitLabel})`}
-                </Text>
-                {hasWeightIncrease && (
-                  <View style={styles.deltaMicroBadge}>
-                    <Text style={styles.deltaMicroText}>
-                      {weightDeltaDisplay > 0 ? `+${weightDeltaDisplay}` : `${weightDeltaDisplay}`}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.stepperContainer}>
+              <View style={styles.stepperRow}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Decrease weight 0.5kg"
-                  hitSlop={8}
+                  accessibilityLabel="Decrease weight"
+                  hitSlop={6}
                   onPress={() => adjustActiveWeight(unit === 'lbs' ? -1 : -0.5)}
-                  style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
+                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
                 >
-                  <Ionicons name="remove" size={18} color="#FFFFFF" />
+                  <Ionicons name="remove" size={16} color="#FFFFFF" />
                 </Pressable>
 
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Edit active set weight"
-                  hitSlop={8}
+                  hitSlop={6}
                   onPress={() => {
                     hapticLight();
                     setEditingTarget({
@@ -740,51 +639,46 @@ export default function Active() {
                       initialFocusField: 'weight',
                     });
                   }}
-                  style={({ pressed }) => [styles.heroValueBtn, pressed && styles.heroValueBtnPressed]}
+                  style={styles.stepValueBox}
                 >
-                  <Text style={styles.heroValueText}>
+                  <Text style={styles.stepValueText}>
                     {activeSet?.weight ? format(activeSet.weight) : (language === 'uk' ? 'ВТ' : 'BW')}
                   </Text>
-                  {activeSet?.weight ? <Text style={styles.heroValueSub}>{unitLabel}</Text> : null}
+                  {activeSet?.weight ? <Text style={styles.stepValueUnit}> {unitLabel}</Text> : null}
                 </Pressable>
 
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Increase weight 0.5kg"
-                  hitSlop={8}
+                  accessibilityLabel="Increase weight"
+                  hitSlop={6}
                   onPress={() => adjustActiveWeight(unit === 'lbs' ? 1 : 0.5)}
-                  style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
+                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
                 >
-                  <Ionicons name="add" size={18} color="#FFFFFF" />
+                  <Ionicons name="add" size={16} color="#FFFFFF" />
                 </Pressable>
               </View>
             </View>
 
-            {/* Reps Stepper Control */}
-            <View style={styles.heroControlBox}>
-              <View style={styles.heroControlLabelRow}>
-                <Text style={styles.heroControlLabel}>{t('reps')}</Text>
-                {hasRepsIncrease && (
-                  <View style={styles.deltaMicroBadge}>
-                    <Text style={styles.deltaMicroText}>+{repsDelta}</Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.stepperContainer}>
+            <View style={styles.quickAdjustDivider} />
+
+            {/* Reps Segment */}
+            <View style={styles.quickAdjustSegment}>
+              <Text style={styles.quickAdjustLabel}>{t('reps').toUpperCase()}</Text>
+              <View style={styles.stepperRow}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Decrease reps 1"
-                  hitSlop={8}
+                  accessibilityLabel="Decrease reps"
+                  hitSlop={6}
                   onPress={() => adjustActiveReps(-1)}
-                  style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
+                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
                 >
-                  <Ionicons name="remove" size={18} color="#FFFFFF" />
+                  <Ionicons name="remove" size={16} color="#FFFFFF" />
                 </Pressable>
 
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Edit active set reps"
-                  hitSlop={8}
+                  hitSlop={6}
                   onPress={() => {
                     hapticLight();
                     setEditingTarget({
@@ -793,28 +687,26 @@ export default function Active() {
                       initialFocusField: 'reps',
                     });
                   }}
-                  style={({ pressed }) => [styles.heroValueBtn, pressed && styles.heroValueBtnPressed]}
+                  style={styles.stepValueBox}
                 >
-                  <Text style={styles.heroValueText}>{activeSet?.reps ?? 8}</Text>
-                  <Text style={styles.heroValueSub}>{language === 'uk' ? 'повт' : 'reps'}</Text>
+                  <Text style={styles.stepValueText}>{activeSet?.reps ?? 8}</Text>
+                  <Text style={styles.stepValueUnit}> {language === 'uk' ? 'повт' : 'reps'}</Text>
                 </Pressable>
 
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Increase reps 1"
-                  hitSlop={8}
+                  accessibilityLabel="Increase reps"
+                  hitSlop={6}
                   onPress={() => adjustActiveReps(1)}
-                  style={({ pressed }) => [styles.stepperBtn, pressed && styles.stepperBtnPressed]}
+                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
                 >
-                  <Ionicons name="add" size={18} color="#FFFFFF" />
+                  <Ionicons name="add" size={16} color="#FFFFFF" />
                 </Pressable>
               </View>
             </View>
           </View>
-        </View>
 
-        {/* 4. Sets Table Card with Visual Completion Feedback */}
-        <View style={styles.card}>
+          {/* Sets Table */}
           <View style={styles.tableHeaderRow}>
             <Text numberOfLines={1} style={styles.tableHeadSet}>{t('set')}</Text>
             <Text numberOfLines={1} style={styles.tableHeadPrev}>{language === 'uk' ? 'МИНУЛЕ' : 'PREV'}</Text>
@@ -981,8 +873,7 @@ export default function Active() {
           </View>
         </View>
       </ScrollView>
-
-      {/* 5. Sticky Bottom Action Bar */}
+{/* 5. Sticky Bottom Action Bar */}
       <View style={styles.bottomBar}>
         <Button
           disabled={finishing || submittingSet}
@@ -1150,6 +1041,175 @@ export default function Active() {
 }
 
 const styles = StyleSheet.create({
+  exerciseCard: {
+    backgroundColor: '#0F1318',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
+    marginBottom: 16,
+  },
+  exerciseHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  exerciseThumbWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#161B22',
+    overflow: 'hidden',
+  },
+  exerciseThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  exerciseInfoCol: {
+    flex: 1,
+    gap: 2,
+  },
+  exerciseMuscleRow: {
+    flexDirection: 'row',
+  },
+  exerciseMuscleText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  exerciseNameText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  exerciseActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  iconActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contextChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+  },
+  targetChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  targetChipText: {
+    color: colors.primary,
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  noteChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    maxWidth: 160,
+  },
+  noteChipActive: {
+    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+  },
+  noteChipText: {
+    color: '#94A3B8',
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  noteChipTextActive: {
+    color: '#F1F5F9',
+  },
+  quickAdjustBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#141A22',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+  },
+  quickAdjustSegment: {
+    flex: 1,
+    gap: 4,
+  },
+  quickAdjustLabel: {
+    color: '#8E9BAE',
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  quickAdjustDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginHorizontal: 10,
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  stepBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBtnPressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  stepValueBox: {
+    minWidth: 64,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepValueText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  stepValueUnit: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#8E9BAE',
+  },
+
   safe: {
     flex: 1,
     backgroundColor: '#0B0D0F',
@@ -1219,60 +1279,7 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 140,
   },
-  exerciseHeader: {
-    backgroundColor: '#12161D',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 14,
-  },
-  exerciseThumbWrap: {
-    width: 96,
-    height: 96,
-    borderRadius: 14,
-    backgroundColor: '#0E1115',
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  thumbOverlayTag: {
-    position: 'absolute',
-    bottom: 5,
-    left: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.35,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  thumbOverlayText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#0B0D0F',
-    letterSpacing: 0.4,
-  },
-  exerciseThumb: {
-    width: '100%',
-    height: '100%',
-  },
-  exerciseInfoCol: {
-    flex: 1,
-    justifyContent: 'space-between',
-    minHeight: 96,
-    paddingVertical: 2,
-  },
+
   exerciseTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
