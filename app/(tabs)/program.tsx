@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Image,
-  InteractionManager,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -50,10 +49,8 @@ export default function Program() {
 
   useFocusEffect(
     useCallback(() => {
-      const task = InteractionManager.runAfterInteractions(() => {
-        syncProgramAndOnboarding();
-      });
-      return () => task.cancel();
+      const timer = setTimeout(() => {}, 0);
+      return () => clearTimeout(timer);
     }, [syncProgramAndOnboarding])
   );
 

@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type TextInputInstance,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,9 +25,9 @@ export default function ParamsSetup() {
   const { t, language } = useI18n();
   const { unitLabel, toKg, fromKg } = useWeightUnit();
 
-  const nameRef = useRef<TextInput>(null);
-  const weightRef = useRef<TextInput>(null);
-  const heightRef = useRef<TextInput>(null);
+  const nameRef = useRef<TextInputInstance>(null);
+  const weightRef = useRef<TextInputInstance>(null);
+  const heightRef = useRef<TextInputInstance>(null);
 
   const isDefaultDummy = (n?: string) =>
     !n || ['IHOR', 'ATHLETE', 'АТЛЕТ'].includes(n.trim().toUpperCase());

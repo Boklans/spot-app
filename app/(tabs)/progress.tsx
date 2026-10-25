@@ -3,7 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
-  InteractionManager,
+  type ScrollViewInstance,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -56,7 +56,7 @@ export default function Progress() {
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
   const [logWeightModalVisible, setLogWeightModalVisible] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const program = useProgramStore((state) => state.program);
 
   useEffect(() => {
@@ -66,11 +66,8 @@ export default function Progress() {
   // Sync on tab focus after transition finishes smoothly
   useFocusEffect(
     useCallback(() => {
-      const task = InteractionManager.runAfterInteractions(() => {
-        loadHistory();
-        loadBodyWeightHistory();
-      });
-      return () => task.cancel();
+      const timer = setTimeout(() => {}, 0);
+      return () => clearTimeout(timer);
     }, [loadHistory, loadBodyWeightHistory])
   );
 

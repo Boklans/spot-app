@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type TextInputInstance,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,8 +54,8 @@ export function EditSetModal({
   const [weightText, setWeightText] = useState('');
   const [repsText, setRepsText] = useState('');
 
-  const weightInputRef = useRef<TextInput>(null);
-  const repsInputRef = useRef<TextInput>(null);
+  const weightInputRef = useRef<TextInputInstance>(null);
+  const repsInputRef = useRef<TextInputInstance>(null);
 
   useEffect(() => {
     if (visible) {

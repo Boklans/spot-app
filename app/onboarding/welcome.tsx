@@ -49,7 +49,7 @@ export default function Welcome() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle="light-content" {...({ translucent: true, backgroundColor: 'transparent' } as any)} />
 
       {/* 1. Hero Athlete Background Photo */}
       <View style={styles.imageContainer}>

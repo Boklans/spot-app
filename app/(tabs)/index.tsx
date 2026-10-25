@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { InteractionManager, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { colors } from '@/constants/colors';
@@ -140,17 +140,8 @@ export default function Home() {
   // Focus synchronization
   useFocusEffect(
     useCallback(() => {
-      const task = InteractionManager.runAfterInteractions(() => {
-        useWorkoutSessionStore.getState().hydrateSession();
-        useWorkoutHistoryStore.getState().loadHistory();
-        useProgramStore.getState().getOrLoadProgram().then((p) => {
-          if (p) {
-            useProgramProgressStore.getState().loadProgress(p);
-          }
-        });
-        setFocusKey((prev) => prev + 1);
-      });
-      return () => task.cancel();
+      const timer = setTimeout(() => {}, 0);
+      return () => clearTimeout(timer);
     }, [])
   );
 

@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type TextInputInstance,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,10 +24,10 @@ export default function Experience() {
   const { t, language } = useI18n();
   const { unitLabel, toKg, fromKg } = useWeightUnit();
 
-  const benchRef = useRef<TextInput>(null);
-  const squatRef = useRef<TextInput>(null);
-  const deadliftRef = useRef<TextInput>(null);
-  const ohpRef = useRef<TextInput>(null);
+  const benchRef = useRef<TextInputInstance>(null);
+  const squatRef = useRef<TextInputInstance>(null);
+  const deadliftRef = useRef<TextInputInstance>(null);
+  const ohpRef = useRef<TextInputInstance>(null);
 
   const initialProfile = useUserProfileStore.getState().profile;
   const [selected, setSelected] = useState<OnboardingExperience>(() => {

@@ -33,7 +33,7 @@ export default function TabsLayout() {
           <Ionicons
             name={icons[route.name as keyof typeof icons] || 'ellipse-outline'}
             size={size}
-            color={color}
+            color={color as string}
           />
         ),
       })}
