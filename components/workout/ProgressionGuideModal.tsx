@@ -66,6 +66,49 @@ export function ProgressionGuideModal({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.content}
           >
+            {/* Card 0: How starting weight is determined */}
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={[styles.iconCircle, { backgroundColor: 'rgba(200, 255, 61, 0.14)' }]}>
+                  <Ionicons name="speedometer-outline" size={18} color={colors.primary} />
+                </View>
+                <Text style={styles.cardTitle}>
+                  {isUk ? '0. Як визначається стартова вага?' : '0. How Is Starting Weight Set?'}
+                </Text>
+              </View>
+              <Text style={styles.cardBody}>
+                {isUk
+                  ? 'SPOT розраховує стартову вагу на основі вашого профілю або останнього тренування:'
+                  : 'SPOT calculates starting weight from your profile or previous session:'}
+              </Text>
+              <View style={styles.bulletList}>
+                <View style={styles.bulletItem}>
+                  <View style={[styles.dot, { backgroundColor: colors.primary }]} />
+                  <Text style={styles.bulletText}>
+                    {isUk
+                      ? 'З онбордингу: якщо ви вказували вагу в жимі, присіданні чи тязі — SPOT розраховує робочі ваги під кожну вправу на базі 1RM.'
+                      : 'From onboarding: if you entered baseline lifts, SPOT calculates target working weights via 1RM formulas.'}
+                  </Text>
+                </View>
+                <View style={styles.bulletItem}>
+                  <View style={[styles.dot, { backgroundColor: colors.primary }]} />
+                  <Text style={styles.bulletText}>
+                    {isUk
+                      ? 'Калібрувальна вага: для нових вправ система ставить безпечний базовий мінімум під вашу стать, вагу тіла та досвід.'
+                      : 'Calibration weight: for new exercises, SPOT sets a safe baseline for your gender, bodyweight, and experience.'}
+                  </Text>
+                </View>
+                <View style={styles.bulletItem}>
+                  <View style={[styles.dot, { backgroundColor: colors.primary }]} />
+                  <Text style={styles.bulletText}>
+                    {isUk
+                      ? 'Ручна зміна: якщо вага не підходить — просто натисніть на неї в таблиці та змініть. Алгоритм одразу підхопить вашу фактичну вагу!'
+                      : 'Manual adjust: if the weight feels off, tap it in the table to edit. The algorithm instantly adopts your actual weight.'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
             {/* Card 1: Double Progression */}
             <View style={styles.card}>
               <View style={styles.cardHeader}>
@@ -177,6 +220,49 @@ export function ProgressionGuideModal({
                     {isUk
                       ? 'Гравітрон (Assisted Pull-up / Dip): записується вага ПРОТИВАГИ. Чим менша противага — тим важче виконувати вправу (прогресія зменшує противагу).'
                       : 'Assisted Machines (Gravitron): enter the COUNTERWEIGHT. Less counterweight = harder exercise (progression reduces assistance weight).'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Card 4: RIR & Intensity */}
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={[styles.iconCircle, { backgroundColor: 'rgba(239, 68, 68, 0.14)' }]}>
+                  <Ionicons name="flame-outline" size={18} color="#F87171" />
+                </View>
+                <Text style={styles.cardTitle}>
+                  {isUk ? '4. Що таке RIR (Запас сил)?' : '4. What Is RIR (Reps In Reserve)?'}
+                </Text>
+              </View>
+              <Text style={styles.cardBody}>
+                {isUk
+                  ? 'RIR показує, скільки повторень ви могли б зробити до повної відмови. Ви можете вказати його при редагуванні підходу:'
+                  : 'RIR tracks how many reps you had left in the tank before failure. Log it anytime when editing a set:'}
+              </Text>
+              <View style={styles.bulletList}>
+                <View style={styles.bulletItem}>
+                  <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
+                  <Text style={styles.bulletText}>
+                    {isUk
+                      ? '0 RIR (Відмова): останнє повторення на межі сил, жодного більше зробити не вдалося б.'
+                      : '0 RIR (Failure): true muscular failure, 0 clean reps left in the tank.'}
+                  </Text>
+                </View>
+                <View style={styles.bulletItem}>
+                  <View style={[styles.dot, { backgroundColor: colors.primary }]} />
+                  <Text style={styles.bulletText}>
+                    {isUk
+                      ? '1–2 RIR (Оптимально): золотий стандарт для гіпертрофії — максимальний стимул росту мʼязів без перевантаження ЦНС.'
+                      : '1–2 RIR (Hypertrophy Sweet Spot): maximum muscle growth stimulus with manageable recovery cost.'}
+                  </Text>
+                </View>
+                <View style={styles.bulletItem}>
+                  <View style={[styles.dot, { backgroundColor: '#38BDF8' }]} />
+                  <Text style={styles.bulletText}>
+                    {isUk
+                      ? '3+ RIR: розминочний підхід або легкий сет на закріплення техніки.'
+                      : '3+ RIR: warm-up set or light technique-building set.'}
                   </Text>
                 </View>
               </View>
