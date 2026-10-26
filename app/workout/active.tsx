@@ -3,8 +3,10 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   AppState,
   BackHandler,
+  Easing,
   Image,
   Modal,
   Pressable,
@@ -135,18 +137,40 @@ export default function Active() {
   const restRemainingSeconds = restEndsAt ? Math.max(0, Math.ceil((restEndsAt - now) / 1000)) : 0;
   const isResting = restEndsAt !== null && restRemainingSeconds > 0;
 
+  const restAnim = useRef(new Animated.Value(0)).current;
   const [totalRestSeconds, setTotalRestSeconds] = useState<number>(90);
 
   useEffect(() => {
-    if (restEndsAt && restEndsAt > Date.now()) {
-      const remaining = Math.ceil((restEndsAt - Date.now()) / 1000);
-      setTotalRestSeconds((prev) => Math.max(prev, remaining));
+    if (!restEndsAt || restEndsAt <= Date.now()) {
+      restAnim.setValue(0);
+      return;
     }
+
+    const durationMs = restEndsAt - Date.now();
+    const remainingSec = Math.ceil(durationMs / 1000);
+    const newTotal = Math.max(totalRestSeconds, remainingSec);
+    setTotalRestSeconds(newTotal);
+
+    const initialFraction = Math.max(0, Math.min(1, durationMs / (newTotal * 1000)));
+    restAnim.setValue(initialFraction);
+
+    const anim = Animated.timing(restAnim, {
+      toValue: 0,
+      duration: durationMs,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    });
+    anim.start();
+
+    return () => {
+      anim.stop();
+    };
   }, [restEndsAt]);
 
-  const restProgress = totalRestSeconds > 0
-    ? Math.min(100, Math.max(0, (restRemainingSeconds / totalRestSeconds) * 100))
-    : 0;
+  const restBarWidth = restAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
 
   useEffect(() => {
     isSubmittingSetRef.current = false;
@@ -479,7 +503,7 @@ export default function Active() {
 
             {/* Progress Bar under the timer */}
             <View style={styles.restProgressTrack}>
-              <View style={[styles.restProgressFill, { width: `${restProgress}%` }]} />
+              <Animated.View style={[styles.restProgressFill, { width: restBarWidth }]} />
             </View>
           </View>
 
@@ -573,7 +597,7 @@ export default function Active() {
             </View>
           </View>
 
-          {/* Sub-header Context Chips Row: Adaptive Target + Note */}
+          {/* Sub-header Context Row: Adaptive Target + Add Note */}
           <View style={styles.contextChipsRow}>
             {/* Target chip */}
             <Pressable
@@ -601,27 +625,45 @@ export default function Active() {
               <Ionicons name="information-circle-outline" size={13} color="#8E9BAE" style={{ marginLeft: 3 }} />
             </Pressable>
 
-            {/* Note chip */}
+            {/* If NO note, show subtle "+ Note" trigger right beside target */}
+            {!currentNote && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add note"
+                hitSlop={6}
+                onPress={() => {
+                  hapticLight();
+                  setShowNoteModal(true);
+                }}
+                style={styles.addNoteChip}
+              >
+                <Ionicons name="create-outline" size={12} color="#8E9BAE" />
+                <Text style={styles.addNoteChipText}>
+                  {language === 'uk' ? '+ Нотатка' : '+ Note'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+
+          {/* Full-width Saved Exercise Note Bar (Visible, elegant, never cuts off awkwardly) */}
+          {currentNote ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Add or edit note"
+              accessibilityLabel="Edit note"
               hitSlop={6}
               onPress={() => {
                 hapticLight();
                 setShowNoteModal(true);
               }}
-              style={[styles.noteChip, currentNote ? styles.noteChipActive : null]}
+              style={styles.noteFullBar}
             >
-              <Ionicons
-                name={currentNote ? 'bookmark' : 'create-outline'}
-                size={12}
-                color={currentNote ? colors.primary : '#8E9BAE'}
-              />
-              <Text numberOfLines={1} style={[styles.noteChipText, currentNote ? styles.noteChipTextActive : null]}>
-                {currentNote ? currentNote : (language === 'uk' ? 'Нотатка' : 'Note')}
+              <Ionicons name="bookmark" size={13} color={colors.primary} style={{ marginTop: 1 }} />
+              <Text numberOfLines={2} style={styles.noteFullBarText}>
+                {currentNote}
               </Text>
+              <Ionicons name="create-outline" size={13} color="#8E9BAE" />
             </Pressable>
-          </View>
+          ) : null}
 
           {/* Active Set Quick Stepper Bar (Clean, unified, non-cluttered) */}
           <View style={styles.quickAdjustBar}>
@@ -1137,29 +1179,41 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '600',
   },
-  noteChip: {
+  noteFullBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 8,
+    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 255, 61, 0.25)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  noteFullBarText: {
+    flex: 1,
+    color: '#F1F5F9',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 16,
+  },
+  addNoteChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 10,
-    maxWidth: 160,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
   },
-  noteChipActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-  },
-  noteChipText: {
-    color: '#94A3B8',
+  addNoteChipText: {
+    color: '#8E9BAE',
     fontSize: 11.5,
     fontWeight: '600',
-  },
-  noteChipTextActive: {
-    color: '#F1F5F9',
   },
   quickAdjustBar: {
     flexDirection: 'row',
