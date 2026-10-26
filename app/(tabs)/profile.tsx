@@ -448,10 +448,12 @@ export default function Profile() {
   };
 
   const handleSelectSplit = async (selectedLabel: string) => {
+    const s = String(selectedLabel).toLowerCase().trim();
     let splitKey: WorkoutSplitPreference = 'upper_lower';
-    if (selectedLabel === 'Full Body') splitKey = 'full_body';
-    else if (selectedLabel === 'Push / Pull / Legs') splitKey = 'push_pull_legs';
-    else if (selectedLabel === 'Custom Routine') splitKey = 'custom';
+    if (s.includes('full') || s.includes('все тіло') || s.includes('фул')) splitKey = 'full_body';
+    else if (s.includes('push') || s.includes('pull') || s.includes('ppl') || s.includes('жим') || s.includes('тяга')) splitKey = 'push_pull_legs';
+    else if (s.includes('custom') || s.includes('власн')) splitKey = 'custom';
+    else if (s.includes('upper') || s.includes('lower') || s.includes('верх') || s.includes('низ')) splitKey = 'upper_lower';
 
     const currentOnboarding = (await loadOnboarding()) ?? defaultOnboarding;
     const updated = { ...currentOnboarding, splitPreference: splitKey };

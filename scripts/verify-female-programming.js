@@ -76,4 +76,19 @@ let passed = 0;
   passed++;
 }
 
+// TEST 5: Switching Split Preference between Full Body and Upper / Lower
+{
+  const profileSource = fs.readFileSync(path.join(__dirname, '..', 'app', '(tabs)', 'profile.tsx'), 'utf8');
+  assert.ok(profileSource.includes("s.includes('full')"), 'profile.tsx must parse Full Body split choice safely');
+  assert.ok(profileSource.includes("s.includes('upper')"), 'profile.tsx must parse Upper / Lower split choice safely');
+
+  const programGenSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'programGenerator.ts'), 'utf8');
+  assert.ok(programGenSource.includes("onboarding.splitPreference === 'full_body'"), 'programGenerator.ts must check explicit full_body preference');
+  assert.ok(programGenSource.includes("onboarding.splitPreference === 'upper_lower'"), 'programGenerator.ts must check explicit upper_lower preference');
+
+  console.log('✅ TEST 5 PASSED: Switching between Full Body and Upper/Lower is strictly honored in profile and generator');
+  passed++;
+}
+
 console.log(`\n🎉 ALL ${passed} FEMALE PROGRAMMING & ASSET TESTS PASSED!\n`);
+

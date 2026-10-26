@@ -1201,7 +1201,40 @@ export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
     }));
     name = 'Custom Routine';
     description = 'Your custom workouts built from scratch.';
-  } else if (isFemale && (!onboarding.splitPreference || onboarding.splitPreference === 'full_body' || onboarding.splitPreference === 'upper_lower')) {
+  } else if (onboarding.splitPreference === 'full_body') {
+    splitType = 'full_body';
+    if (isFemale) {
+      templates = femaleFullBodyTemplates(equipment, onboarding.goal === 'get_stronger', limitations);
+      name = isUk ? 'Скульпт & Тонус (Сідниці та Кор)' : 'Sculpt & Tone (Glute Focus)';
+      description = isUk
+        ? 'Програма на все тіло з високою частотою на сідничні м’язи, поставу та кор, оптимізована для жіночої фізіології.'
+        : 'High-frequency glute hypertrophy and aesthetic posture conditioning tailored for female athletes.';
+    } else {
+      templates = fullBodyTemplates(equipment, onboarding.goal === 'get_stronger', priorities, limitations);
+      name = onboarding.goal === 'get_stronger' ? 'Full Body Strength' : 'Full Body Hypertrophy';
+      description = 'High-frequency full-body sessions hitting every muscle group with maximum recovery.';
+    }
+  } else if (onboarding.splitPreference === 'upper_lower') {
+    splitType = 'upper_lower';
+    if (isFemale) {
+      templates = femaleUpperLowerTemplates(equipment, onboarding.goal === 'get_stronger', limitations);
+      name = isUk ? 'Жіночий спліт: Сідниці та Верх' : 'Glute & Silhouette Split';
+      description = isUk
+        ? 'Спліт Верх/Низ з акцентом на розвиток сідниць, талію та підтягнуті дельти.'
+        : 'Targeted split prioritizing glute development, waist taper, and toned shoulders.';
+    } else {
+      templates = upperLowerTemplates(equipment, onboarding.goal === 'get_stronger', priorities, limitations);
+      name = 'Upper / Lower Split';
+      description = 'Classic balanced structure separating upper body pushing/pulling and lower body power.';
+    }
+  } else if (onboarding.splitPreference === 'push_pull_legs') {
+    splitType = 'push_pull_legs';
+    templates = pushPullLegsTemplates(equipment, isFemale ? ['lower_glutes'] : priorities, limitations);
+    name = isFemale
+      ? (isUk ? 'PPL (Сідниці & Силует)' : 'Push / Pull / Legs (Glute Focus)')
+      : 'Push / Pull / Legs (PPL)';
+    description = 'Specialized split targeting synergistic muscle groups with high focus and pump.';
+  } else if (isFemale) {
     if (frequency <= 3) {
       splitType = 'full_body';
       templates = femaleFullBodyTemplates(equipment, onboarding.goal === 'get_stronger', limitations);
@@ -1217,21 +1250,6 @@ export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
         ? '4-денний спліт з акцентом на розвиток сідниць, талію та підтягнуті дельти.'
         : 'Targeted split prioritizing glute development, waist taper, and toned shoulders.';
     }
-  } else if (onboarding.splitPreference === 'full_body') {
-    splitType = 'full_body';
-    templates = fullBodyTemplates(equipment, onboarding.goal === 'get_stronger', priorities, limitations);
-    name = onboarding.goal === 'get_stronger' ? 'Full Body Strength' : 'Full Body Hypertrophy';
-    description = 'High-frequency full-body sessions hitting every muscle group with maximum recovery.';
-  } else if (onboarding.splitPreference === 'push_pull_legs') {
-    splitType = 'push_pull_legs';
-    templates = pushPullLegsTemplates(equipment, priorities, limitations);
-    name = 'Push / Pull / Legs (PPL)';
-    description = 'Specialized split targeting synergistic muscle groups with high focus and pump.';
-  } else if (onboarding.splitPreference === 'upper_lower') {
-    splitType = 'upper_lower';
-    templates = upperLowerTemplates(equipment, onboarding.goal === 'get_stronger', priorities, limitations);
-    name = 'Upper / Lower Split';
-    description = 'Classic balanced structure separating upper body pushing/pulling and lower body power.';
   } else if (onboarding.splitPreference === 'custom') {
     splitType = 'custom';
     templates = customSplitTemplates(equipment, limitations);
