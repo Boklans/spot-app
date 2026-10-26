@@ -1,4 +1,38 @@
 import { ImageSourcePropType } from 'react-native';
+import { useUserProfileStore } from '@/store/userProfileStore';
+
+const FEMALE_EXERCISE_IMAGES: Record<string, ImageSourcePropType> = {
+  // Lower & Glutes
+  'hip thrust': require('@/assets/exercises/female/hip_thrust.jpg'),
+  'glute bridge': require('@/assets/exercises/female/hip_thrust.jpg'),
+  'pull-through': require('@/assets/exercises/female/hip_thrust.jpg'),
+  'glute': require('@/assets/exercises/female/hip_thrust.jpg'),
+  'romanian deadlift': require('@/assets/exercises/female/romanian_deadlift.jpg'),
+  'deadlift': require('@/assets/exercises/female/romanian_deadlift.jpg'),
+  'bulgarian split squat': require('@/assets/exercises/female/bulgarian_split_squat.jpg'),
+  'bulgarian': require('@/assets/exercises/female/bulgarian_split_squat.jpg'),
+  'walking lunge': require('@/assets/exercises/female/walking_lunges.jpg'),
+  'lunge': require('@/assets/exercises/female/walking_lunges.jpg'),
+  'barbell squat': require('@/assets/exercises/female/barbell_squat.jpg'),
+  'goblet squat': require('@/assets/exercises/female/barbell_squat.jpg'),
+  'squat': require('@/assets/exercises/female/barbell_squat.jpg'),
+
+  // Upper Body
+  'lat pulldown': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'pulldown': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'dumbbell shoulder press': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'overhead press': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'shoulder press': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'lateral raise': require('@/assets/exercises/female/lateral_raises.jpg'),
+  'side raise': require('@/assets/exercises/female/lateral_raises.jpg'),
+  'dumbbell bench press': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'dumbbell bench': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+
+  // Core
+  'plank': require('@/assets/exercises/female/plank.jpg'),
+  'cable crunch': require('@/assets/exercises/female/cable_crunch.jpg'),
+  'kneeling crunch': require('@/assets/exercises/female/cable_crunch.jpg'),
+};
 
 const EXERCISE_IMAGES: Record<string, ImageSourcePropType> = {
   // --- Chest (Most specific first) ---
@@ -81,10 +115,10 @@ const EXERCISE_IMAGES: Record<string, ImageSourcePropType> = {
   'bulgarian': require('@/assets/exercises/bulgarian_split_squat.jpg'),
   'step-up': require('@/assets/exercises/bulgarian_split_squat.jpg'),
   'step up': require('@/assets/exercises/bulgarian_split_squat.jpg'),
-  'hip thrust': require('@/assets/exercises/romanian_deadlift.jpg'),
-  'glute bridge': require('@/assets/exercises/romanian_deadlift.jpg'),
-  'pull-through': require('@/assets/exercises/romanian_deadlift.jpg'),
-  'glute': require('@/assets/exercises/romanian_deadlift.jpg'),
+  'hip thrust': require('@/assets/exercises/female/hip_thrust.jpg'),
+  'glute bridge': require('@/assets/exercises/female/hip_thrust.jpg'),
+  'pull-through': require('@/assets/exercises/female/hip_thrust.jpg'),
+  'glute': require('@/assets/exercises/female/hip_thrust.jpg'),
   'walking lunge': require('@/assets/exercises/walking_lunges.jpg'),
   'lunge': require('@/assets/exercises/walking_lunges.jpg'),
   'barbell squat': require('@/assets/exercises/barbell_squat.jpg'),
@@ -107,12 +141,28 @@ const EXERCISE_IMAGES: Record<string, ImageSourcePropType> = {
   'plank': require('@/assets/exercises/plank.jpg'),
 };
 
-export function getExerciseImage(name?: string, customImageUri?: string): ImageSourcePropType {
+export function getExerciseImage(
+  name?: string,
+  customImageUri?: string,
+  sexOverride?: 'male' | 'female' | 'unspecified'
+): ImageSourcePropType {
   if (customImageUri) {
     return { uri: customImageUri };
   }
   if (!name) return EXERCISE_IMAGES['bench press'];
   const lower = name.toLowerCase().trim();
+
+  // Resolve user sex (either explicit or from profile store)
+  const currentSex = sexOverride ?? useUserProfileStore.getState().profile.sex;
+
+  if (currentSex === 'female') {
+    for (const [key, image] of Object.entries(FEMALE_EXERCISE_IMAGES)) {
+      if (lower.includes(key)) {
+        return image;
+      }
+    }
+  }
+
   for (const [key, image] of Object.entries(EXERCISE_IMAGES)) {
     if (lower.includes(key)) {
       return image;
