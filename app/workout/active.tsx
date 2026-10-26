@@ -121,6 +121,21 @@ export default function Active() {
     initialFocusField?: 'weight' | 'reps';
   } | null>(null);
 
+  const [recentCompletedSetTarget, setRecentCompletedSetTarget] = useState<{
+    exerciseIndex: number;
+    setIndex: number;
+    setNumber: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (recentCompletedSetTarget) {
+      const timer = setTimeout(() => {
+        setRecentCompletedSetTarget(null);
+      }, 12000);
+      return () => clearTimeout(timer);
+    }
+  }, [recentCompletedSetTarget]);
+
   const exerciseNotes = useExerciseNotesStore((state) => state.notes);
   const notesHydrated = useExerciseNotesStore((state) => state.hydrated);
   const loadExerciseNotes = useExerciseNotesStore((state) => state.loadNotes);
@@ -382,6 +397,18 @@ export default function Active() {
           ? `Коли виконаєш ${maxTargetReps} повт у всіх підходах — збільшимо вагу`
           : `Hit ${maxTargetReps} reps on all sets to increase weight`);
 
+  const handleQuickSelectRir = (rirVal: number) => {
+    if (!recentCompletedSetTarget || !session) return;
+    hapticLight();
+    useWorkoutSessionStore.getState().updateSet(
+      recentCompletedSetTarget.exerciseIndex,
+      recentCompletedSetTarget.setIndex,
+      { rir: rirVal },
+      false
+    );
+    setRecentCompletedSetTarget(null);
+  };
+
   const handleToggleSet = async (targetSetIndex: number) => {
     if (isSubmittingSetRef.current || finishing || submittingSet) return;
     const currentSet = exercise?.sets[targetSetIndex];
@@ -390,6 +417,7 @@ export default function Active() {
     if (currentSet.completed) {
       // Toggle to uncompleted (Undo)
       hapticLight();
+      setRecentCompletedSetTarget(null);
       cancelRestTimerNotification();
       toggleSetCompletion(session.currentExerciseIndex, targetSetIndex);
     } else {
@@ -404,10 +432,16 @@ export default function Active() {
         const isCompleted = Boolean(latestSession?.completed);
 
         if (isCompleted) {
+          setRecentCompletedSetTarget(null);
           setFinishing(true);
           if (latestSession) await finalizeWorkoutSession(latestSession);
           router.replace('/workout/complete');
         } else {
+          setRecentCompletedSetTarget({
+            exerciseIndex: session.currentExerciseIndex,
+            setIndex: targetSetIndex,
+            setNumber: targetSetIndex + 1,
+          });
           setTimeout(() => {
             isSubmittingSetRef.current = false;
             setSubmittingSet(false);
@@ -832,8 +866,49 @@ export default function Active() {
           </View>
         </View>
       </ScrollView>
-{/* 5. Sticky Bottom Action Bar */}
+      {/* 5. Sticky Bottom Action Bar */}
       <View style={styles.bottomBar}>
+        {recentCompletedSetTarget && (
+          <View style={styles.quickRirBar}>
+            <View style={styles.quickRirHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="flash" size={13} color={colors.primary} />
+                <Text style={styles.quickRirTitle}>
+                  {language === 'uk'
+                    ? `Запас сил (RIR) для підходу ${recentCompletedSetTarget.setNumber}:`
+                    : `Reps in reserve (RIR) for set ${recentCompletedSetTarget.setNumber}:`}
+                </Text>
+              </View>
+              <Pressable
+                hitSlop={8}
+                onPress={() => setRecentCompletedSetTarget(null)}
+                style={styles.quickRirCloseBtn}
+              >
+                <Ionicons name="close" size={16} color="#8E9BAE" />
+              </Pressable>
+            </View>
+
+            <View style={styles.quickRirRow}>
+              {[
+                { val: 0, label: language === 'uk' ? '0 Відмова ⚡' : '0 Fail ⚡', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.14)' },
+                { val: 1, label: '1 RIR', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.14)' },
+                { val: 2, label: '2 RIR 🔥', color: colors.primary, bg: 'rgba(200, 255, 61, 0.14)' },
+                { val: 3, label: '3+ RIR', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.14)' },
+              ].map((chip) => (
+                <Pressable
+                  key={`quick-rir-${chip.val}`}
+                  onPress={() => handleQuickSelectRir(chip.val)}
+                  style={[styles.quickRirChip, { backgroundColor: chip.bg, borderColor: chip.color }]}
+                >
+                  <Text style={[styles.quickRirChipText, { color: chip.color }]}>
+                    {chip.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+
         <Button
           disabled={finishing || submittingSet}
           style={styles.completeBtn}
@@ -1751,6 +1826,51 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     backgroundColor: '#0B0D0F',
     gap: 8,
+  },
+  quickRirBar: {
+    backgroundColor: '#151921',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#242D3B',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 4,
+    gap: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  quickRirHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  quickRirTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#CBD5E1',
+    letterSpacing: 0.2,
+  },
+  quickRirCloseBtn: {
+    padding: 2,
+  },
+  quickRirRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  quickRirChip: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickRirChipText: {
+    fontSize: 11.5,
+    fontWeight: '800',
   },
   completeBtn: {
     width: '100%',
