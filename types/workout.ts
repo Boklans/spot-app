@@ -14,6 +14,7 @@ export type CompletedSet = {
   reps: number;
   volume: number;
   completedAt: string;
+  rir?: number;
 };
 
 export type CompletedExercise = {

@@ -17,6 +17,7 @@ export type WorkoutSet = {
   targetReps: string;
   completed: boolean;
   completedAt?: string;
+  rir?: number;
 };
 
 export type PreviousSet = {
@@ -71,8 +72,8 @@ type WorkoutSessionState = {
   completeCurrentSet: () => void;
   toggleSetCompletion: (exerciseIndex: number, setIndex: number) => void;
   setPersonalRecords: (personalRecords: PersonalRecord[]) => void;
-  updateCurrentSet: (values: { weight?: number; reps?: number }, propagate?: boolean) => void;
-  updateSet: (exerciseIndex: number, setIndex: number, values: { weight?: number; reps?: number }, propagate?: boolean) => void;
+  updateCurrentSet: (values: { weight?: number; reps?: number; rir?: number | null }, propagate?: boolean) => void;
+  updateSet: (exerciseIndex: number, setIndex: number, values: { weight?: number; reps?: number; rir?: number | null }, propagate?: boolean) => void;
   updateExerciseRest: (exerciseIndex: number, restSeconds: number, applyToAll?: boolean) => void;
   addRestTime: (seconds: number) => void;
   skipRest: () => void;
@@ -444,11 +445,13 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
                   sets: exercise.sets.map((workoutSet, sIdx) => {
                     // Update target set (preserves completed and completedAt)
                     if (sIdx === setIndex) {
-                      return { ...workoutSet, ...values };
+                      const updatedRir = values.rir === null ? undefined : values.rir !== undefined ? values.rir : workoutSet.rir;
+                      return { ...workoutSet, ...values, rir: updatedRir };
                     }
                     // Forward-propagate weight and reps ONLY if explicitly requested AND target is uncompleted
                     if (shouldPropagate && sIdx > setIndex && !workoutSet.completed) {
-                      return { ...workoutSet, ...values };
+                      const { rir: _unusedRir, ...propagateValues } = values;
+                      return { ...workoutSet, ...propagateValues };
                     }
                     return workoutSet;
                   }),

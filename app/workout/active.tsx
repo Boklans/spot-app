@@ -318,7 +318,7 @@ export default function Active() {
   );
   const isLastRemainingSet = remainingUncompletedSets === 1 && Boolean(activeSet && !activeSet.completed);
 
-  const handleSaveEditedSet = ({ weight, reps }: { weight: number; reps: number }) => {
+  const handleSaveEditedSet = ({ weight, reps, rir }: { weight: number; reps: number; rir?: number | null }) => {
     if (!editingTarget || !session) return;
     const { exerciseIndex, setIndex } = editingTarget;
     const editedSet = session.exercises[exerciseIndex]?.sets[setIndex];
@@ -326,7 +326,7 @@ export default function Active() {
       exerciseIndex === session.currentExerciseIndex &&
       setIndex === session.currentSetIndex &&
       Boolean(editedSet && !editedSet.completed);
-    useWorkoutSessionStore.getState().updateSet(exerciseIndex, setIndex, { weight, reps }, shouldPropagate);
+    useWorkoutSessionStore.getState().updateSet(exerciseIndex, setIndex, { weight, reps, rir }, shouldPropagate);
     setEditingTarget(null);
   };
 
@@ -704,9 +704,18 @@ export default function Active() {
                     {index + 1}
                   </Text>
 
-                  <Text style={[styles.setColPrev, isDone && styles.setColDoneText]}>
-                    {prevSetText}
-                  </Text>
+                  <View style={styles.prevColWrap}>
+                    <Text style={[styles.setColPrev, isDone && styles.setColDoneText]}>
+                      {prevSetText}
+                    </Text>
+                    {set.rir !== undefined && (
+                      <View style={styles.rirBadge}>
+                        <Text style={styles.rirBadgeText}>
+                          {set.rir === 0 ? '0 RIR' : `${set.rir} RIR`}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
 
                   {/* Direct Interactive Weight Pill */}
                   <Pressable
@@ -958,6 +967,7 @@ export default function Active() {
           isCompleted={targetSetForEditing.completed}
           initialWeightKg={targetSetForEditing.weight}
           initialReps={targetSetForEditing.reps}
+          initialRir={targetSetForEditing.rir}
           unitLabel={unitLabel}
           unit={unit}
           toKg={toKg}
@@ -1620,11 +1630,30 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     fontVariant: ['tabular-nums'],
   },
+  prevColWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rirBadge: {
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    marginTop: 2,
+    borderWidth: 0.5,
+    borderColor: 'rgba(200, 255, 61, 0.3)',
+  },
+  rirBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: colors.primary,
+    fontVariant: ['tabular-nums'],
+  },
   setColPrev: {
     fontSize: 12.5,
     fontWeight: '500',
     color: '#5E6978',
-    flex: 1,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },

@@ -23,12 +23,13 @@ interface EditSetModalProps {
   isCompleted: boolean;
   initialWeightKg: number;
   initialReps: number;
+  initialRir?: number;
   unitLabel: string;
   unit: 'kg' | 'lbs';
   toKg: (val: number) => number;
   fromKg: (val: number) => number;
   onClose: () => void;
-  onSave: (values: { weight: number; reps: number }) => void;
+  onSave: (values: { weight: number; reps: number; rir?: number | null }) => void;
   initialFocusField?: 'weight' | 'reps';
 }
 
@@ -40,6 +41,7 @@ export function EditSetModal({
   isCompleted,
   initialWeightKg,
   initialReps,
+  initialRir,
   unitLabel,
   unit,
   toKg,
@@ -53,6 +55,7 @@ export function EditSetModal({
 
   const [weightText, setWeightText] = useState('');
   const [repsText, setRepsText] = useState('');
+  const [selectedRir, setSelectedRir] = useState<number | null>(initialRir ?? null);
 
   const weightInputRef = useRef<TextInputInstance>(null);
   const repsInputRef = useRef<TextInputInstance>(null);
@@ -62,6 +65,7 @@ export function EditSetModal({
       const displayW = fromKg(initialWeightKg ?? 0);
       setWeightText(displayW > 0 ? String(Math.round(displayW * 10) / 10) : '0');
       setRepsText(String(initialReps ?? 8));
+      setSelectedRir(initialRir ?? null);
 
       // Auto-focus after modal transition
       const timer = setTimeout(() => {
@@ -73,7 +77,7 @@ export function EditSetModal({
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [visible, initialWeightKg, initialReps, fromKg, initialFocusField]);
+  }, [visible, initialWeightKg, initialReps, initialRir, fromKg, initialFocusField]);
 
   const adjustWeightDelta = (delta: number) => {
     hapticLight();
@@ -101,6 +105,7 @@ export function EditSetModal({
     onSave({
       weight: Math.round(safeKg * 100) / 100,
       reps: safeReps,
+      rir: selectedRir,
     });
     onClose();
   };
@@ -218,6 +223,51 @@ export function EditSetModal({
                   </Pressable>
                 ))}
               </View>
+            </View>
+          </View>
+
+          {/* RIR (Reps in Reserve) Selector */}
+          <View style={styles.rirSection}>
+            <View style={styles.rirHeaderRow}>
+              <Text style={styles.rirTitle}>
+                {isUk ? 'ЗАПАС ПОВТОРЕНЬ (RIR)' : 'REPS IN RESERVE (RIR)'}
+              </Text>
+              <Text style={styles.rirSubtitle}>
+                {selectedRir === undefined || selectedRir === null
+                  ? (isUk ? 'Не вказано' : 'Not set')
+                  : selectedRir === 0
+                    ? (isUk ? '0 — До відмови ⚡' : '0 — True failure ⚡')
+                    : selectedRir === 1
+                      ? (isUk ? '1 — Ще одне повт.' : '1 rep in reserve')
+                      : selectedRir === 2
+                        ? (isUk ? '2 — Оптимально 🔥' : '2 reps (hypertrophy)')
+                        : (isUk ? '3+ — Легкий сет' : '3+ reps in reserve')}
+              </Text>
+            </View>
+
+            <View style={styles.rirChipsRow}>
+              {[
+                { val: 0, label: isUk ? '0 Відмова' : '0 Fail' },
+                { val: 1, label: '1 RIR' },
+                { val: 2, label: '2 RIR' },
+                { val: 3, label: '3+ RIR' },
+              ].map((item) => {
+                const active = selectedRir === item.val;
+                return (
+                  <Pressable
+                    key={`rir-${item.val}`}
+                    onPress={() => {
+                      hapticLight();
+                      setSelectedRir((prev) => (prev === item.val ? null : item.val));
+                    }}
+                    style={[styles.rirChip, active && styles.rirChipActive]}
+                  >
+                    <Text style={[styles.rirChipText, active && styles.rirChipTextActive]}>
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
 
@@ -381,6 +431,58 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  rirSection: {
+    backgroundColor: '#12161E',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#212936',
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  rirHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  rirTitle: {
+    color: '#8E9BAE',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  rirSubtitle: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  rirChipsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  rirChip: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#181F2B',
+    borderWidth: 1,
+    borderColor: '#263142',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rirChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  rirChipText: {
+    color: '#8E9BAC',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  rirChipTextActive: {
+    color: '#0B0D0F',
+    fontWeight: '900',
   },
   cancelBtn: {
     flex: 1,

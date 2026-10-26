@@ -33,6 +33,7 @@ export function createCompletedWorkoutSnapshot(
           reps: safeReps,
           volume: Math.round(safeWeight * safeReps * 100) / 100,
           completedAt: set.completedAt ?? completedAt,
+          rir: set.rir,
         };
       }),
     }))

@@ -67,7 +67,7 @@ export default function Complete() {
     .map((ex) => {
       const completedSets = ex.sets
         .filter((s) => s.completed && s.reps > 0)
-        .map((s) => ({ weight: s.weight, reps: s.reps }));
+        .map((s) => ({ weight: s.weight, reps: s.reps, rir: s.rir }));
       if (completedSets.length === 0) return null;
       const targetRange = ex.sets[0]?.targetReps || '8-12';
       const equipment = ex.equipment || inferEquipmentFromName(ex.name);
