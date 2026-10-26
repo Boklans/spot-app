@@ -110,20 +110,10 @@ export function ExerciseDetailModal({
           {/* Header */}
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
-              <View style={styles.headerKickerRow}>
-                <View style={styles.musclePill}>
-                  <Text style={styles.musclePillText}>
-                    {tm(muscleGroup || 'Full Body').toUpperCase()}
-                  </Text>
-                </View>
-                {equipment && (
-                  <View style={styles.equipmentPill}>
-                    <Text style={styles.equipmentPillText}>
-                      {equipment.toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-              </View>
+              <Text style={styles.headerKickerText}>
+                {tm(muscleGroup || 'Full Body')}
+                {equipment ? `  ·  ${equipment}` : ''}
+              </Text>
               <Text numberOfLines={2} style={styles.headerTitle}>
                 {te(exerciseName)}
               </Text>
@@ -139,7 +129,7 @@ export function ExerciseDetailModal({
               }}
               style={styles.closeBtn}
             >
-              <Ionicons name="close" size={24} color="#CBD5E1" />
+              <Ionicons name="close" size={22} color="#A0A8B4" />
             </Pressable>
           </View>
 
@@ -147,34 +137,21 @@ export function ExerciseDetailModal({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
-            {/* 1. Large Crisp 3D Illustration without clutter */}
+            {/* 1. Clean Illustration */}
             <View style={styles.heroImageCard}>
               <Image
                 source={getExerciseImage(exerciseName, customImageUri)}
                 style={styles.heroImage}
                 resizeMode="cover"
               />
-              <View style={styles.heroOverlayBadge}>
-                <View style={styles.pulseDot} />
-                <Text style={styles.heroOverlayBadgeText}>
-                  {isUk ? '3D АНАТОМІЯ М’ЯЗІВ' : '3D MUSCLE ANATOMY'}
-                </Text>
-              </View>
             </View>
 
-            {/* 2. Target Muscle Anatomy */}
+            {/* 2. Target Muscle Anatomy & Personal Best */}
             <View style={styles.sectionCard}>
-              <View style={styles.sectionHeaderRow}>
-                <MaterialCommunityIcons name="arm-flex" size={16} color={colors.primary} />
-                <Text style={styles.sectionHeaderTitle}>
-                  {isUk ? 'ЦІЛЬОВІ М’ЯЗИ' : 'TARGET MUSCLES'}
-                </Text>
-              </View>
-
               <View style={styles.anatomyGroup}>
                 <View style={styles.anatomyBadgeRow}>
                   <Text style={styles.primaryBadgeLabel}>
-                    {isUk ? 'ОСНОВНІ:' : 'PRIMARY:'}
+                    {isUk ? 'Основні м’язи' : 'Primary'}
                   </Text>
                   <Text style={styles.anatomyText}>
                     {isUk ? details.primaryMusclesUk : details.primaryMusclesEn}
@@ -182,9 +159,9 @@ export function ExerciseDetailModal({
                 </View>
 
                 {Boolean(details.secondaryMusclesUk || details.secondaryMusclesEn) && (
-                  <View style={styles.anatomyBadgeRow}>
+                  <View style={[styles.anatomyBadgeRow, styles.anatomyRowDivider]}>
                     <Text style={styles.secondaryBadgeLabel}>
-                      {isUk ? 'ДОПОМІЖНІ:' : 'SECONDARY:'}
+                      {isUk ? 'Допоміжні' : 'Secondary'}
                     </Text>
                     <Text style={styles.anatomyTextSecondary}>
                       {isUk ? details.secondaryMusclesUk : details.secondaryMusclesEn}
@@ -192,39 +169,53 @@ export function ExerciseDetailModal({
                   </View>
                 )}
               </View>
+
+              {bestPerformance && (
+                <View style={styles.bestStatsRow}>
+                  <View style={styles.bestStatCol}>
+                    <Text style={styles.bestStatLabel}>
+                      {isUk ? 'Кращий підхід' : 'Best set'}
+                    </Text>
+                    <Text style={styles.bestStatValue}>
+                      {formatWeight(fromKg(bestPerformance.weight))} {unitLabel} × {bestPerformance.reps}
+                    </Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.bestStatCol}>
+                    <Text style={styles.bestStatLabel}>
+                      {isUk ? 'Розрахунковий 1RM' : 'Estimated 1RM'}
+                    </Text>
+                    <Text style={styles.bestStatValue}>
+                      {formatWeight(fromKg(bestPerformance.estimated1RM))} {unitLabel}
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
 
             {/* 3. Technique: How to Perform */}
             <View style={styles.sectionCard}>
-              <View style={styles.sectionHeaderRow}>
-                <Ionicons name="fitness-outline" size={16} color={colors.primary} />
-                <Text style={styles.sectionHeaderTitle}>
-                  {isUk ? 'ТЕХНІКА ТА КРОКИ ВИКОНАННЯ' : 'HOW TO PERFORM'}
-                </Text>
-              </View>
+              <Text style={styles.sectionHeaderTitle}>
+                {isUk ? 'Техніка виконання' : 'Technique'}
+              </Text>
 
               {(details.movementSummaryUk || details.movementSummaryEn) ? (
-                <View style={styles.movementSummaryBanner}>
-                  <Ionicons name="swap-vertical" size={14} color={colors.primary} style={{ marginTop: 2 }} />
-                  <Text style={styles.movementSummaryText}>
-                    {isUk ? details.movementSummaryUk : details.movementSummaryEn}
-                  </Text>
-                </View>
+                <Text style={styles.movementSummaryText}>
+                  {isUk ? details.movementSummaryUk : details.movementSummaryEn}
+                </Text>
               ) : null}
 
               <View style={styles.stepsList}>
                 {/* Step 1 */}
                 <View style={styles.stepItem}>
-                  <View style={styles.stepNumberBadge}>
-                    <Text style={styles.stepNumberText}>1</Text>
-                  </View>
+                  <Text style={styles.stepNumberText}>01</Text>
                   <View style={{ flex: 1 }}>
                     <View style={styles.stepHeaderRow}>
                       <Text style={styles.stepTitle}>
-                        {isUk ? 'Позиція та хват' : 'Setup & Grip'}
+                        {isUk ? 'Вихідне положення' : 'Setup & Grip'}
                       </Text>
                       <Text style={styles.stepBreathingCue}>
-                        {isUk ? '🫁 Кор напружений' : '🫁 Brace core'}
+                        {isUk ? 'Кор напружений' : 'Brace core'}
                       </Text>
                     </View>
                     <Text style={styles.stepDescription}>
@@ -234,17 +225,15 @@ export function ExerciseDetailModal({
                 </View>
 
                 {/* Step 2 */}
-                <View style={styles.stepItem}>
-                  <View style={styles.stepNumberBadge}>
-                    <Text style={styles.stepNumberText}>2</Text>
-                  </View>
+                <View style={[styles.stepItem, styles.stepItemBorder]}>
+                  <Text style={styles.stepNumberText}>02</Text>
                   <View style={{ flex: 1 }}>
                     <View style={styles.stepHeaderRow}>
                       <Text style={styles.stepTitle}>
-                        {isUk ? 'Робочий рух' : 'Execution & Control'}
+                        {isUk ? 'Робочий рух' : 'Execution'}
                       </Text>
                       <Text style={styles.stepBreathingCue}>
-                        {isUk ? '🌬️ Вдих носом' : '🌬️ Inhale'}
+                        {isUk ? 'На вдиху' : 'Inhale'}
                       </Text>
                     </View>
                     <Text style={styles.stepDescription}>
@@ -254,17 +243,15 @@ export function ExerciseDetailModal({
                 </View>
 
                 {/* Step 3 */}
-                <View style={styles.stepItem}>
-                  <View style={styles.stepNumberBadge}>
-                    <Text style={styles.stepNumberText}>3</Text>
-                  </View>
+                <View style={[styles.stepItem, styles.stepItemBorder]}>
+                  <Text style={styles.stepNumberText}>03</Text>
                   <View style={{ flex: 1 }}>
                     <View style={styles.stepHeaderRow}>
                       <Text style={styles.stepTitle}>
-                        {isUk ? 'Фіксація та видих' : 'Lockout & Breathing'}
+                        {isUk ? 'Фіксація' : 'Lockout'}
                       </Text>
                       <Text style={styles.stepBreathingCue}>
-                        {isUk ? '💨 Потужний видих' : '💨 Exhale'}
+                        {isUk ? 'На видиху' : 'Exhale'}
                       </Text>
                     </View>
                     <Text style={styles.stepDescription}>
@@ -275,69 +262,34 @@ export function ExerciseDetailModal({
               </View>
             </View>
 
-            {/* 4. Common Mistakes */}
-            {mistakesList.length > 0 && (
+            {/* 4. Common Mistakes & Safety combined cleanly */}
+            {(mistakesList.length > 0 || Boolean(details.safetyUk || details.safetyEn)) && (
               <View style={styles.sectionCard}>
-                <View style={styles.sectionHeaderRow}>
-                  <Ionicons name="warning-outline" size={16} color="#FF6B6B" />
-                  <Text style={[styles.sectionHeaderTitle, { color: '#FF6B6B' }]}>
-                    {isUk ? 'ТИПОВІ ПОМИЛКИ' : 'COMMON MISTAKES'}
-                  </Text>
-                </View>
-                <View style={styles.mistakesList}>
-                  {mistakesList.map((item, idx) => (
-                    <View key={idx} style={styles.mistakeItem}>
-                      <Ionicons name="close-circle" size={14} color="#FF6B6B" style={{ marginTop: 2 }} />
-                      <Text style={styles.mistakeItemText}>{item}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* 4b. Joint Safety Cue */}
-            {Boolean(details.safetyUk || details.safetyEn) && (
-              <View style={styles.safetyCard}>
-                <View style={styles.sectionHeaderRow}>
-                  <Ionicons name="shield-checkmark-outline" size={16} color="#38BDF8" />
-                  <Text style={[styles.sectionHeaderTitle, { color: '#38BDF8' }]}>
-                    {isUk ? 'БЕЗПЕКА ТА ЗАХИСТ СУГЛОБІВ' : 'JOINT SAFETY'}
-                  </Text>
-                </View>
-                <Text style={styles.safetyText}>
-                  {isUk ? details.safetyUk : details.safetyEn}
+                <Text style={styles.sectionHeaderTitle}>
+                  {isUk ? 'На що звернути увагу' : 'Key Form Cues'}
                 </Text>
-              </View>
-            )}
 
-            {/* 5. Personal Best in SPOT */}
-            {bestPerformance && (
-              <View style={styles.sectionCard}>
-                <View style={styles.sectionHeaderRow}>
-                  <MaterialCommunityIcons name="trophy-outline" size={16} color={colors.primary} />
-                  <Text style={styles.sectionHeaderTitle}>
-                    {isUk ? 'ВАШ РЕКОРД У SPOT' : 'YOUR SPOT RECORD'}
-                  </Text>
-                </View>
-                <View style={styles.bestStatsRow}>
-                  <View style={styles.bestStatCol}>
-                    <Text style={styles.bestStatLabel}>
-                      {isUk ? 'КРАЩИЙ ПІДХІД' : 'BEST SET'}
+                {mistakesList.length > 0 && (
+                  <View style={styles.mistakesList}>
+                    {mistakesList.map((item, idx) => (
+                      <View key={idx} style={styles.mistakeItem}>
+                        <View style={styles.mistakeBullet} />
+                        <Text style={styles.mistakeItemText}>{item}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {Boolean(details.safetyUk || details.safetyEn) && (
+                  <View style={[styles.safetyBlock, mistakesList.length > 0 && styles.safetyBlockBorder]}>
+                    <Text style={styles.safetyLabel}>
+                      {isUk ? 'Безпека суглобів' : 'Joint safety'}
                     </Text>
-                    <Text style={styles.bestStatValue}>
-                      {formatWeight(fromKg(bestPerformance.weight))} {unitLabel} × {bestPerformance.reps}
+                    <Text style={styles.safetyText}>
+                      {isUk ? details.safetyUk : details.safetyEn}
                     </Text>
                   </View>
-                  <View style={styles.statDivider} />
-                  <View style={styles.bestStatCol}>
-                    <Text style={styles.bestStatLabel}>
-                      {isUk ? 'РОЗРАХУНКОВИЙ 1RM' : 'EST. 1RM'}
-                    </Text>
-                    <Text style={[styles.bestStatValue, { color: colors.primary }]}>
-                      {formatWeight(fromKg(bestPerformance.estimated1RM))} {unitLabel}
-                    </Text>
-                  </View>
-                </View>
+                )}
               </View>
             )}
           </ScrollView>
@@ -360,7 +312,7 @@ export function ExerciseDetailModal({
               >
                 <Ionicons name="options-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
                 <Text style={styles.configureBtnText}>
-                  {isUk ? 'НАЛАШТУВАТИ' : 'CONFIGURE'}
+                  {isUk ? 'Налаштувати' : 'Configure'}
                 </Text>
               </Pressable>
             ) : null}
@@ -374,12 +326,11 @@ export function ExerciseDetailModal({
               }}
               style={({ pressed }) => [
                 styles.gotItBtn,
-                pressed && { opacity: 0.88, transform: [{ scale: 0.99 }] },
+                pressed && { opacity: 0.88 },
               ]}
             >
-              <Ionicons name="checkmark-circle-outline" size={18} color="#0B0D0F" style={{ marginRight: 6 }} />
               <Text style={styles.gotItBtnText}>
-                {isUk ? 'Зрозуміло — до підходу' : 'Got It — Back to Workout'}
+                {isUk ? 'Зрозуміло' : 'Got It'}
               </Text>
             </Pressable>
           </View>
@@ -396,13 +347,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#0A0D11',
+    backgroundColor: '#0E1114',
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     height: '92%',
     overflow: 'hidden',
-    borderTopWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   header: {
     flexDirection: 'row',
@@ -414,53 +363,29 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
-  headerKickerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-  },
-  musclePill: {
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  musclePillText: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.6,
-  },
-  equipmentPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  equipmentPillText: {
-    color: '#94A3B8',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  headerKickerText: {
+    color: '#8E959F',
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 4,
   },
   headerTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 21,
+    fontWeight: '700',
     letterSpacing: -0.3,
   },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: '#181D24',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 100,
     gap: 14,
@@ -469,153 +394,113 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 210,
     borderRadius: 18,
-    backgroundColor: '#0E1115',
+    backgroundColor: '#14181E',
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-    position: 'relative',
   },
   heroImage: {
     width: '100%',
     height: '100%',
   },
-  heroOverlayBadge: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(11, 13, 15, 0.85)',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.3)',
-  },
-  pulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
-  },
-  heroOverlayBadgeText: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.7,
-  },
   sectionCard: {
-    backgroundColor: '#11151C',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    gap: 10,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    backgroundColor: '#14181E',
+    borderRadius: 18,
+    padding: 16,
+    gap: 12,
   },
   sectionHeaderTitle: {
-    color: '#CBD5E1',
-    fontSize: 11.5,
-    fontWeight: '800',
-    letterSpacing: 0.6,
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   anatomyGroup: {
-    gap: 6,
+    gap: 10,
   },
   anatomyBadgeRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 6,
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  anatomyRowDivider: {
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   primaryBadgeLabel: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-    width: 80,
+    color: '#8E959F',
+    fontSize: 13,
+    fontWeight: '500',
+    width: 110,
   },
   secondaryBadgeLabel: {
-    color: '#8E9BAE',
-    fontSize: 11,
-    fontWeight: '700',
-    width: 80,
+    color: '#6C7685',
+    fontSize: 13,
+    fontWeight: '500',
+    width: 110,
   },
   anatomyText: {
     flex: 1,
-    color: '#F1F5F9',
-    fontSize: 13,
+    color: '#FFFFFF',
+    fontSize: 13.5,
     fontWeight: '600',
+    textAlign: 'right',
   },
   anatomyTextSecondary: {
     flex: 1,
-    color: '#94A3B8',
-    fontSize: 13,
+    color: '#A0A8B4',
+    fontSize: 13.5,
     fontWeight: '500',
-  },
-  movementSummaryBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: 'rgba(200, 255, 61, 0.06)',
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.15)',
+    textAlign: 'right',
   },
   movementSummaryText: {
-    flex: 1,
-    color: '#F1F5F9',
-    fontSize: 12.5,
-    lineHeight: 18,
-    fontWeight: '600',
+    color: '#A0A8B4',
+    fontSize: 13.5,
+    lineHeight: 19,
+    fontWeight: '400',
   },
   stepsList: {
-    gap: 12,
+    marginTop: 2,
   },
   stepItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: 12,
+    paddingVertical: 10,
   },
-  stepNumberBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(200, 255, 61, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
+  stepItemBorder: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   stepNumberText: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '900',
+    color: '#5C6574',
+    fontSize: 13,
+    fontWeight: '700',
+    width: 22,
+    marginTop: 1,
+    fontVariant: ['tabular-nums'],
   },
   stepHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   stepTitle: {
     color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '600',
   },
   stepBreathingCue: {
-    color: '#8E9BAE',
-    fontSize: 11,
-    fontWeight: '700',
+    color: '#6C7685',
+    fontSize: 12,
+    fontWeight: '500',
   },
   stepDescription: {
     color: '#94A3B8',
-    fontSize: 12.5,
-    lineHeight: 18,
-    fontWeight: '500',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '400',
   },
   mistakesList: {
     gap: 8,
@@ -623,57 +508,70 @@ const styles = StyleSheet.create({
   mistakeItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 10,
+  },
+  mistakeBullet: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#6C7685',
+    marginTop: 7,
   },
   mistakeItemText: {
     flex: 1,
-    color: '#FCA5A5',
-    fontSize: 12.5,
-    lineHeight: 17,
-    fontWeight: '500',
+    color: '#CBD5E1',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '400',
   },
-  safetyCard: {
-    backgroundColor: 'rgba(56, 189, 248, 0.06)',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.2)',
-    gap: 8,
+  safetyBlock: {
+    gap: 4,
+  },
+  safetyBlockBorder: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  safetyLabel: {
+    color: '#8E959F',
+    fontSize: 12,
+    fontWeight: '600',
   },
   safetyText: {
-    color: '#BAE6FD',
-    fontSize: 12.5,
-    lineHeight: 18,
-    fontWeight: '500',
+    color: '#A0A8B4',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '400',
   },
   bestStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 10,
-    padding: 10,
+    paddingTop: 12,
+    marginTop: 2,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   bestStatCol: {
     flex: 1,
-    alignItems: 'center',
-    gap: 3,
+    gap: 2,
   },
   bestStatLabel: {
-    color: '#8E9BAE',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    color: '#7D8796',
+    fontSize: 11.5,
+    fontWeight: '500',
   },
   bestStatValue: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   statDivider: {
     width: 1,
-    height: 26,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    height: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginHorizontal: 14,
   },
   bottomBar: {
     position: 'absolute',
@@ -683,26 +581,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 24,
-    backgroundColor: '#0A0D11',
+    backgroundColor: '#0E1114',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   configureBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1E242E',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 14,
+    backgroundColor: '#181D24',
+    paddingVertical: 15,
+    paddingHorizontal: 18,
+    borderRadius: 16,
   },
   configureBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '600',
   },
   gotItBtn: {
     flex: 1,
@@ -710,12 +608,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 15,
+    borderRadius: 16,
   },
   gotItBtnText: {
     color: '#0B0D0F',
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '700',
   },
 });

@@ -384,21 +384,39 @@ export default function Progress() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* 1. Header with Period Dropdown */}
+      {/* 1. Header with Journal Link & Period Dropdown */}
       <View style={styles.header}>
         <Text style={styles.title}>{t('analytics')}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Select time period"
-          onPress={() => {
-            hapticLight();
-            setPeriodDropdownOpen(!periodDropdownOpen);
-          }}
-          style={styles.dropdownBtn}
-        >
-          <Text style={styles.dropdownBtnText}>{periodLabels[period]}</Text>
-          <Ionicons name="chevron-down" size={14} color="#8E9BAE" style={{ marginLeft: 6 }} />
-        </Pressable>
+        <View style={styles.headerActionsRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Workout History"
+            onPress={() => {
+              hapticLight();
+              router.push('/history');
+            }}
+            style={({ pressed }) => [styles.historyHeaderBtn, pressed && { opacity: 0.7 }]}
+          >
+            <Ionicons name="time-outline" size={15} color="#D8DEE9" />
+            <Text style={styles.historyHeaderBtnText}>
+              {language === 'uk' ? 'Журнал' : 'History'}
+              {history.length > 0 ? ` (${history.length})` : ''}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Select time period"
+            onPress={() => {
+              hapticLight();
+              setPeriodDropdownOpen(!periodDropdownOpen);
+            }}
+            style={styles.dropdownBtn}
+          >
+            <Text style={styles.dropdownBtnText}>{periodLabels[period]}</Text>
+            <Ionicons name="chevron-down" size={13} color="#8E959F" style={{ marginLeft: 4 }} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Period Dropdown Menu */}
@@ -508,54 +526,6 @@ export default function Progress() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            hapticLight();
-            router.push('/history');
-          }}
-          style={({ pressed }) => [
-            {
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: '#12161D',
-              borderWidth: 1,
-              borderColor: 'rgba(200, 255, 61, 0.25)',
-              borderRadius: 16,
-              paddingHorizontal: 14,
-              paddingVertical: 11,
-              marginBottom: 14,
-            },
-            pressed && { opacity: 0.8 },
-          ]}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-            <View
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                backgroundColor: 'rgba(200, 255, 61, 0.12)',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="git-compare-outline" size={18} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 13.5, fontWeight: '800' }}>
-                {language === 'uk' ? 'Журнал тренувань та «Тоді vs Зараз»' : 'Full Workout Log & Then vs Now'}
-              </Text>
-              <Text style={{ color: '#8E9BAE', fontSize: 11.5, marginTop: 1 }}>
-                {language === 'uk'
-                  ? `Усі сесії (${history.length}) і порівняння робочих ваг зі стартом`
-                  : `All sessions (${history.length}) & working weight comparison`}
-              </Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-        </Pressable>
         {/* ========================================================================= */}
         {/* VIEW 1: OVERVIEW                                                          */}
         {/* ========================================================================= */}
@@ -563,18 +533,27 @@ export default function Progress() {
           <View style={styles.tabContainer}>
             {hasHistory ? (
               <>
-                {/* 3 Stats Row */}
-                <View style={styles.statsRow}>
-                  <View style={styles.statCard}>
+                {/* Unified 3-Metrics Summary Strip */}
+                <View style={styles.statsSummaryStrip}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      hapticLight();
+                      router.push('/history');
+                    }}
+                    style={styles.statStripCol}
+                  >
                     <Text style={styles.statNumber} numberOfLines={1} adjustsFontSizeToFit>
                       {workoutsCount}
                     </Text>
                     <Text style={styles.statLabel} numberOfLines={1}>
                       {t('workouts')}
                     </Text>
-                  </View>
+                  </Pressable>
 
-                  <View style={styles.statCard}>
+                  <View style={styles.statStripDivider} />
+
+                  <View style={styles.statStripCol}>
                     <Text style={styles.statNumber} numberOfLines={1} adjustsFontSizeToFit>
                       {totalCompletedSets}
                     </Text>
@@ -583,13 +562,15 @@ export default function Progress() {
                     </Text>
                   </View>
 
+                  <View style={styles.statStripDivider} />
+
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => {
                       hapticLight();
                       setActiveTab('prs');
                     }}
-                    style={styles.statCard}
+                    style={styles.statStripCol}
                   >
                     <Text style={styles.statNumber} numberOfLines={1} adjustsFontSizeToFit>
                       {prsCount}
@@ -645,9 +626,6 @@ export default function Progress() {
                 <View style={styles.strengthCard}>
                   <View style={styles.strengthHeader}>
                     <View style={{ flex: 1, marginRight: 12 }}>
-                      <Text style={styles.strengthKicker}>
-                        {language === 'uk' ? 'СИЛОВИЙ ПРОГРЕС' : 'STRENGTH'}
-                      </Text>
                       <Text numberOfLines={1} style={styles.strengthExerciseName}>
                         {te(exerciseName)}
                       </Text>
@@ -679,7 +657,7 @@ export default function Progress() {
 
                       <View style={styles.chartFooter}>
                         <Text style={styles.chartTrendPositive}>
-                          {language === 'uk' ? '↗ Динаміка по сесіях' : '↗ Progression tracked'}
+                          {language === 'uk' ? 'Динаміка по сесіях' : 'Progression tracked'}
                         </Text>
                         <Text style={styles.chartFraction}>
                           {sessionPoints.length}{' '}
@@ -699,7 +677,7 @@ export default function Progress() {
                     <View style={styles.chartEmptyWrap}>
                       <MaterialCommunityIcons
                         name="chart-line"
-                        size={36}
+                        size={32}
                         color="#4B5565"
                         style={{ marginBottom: 8 }}
                       />
@@ -750,25 +728,17 @@ export default function Progress() {
                     setActiveTab('weight');
                     scrollRef.current?.scrollTo({ y: 0, animated: false });
                   }}
-                  style={[styles.previewSectionCard, { marginBottom: 16 }]}
+                  style={[styles.previewSectionCard, { marginBottom: 14 }]}
                 >
                   <View style={styles.previewSectionHeader}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <MaterialCommunityIcons
-                        name="scale-bathroom"
-                        size={18}
-                        color={colors.primary}
-                        style={{ marginRight: 8 }}
-                      />
-                      <Text style={styles.previewSectionTitle}>
-                        {language === 'uk' ? 'Динаміка ваги тіла' : 'Bodyweight Trend'}
-                      </Text>
-                    </View>
+                    <Text style={styles.previewSectionTitle}>
+                      {language === 'uk' ? 'Динаміка ваги тіла' : 'Bodyweight Trend'}
+                    </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <Text style={styles.previewWeightVal}>
                         {formatWeight(fromKg(bodyStats.currentWeight))} {unitLabel}
                       </Text>
-                      <Ionicons name="chevron-forward" size={16} color="#8E9BAE" style={{ marginLeft: 4 }} />
+                      <Ionicons name="chevron-forward" size={16} color="#6C7685" style={{ marginLeft: 4 }} />
                     </View>
                   </View>
 
@@ -776,7 +746,7 @@ export default function Progress() {
                     <BodyWeightGraph
                       entries={bodyWeightEntries}
                       width={chartWidth}
-                      height={130}
+                      height={120}
                       unit={unitLabel}
                       fromKg={fromKg}
                     />
@@ -790,7 +760,7 @@ export default function Progress() {
                       {unitLabel} ({periodLabels[period]})
                     </Text>
                     <Text style={styles.previewWeightLink}>
-                      {language === 'uk' ? 'Детальніше →' : 'Details →'}
+                      {language === 'uk' ? 'Детальніше' : 'Details'}
                     </Text>
                   </View>
                 </Pressable>
@@ -809,7 +779,7 @@ export default function Progress() {
                     <Text style={styles.previewSectionTitle}>
                       {language === 'uk' ? 'Обʼєм по групах мʼязів' : 'Muscle Progress'}
                     </Text>
-                    <Ionicons name="chevron-forward" size={16} color="#8E9BAE" />
+                    <Ionicons name="chevron-forward" size={16} color="#6C7685" />
                   </View>
                   <View style={styles.muscleMiniBars}>
                     {displayMuscles
@@ -1333,15 +1303,34 @@ export default function Progress() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: '#0E1114',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingTop: 4,
+    paddingTop: 6,
     paddingBottom: 8,
+  },
+  headerActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  historyHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: '#14181E',
+  },
+  historyHeaderBtnText: {
+    color: '#D8DEE9',
+    fontSize: 12,
+    fontWeight: '600',
   },
   title: {
     color: '#FFFFFF',
@@ -1352,33 +1341,24 @@ const styles = StyleSheet.create({
   dropdownBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 18,
-    backgroundColor: '#14181F',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    backgroundColor: '#14181E',
   },
   dropdownBtnText: {
-    color: '#8E9BAE',
+    color: '#8E959F',
     fontSize: 12,
     fontWeight: '600',
   },
   dropdownMenu: {
     position: 'absolute',
-    top: 60,
+    top: 56,
     right: 24,
     zIndex: 100,
-    backgroundColor: '#161B24',
+    backgroundColor: '#181D24',
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    elevation: 10,
     overflow: 'hidden',
   },
   dropdownItem: {
@@ -1386,27 +1366,25 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   dropdownItemActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    backgroundColor: '#222934',
   },
   dropdownItemText: {
-    color: '#8E9BAE',
+    color: '#8E959F',
     fontSize: 13,
     fontWeight: '500',
   },
   dropdownItemTextActive: {
-    color: colors.primary,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   segmentBar: {
     flexDirection: 'row',
-    backgroundColor: '#12161D',
+    backgroundColor: '#14181E',
     borderRadius: 14,
     marginHorizontal: 24,
-    marginTop: 8,
+    marginTop: 6,
     marginBottom: 16,
     padding: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   segmentBtn: {
     flex: 1,
@@ -1416,11 +1394,11 @@ const styles = StyleSheet.create({
     borderRadius: 11,
   },
   segmentBtnActive: {
-    backgroundColor: '#1A212B',
+    backgroundColor: '#202630',
   },
   segmentBtnText: {
-    color: '#6C7A8E',
-    fontSize: 12,
+    color: '#7D8796',
+    fontSize: 12.5,
     fontWeight: '600',
     textAlign: 'center',
     includeFontPadding: false,
@@ -1436,36 +1414,51 @@ const styles = StyleSheet.create({
   tabContainer: {
     width: '100%',
   },
+  statsSummaryStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#14181E',
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+  },
+  statStripCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  statStripDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
   statsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#12161D',
+    backgroundColor: '#14181E',
     borderRadius: 18,
-    minHeight: 84,
+    minHeight: 78,
     paddingVertical: 14,
     paddingHorizontal: 12,
     justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    gap: 4,
   },
   statNumber: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
     letterSpacing: -0.3,
   },
   statLabel: {
-    color: '#717B8A',
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    color: '#7D8796',
+    fontSize: 12,
+    fontWeight: '500',
   },
   exerciseSelectorWrap: {
     marginBottom: 12,
@@ -1478,31 +1471,26 @@ const styles = StyleSheet.create({
   exercisePill: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 18,
-    backgroundColor: '#14181F',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    backgroundColor: '#14181E',
   },
   exercisePillActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: '#222934',
   },
   exercisePillText: {
-    color: '#8E9BAE',
+    color: '#8E959F',
     fontSize: 13,
     fontWeight: '600',
   },
   exercisePillTextActive: {
-    color: '#0B0D0F',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   strengthCard: {
-    backgroundColor: '#12161D',
-    borderRadius: 22,
+    backgroundColor: '#14181E',
+    borderRadius: 20,
     padding: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   strengthHeader: {
     flexDirection: 'row',
@@ -1511,33 +1499,33 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   strengthKicker: {
-    color: colors.primary,
+    color: '#7D8796',
     fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.0,
+    fontWeight: '600',
     marginBottom: 4,
   },
   strengthExerciseName: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
+    letterSpacing: -0.2,
   },
   strengthBigWeight: {
     color: '#FFFFFF',
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700',
     letterSpacing: -0.4,
     fontVariant: ['tabular-nums'],
   },
   strengthSubBest: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
+    color: '#8E959F',
+    fontSize: 12.5,
+    fontWeight: '500',
+    marginTop: 3,
   },
   strengthEst1RM: {
-    color: '#8E9BAE',
-    fontSize: 11,
+    color: '#7D8796',
+    fontSize: 11.5,
     fontWeight: '500',
     marginTop: 2,
   },
@@ -1553,14 +1541,14 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   chartTrendPositive: {
-    color: colors.primary,
+    color: '#8E959F',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   chartFraction: {
-    color: '#6C7A8E',
+    color: '#6C7685',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   chartEmptyWrap: {
     alignItems: 'center',
@@ -1575,8 +1563,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   chartEmptyBody: {
-    color: '#8E9BAE',
-    fontSize: 12,
+    color: '#8E959F',
+    fontSize: 12.5,
     textAlign: 'center',
     maxWidth: 240,
     lineHeight: 18,
@@ -1585,36 +1573,34 @@ const styles = StyleSheet.create({
   timePillsRow: {
     flexDirection: 'row',
     gap: 8,
-    paddingTop: 10,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   timePill: {
     flex: 1,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: '#161B24',
+    borderRadius: 10,
+    backgroundColor: '#1A2029',
     alignItems: 'center',
     justifyContent: 'center',
   },
   timePillActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#28313F',
   },
   timePillText: {
-    color: '#8E9BAE',
-    fontSize: 11,
+    color: '#7D8796',
+    fontSize: 11.5,
     fontWeight: '600',
   },
   timePillTextActive: {
-    color: '#0B0D0F',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   previewSectionCard: {
-    backgroundColor: '#12161D',
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    backgroundColor: '#14181E',
+    borderRadius: 20,
+    padding: 18,
   },
   previewSectionHeader: {
     flexDirection: 'row',
@@ -1624,7 +1610,7 @@ const styles = StyleSheet.create({
   },
   previewSectionTitle: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
   },
   muscleMiniBars: {
@@ -1635,18 +1621,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   muscleMiniName: {
-    color: '#8E9BAE',
-    fontSize: 13,
+    color: '#8E959F',
+    fontSize: 13.5,
   },
   muscleMiniVal: {
-    color: colors.primary,
-    fontSize: 13,
+    color: '#E5E9F0',
+    fontSize: 13.5,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
   previewWeightVal: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
@@ -1657,35 +1643,34 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   previewWeightDelta: {
-    color: '#8E9BAE',
-    fontSize: 12,
+    color: '#8E959F',
+    fontSize: 12.5,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
   },
   previewWeightLink: {
-    color: colors.primary,
-    fontSize: 12,
+    color: '#A0A8B4',
+    fontSize: 12.5,
     fontWeight: '600',
   },
   muscleListCard: {
-    backgroundColor: '#12161D',
-    borderRadius: 22,
+    backgroundColor: '#14181E',
+    borderRadius: 20,
     padding: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-    marginBottom: 16,
+    marginBottom: 14,
     gap: 16,
   },
   muscleRow: {
     paddingVertical: 4,
   },
   muscleRowSelected: {
-    backgroundColor: 'rgba(200, 255, 61, 0.04)',
+    backgroundColor: '#1C222B',
     borderRadius: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   muscleRowTop: {
     flexDirection: 'row',
@@ -1699,28 +1684,26 @@ const styles = StyleSheet.create({
   },
   muscleDelta: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
   progressBarTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#1A212B',
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#1F2631',
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 2.5,
   },
   muscleSummaryCard: {
-    backgroundColor: '#12161D',
-    borderRadius: 22,
+    backgroundColor: '#14181E',
+    borderRadius: 20,
     padding: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
   },
   summaryMuscleTitle: {
-    color: colors.primary,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
@@ -1743,27 +1726,25 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   summarySubVal: {
-    color: '#8E9BAE',
+    color: '#8E959F',
     fontSize: 12,
     fontWeight: '500',
   },
   prsList: {
-    gap: 10,
+    gap: 8,
   },
   prCard: {
-    backgroundColor: '#12161D',
-    borderRadius: 18,
+    backgroundColor: '#14181E',
+    borderRadius: 16,
     padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
     flexDirection: 'row',
     alignItems: 'center',
   },
   prCardIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#1C222B',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1780,23 +1761,21 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   prBadge: {
-    backgroundColor: 'rgba(255, 209, 48, 0.18)',
+    backgroundColor: 'rgba(255, 209, 48, 0.15)',
     borderRadius: 5,
     paddingHorizontal: 5,
     paddingVertical: 1,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 209, 48, 0.4)',
   },
   prBadgeText: {
     color: '#FFD130',
     fontSize: 9,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: 0.4,
   },
   prCardDate: {
-    color: '#8E9BAE',
-    fontSize: 11,
-    fontWeight: '500',
+    color: '#8E959F',
+    fontSize: 12,
+    fontWeight: '400',
   },
   prCardRight: {
     flexDirection: 'row',
@@ -1815,7 +1794,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 14,
+    borderRadius: 10,
   },
   logWeightHeaderBtnText: {
     color: '#0B0D0F',
@@ -1823,11 +1802,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   aiInsightCard: {
-    backgroundColor: '#131821',
+    backgroundColor: '#14181E',
     borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
+    padding: 18,
     marginBottom: 16,
   },
   aiInsightHeader: {
@@ -1841,22 +1818,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   aiInsightBadgeText: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+    color: '#8E959F',
+    fontSize: 11.5,
+    fontWeight: '600',
   },
   aiStatusPill: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 6,
+    backgroundColor: '#1C222B',
   },
   aiStatusPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+    fontSize: 10.5,
+    fontWeight: '600',
   },
   aiInsightTitle: {
     color: '#FFFFFF',
@@ -1867,23 +1841,21 @@ const styles = StyleSheet.create({
   aiInsightBody: {
     color: '#94A3B8',
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 19,
     marginBottom: 12,
   },
   aiRecoBox: {
     flexDirection: 'row',
-    backgroundColor: '#1A222E',
+    backgroundColor: '#1A2029',
     borderRadius: 12,
     padding: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
   },
   aiRecoText: {
     flex: 1,
-    color: '#E0E0E0',
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '500',
+    color: '#D8DEE9',
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: '400',
   },
   weighInListSection: {
     marginBottom: 24,
@@ -1898,13 +1870,11 @@ const styles = StyleSheet.create({
   addWeightLink: {
     color: colors.primary,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   weighInListCard: {
-    backgroundColor: '#12161D',
+    backgroundColor: '#14181E',
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
     overflow: 'hidden',
   },
   weighInRow: {
@@ -1927,10 +1897,10 @@ const styles = StyleSheet.create({
   weighInDateText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   weighInNote: {
-    color: '#8E9BAE',
+    color: '#8E959F',
     fontSize: 12,
     marginTop: 1,
   },
@@ -1941,50 +1911,43 @@ const styles = StyleSheet.create({
   },
   weighInValue: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   deleteBtn: {
     padding: 4,
   },
   emptyCard: {
-    backgroundColor: '#12161D',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.18)',
+    backgroundColor: '#14181E',
+    borderRadius: 22,
     padding: 26,
     alignItems: 'center',
     marginVertical: 12,
   },
   emptyGlowRing: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#1C222B',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.22)',
   },
   emptyIconBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(200, 255, 61, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 0.8,
+    fontWeight: '700',
+    letterSpacing: -0.2,
     textAlign: 'center',
     marginBottom: 8,
   },
   emptySubtitle: {
-    color: '#8E9BAE',
+    color: '#8E959F',
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
@@ -1996,27 +1959,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
+    borderRadius: 16,
     paddingVertical: 15,
     paddingHorizontal: 28,
     width: '100%',
   },
   emptyCtaBtnPressed: {
     opacity: 0.85,
-    transform: [{ scale: 0.98 }],
   },
   emptyCtaBtnText: {
     color: '#0B0D0F',
     fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 1,
+    fontWeight: '700',
   },
   emptyFeatureList: {
     width: '100%',
     marginTop: 24,
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.07)',
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
     gap: 10,
   },
   emptyFeatureRow: {
@@ -2024,15 +1985,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyFeatureDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#6C7685',
     marginRight: 10,
   },
   emptyFeatureText: {
-    color: '#8E9BAE',
+    color: '#8E959F',
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '400',
   },
 });

@@ -297,28 +297,26 @@ export default function Home() {
           <View style={styles.workoutCard}>
             <View style={styles.workoutCardHeaderRow}>
               <Text style={styles.workoutCardLabel}>
-                {language === 'uk' ? 'НАСТУПНЕ ТРЕНУВАННЯ' : 'NEXT WORKOUT'}
+                {language === 'uk' ? 'За розкладом' : 'Up next'}
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                {program.workouts && program.workouts.length > 1 && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Switch workout"
-                    onPress={() => {
-                      hapticLight();
-                      setSwitchModalMode('switch');
-                      setSwitchModalVisible(true);
-                    }}
-                    hitSlop={8}
-                    style={styles.switchWorkoutBtn}
-                  >
-                    <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
-                    <Text style={styles.switchWorkoutBtnText}>
-                      {language === 'uk' ? 'ЗМІНИТИ ДЕНЬ' : 'CHANGE DAY'}
-                    </Text>
-                  </Pressable>
-                )}
-              </View>
+              {program.workouts && program.workouts.length > 1 && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Switch workout"
+                  onPress={() => {
+                    hapticLight();
+                    setSwitchModalMode('switch');
+                    setSwitchModalVisible(true);
+                  }}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.switchWorkoutBtn, pressed && { opacity: 0.7 }]}
+                >
+                  <Ionicons name="swap-horizontal" size={13} color="#A0A8B4" />
+                  <Text style={styles.switchWorkoutBtnText}>
+                    {language === 'uk' ? 'Змінити день' : 'Change day'}
+                  </Text>
+                </Pressable>
+              )}
             </View>
 
             <Pressable
@@ -329,12 +327,14 @@ export default function Home() {
               style={styles.workoutMainRow}
             >
               <Text style={styles.workoutName}>{tw(nextWorkout.name)}</Text>
-              <Ionicons name="chevron-forward" size={22} color="#8E959F" />
+              <Ionicons name="chevron-forward" size={20} color="#6C7685" />
             </Pressable>
 
-            <Text style={styles.workoutMuscles}>{displayMuscles}</Text>
+            <Text style={styles.workoutMuscles}>
+              {displayMuscles}  ·  {nextWorkout.exercises.length} {t('exercises').toLowerCase()}  ·  ~{nextWorkout.estimatedMinutes} {t('min')}
+            </Text>
 
-            {/* Exercise Quick Preview on Home Card */}
+            {/* Clean Exercise List directly on card surface (no nested box) */}
             {nextWorkout.exercises && nextWorkout.exercises.length > 0 && (
               <Pressable
                 onPress={() =>
@@ -353,8 +353,13 @@ export default function Home() {
                       ? ex.recommendedWeight
                       : rec.recommendedWeight);
                   return (
-                    <View key={ex.id || `${ex.name}-${idx}`} style={styles.previewExRow}>
-                      <View style={styles.previewExDot} />
+                    <View
+                      key={ex.id || `${ex.name}-${idx}`}
+                      style={[styles.previewExRow, idx > 0 && styles.previewExRowBorder]}
+                    >
+                      <Text style={styles.previewExIndex}>
+                        {String(idx + 1).padStart(2, '0')}
+                      </Text>
                       <Text style={styles.previewExName} numberOfLines={1}>
                         {te(ex.name)}
                       </Text>
@@ -382,30 +387,9 @@ export default function Home() {
                 })()}
               </Pressable>
             )}
-
-            <View style={styles.workoutFooterRow}>
-              <View style={styles.metaItem}>
-                <MaterialCommunityIcons name="dumbbell" size={16} color="#8E959F" />
-                <Text style={styles.metaText}>
-                  {nextWorkout.exercises.length} {t('exercises').toLowerCase()}
-                </Text>
-              </View>
-              <View style={styles.metaItem}>
-                <Ionicons name="layers-outline" size={16} color="#8E959F" />
-                <Text style={styles.metaText}>
-                  {nextWorkout.exercises.reduce((sum, ex) => sum + (ex.sets || 3), 0)} {t('sets').toLowerCase()}
-                </Text>
-              </View>
-              <View style={styles.metaItem}>
-                <Ionicons name="time-outline" size={16} color="#8E959F" />
-                <Text style={styles.metaText}>
-                  ~{nextWorkout.estimatedMinutes} {t('min')}
-                </Text>
-              </View>
-            </View>
           </View>
 
-          {/* Clear [START WORKOUT] CTA */}
+          {/* Primary CTA — the single high-contrast accent on screen */}
           <Button
             style={styles.ctaButton}
             onPress={() => {
@@ -427,9 +411,9 @@ export default function Home() {
               pressed && styles.quickLogSecondaryBtnPressed,
             ]}
           >
-            <Ionicons name="list-outline" size={16} color={colors.primary} />
+            <Ionicons name="flash-outline" size={15} color="#8E959F" />
             <Text style={styles.quickLogSecondaryBtnText}>
-              {language === 'uk' ? 'Швидкий запис (без таймерів)' : 'Quick Log (no timers)'}
+              {language === 'uk' ? 'Швидкий запис без таймерів' : 'Quick log without timers'}
             </Text>
           </Pressable>
         </>
@@ -449,18 +433,9 @@ export default function Home() {
 
             <Text style={styles.workoutName}>{tw(inProgressData.routineName)}</Text>
 
-            <View style={styles.inProgressStatsRow}>
-              <View style={styles.metaItem}>
-                <MaterialCommunityIcons name="dumbbell" size={16} color={colors.primary} />
-                <Text style={styles.inProgressStatsText}>{inProgressData.progressText}</Text>
-              </View>
-              <View style={styles.metaItem}>
-                <Ionicons name="layers-outline" size={15} color="#8E959F" />
-                <Text style={styles.metaText}>
-                  {inProgressData.completedSets} / {inProgressData.totalSets} {t('sets').toLowerCase()}
-                </Text>
-              </View>
-            </View>
+            <Text style={styles.workoutMuscles}>
+              {inProgressData.progressText}  ·  {inProgressData.completedSets} / {inProgressData.totalSets} {t('sets').toLowerCase()}
+            </Text>
 
             {/* Progress Bar Track */}
             <View style={styles.progressBarTrack}>
@@ -470,22 +445,17 @@ export default function Home() {
             {/* Current Active Exercise Info */}
             {inProgressData.currentExerciseName ? (
               <View style={styles.currentExBox}>
-                {inProgressData.currentExerciseMuscle ? (
-                  <View style={styles.muscleInlineBadge}>
-                    <Text style={styles.muscleInlineBadgeText}>
-                      {tm(inProgressData.currentExerciseMuscle).toUpperCase()}
-                    </Text>
-                  </View>
-                ) : null}
-                <Text numberOfLines={1} style={styles.currentExName}>
-                  {te(inProgressData.currentExerciseName)}
+                <Text style={styles.currentExKicker}>
+                  {inProgressData.currentExerciseMuscle
+                    ? `${tm(inProgressData.currentExerciseMuscle)} · ${t('set')} ${(inProgressData.currentSetIndex ?? 0) + 1} / ${inProgressData.currentExTotalSets}`
+                    : `${t('set')} ${(inProgressData.currentSetIndex ?? 0) + 1} / ${inProgressData.currentExTotalSets}`}
                 </Text>
                 <View style={styles.currentExDetailsRow}>
-                  <Text style={styles.currentExSetIndicator}>
-                    {t('set')} {(inProgressData.currentSetIndex ?? 0) + 1} / {inProgressData.currentExTotalSets}
+                  <Text numberOfLines={1} style={styles.currentExName}>
+                    {te(inProgressData.currentExerciseName)}
                   </Text>
                   <Text style={styles.currentExTarget}>
-                    {inProgressData.targetWeight > 0 ? formatWithUnit(inProgressData.targetWeight) : t('bodyweight')} · {inProgressData.targetReps} {t('reps').toLowerCase()}
+                    {inProgressData.targetWeight > 0 ? formatWithUnit(inProgressData.targetWeight) : t('bodyweight')} × {inProgressData.targetReps}
                   </Text>
                 </View>
               </View>
@@ -517,7 +487,7 @@ export default function Home() {
               pressed && styles.quickLogSecondaryBtnPressed,
             ]}
           >
-            <Ionicons name="list-outline" size={16} color={colors.primary} />
+            <Ionicons name="list-outline" size={15} color="#8E959F" />
             <Text style={styles.quickLogSecondaryBtnText}>
               {language === 'uk' ? 'Швидкий запис списком' : 'Switch to Quick Log'}
             </Text>
@@ -531,7 +501,7 @@ export default function Home() {
           <View style={styles.stateCard}>
             <View style={styles.stateCardHeaderRow}>
               <View style={styles.completedBadge}>
-                <Ionicons name="checkmark-circle" size={15} color="#0B0D0F" />
+                <Ionicons name="checkmark-circle" size={15} color={colors.primary} />
                 <Text style={styles.completedBadgeText}>{t('workoutCompletedToday')}</Text>
               </View>
             </View>
@@ -564,7 +534,7 @@ export default function Home() {
           </View>
 
           <Button
-            style={[styles.ctaButton, { marginBottom: 24 }]}
+            style={[styles.ctaButton, { marginBottom: 20 }]}
             onPress={() => {
               if (completedSummaryData.isLiveSession) {
                 router.push('/workout/complete');
@@ -576,7 +546,6 @@ export default function Home() {
             }}
           >
             <View style={styles.btnContentRow}>
-              <Ionicons name="stats-chart" size={18} color="#0B0D0F" style={{ marginRight: 6 }} />
               <Text style={styles.ctaButtonText}>{t('viewSummary')}</Text>
             </View>
           </Button>
@@ -593,12 +562,9 @@ export default function Home() {
               style={({ pressed }) => [styles.nextUpCard, pressed && { opacity: 0.85 }]}
             >
               <View style={styles.nextUpHeaderRow}>
-                <View style={styles.nextUpKickerBadge}>
-                  <Ionicons name="calendar-outline" size={12} color={colors.primary} style={{ marginRight: 4 }} />
-                  <Text style={styles.nextUpKickerText}>
-                    {language === 'uk' ? 'НАСТУПНЕ ТРЕНУВАННЯ' : 'NEXT UP'}
-                  </Text>
-                </View>
+                <Text style={styles.nextUpKickerText}>
+                  {language === 'uk' ? 'Далі за планом' : 'Next up'}
+                </Text>
                 <Text style={styles.nextUpDayText}>
                   {nextWorkout.dayLabel || (language === 'uk' ? 'За розкладом' : 'Scheduled')}
                 </Text>
@@ -608,19 +574,12 @@ export default function Home() {
                 <Text numberOfLines={1} style={styles.nextUpWorkoutName}>
                   {tw(nextWorkout.name)}
                 </Text>
-                <Ionicons name="chevron-forward" size={18} color="#8E959F" />
+                <Ionicons name="chevron-forward" size={18} color="#6C7685" />
               </View>
 
               <Text numberOfLines={1} style={styles.nextUpMuscles}>
-                {displayMuscles}
+                {displayMuscles}  ·  {nextWorkout.exercises.length} {t('exercises').toLowerCase()}  ·  ~{nextWorkout.estimatedMinutes} {t('min')}
               </Text>
-
-              <View style={styles.nextUpMetaRow}>
-                <Ionicons name="time-outline" size={13} color="#6C7787" style={{ marginRight: 4 }} />
-                <Text style={styles.nextUpMetaText}>
-                  {nextWorkout.exercises.length} {t('exercises').toLowerCase()} · ~{nextWorkout.estimatedMinutes} {t('min')}
-                </Text>
-              </View>
             </Pressable>
           )}
         </>
@@ -641,7 +600,7 @@ export default function Home() {
                 <View style={styles.weekSlot}>
                   {item.completed ? (
                     <View style={styles.indicatorCompleted}>
-                      <Ionicons name="checkmark" size={15} color="#0B0D0F" />
+                      <Ionicons name="checkmark" size={14} color="#0B0D0F" />
                     </View>
                   ) : item.isToday ? (
                     <View style={styles.indicatorToday}>
@@ -801,128 +760,106 @@ const styles = StyleSheet.create({
     color: '#FDE68A',
   },
   workoutCard: {
-    backgroundColor: '#15191F',
-    borderColor: '#242B35',
-    borderWidth: 1,
-    borderRadius: 22,
+    backgroundColor: '#14181E',
+    borderRadius: 20,
     padding: 20,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   workoutCardLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#717B8A',
-    letterSpacing: 1.0,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#7D8796',
   },
   workoutCardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   switchWorkoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    gap: 5,
+    backgroundColor: '#1D232C',
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
+    borderRadius: 8,
   },
   switchWorkoutBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: 0.4,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#A0A8B4',
   },
   exercisePreviewWrap: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 14,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.04)',
+    marginTop: 14,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   previewExRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    paddingVertical: 9,
+    gap: 10,
   },
-  previewExDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: colors.primary,
+  previewExRowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  previewExIndex: {
+    width: 20,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#5C6574',
+    fontVariant: ['tabular-nums'],
   },
   previewExName: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
-    color: '#D8DEE9',
+    color: '#E5E9F0',
   },
   previewExSets: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: '#8E959F',
     fontVariant: ['tabular-nums'],
   },
   previewMoreText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.primary,
-    marginTop: 2,
-    paddingLeft: 13,
+    color: '#7D8796',
+    marginTop: 4,
+    paddingLeft: 30,
   },
   workoutMainRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 2,
   },
   workoutName: {
-    fontSize: 22,
+    fontSize: 23,
     fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
   workoutMuscles: {
-    fontSize: 14,
-    color: '#8E959F',
-    marginTop: 4,
-    marginBottom: 14,
-    fontWeight: '400',
-  },
-  workoutFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 18,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  metaText: {
     fontSize: 13,
     color: '#8E959F',
+    marginTop: 4,
     fontWeight: '500',
   },
   ctaButton: {
     width: '100%',
     minHeight: 54,
-    borderRadius: 24,
+    borderRadius: 16,
     backgroundColor: '#C8FF3D',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   weekSection: {
-    backgroundColor: '#15191F',
-    borderColor: '#242B35',
-    borderWidth: 1,
+    backgroundColor: '#14181E',
     borderRadius: 20,
     padding: 18,
     marginBottom: 24,
@@ -934,15 +871,15 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   weekLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#717B8A',
-    letterSpacing: 1.0,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E959F',
   },
   weekCounter: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#D8DEE9',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#E5E9F0',
+    fontVariant: ['tabular-nums'],
   },
   weekRow: {
     flexDirection: 'row',
@@ -972,23 +909,22 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    borderWidth: 2,
-    borderColor: '#C8FF3D',
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   indicatorTodayDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#FFFFFF',
+  },
+  indicatorFuture: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#C8FF3D',
-  },
-  indicatorFuture: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#242B35',
+    backgroundColor: '#272E38',
   },
   weekDayLabel: {
     fontSize: 11,
@@ -996,11 +932,11 @@ const styles = StyleSheet.create({
     color: '#6C7685',
   },
   weekDayLabelToday: {
-    color: '#C8FF3D',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   weekDayLabelCompleted: {
-    color: '#FFFFFF',
+    color: '#D8DEE9',
     fontWeight: '600',
   },
   modalOverlay: {
@@ -1015,8 +951,6 @@ const styles = StyleSheet.create({
     maxWidth: 380,
     backgroundColor: '#15191F',
     borderRadius: 22,
-    borderColor: '#242B35',
-    borderWidth: 1,
     padding: 20,
   },
   modalHeader: {
@@ -1026,7 +960,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#242B35',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   modalTitle: {
     fontSize: 18,
@@ -1043,14 +977,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 14,
     borderRadius: 14,
-    backgroundColor: '#12161D',
-    borderWidth: 1,
-    borderColor: '#1E2530',
-    marginBottom: 10,
+    backgroundColor: '#1A1F27',
+    marginBottom: 8,
   },
   switchItemActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
-    borderColor: '#C8FF3D',
+    backgroundColor: '#222934',
   },
   switchItemLeft: {
     flexDirection: 'row',
@@ -1063,7 +994,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: '#1E2530',
+    backgroundColor: '#262D38',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1080,11 +1011,11 @@ const styles = StyleSheet.create({
   },
   switchItemName: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#FFFFFF',
   },
   switchItemNameActive: {
-    color: '#C8FF3D',
+    fontWeight: '700',
   },
   switchItemMuscles: {
     fontSize: 12,
@@ -1092,29 +1023,21 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   stateCard: {
-    backgroundColor: '#15191F',
-    borderColor: '#242B35',
-    borderWidth: 1,
-    borderRadius: 22,
+    backgroundColor: '#14181E',
+    borderRadius: 20,
     padding: 20,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   stateCardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   inProgressBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.3)',
   },
   pulseDot: {
     width: 7,
@@ -1123,10 +1046,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   inProgressBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.primary,
-    letterSpacing: 0.8,
   },
   progressCounterText: {
     fontSize: 14,
@@ -1134,96 +1056,58 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontVariant: ['tabular-nums'],
   },
-  inProgressStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginTop: 6,
-    marginBottom: 12,
-  },
-  inProgressStatsText: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
   progressBarTrack: {
-    height: 6,
+    height: 4,
     width: '100%',
-    backgroundColor: '#242B35',
-    borderRadius: 3,
+    backgroundColor: '#222831',
+    borderRadius: 2,
     overflow: 'hidden',
+    marginTop: 14,
     marginBottom: 14,
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: colors.primary,
-    borderRadius: 3,
+    borderRadius: 2,
   },
   currentExBox: {
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    marginTop: 4,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
-  muscleInlineBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-    marginBottom: 6,
-  },
-  muscleInlineBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: 0.6,
+  currentExKicker: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#7D8796',
+    marginBottom: 4,
   },
   currentExName: {
-    fontSize: 17,
-    fontWeight: '700',
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
     color: '#FFFFFF',
-    letterSpacing: -0.2,
+    marginRight: 10,
   },
   currentExDetailsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  currentExSetIndicator: {
-    fontSize: 12,
-    color: '#8E959F',
-    fontWeight: '500',
   },
   currentExTarget: {
-    fontSize: 13,
-    color: '#FFFFFF',
+    fontSize: 14,
+    color: '#D8DEE9',
     fontWeight: '600',
-    letterSpacing: 0.2,
     fontVariant: ['tabular-nums'],
   },
   completedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
   },
   completedBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0B0D0F',
-    letterSpacing: 0.8,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
   },
   completedSubtitle: {
     fontSize: 13,
@@ -1236,35 +1120,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.04)',
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   completedStatItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
   completedStatVal: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: '#FFFFFF',
     fontVariant: ['tabular-nums'],
   },
   completedStatLbl: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#717B8A',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#7D8796',
   },
   statDivider: {
     width: 1,
-    height: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    height: 26,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   btnContentRow: {
     flexDirection: 'row',
@@ -1280,40 +1159,26 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   nextUpCard: {
-    backgroundColor: '#12161D',
+    backgroundColor: '#14181E',
     borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-    marginTop: -8,
-    marginBottom: 24,
+    padding: 18,
+    marginBottom: 16,
   },
   nextUpHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  nextUpKickerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.2)',
+    marginBottom: 6,
   },
   nextUpKickerText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: 0.8,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#7D8796',
   },
   nextUpDayText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#8E959F',
+    fontWeight: '500',
+    color: '#7D8796',
   },
   nextUpTitleRow: {
     flexDirection: 'row',
@@ -1332,16 +1197,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#8E959F',
     fontWeight: '500',
-    marginBottom: 8,
-  },
-  nextUpMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  nextUpMetaText: {
-    fontSize: 12,
-    color: '#6C7787',
-    fontWeight: '600',
   },
   modalSubtitle: {
     fontSize: 12,
@@ -1359,31 +1214,26 @@ const styles = StyleSheet.create({
   },
   switchItemStartBadgeText: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#0B0D0F',
-    letterSpacing: 0.6,
+    letterSpacing: 0.4,
   },
   quickLogSecondaryBtn: {
     width: '100%',
-    height: 46,
-    borderRadius: 20,
-    backgroundColor: '#141820',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    height: 40,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginBottom: 20,
+    gap: 6,
+    marginBottom: 16,
   },
   quickLogSecondaryBtnPressed: {
-    backgroundColor: '#1B222D',
-    borderColor: 'rgba(200, 255, 61, 0.35)',
+    opacity: 0.65,
   },
   quickLogSecondaryBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#DCE2EC',
-    letterSpacing: 0.1,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#8E959F',
   },
 });

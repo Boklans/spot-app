@@ -452,15 +452,12 @@ export default function Active() {
           onPress={handleClose}
           style={({ pressed }) => [styles.navBtn, pressed && { opacity: 0.6 }]}
         >
-          <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
         </Pressable>
 
         <View style={styles.topWorkoutCenter}>
           <Text numberOfLines={1} style={styles.topWorkoutName}>{tw(session.workoutName)}</Text>
-          <View style={styles.stopwatchPill}>
-            <Ionicons name="timer-outline" size={12} color={colors.primary} />
-            <Text style={styles.stopwatchText}>{formatElapsed(elapsedSeconds)}</Text>
-          </View>
+          <Text style={styles.stopwatchText}>{formatElapsed(elapsedSeconds)}</Text>
         </View>
 
         <Text style={styles.topPercent}>{percent}%</Text>
@@ -474,7 +471,6 @@ export default function Active() {
       {/* Sleek Hevy-style Rest Timer Pill */}
       {isResting && (
         <View style={styles.restTimerPill}>
-          {/* Time & Adjusters Block */}
           <View style={styles.restTimerCenterCol}>
             <View style={styles.restTimerNumbersRow}>
               <Pressable
@@ -487,7 +483,7 @@ export default function Active() {
                 }}
                 style={styles.restAdjustBtn}
               >
-                <Text style={styles.restAdjustText}>-15</Text>
+                <Text style={styles.restAdjustText}>-15с</Text>
               </Pressable>
 
               <Text style={styles.restDigitsText}>
@@ -504,17 +500,15 @@ export default function Active() {
                 }}
                 style={styles.restAdjustBtn}
               >
-                <Text style={styles.restAdjustText}>+15</Text>
+                <Text style={styles.restAdjustText}>+15с</Text>
               </Pressable>
             </View>
 
-            {/* Progress Bar under the timer */}
             <View style={styles.restProgressTrack}>
               <Animated.View style={[styles.restProgressFill, { width: restBarWidth }]} />
             </View>
           </View>
 
-          {/* Skip Button */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Skip rest"
@@ -538,7 +532,7 @@ export default function Active() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Unified Hevy Pro-style Exercise Card */}
+        {/* Clean Exercise Card */}
         <View style={styles.exerciseCard}>
           {/* Header Row: Thumbnail + Info + Actions */}
           <View style={styles.exerciseHeaderRow}>
@@ -559,9 +553,7 @@ export default function Active() {
             </Pressable>
 
             <View style={styles.exerciseInfoCol}>
-              <View style={styles.exerciseMuscleRow}>
-                <Text style={styles.exerciseMuscleText}>{tm(exercise.muscleGroup).toUpperCase()}</Text>
-              </View>
+              <Text style={styles.exerciseMuscleText}>{tm(exercise.muscleGroup)}</Text>
               <Pressable
                 onPress={() => {
                   hapticLight();
@@ -586,7 +578,7 @@ export default function Active() {
                 }}
                 style={({ pressed }) => [styles.iconActionBtn, pressed && { opacity: 0.7 }]}
               >
-                <Ionicons name="help-circle-outline" size={20} color="#CBD5E1" />
+                <Ionicons name="information-circle-outline" size={20} color="#8E959F" />
               </Pressable>
 
               <Pressable
@@ -599,14 +591,13 @@ export default function Active() {
                 }}
                 style={({ pressed }) => [styles.iconActionBtn, pressed && { opacity: 0.7 }]}
               >
-                <Ionicons name="swap-horizontal" size={20} color="#CBD5E1" />
+                <Ionicons name="swap-horizontal" size={18} color="#8E959F" />
               </Pressable>
             </View>
           </View>
 
           {/* Sub-header Context Row: Adaptive Target + Add Note */}
           <View style={styles.contextChipsRow}>
-            {/* Target chip */}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="View progression details"
@@ -617,10 +608,9 @@ export default function Active() {
               }}
               style={styles.targetChip}
             >
-              <Ionicons name="trending-up" size={13} color={colors.primary} />
               <Text style={styles.targetChipText}>
                 {language === 'uk' ? 'Ціль: ' : 'Goal: '}
-                <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>
+                <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
                   {currentWeight ? formatWithUnit(currentWeight) : t('bodyweight')} × {currentReps}
                 </Text>
                 {hasWeightIncrease
@@ -629,10 +619,9 @@ export default function Active() {
                   ? ` (+${repsDelta} ${language === 'uk' ? 'повт' : 'reps'})`
                   : ''}
               </Text>
-              <Ionicons name="information-circle-outline" size={13} color="#8E9BAE" style={{ marginLeft: 3 }} />
+              <Ionicons name="chevron-forward" size={12} color="#6C7685" />
             </Pressable>
 
-            {/* If NO note, show subtle "+ Note" trigger right beside target */}
             {!currentNote && (
               <Pressable
                 accessibilityRole="button"
@@ -644,15 +633,15 @@ export default function Active() {
                 }}
                 style={styles.addNoteChip}
               >
-                <Ionicons name="create-outline" size={12} color="#8E9BAE" />
+                <Ionicons name="create-outline" size={13} color="#8E959F" />
                 <Text style={styles.addNoteChipText}>
-                  {language === 'uk' ? '+ Нотатка' : '+ Note'}
+                  {language === 'uk' ? 'Нотатка' : 'Note'}
                 </Text>
               </Pressable>
             )}
           </View>
 
-          {/* Full-width Saved Exercise Note Bar (Visible, elegant, never cuts off awkwardly) */}
+          {/* Saved Exercise Note Bar */}
           {currentNote ? (
             <Pressable
               accessibilityRole="button"
@@ -664,20 +653,19 @@ export default function Active() {
               }}
               style={styles.noteFullBar}
             >
-              <Ionicons name="bookmark" size={13} color={colors.primary} style={{ marginTop: 1 }} />
               <Text numberOfLines={2} style={styles.noteFullBarText}>
                 {currentNote}
               </Text>
-              <Ionicons name="create-outline" size={13} color="#8E9BAE" />
+              <Ionicons name="create-outline" size={14} color="#7D8796" />
             </Pressable>
           ) : null}
 
           {/* Sets Table */}
           <View style={styles.tableHeaderRow}>
-            <Text numberOfLines={1} style={styles.tableHeadSet}>{t('set').toUpperCase()}</Text>
-            <Text numberOfLines={1} style={styles.tableHeadPrev}>{language === 'uk' ? 'МИНУЛЕ' : 'PREV'}</Text>
-            <Text numberOfLines={1} style={styles.tableHeadWeight}>{unitLabel.toUpperCase()}</Text>
-            <Text numberOfLines={1} style={styles.tableHeadReps}>{language === 'uk' ? 'ПОВТ.' : t('reps').toUpperCase()}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadSet}>{t('set')}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadPrev}>{language === 'uk' ? 'Минуле' : 'Prev'}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadWeight}>{unitLabel}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadReps}>{language === 'uk' ? 'Повт' : t('reps')}</Text>
             <Text numberOfLines={1} style={styles.tableHeadStatus}>✓</Text>
           </View>
 
@@ -707,7 +695,7 @@ export default function Active() {
                     styles.setRow,
                     isCurrent && styles.setRowActive,
                     isDone && styles.setRowDone,
-                    pressed && { opacity: 0.8 },
+                    pressed && { opacity: 0.85 },
                   ]}
                 >
                   <Text style={[styles.setColNum, isCurrent && styles.textHighlight, isDone && styles.setColDoneText]}>
@@ -719,11 +707,9 @@ export default function Active() {
                       {prevSetText}
                     </Text>
                     {set.rir !== undefined && (
-                      <View style={styles.rirBadge}>
-                        <Text style={styles.rirBadgeText}>
-                          {set.rir === 0 ? '0 RIR' : `${set.rir} RIR`}
-                        </Text>
-                      </View>
+                      <Text style={styles.rirInlineText}>
+                        {set.rir === 0 ? '0 RIR' : `${set.rir} RIR`}
+                      </Text>
                     )}
                   </View>
 
@@ -787,15 +773,15 @@ export default function Active() {
                   >
                     {isDone ? (
                       <View style={styles.statusDoneBadge}>
-                        <Ionicons name="checkmark" size={18} color="#0B0D0F" />
+                        <Ionicons name="checkmark" size={17} color="#0B0D0F" />
                       </View>
                     ) : isCurrent ? (
                       <View style={styles.statusCurrentBadge}>
-                        <Ionicons name="checkmark" size={16} color={colors.primary} />
+                        <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                       </View>
                     ) : (
                       <View style={styles.statusPendingBadge}>
-                        <Ionicons name="checkmark" size={15} color="#384353" />
+                        <Ionicons name="checkmark" size={15} color="#4A5464" />
                       </View>
                     )}
                   </Pressable>
@@ -816,7 +802,7 @@ export default function Active() {
               }}
               style={({ pressed }) => [styles.tableAddSetBtn, pressed && { opacity: 0.7 }]}
             >
-              <Ionicons name="add-circle-outline" size={17} color={colors.primary} />
+              <Ionicons name="add" size={16} color="#D8DEE9" />
               <Text style={styles.tableAddSetText}>
                 {language === 'uk' ? 'Додати підхід' : 'Add set'}
               </Text>
@@ -833,9 +819,8 @@ export default function Active() {
                 }}
                 style={({ pressed }) => [styles.tableRemoveSetBtn, pressed && { opacity: 0.7 }]}
               >
-                <Ionicons name="remove-circle-outline" size={17} color="#8E99A8" />
                 <Text style={styles.tableRemoveSetText}>
-                  {language === 'uk' ? 'Видалити підхід' : 'Remove set'}
+                  {language === 'uk' ? 'Видалити' : 'Remove'}
                 </Text>
               </Pressable>
             )}
@@ -1012,10 +997,8 @@ export default function Active() {
 
 const styles = StyleSheet.create({
   exerciseCard: {
-    backgroundColor: '#0F1318',
+    backgroundColor: '#14181E',
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
     padding: 16,
     marginBottom: 16,
   },
@@ -1029,7 +1012,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#161B22',
+    backgroundColor: '#0E1115',
     overflow: 'hidden',
   },
   exerciseThumb: {
@@ -1040,19 +1023,15 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  exerciseMuscleRow: {
-    flexDirection: 'row',
-  },
   exerciseMuscleText: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.6,
+    color: '#8E959F',
+    fontSize: 12,
+    fontWeight: '500',
   },
   exerciseNameText: {
     color: '#FFFFFF',
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: -0.2,
   },
   exerciseActionsRow: {
@@ -1061,10 +1040,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   iconActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#1C222B',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1078,58 +1057,51 @@ const styles = StyleSheet.create({
   targetChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
+    gap: 6,
+    backgroundColor: '#1C222B',
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   targetChipText: {
-    color: colors.primary,
-    fontSize: 11.5,
-    fontWeight: '600',
+    color: '#A0A8B4',
+    fontSize: 12,
+    fontWeight: '500',
   },
   noteFullBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
+    backgroundColor: '#1A1F27',
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 7,
-    marginTop: 2,
-    marginBottom: 10,
+    paddingVertical: 8,
+    marginBottom: 12,
   },
   noteFullBarText: {
     flex: 1,
-    color: '#F1F5F9',
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 16,
+    color: '#D8DEE9',
+    fontSize: 12.5,
+    fontWeight: '500',
+    lineHeight: 17,
   },
   addNoteChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    backgroundColor: '#1C222B',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   addNoteChipText: {
-    color: '#8E9BAE',
-    fontSize: 11.5,
-    fontWeight: '600',
+    color: '#8E959F',
+    fontSize: 12,
+    fontWeight: '500',
   },
   safe: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: '#0E1114',
   },
   topBar: {
     flexDirection: 'row',
@@ -1149,7 +1121,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
+    gap: 2,
   },
   topWorkoutName: {
     fontSize: 15,
@@ -1157,35 +1129,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: -0.2,
   },
-  stopwatchPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.2)',
-  },
   stopwatchText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#C8FF3D',
+    fontWeight: '600',
+    color: '#8E959F',
     fontVariant: ['tabular-nums'],
   },
   topPercent: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#C8FF3D',
+    fontWeight: '600',
+    color: '#8E959F',
     width: 44,
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
   },
   progressBarTrack: {
     width: '100%',
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   progressBarFill: {
     height: '100%',
@@ -1196,447 +1157,71 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 140,
   },
-
-  exerciseTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  exerciseMusclePill: {
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 5,
-  },
-  exerciseMuscle: {
-    fontSize: 10,
-    color: colors.primary,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  exerciseName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
-    lineHeight: 22,
-    marginVertical: 4,
-  },
-  guideActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.22)',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-    marginTop: 2,
-  },
-  guideActionText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: 0.2,
-  },
-  heroTargetCard: {
-    backgroundColor: '#12161D',
-    borderColor: 'rgba(200, 255, 61, 0.22)',
-    borderWidth: 1.5,
-    borderRadius: 20,
-    padding: 14,
-    marginBottom: 14,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  heroTargetTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  setKickerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-  },
-  setKickerDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
-    marginRight: 6,
-  },
-  setKickerText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: 0.8,
-  },
-  heroPrevContextPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#181E27',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  heroPrevContextText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#B0BAC7',
-  },
-  heroBaselinePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#181E27',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-  },
-  heroBaselineText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  overloadHighlightBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    borderRadius: 12,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.3)',
-    gap: 8,
-  },
-  guideAndNoteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  noteActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#171C24',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  noteActionBtnActive: {
-    backgroundColor: 'rgba(182, 240, 0, 0.1)',
-    borderColor: 'rgba(182, 240, 0, 0.35)',
-  },
-  noteActionText: {
-    color: '#CBD5E1',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  savedNotePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 7,
-    backgroundColor: 'rgba(182, 240, 0, 0.07)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: 'rgba(182, 240, 0, 0.2)',
-  },
-  savedNoteText: {
-    color: '#E2E8F0',
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: '600',
-    flex: 1,
-  },
-  progressionCoachCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.035)',
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    gap: 4,
-  },
-  progressionCoachCardActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.09)',
-    borderColor: 'rgba(200, 255, 61, 0.28)',
-  },
-  progressionCoachTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  progressionCoachBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  progressionTargetSummary: {
-    flex: 1,
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#CBD5E1',
-  },
-  howProgressionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(182, 240, 0, 0.12)',
-    paddingHorizontal: 7,
-    paddingVertical: 3.5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(182, 240, 0, 0.28)',
-    flexShrink: 0,
-  },
-  howProgressionBtnText: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  progressionSubExplanation: {
-    flex: 1,
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: '500',
-    color: '#94A3B8',
-  },
-  overloadPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    gap: 4,
-  },
-  overloadPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0B0D0F',
-    letterSpacing: 0.2,
-  },
-  overloadSubText: {
-    flex: 1,
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#D8FF70',
-  },
-  matchedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    marginBottom: 14,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  matchedSubText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#8E99A8',
-  },
-  heroControlsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  heroControlBox: {
-    flex: 1,
-    backgroundColor: '#171D26',
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  heroControlLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  heroControlLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#717B8A',
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-  deltaMicroBadge: {
-    backgroundColor: 'rgba(200, 255, 61, 0.2)',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.4)',
-  },
-  deltaMicroText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  stepperContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  stepperBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#202836',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  stepperBtnPressed: {
-    backgroundColor: '#2A3547',
-    borderColor: colors.primary,
-  },
-  heroValueBtn: {
-    flex: 1,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 2,
-  },
-  heroValueBtnPressed: {
-    opacity: 0.7,
-  },
-  heroValueText: {
-    fontSize: 20,
-    lineHeight: 22,
-    fontWeight: '700',
-    color: colors.primary,
-    fontVariant: ['tabular-nums'],
-    letterSpacing: -0.3,
-    textAlign: 'center',
-  },
-  heroValueSub: {
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '600',
-    color: '#8E959F',
-    letterSpacing: 0.3,
-    marginTop: 1,
-    textAlign: 'center',
-  },
-  card: {
-    backgroundColor: '#15191F',
-    borderColor: '#242B35',
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 3,
-  },
   tableHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 6,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   tableHeadSet: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#657181',
-    letterSpacing: 0.8,
-    width: 26,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6C7685',
+    width: 28,
     textAlign: 'left',
   },
   tableHeadPrev: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#657181',
-    letterSpacing: 0.8,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6C7685',
     flex: 1,
     textAlign: 'center',
   },
   tableHeadWeight: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#657181',
-    letterSpacing: 0.8,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6C7685',
     flex: 1,
     textAlign: 'center',
-    marginHorizontal: 3,
+    marginHorizontal: 4,
   },
   tableHeadReps: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#657181',
-    letterSpacing: 0.8,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6C7685',
     flex: 1,
     textAlign: 'center',
-    marginHorizontal: 3,
+    marginHorizontal: 4,
   },
   tableHeadStatus: {
     fontSize: 12,
-    fontWeight: '900',
-    color: '#657181',
-    letterSpacing: 0.5,
-    width: 48,
+    fontWeight: '700',
+    color: '#6C7685',
+    width: 44,
     textAlign: 'center',
   },
   setsList: {
-    gap: 7,
+    gap: 6,
   },
   setRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 5,
     paddingHorizontal: 6,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'transparent',
     minHeight: 46,
   },
   setRowActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.05)',
-    borderColor: 'rgba(200, 255, 61, 0.35)',
+    backgroundColor: '#1A2029',
   },
   setRowDone: {
-    backgroundColor: 'rgba(255, 255, 255, 0.015)',
-    opacity: 0.75,
+    backgroundColor: 'rgba(200, 255, 61, 0.04)',
   },
   setColNum: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#687484',
-    width: 26,
+    fontWeight: '600',
+    color: '#6C7685',
+    width: 28,
     textAlign: 'left',
     fontVariant: ['tabular-nums'],
   },
@@ -1645,109 +1230,86 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rirBadge: {
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
-    paddingHorizontal: 5,
-    paddingVertical: 1.5,
-    borderRadius: 4,
-    marginTop: 2,
-    borderWidth: 0.5,
-    borderColor: 'rgba(200, 255, 61, 0.3)',
-  },
-  rirBadgeText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: colors.primary,
+  rirInlineText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#7D8796',
+    marginTop: 1,
     fontVariant: ['tabular-nums'],
   },
   setColPrev: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '500',
-    color: '#5E6978',
+    color: '#6C7685',
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
   cellPill: {
     flex: 1,
-    height: 38,
-    marginHorizontal: 3,
-    borderRadius: 9,
-    backgroundColor: '#141820',
-    borderWidth: 1,
-    borderColor: '#242D3B',
+    height: 36,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: '#1C222B',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cellPillActive: {
-    backgroundColor: '#181F2B',
-    borderColor: 'rgba(200, 255, 61, 0.45)',
+    backgroundColor: '#252D3A',
   },
   cellPillDone: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderColor: '#1D242F',
+    backgroundColor: 'transparent',
   },
   cellPillText: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#9EABC0',
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#A0A8B4',
     fontVariant: ['tabular-nums'],
   },
   cellPillTextActive: {
     color: '#FFFFFF',
-    fontWeight: '800',
+    fontWeight: '700',
   },
   cellPillTextDone: {
-    color: '#768396',
+    color: '#D8DEE9',
+    fontWeight: '600',
   },
   cellPillTextProgression: {
     color: colors.primary,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   setColDoneText: {
-    color: '#768396',
+    color: '#8E959F',
   },
   setColStatus: {
-    width: 48,
+    width: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   textHighlight: {
     color: '#FFFFFF',
-  },
-  textProgressionHighlight: {
-    color: colors.primary,
     fontWeight: '700',
   },
   statusDoneBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 9,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 3,
   },
   statusCurrentBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.primary,
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: '#2A3342',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
   },
   statusPendingBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#262F3E',
-    backgroundColor: '#12161E',
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: '#1C222B',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1756,55 +1318,49 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 24,
     paddingTop: 12,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: '#0E1114',
     gap: 8,
   },
   completeBtn: {
     width: '100%',
-    minHeight: 56,
-    borderRadius: 24,
+    minHeight: 54,
+    borderRadius: 16,
     backgroundColor: '#C8FF3D',
-    shadowColor: '#C8FF3D',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    elevation: 5,
   },
   tableFooterActions: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 10,
-    marginTop: 6,
+    paddingTop: 12,
+    marginTop: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   tableAddSetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 6,
-    gap: 6,
+    paddingHorizontal: 8,
+    gap: 5,
   },
   tableAddSetText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.primary,
+    color: '#D8DEE9',
   },
   tableRemoveSetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 6,
-    gap: 6,
+    paddingHorizontal: 8,
   },
   tableRemoveSetText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#8E99A8',
+    color: '#6C7685',
   },
   emptyWrap: {
     flex: 1,
@@ -1818,33 +1374,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 20,
   },
-  swapBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 12,
-    backgroundColor: '#161B22',
-    borderWidth: 1,
-    borderColor: '#263140',
-  },
-  swapBtnText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#12161D',
+    backgroundColor: '#14181E',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: '#242C38',
     maxHeight: '75%',
     paddingBottom: 32,
   },
@@ -1856,7 +1394,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1A212C',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   modalTitle: {
     fontSize: 20,
@@ -1885,16 +1423,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#161B22',
+    backgroundColor: '#1A2029',
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#202834',
     padding: 14,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   swapItemCurrent: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    backgroundColor: '#232B38',
   },
   swapItemLeft: {
     flexDirection: 'row',
@@ -1907,8 +1442,6 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 10,
     backgroundColor: '#0E1115',
-    borderWidth: 1,
-    borderColor: '#202834',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1947,25 +1480,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#12161E',
+    backgroundColor: '#14181E',
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
     marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 6,
+    marginTop: 10,
+    marginBottom: 4,
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
   },
   restTimerCenterCol: {
     flex: 1,
-    gap: 5,
+    gap: 6,
   },
   restTimerNumbersRow: {
     flexDirection: 'row',
@@ -1974,19 +1500,20 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   restAdjustBtn: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: '#1C222B',
   },
   restAdjustText: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.2,
+    color: '#D8DEE9',
+    fontSize: 12,
+    fontWeight: '600',
   },
   restDigitsText: {
     color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '800',
     fontVariant: ['tabular-nums'],
     letterSpacing: -0.2,
   },
@@ -2005,13 +1532,13 @@ const styles = StyleSheet.create({
   restSkipBtn: {
     backgroundColor: colors.primary,
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 10,
   },
   restSkipBtnText: {
     color: '#0B0D0F',
     fontSize: 12.5,
-    fontWeight: '900',
+    fontWeight: '700',
   },
   cellTouchTarget: {
     flex: 1,

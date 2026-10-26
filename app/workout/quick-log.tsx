@@ -529,14 +529,14 @@ export default function QuickLogScreen() {
             onPress={handleBack}
             style={styles.backBtn}
           >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </Pressable>
 
           <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerLabel}>{t('quickLog').toUpperCase()}</Text>
             <Text style={styles.headerSub} numberOfLines={1}>
               {tw(workoutName)}
             </Text>
+            <Text style={styles.headerLabel}>{t('quickLog')}</Text>
           </View>
 
           <View style={styles.headerRightPlaceholder} />
@@ -563,7 +563,7 @@ export default function QuickLogScreen() {
               onPress={handleFillAllAsPlanned}
               style={({ pressed }) => [styles.fillAllBtn, pressed && styles.btnPressed]}
             >
-              <Ionicons name="flash" size={16} color="#0B0D0F" style={{ marginRight: 6 }} />
+              <Ionicons name="flash" size={16} color={colors.primary} style={{ marginRight: 6 }} />
               <Text style={styles.fillAllBtnText}>{t('fillAllAsPlanned')}</Text>
             </Pressable>
 
@@ -608,15 +608,12 @@ export default function QuickLogScreen() {
 
               return (
                 <View key={ex.id || `ex-${exIdx}`} style={styles.exerciseCard}>
-                  {/* Card Header: Muscle Tag + Name + Quick Fill Exercise */}
+                  {/* Card Header: Name + Unified Meta + Quick Fill Exercise */}
                   <View style={styles.cardHeaderRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.muscleTag}>
-                        {tm(ex.muscleGroup).toUpperCase()}
-                      </Text>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
                       <Text style={styles.exerciseName}>{te(ex.name)}</Text>
                       <Text style={styles.targetInfo}>
-                        {t('fillTarget')}:{' '}
+                        {tm(ex.muscleGroup)} · {t('fillTarget')}:{' '}
                         {ex.recommendedWeight > 0
                           ? `${displayRec} ${unitLabel}`
                           : t('bodyweight')}{' '}
@@ -636,7 +633,7 @@ export default function QuickLogScreen() {
                       <Ionicons
                         name="checkmark"
                         size={14}
-                        color={hasCompletedSets ? colors.primary : '#8E959F'}
+                        color={hasCompletedSets ? colors.primary : '#94A3B8'}
                       />
                       <Text
                         style={[
@@ -644,7 +641,7 @@ export default function QuickLogScreen() {
                           hasCompletedSets && styles.quickFillExBtnTextActive,
                         ]}
                       >
-                        {language === 'uk' ? 'По плану' : 'Target'}
+                        {language === 'uk' ? 'За планом' : 'Target'}
                       </Text>
                     </Pressable>
                   </View>
@@ -698,7 +695,7 @@ export default function QuickLogScreen() {
                             style={styles.removeSetBtn}
                             hitSlop={6}
                           >
-                            <Ionicons name="remove-circle-outline" size={14} color="#8E959F" />
+                            <Ionicons name="remove" size={13} color="#94A3B8" />
                             <Text style={styles.removeSetBtnText}>{t('delete')}</Text>
                           </Pressable>
                         )}
@@ -708,7 +705,7 @@ export default function QuickLogScreen() {
                           style={styles.addSetBtn}
                           hitSlop={6}
                         >
-                          <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
+                          <Ionicons name="add" size={14} color="#E2E8F0" />
                           <Text style={styles.addSetBtnText}>{t('addSetBtn')}</Text>
                         </Pressable>
                       </View>
@@ -735,7 +732,7 @@ export default function QuickLogScreen() {
                                 isSetFilled && styles.setIndexLabelFilled,
                               ]}
                             >
-                              {t('set').toUpperCase()} {sIdx + 1}
+                              {sIdx + 1}
                             </Text>
 
                             <TextInput
@@ -771,7 +768,7 @@ export default function QuickLogScreen() {
               }}
               style={({ pressed }) => [styles.addExerciseCard, pressed && styles.btnPressed]}
             >
-              <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+              <Ionicons name="add" size={18} color="#E2E8F0" />
               <Text style={styles.addExerciseCardText}>{t('addExercise')}</Text>
             </Pressable>
           </View>
@@ -781,14 +778,14 @@ export default function QuickLogScreen() {
         <View style={styles.bottomBar}>
           <View style={styles.summaryStatsRow}>
             <View style={styles.summaryMetaItem}>
-              <Ionicons name="layers-outline" size={14} color={colors.primary} />
+              <Ionicons name="checkmark-done" size={15} color={colors.primary} />
               <Text style={styles.summaryMetaText}>
                 {totalCompletedSets} {language === 'uk' ? 'підходів' : 'sets'}
               </Text>
             </View>
 
             <View style={styles.summaryMetaItem}>
-              <MaterialCommunityIcons name="dumbbell" size={15} color="#8E959F" />
+              <MaterialCommunityIcons name="dumbbell" size={15} color="#8E9BAE" />
               <Text style={styles.summaryMetaText}>
                 {Math.round(totalVolumeKg)} {unitLabel}
               </Text>
@@ -830,7 +827,7 @@ export default function QuickLogScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: '#0E1114',
   },
   topBar: {
     flexDirection: 'row',
@@ -840,46 +837,45 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#161B22',
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#14181E',
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   headerTitleWrap: {
     alignItems: 'center',
     flex: 1,
   },
-  headerLabel: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
   headerSub: {
-    color: '#CBD5E1',
-    fontSize: 14,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  headerLabel: {
+    color: '#8E9BAE',
+    fontSize: 11.5,
+    fontWeight: '500',
     marginTop: 1,
   },
   headerRightPlaceholder: {
-    width: 40,
+    width: 38,
   },
   bannerToast: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#16221C',
+    backgroundColor: '#14181E',
     paddingVertical: 10,
     paddingHorizontal: 16,
     marginHorizontal: 16,
     marginTop: 8,
     borderRadius: 12,
     gap: 8,
-    borderWidth: 1,
-    borderColor: '#1F3A2B',
   },
   bannerToastText: {
     color: colors.primary,
@@ -893,29 +889,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 40,
-    gap: 16,
+    gap: 14,
   },
   quickCard: {
-    backgroundColor: '#12171E',
-    borderRadius: 16,
+    backgroundColor: '#14181E',
+    borderRadius: 18,
     padding: 14,
-    borderWidth: 1,
-    borderColor: '#1D2531',
     gap: 12,
   },
   fillAllBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: '#1C222B',
     height: 44,
     borderRadius: 12,
   },
   fillAllBtnText: {
-    color: '#0B0D0F',
+    color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 0.2,
+    fontWeight: '700',
   },
   btnPressed: {
     opacity: 0.85,
@@ -932,34 +925,31 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   timeLabel: {
-    color: '#8E959F',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: '#8E9BAE',
+    fontSize: 11.5,
+    fontWeight: '600',
   },
   whenPillsRow: {
     flexDirection: 'row',
-    gap: 6,
+    backgroundColor: '#0E1114',
+    padding: 3,
+    borderRadius: 11,
+    gap: 4,
   },
   whenPill: {
     flex: 1,
     paddingVertical: 7,
     paddingHorizontal: 6,
-    backgroundColor: '#19212C',
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
   },
   whenPillActive: {
-    backgroundColor: '#1F2A38',
-    borderColor: colors.primary,
+    backgroundColor: '#1C222B',
   },
   whenPillText: {
-    color: '#8E959F',
-    fontSize: 11,
+    color: '#64748B',
+    fontSize: 12,
     fontWeight: '600',
   },
   whenPillTextActive: {
@@ -967,14 +957,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   exercisesList: {
-    gap: 14,
+    gap: 12,
   },
   exerciseCard: {
-    backgroundColor: '#12171E',
-    borderRadius: 16,
+    backgroundColor: '#14181E',
+    borderRadius: 18,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#1D2531',
     gap: 14,
   },
   cardHeaderRow: {
@@ -982,23 +970,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  muscleTag: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
   exerciseName: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15.5,
     fontWeight: '700',
-    marginTop: 2,
   },
   targetInfo: {
-    color: '#8E959F',
+    color: '#8E9BAE',
     fontSize: 12,
     fontWeight: '500',
-    marginTop: 2,
+    marginTop: 3,
+    fontVariant: ['tabular-nums'],
   },
   quickFillExBtn: {
     flexDirection: 'row',
@@ -1007,42 +989,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
-    backgroundColor: '#18202C',
-    borderWidth: 1,
-    borderColor: '#242F40',
+    backgroundColor: '#1C222B',
   },
   quickFillExBtnActive: {
-    backgroundColor: '#16231E',
-    borderColor: '#284E38',
+    backgroundColor: 'rgba(200, 255, 61, 0.14)',
   },
   quickFillExBtnText: {
-    color: '#8E959F',
+    color: '#94A3B8',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   quickFillExBtnTextActive: {
     color: colors.primary,
+    fontWeight: '700',
   },
   weightConfigRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#1A212C',
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   fieldLabel: {
-    color: '#94A3B8',
+    color: '#8E9BAE',
     fontSize: 12,
     fontWeight: '600',
   },
   stepperWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#18202B',
+    backgroundColor: '#1C222B',
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#232D3B',
   },
   stepBtn: {
     width: 36,
@@ -1051,13 +1029,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   weightInput: {
-    minWidth: 50,
+    minWidth: 52,
     height: 36,
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',
     paddingHorizontal: 6,
+    fontVariant: ['tabular-nums'],
   },
   repsSection: {
     gap: 8,
@@ -1071,29 +1050,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    backgroundColor: '#19202A',
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    backgroundColor: '#1C222B',
     borderRadius: 8,
   },
   removeSetBtnText: {
-    color: '#8E959F',
-    fontSize: 12,
+    color: '#94A3B8',
+    fontSize: 11.5,
     fontWeight: '600',
   },
   addSetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    backgroundColor: '#16231E',
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    backgroundColor: '#1C222B',
     borderRadius: 8,
   },
   addSetBtnText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '700',
+    color: '#E2E8F0',
+    fontSize: 11.5,
+    fontWeight: '600',
   },
   setsScrollRow: {
     flexDirection: 'row',
@@ -1101,42 +1080,40 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   setBox: {
-    width: 68,
-    height: 64,
-    backgroundColor: '#151D28',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#202A38',
-    paddingTop: 8,
+    width: 66,
+    height: 62,
+    backgroundColor: '#1C222B',
+    borderRadius: 12,
+    paddingTop: 7,
     paddingBottom: 6,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
   setBoxFilled: {
-    backgroundColor: '#14231C',
-    borderColor: '#274D37',
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
   },
   setIndexLabel: {
     color: '#64748B',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.6,
+    fontSize: 10.5,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   setIndexLabelFilled: {
     color: colors.primary,
   },
   repsInput: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     textAlign: 'center',
-    height: 32,
+    height: 30,
     width: '100%',
     padding: 0,
     margin: 0,
     includeFontPadding: false,
     textAlignVertical: 'center',
+    fontVariant: ['tabular-nums'],
   },
   repsInputFilled: {
     color: colors.primary,
@@ -1147,14 +1124,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 48,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#232D3B',
-    borderStyle: 'dashed',
-    backgroundColor: '#10151C',
-    gap: 8,
+    backgroundColor: '#14181E',
+    gap: 6,
   },
   addExerciseCardText: {
-    color: colors.primary,
+    color: '#E2E8F0',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -1162,9 +1136,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 16,
-    backgroundColor: '#0F1318',
+    backgroundColor: '#0E1114',
     borderTopWidth: 1,
-    borderTopColor: '#1A212C',
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
     gap: 10,
   },
   summaryStatsRow: {
@@ -1182,19 +1156,19 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     fontSize: 13,
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   saveBtn: {
     flexDirection: 'row',
-    height: 52,
-    borderRadius: 14,
+    height: 54,
+    borderRadius: 16,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveBtnText: {
     color: '#0B0D0F',
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 0.3,
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

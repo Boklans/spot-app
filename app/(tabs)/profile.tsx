@@ -550,7 +550,7 @@ export default function Profile() {
               <Text style={styles.avatarEmoji}>{currentBeast.emoji}</Text>
             </View>
             <View style={styles.editBadge}>
-              <Ionicons name="pencil" size={10} color="#0B0D0F" />
+              <Ionicons name="pencil" size={10} color="#E2E8F0" />
             </View>
           </View>
 
@@ -560,7 +560,7 @@ export default function Profile() {
             </View>
 
             <Text style={styles.userSubtitle}>
-              {translateExperience(profile.experience)} • {translateGoal(profile.goal)}
+              {translateExperience(profile.experience)} · {translateGoal(profile.goal)}
             </Text>
 
             <View style={styles.statsRow}>
@@ -568,23 +568,23 @@ export default function Profile() {
                 {profile.weightUnit === 'lbs'
                   ? `${Math.round(profile.weightKg * 2.20462)} lbs`
                   : `${profile.weightKg} ${language === 'uk' ? 'кг' : 'kg'}`}
-                {' • '}
+                {' · '}
                 {profile.heightUnit === 'ft'
                   ? `${(profile.heightCm / 30.48).toFixed(1)} ft`
                   : `${profile.heightCm} ${language === 'uk' ? 'см' : 'cm'}`}
-                {' • '}
+                {' · '}
                 {language === 'uk' ? 'ІМТ' : 'BMI'} {bmi}
               </Text>
             </View>
           </View>
 
           <View style={styles.chevronWrap}>
-            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+            <Ionicons name="chevron-forward" size={17} color="#64748B" />
           </View>
         </Pressable>
 
         {/* 2. Quick Access Hub: Workout History & Saved Exercise Notes */}
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
           <Pressable
             accessibilityRole="button"
             onPress={() => {
@@ -592,47 +592,24 @@ export default function Profile() {
               router.push('/history');
             }}
             style={({ pressed }) => [
-              {
-                flex: 1,
-                backgroundColor: '#12161D',
-                borderRadius: 18,
-                padding: 14,
-                borderWidth: 1,
-                borderColor: 'rgba(200, 255, 61, 0.25)',
-                gap: 8,
-              },
-              pressed && { opacity: 0.8 },
+              styles.quickHubCard,
+              pressed && { opacity: 0.85 },
             ]}
           >
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <View
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 10,
-                  backgroundColor: 'rgba(200, 255, 61, 0.12)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <MaterialCommunityIcons name="history" size={19} color={colors.primary} />
+            <View style={styles.quickHubTopRow}>
+              <View style={styles.quickHubIconWrap}>
+                <MaterialCommunityIcons name="history" size={18} color="#E2E8F0" />
               </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+              <Ionicons name="chevron-forward" size={16} color="#64748B" />
             </View>
             <View>
-              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>
+              <Text style={styles.quickHubTitle}>
                 {language === 'uk' ? 'Історія тренувань' : 'Workout History'}
               </Text>
-              <Text style={{ color: '#8E9BAE', fontSize: 11.5, marginTop: 2 }}>
+              <Text style={styles.quickHubSub}>
                 {language === 'uk'
-                  ? `${workouts.length} сесій • Тоді vs Зараз`
-                  : `${workouts.length} sessions • Compare`}
+                  ? `${workouts.length} сесій · Тоді vs Зараз`
+                  : `${workouts.length} sessions · Compare`}
               </Text>
             </View>
           </Pressable>
@@ -644,46 +621,23 @@ export default function Profile() {
               setNotesModalVisible(true);
             }}
             style={({ pressed }) => [
-              {
-                flex: 1,
-                backgroundColor: '#12161D',
-                borderRadius: 18,
-                padding: 14,
-                borderWidth: 1,
-                borderColor: 'rgba(255, 255, 255, 0.08)',
-                gap: 8,
-              },
-              pressed && { opacity: 0.8 },
+              styles.quickHubCard,
+              pressed && { opacity: 0.85 },
             ]}
           >
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <View
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 10,
-                  backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Ionicons name="bookmark" size={17} color={colors.primary} />
+            <View style={styles.quickHubTopRow}>
+              <View style={styles.quickHubIconWrap}>
+                <Ionicons name="bookmark-outline" size={17} color="#E2E8F0" />
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#8E9BAE" />
+              <Ionicons name="chevron-forward" size={16} color="#64748B" />
             </View>
             <View>
-              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>
+              <Text style={styles.quickHubTitle}>
                 {language === 'uk' ? 'Мої нотатки' : 'Exercise Notes'}
               </Text>
-              <Text style={{ color: '#8E9BAE', fontSize: 11.5, marginTop: 2 }}>
+              <Text style={styles.quickHubSub}>
                 {language === 'uk'
-                  ? `${notesEntries.length} шпаргалок до вправ`
+                  ? `${notesEntries.length} збережених підказок`
                   : `${notesEntries.length} saved cues`}
               </Text>
             </View>
@@ -695,9 +649,9 @@ export default function Profile() {
           <View style={styles.cloudCardLeft}>
             <View style={[styles.cloudIconWrap, isAuthenticated && styles.cloudIconWrapActive]}>
               <Ionicons
-                name={isAuthenticated ? 'cloud-done' : 'cloud-outline'}
-                size={22}
-                color={isAuthenticated ? colors.primary : '#8E9BAE'}
+                name={isAuthenticated ? 'cloud-done-outline' : 'cloud-outline'}
+                size={20}
+                color={isAuthenticated ? colors.primary : '#94A3B8'}
               />
             </View>
             <View style={styles.cloudInfo}>
@@ -733,9 +687,9 @@ export default function Profile() {
                 style={({ pressed }) => [styles.cloudSyncBtn, pressed && { opacity: 0.7 }]}
               >
                 {syncStatus.isSyncing ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
+                  <ActivityIndicator size="small" color="#E2E8F0" />
                 ) : (
-                  <Ionicons name="sync" size={18} color={colors.primary} />
+                  <Ionicons name="sync" size={17} color="#E2E8F0" />
                 )}
               </Pressable>
               <Pressable
@@ -744,7 +698,7 @@ export default function Profile() {
                 onPress={handleSignOut}
                 style={({ pressed }) => [styles.cloudSignOutBtn, pressed && { opacity: 0.7 }]}
               >
-                <Ionicons name="log-out-outline" size={18} color="#F87171" />
+                <Ionicons name="log-out-outline" size={17} color="#F87171" />
               </Pressable>
             </View>
           ) : (
@@ -755,7 +709,7 @@ export default function Profile() {
               style={({ pressed }) => [styles.cloudLoginBtn, pressed && { opacity: 0.85 }]}
             >
               <Text style={styles.cloudLoginBtnText}>
-                {language === 'uk' ? 'УВІЙТИ' : 'SIGN IN'}
+                {language === 'uk' ? 'Увійти' : 'Sign In'}
               </Text>
             </Pressable>
           )}
@@ -772,20 +726,22 @@ export default function Profile() {
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
           >
             <View style={styles.rowLeftWithIcon}>
-              <Ionicons name="options-outline" size={20} color={colors.primary} />
-              <View>
+              <View style={styles.rowIconBox}>
+                <Ionicons name="options-outline" size={18} color="#E2E8F0" />
+              </View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.rowTitle}>
                   {language === 'uk' ? 'Налаштування застосунку' : 'App Preferences & Units'}
                 </Text>
                 <Text style={styles.rowSubtitle}>
-                  {profile.language === 'uk' ? 'УКР' : 'EN'} • {profile.weightUnit.toUpperCase()} •{' '}
+                  {profile.language === 'uk' ? 'УКР' : 'EN'} · {profile.weightUnit.toUpperCase()} ·{' '}
                   {Math.floor(profile.defaultRestSeconds / 60)}:
-                  {(profile.defaultRestSeconds % 60).toString().padStart(2, '0')} •{' '}
+                  {(profile.defaultRestSeconds % 60).toString().padStart(2, '0')} ·{' '}
                   {language === 'uk' ? 'Сповіщення та дані' : 'Alerts & Data'}
                 </Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+            <Ionicons name="chevron-forward" size={17} color="#64748B" />
           </Pressable>
 
           <Pressable
@@ -795,19 +751,23 @@ export default function Profile() {
             style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
           >
             <View style={styles.rowLeftWithIcon}>
-              <Ionicons name="paper-plane" size={19} color="#2AABEE" />
-              <View>
+              <View style={styles.rowIconBox}>
+                <Ionicons name="paper-plane-outline" size={17} color="#E2E8F0" />
+              </View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.rowTitle}>
                   {language === 'uk' ? 'Спільнота та підтримка в Telegram' : 'Telegram Community & Support'}
                 </Text>
-                <Text style={styles.rowSubtitle}>@vanzalabs • {language === 'uk' ? 'Запропонувати ідею або написати нам' : 'Feedback & direct contact'}</Text>
+                <Text style={styles.rowSubtitle}>
+                  @vanzalabs · {language === 'uk' ? 'Зворотний зв’язок та ідеї' : 'Feedback & direct contact'}
+                </Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+            <Ionicons name="chevron-forward" size={17} color="#64748B" />
           </Pressable>
         </View>
 
-        <Text style={styles.versionText}>SPOT v1.0.2 • VanzaLabs</Text>
+        <Text style={styles.versionText}>SPOT v1.0.2 · VanzaLabs</Text>
       </ScrollView>
 
       {/* Saved Exercise Notes Modal */}
@@ -820,12 +780,10 @@ export default function Profile() {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', justifyContent: 'flex-end' }}>
           <SafeAreaView
             style={{
-              backgroundColor: '#0E1218',
+              backgroundColor: '#0E1114',
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               maxHeight: '82%',
-              borderTopWidth: 1,
-              borderColor: 'rgba(255,255,255,0.1)',
             }}
           >
             <View
@@ -836,11 +794,11 @@ export default function Profile() {
                 paddingHorizontal: 20,
                 paddingVertical: 16,
                 borderBottomWidth: 1,
-                borderBottomColor: 'rgba(255,255,255,0.08)',
+                borderBottomColor: 'rgba(255,255,255,0.06)',
               }}
             >
               <View>
-                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800' }}>
                   {language === 'uk' ? 'Мої нотатки до вправ' : 'My Exercise Notes'}
                 </Text>
                 <Text style={{ color: '#8E9BAE', fontSize: 12, marginTop: 2 }}>
@@ -855,20 +813,20 @@ export default function Profile() {
                   width: 34,
                   height: 34,
                   borderRadius: 17,
-                  backgroundColor: '#181E27',
+                  backgroundColor: '#1C222B',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Ionicons name="close" size={20} color="#FFFFFF" />
+                <Ionicons name="close" size={18} color="#FFFFFF" />
               </Pressable>
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 20, gap: 10 }}>
               {notesEntries.length === 0 ? (
                 <View style={{ paddingVertical: 32, alignItems: 'center', gap: 8 }}>
-                  <Ionicons name="bookmark-outline" size={32} color="#64748B" />
-                  <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '800', textAlign: 'center' }}>
+                  <Ionicons name="bookmark-outline" size={28} color="#64748B" />
+                  <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700', textAlign: 'center' }}>
                     {language === 'uk' ? 'Поки немає збережених нотаток' : 'No saved notes yet'}
                   </Text>
                   <Text style={{ color: '#8E9BAE', fontSize: 13, textAlign: 'center', lineHeight: 18 }}>
@@ -886,21 +844,19 @@ export default function Profile() {
                       setEditingNoteExercise(exKey);
                     }}
                     style={{
-                      backgroundColor: '#141922',
-                      borderRadius: 14,
+                      backgroundColor: '#14181E',
+                      borderRadius: 16,
                       padding: 14,
-                      borderWidth: 1,
-                      borderColor: 'rgba(200, 255, 61, 0.22)',
                       gap: 6,
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '800' }}>
+                      <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
                         {te(exKey)}
                       </Text>
-                      <Ionicons name="create-outline" size={16} color="#8E9BAE" />
+                      <Ionicons name="create-outline" size={16} color="#64748B" />
                     </View>
-                    <Text style={{ color: '#E2E8F0', fontSize: 13, lineHeight: 18 }}>{noteText}</Text>
+                    <Text style={{ color: '#94A3B8', fontSize: 13, lineHeight: 18 }}>{noteText}</Text>
                   </Pressable>
                 ))
               )}
@@ -930,12 +886,10 @@ export default function Profile() {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', justifyContent: 'flex-end' }}>
           <SafeAreaView
             style={{
-              backgroundColor: '#0B0D0F',
+              backgroundColor: '#0E1114',
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               maxHeight: '88%',
-              borderTopWidth: 1,
-              borderColor: 'rgba(255,255,255,0.1)',
             }}
           >
             <View
@@ -946,10 +900,10 @@ export default function Profile() {
                 paddingHorizontal: 20,
                 paddingVertical: 16,
                 borderBottomWidth: 1,
-                borderBottomColor: 'rgba(255,255,255,0.08)',
+                borderBottomColor: 'rgba(255,255,255,0.06)',
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800' }}>
                 {language === 'uk' ? 'Налаштування застосунку' : 'App Preferences'}
               </Text>
               <Pressable
@@ -958,12 +912,12 @@ export default function Profile() {
                   width: 34,
                   height: 34,
                   borderRadius: 17,
-                  backgroundColor: '#181E27',
+                  backgroundColor: '#1C222B',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Ionicons name="close" size={20} color="#FFFFFF" />
+                <Ionicons name="close" size={18} color="#FFFFFF" />
               </Pressable>
             </View>
 
@@ -1117,7 +1071,7 @@ export default function Profile() {
                       style={[styles.segmentBtn, profile.language === 'uk' && styles.segmentBtnActive]}
                     >
                       <Text style={[styles.segmentBtnText, profile.language === 'uk' && styles.segmentBtnTextActive]}>
-                        🇺🇦 UK
+                        УКР
                       </Text>
                     </Pressable>
                     <Pressable
@@ -1128,7 +1082,7 @@ export default function Profile() {
                       style={[styles.segmentBtn, profile.language === 'en' && styles.segmentBtnActive]}
                     >
                       <Text style={[styles.segmentBtnText, profile.language === 'en' && styles.segmentBtnTextActive]}>
-                        🇺🇸 EN
+                        EN
                       </Text>
                     </Pressable>
                   </View>
@@ -1401,7 +1355,7 @@ export default function Profile() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: '#0E1114',
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -1411,23 +1365,50 @@ const styles = StyleSheet.create({
   headerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#12161D',
+    backgroundColor: '#14181E',
     borderRadius: 20,
     padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
     marginBottom: 12,
+  },
+  quickHubCard: {
+    flex: 1,
+    backgroundColor: '#14181E',
+    borderRadius: 18,
+    padding: 14,
+    gap: 10,
+  },
+  quickHubTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  quickHubIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#1C222B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickHubTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  quickHubSub: {
+    color: '#8E9BAE',
+    fontSize: 11.5,
+    fontWeight: '500',
+    marginTop: 2,
   },
   cloudCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#12161D',
+    backgroundColor: '#14181E',
     borderRadius: 18,
     padding: 14,
     marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   cloudCardLeft: {
     flexDirection: 'row',
@@ -1436,25 +1417,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cloudIconWrap: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     borderRadius: 12,
-    backgroundColor: '#161B22',
+    backgroundColor: '#1C222B',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   cloudIconWrapActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    borderColor: 'rgba(200, 255, 61, 0.3)',
+    backgroundColor: 'rgba(200, 255, 61, 0.12)',
   },
   cloudInfo: {
     flex: 1,
   },
   cloudTitle: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14.5,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   cloudSubtitle: {
@@ -1469,36 +1447,31 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cloudSyncBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#1C222B',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
   },
   cloudSignOutBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: 'rgba(248, 113, 113, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(248, 113, 113, 0.25)',
   },
   cloudLoginBtn: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
   cloudLoginBtnText: {
     color: '#0B0D0F',
     fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    fontWeight: '800',
   },
   avatarWrap: {
     position: 'relative',
@@ -1510,8 +1483,6 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   avatarEmoji: {
     fontSize: 28,
@@ -1520,14 +1491,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.primary,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#1C222B',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#12161D',
+    borderColor: '#14181E',
   },
   headerInfo: {
     flex: 1,
@@ -1540,15 +1511,14 @@ const styles = StyleSheet.create({
   },
   userName: {
     color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    fontSize: 19,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   beastPill: {
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
-    borderWidth: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   beastPillText: {
@@ -1557,27 +1527,29 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   userSubtitle: {
-    color: '#8E9BAE',
-    fontSize: 12,
-    fontWeight: '600',
+    color: '#94A3B8',
+    fontSize: 12.5,
+    fontWeight: '500',
     marginTop: 2,
   },
   statsRow: {
     marginTop: 4,
   },
   statsText: {
-    color: colors.primary,
+    color: '#CBD5E1',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   chevronWrap: {
     marginLeft: 8,
   },
   sectionTitle: {
-    color: '#8E9BAE',
+    color: '#64748B',
     fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
     marginBottom: 10,
     marginTop: 8,
   },
@@ -1586,24 +1558,21 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   card: {
-    backgroundColor: '#12161D',
+    backgroundColor: '#14181E',
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
     marginBottom: 16,
     overflow: 'hidden',
   },
   dangerCard: {
-    borderColor: 'rgba(248, 113, 113, 0.25)',
-    backgroundColor: 'rgba(248, 113, 113, 0.04)',
+    backgroundColor: 'rgba(248, 113, 113, 0.06)',
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    minHeight: 56,
-    paddingVertical: 10,
+    minHeight: 58,
+    paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
@@ -1624,9 +1593,17 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 12,
   },
+  rowIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#1C222B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   rowTitle: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '700',
   },
   rowSubtitle: {
@@ -1641,25 +1618,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   proBadge: {
-    backgroundColor: 'rgba(124, 92, 255, 0.25)',
+    backgroundColor: 'rgba(124, 92, 255, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#7C5CFF',
   },
   proBadgeActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.2)',
-    borderColor: colors.primary,
+    backgroundColor: 'rgba(200, 255, 61, 0.16)',
   },
   betaBadgeActive: {
     backgroundColor: 'rgba(124, 92, 255, 0.2)',
-    borderColor: '#7C5CFF',
   },
   proBadgeText: {
     color: '#A78BFA',
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   proBadgeTextActive: {
     color: colors.primary,
@@ -1669,8 +1642,8 @@ const styles = StyleSheet.create({
   },
   dangerText: {
     color: '#F87171',
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14.5,
+    fontWeight: '700',
   },
   dangerSubText: {
     color: '#6C7A8E',
@@ -1678,22 +1651,20 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   versionText: {
-    color: '#4B5565',
+    color: '#475569',
     textAlign: 'center',
     fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginTop: 24,
+    fontWeight: '600',
+    letterSpacing: 0.6,
+    marginTop: 20,
   },
   segmentWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161B22',
+    backgroundColor: '#0E1114',
     borderRadius: 10,
     padding: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    width: 108,
+    width: 104,
   },
   segmentBtn: {
     flex: 1,
@@ -1707,16 +1678,16 @@ const styles = StyleSheet.create({
   },
   segmentBtnText: {
     color: '#8E9BAE',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontSize: 11.5,
+    fontWeight: '700',
+    letterSpacing: 0.4,
     textAlign: 'center',
     includeFontPadding: false,
     lineHeight: 14,
   },
   segmentBtnTextActive: {
     color: '#0B0D0F',
-    fontWeight: '900',
+    fontWeight: '800',
   },
   valueRow: {
     flexDirection: 'row',
@@ -1724,13 +1695,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   valuePill: {
-    color: colors.primary,
+    color: '#CBD5E1',
     fontSize: 13,
-    fontWeight: '800',
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    fontWeight: '700',
+    backgroundColor: '#1C222B',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 7,
+    fontVariant: ['tabular-nums'],
   },
   // Pro Modal Styles
   proModalSafe: {

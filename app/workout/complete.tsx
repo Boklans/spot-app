@@ -226,7 +226,7 @@ export default function Complete() {
           onPress={handleFinish}
           style={styles.backButton}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
         </Pressable>
 
         <Pressable
@@ -236,7 +236,7 @@ export default function Complete() {
           onPress={handleNativeShare}
           style={styles.topShareBtn}
         >
-          <Ionicons name="share-social-outline" size={22} color={colors.primary} />
+          <Ionicons name="share-outline" size={20} color="#E2E8F0" />
         </Pressable>
       </View>
 
@@ -254,7 +254,7 @@ export default function Complete() {
           >
             <Ionicons
               name={isPartial ? 'bookmark-outline' : 'checkmark-done'}
-              size={26}
+              size={24}
               color={isPartial ? '#F59E0B' : colors.primary}
             />
           </View>
@@ -272,7 +272,7 @@ export default function Complete() {
           </Text>
         </View>
 
-        {/* 3. Stats Tri-Card Row */}
+        {/* 3. Unified Stats Summary Strip */}
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
             <Text style={styles.statValue}>{summary.durationMinutes} {t('min')}</Text>
@@ -280,10 +280,8 @@ export default function Complete() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>
-              {isPartial ? `${summary.exerciseCount}/${summary.plannedExerciseCount}` : summary.exerciseCount}
-            </Text>
-            <Text style={styles.statLabel}>{t('exercises')}</Text>
+            <Text style={styles.statValue}>{formatVolume(summary.volume)}</Text>
+            <Text style={styles.statLabel}>{language === 'uk' ? 'Об’єм' : 'Volume'}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
@@ -298,15 +296,15 @@ export default function Complete() {
         {isPartial && (
           <View
             style={{
+              width: '100%',
+              maxWidth: 380,
               flexDirection: 'row',
               alignItems: 'center',
               gap: 10,
               backgroundColor: 'rgba(245, 158, 11, 0.1)',
-              borderWidth: 1,
-              borderColor: 'rgba(245, 158, 11, 0.3)',
-              borderRadius: 14,
+              borderRadius: 16,
               paddingHorizontal: 14,
-              paddingVertical: 11,
+              paddingVertical: 12,
               marginBottom: 14,
             }}
           >
@@ -325,7 +323,7 @@ export default function Complete() {
             <View style={styles.prHeader}>
               <MaterialCommunityIcons
                 name="trophy"
-                size={16}
+                size={15}
                 color="#FFD130"
               />
               <Text style={styles.prSectionTitle}>
@@ -349,7 +347,6 @@ export default function Complete() {
                   {te(record.exerciseName)}
                 </Text>
                 <Text style={styles.prValueText}>{record.label}</Text>
-                <Ionicons name="chevron-forward" size={16} color="#6C7A8E" />
               </View>
             ))}
           </View>
@@ -359,23 +356,20 @@ export default function Complete() {
         {nextSessionPlan.length > 0 && (
           <View style={styles.prsCard}>
             <View style={[styles.prHeader, { justifyContent: 'space-between' }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 8 }}>
-                <Ionicons name="trending-up" size={16} color={colors.primary} />
-                <Text numberOfLines={1} style={[styles.prSectionTitle, { color: colors.primary, flex: 1 }]}>
-                  {language === 'uk' ? 'ПРОГРЕС ПО ВПРАВАХ' : 'EXERCISE PROGRESS'}
-                </Text>
-              </View>
+              <Text numberOfLines={1} style={styles.prSectionTitle}>
+                {language === 'uk' ? 'ПРОГРЕС ПО ВПРАВАХ' : 'EXERCISE PROGRESS'}
+              </Text>
               {progressedExercisesCount > 0 && (
                 <View
                   style={{
-                    backgroundColor: 'rgba(182, 240, 0, 0.16)',
+                    backgroundColor: 'rgba(200, 255, 61, 0.14)',
                     paddingHorizontal: 8,
                     paddingVertical: 3,
-                    borderRadius: 8,
+                    borderRadius: 7,
                     flexShrink: 0,
                   }}
                 >
-                  <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>
+                  <Text style={{ color: colors.primary, fontSize: 10.5, fontWeight: '700' }}>
                     {language === 'uk'
                       ? `+${progressedExercisesCount} з прогресом`
                       : `+${progressedExercisesCount} progressed`}
@@ -403,11 +397,11 @@ export default function Complete() {
                   key={item.id + idx}
                   style={[
                     styles.prRow,
-                    { flexDirection: 'column', alignItems: 'stretch', gap: 8 },
+                    { flexDirection: 'column', alignItems: 'stretch', gap: 10 },
                     idx < nextSessionPlan.length - 1 && styles.prRowBorder,
                   ]}
                 >
-                  {/* Top Row: Exercise Name + Next Session Target Badge */}
+                  {/* Top Row: Exercise Name + Progress Badge */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <View style={styles.prThumbWrap}>
                       <Image
@@ -420,24 +414,22 @@ export default function Complete() {
                       <Text numberOfLines={1} style={styles.prExerciseName}>
                         {te(item.name)}
                       </Text>
-                      <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
+                      <Text style={{ fontSize: 11.5, color: '#8E9BAE', marginTop: 2, fontVariant: ['tabular-nums'] }}>
                         {item.hasPrev
-                          ? `${language === 'uk' ? 'Минуле' : 'Last'}: ${prevWeightStr} × ${item.prevRepsStr}  ➔  ${language === 'uk' ? 'Сьогодні' : 'Today'}: ${todayWeightStr} × ${item.todayRepsStr}`
-                          : `${language === 'uk' ? 'Виконано сьогодні' : 'Logged today'}: ${todayWeightStr} × ${item.todayRepsStr}`}
+                          ? `${prevWeightStr} × ${item.prevRepsStr}  →  ${todayWeightStr} × ${item.todayRepsStr}`
+                          : `${language === 'uk' ? 'Сьогодні' : 'Today'}: ${todayWeightStr} × ${item.todayRepsStr}`}
                       </Text>
                     </View>
                     {item.isProgressedToday ? (
                       <View
                         style={{
-                          backgroundColor: 'rgba(182, 240, 0, 0.16)',
-                          paddingHorizontal: 7,
-                          paddingVertical: 3,
+                          backgroundColor: 'rgba(200, 255, 61, 0.14)',
+                          paddingHorizontal: 8,
+                          paddingVertical: 3.5,
                           borderRadius: 7,
-                          borderWidth: 1,
-                          borderColor: 'rgba(182, 240, 0, 0.35)',
                         }}
                       >
-                        <Text style={{ fontSize: 10, fontWeight: '800', color: colors.primary }}>
+                        <Text style={{ fontSize: 10.5, fontWeight: '700', color: colors.primary, fontVariant: ['tabular-nums'] }}>
                           {item.progressedWeight
                             ? `${item.weightDiff > 0 ? '+' : ''}${formatWithUnit(item.weightDiff)}`
                             : item.progressedReps
@@ -448,37 +440,32 @@ export default function Complete() {
                     ) : null}
                   </View>
 
-                  {/* Next Session Goal Box */}
+                  {/* Clean Matte Next Session Goal Box */}
                   <View
                     style={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                      borderRadius: 10,
-                      paddingHorizontal: 10,
-                      paddingVertical: 8,
-                      borderWidth: 1,
-                      borderColor: isIncrease
-                        ? 'rgba(200, 255, 61, 0.28)'
-                        : isReduce
-                        ? 'rgba(255, 159, 28, 0.25)'
-                        : 'rgba(255, 255, 255, 0.07)',
-                      gap: 4,
+                      backgroundColor: '#1C222B',
+                      borderRadius: 12,
+                      paddingHorizontal: 12,
+                      paddingVertical: 9,
+                      gap: 3,
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#CBD5E1' }}>
-                        {language === 'uk' ? 'Наступна ціль:' : 'Next session target:'}
+                      <Text style={{ fontSize: 11.5, fontWeight: '600', color: '#94A3B8' }}>
+                        {language === 'uk' ? 'Наступна ціль' : 'Next session target'}
                       </Text>
                       <Text
                         style={{
                           fontSize: 12,
-                          fontWeight: '800',
-                          color: isIncrease ? colors.primary : isReduce ? '#FF9F1C' : '#FFFFFF',
+                          fontWeight: '700',
+                          color: isIncrease ? colors.primary : isReduce ? '#F59E0B' : '#FFFFFF',
+                          fontVariant: ['tabular-nums'],
                         }}
                       >
                         {targetWeightStr} × {targetRepsStr} {language === 'uk' ? 'повт' : 'reps'}
                       </Text>
                     </View>
-                    <Text style={{ fontSize: 11, color: '#94A3B8', lineHeight: 16 }}>
+                    <Text style={{ fontSize: 11.5, color: '#8E9BAE', lineHeight: 16 }}>
                       {language === 'uk'
                         ? (item.nextRec.explanationUk || item.nextRec.explanation)
                         : item.nextRec.explanation}
@@ -630,7 +617,7 @@ export default function Complete() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: '#0E1114',
   },
   topBar: {
     flexDirection: 'row',
@@ -639,20 +626,22 @@ const styles = StyleSheet.create({
     height: 48,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#14181E',
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 32,
     alignItems: 'center',
   },
   heroSection: {
     alignItems: 'center',
-    marginBottom: 22,
+    marginBottom: 20,
   },
   statusIconWrap: {
     width: 48,
@@ -661,42 +650,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    borderWidth: 1,
   },
   statusIconWrapComplete: {
     backgroundColor: 'rgba(200, 255, 61, 0.12)',
-    borderColor: 'rgba(200, 255, 61, 0.3)',
   },
   statusIconWrapPartial: {
     backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderColor: 'rgba(245, 158, 11, 0.3)',
   },
   title: {
     color: '#FFFFFF',
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: -0.3,
     textAlign: 'center',
   },
   workoutSubtitle: {
     color: '#8E9BAE',
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '500',
     marginTop: 4,
     textAlign: 'center',
   },
   statsRow: {
     width: '100%',
-    maxWidth: 350,
+    maxWidth: 380,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#12161D',
-    borderRadius: 20,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    backgroundColor: '#14181E',
+    borderRadius: 18,
+    paddingVertical: 15,
+    paddingHorizontal: 12,
     marginBottom: 14,
   },
   statBox: {
@@ -705,14 +689,14 @@ const styles = StyleSheet.create({
   },
   statDivider: {
     width: 1,
-    height: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    height: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   statValue: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 3,
     fontVariant: ['tabular-nums'],
   },
   statLabel: {
@@ -722,13 +706,11 @@ const styles = StyleSheet.create({
   },
   volumeCard: {
     width: '100%',
-    maxWidth: 350,
-    backgroundColor: '#12161D',
-    borderRadius: 20,
+    maxWidth: 380,
+    backgroundColor: '#14181E',
+    borderRadius: 18,
     paddingVertical: 16,
     paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
     marginBottom: 14,
   },
   volumeValueRow: {
@@ -767,14 +749,12 @@ const styles = StyleSheet.create({
   volumeComparisonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: '#1C222B',
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 10,
     marginTop: 12,
     gap: 7,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   volumeComparisonText: {
     flex: 1,
@@ -785,22 +765,20 @@ const styles = StyleSheet.create({
   },
   prsCard: {
     width: '100%',
-    maxWidth: 350,
-    backgroundColor: '#12161D',
-    borderRadius: 20,
+    maxWidth: 380,
+    backgroundColor: '#14181E',
+    borderRadius: 18,
     padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   prHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   prSectionTitle: {
-    color: colors.primary,
+    color: '#94A3B8',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -812,19 +790,16 @@ const styles = StyleSheet.create({
   },
   prRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   prThumbWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#0E1115',
-    borderWidth: 1,
-    borderColor: '#242C38',
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#1C222B',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
   },
   prThumb: {
     width: '100%',
@@ -832,19 +807,18 @@ const styles = StyleSheet.create({
   },
   prExerciseName: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14.5,
+    fontWeight: '700',
     flex: 1,
   },
   prValueText: {
-    color: '#8E9BAE',
+    color: '#CBD5E1',
     fontSize: 13,
-    fontWeight: '600',
-    marginRight: 8,
+    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   bottomBar: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 24,
     paddingTop: 12,
     width: '100%',
@@ -852,9 +826,9 @@ const styles = StyleSheet.create({
   },
   doneBtn: {
     width: '100%',
-    maxWidth: 350,
-    height: 52,
-    borderRadius: 26,
+    maxWidth: 380,
+    height: 54,
+    borderRadius: 16,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -862,7 +836,7 @@ const styles = StyleSheet.create({
   doneBtnText: {
     color: '#0B0D0F',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   emptyWrap: {
     flex: 1,
@@ -877,8 +851,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   topShareBtn: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#14181E',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 'auto',

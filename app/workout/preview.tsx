@@ -390,11 +390,10 @@ export default function WorkoutPreview() {
               hapticLight();
               setIsWorkoutEditorVisible(true);
             }}
-            style={styles.editDayLink}
+            style={({ pressed }) => [styles.editDayLink, pressed && { opacity: 0.7 }]}
           >
-            <Ionicons name="create-outline" size={13} color={colors.primary} style={{ marginRight: 4 }} />
             <Text style={styles.editDayLinkText}>
-              {language === 'uk' ? 'Редагувати день' : 'Edit Day'}
+              {language === 'uk' ? 'Змінити порядок' : 'Edit order'}
             </Text>
           </Pressable>
         </View>
@@ -436,14 +435,11 @@ export default function WorkoutPreview() {
                     style={styles.exerciseThumb}
                     resizeMode="cover"
                   />
-                  <View style={styles.thumbInfoBadge}>
-                    <Ionicons name="information" size={9} color="#0B0D0F" />
-                  </View>
                 </View>
                 <View style={styles.exerciseInfoCol}>
                   <Text numberOfLines={1} style={styles.exerciseName}>{te(exercise.name)}</Text>
                   <Text style={styles.exerciseMeta}>
-                    {exercise.sets} {t('sets').toLowerCase()} • {weightLabel} • {targetRepsDisplay}
+                    {exercise.sets} {t('sets').toLowerCase()} · {weightLabel} · {targetRepsDisplay}
                   </Text>
                 </View>
                 <View style={styles.cardActionsRight}>
@@ -467,12 +463,9 @@ export default function WorkoutPreview() {
                       e.stopPropagation();
                       handleOpenSwapModal(exercise);
                     }}
-                    style={({ pressed }) => [styles.swapBtn, pressed && { opacity: 0.7 }]}
+                    style={({ pressed }) => [styles.swapBtn, pressed && { opacity: 0.6 }]}
                   >
-                    <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
-                    <Text style={styles.swapBtnText}>
-                      {language === 'uk' ? 'Замінити' : 'Swap'}
-                    </Text>
+                    <Ionicons name="swap-horizontal" size={16} color="#8E959F" />
                   </Pressable>
                 </View>
               </Pressable>
@@ -489,9 +482,9 @@ export default function WorkoutPreview() {
             }}
             style={({ pressed }) => [styles.addExerciseBtn, pressed && { opacity: 0.8 }]}
           >
-            <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+            <Ionicons name="add" size={18} color="#A0A8B4" />
             <Text style={styles.addExerciseBtnText}>
-              {language === 'uk' ? '+ Додати вправу' : '+ Add Exercise'}
+              {language === 'uk' ? 'Додати вправу' : 'Add Exercise'}
             </Text>
           </Pressable>
         </View>
@@ -1079,30 +1072,21 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   exerciseList: {
-    gap: 10,
+    gap: 8,
   },
   exerciseCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: '#15191F',
-    borderColor: '#242B35',
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 2,
+    backgroundColor: '#14181E',
+    borderRadius: 16,
+    padding: 14,
   },
   exerciseThumbWrap: {
     width: 48,
     height: 48,
     borderRadius: 12,
     backgroundColor: '#0E1115',
-    borderWidth: 1,
-    borderColor: '#242B35',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1116,8 +1100,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   exerciseName: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
     color: '#FFFFFF',
     letterSpacing: -0.2,
   },
@@ -1140,14 +1124,9 @@ const styles = StyleSheet.create({
   },
   startButton: {
     width: '100%',
-    minHeight: 56,
-    borderRadius: 24,
+    minHeight: 54,
+    borderRadius: 16,
     backgroundColor: '#C8FF3D',
-    shadowColor: '#C8FF3D',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    elevation: 5,
   },
   quickLogPreviewBtn: {
     flexDirection: 'row',
@@ -1155,29 +1134,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignSelf: 'center',
     paddingVertical: 8,
-    marginTop: 6,
+    marginTop: 4,
   },
   quickLogPreviewBtnText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#8E959F',
-    letterSpacing: 0.1,
   },
   swapBtn: {
-    flexDirection: 'row',
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#1C222B',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-  },
-  swapBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
+    justifyContent: 'center',
   },
   modalOverlay: {
     flex: 1,
@@ -1191,8 +1161,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 36,
-    borderWidth: 1,
-    borderColor: '#242B35',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1201,7 +1169,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#242B35',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   modalTitle: {
     fontSize: 20,
@@ -1227,12 +1195,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: '#1A212D',
+    backgroundColor: '#1A2029',
     borderRadius: 16,
     padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#242B35',
+    marginBottom: 8,
   },
   altThumbWrap: {
     width: 44,
@@ -1249,12 +1215,12 @@ const styles = StyleSheet.create({
   },
   altName: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#FFFFFF',
   },
   altMeta: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '400',
     color: '#8E959F',
     marginTop: 2,
   },
@@ -1262,7 +1228,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.primary,
+    backgroundColor: '#252D3A',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1270,63 +1236,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#141A23',
-    borderWidth: 1,
-    borderColor: '#1E2836',
-    borderStyle: 'dashed',
-    borderRadius: 14,
+    gap: 6,
+    backgroundColor: '#14181E',
+    borderRadius: 16,
     paddingVertical: 14,
-    marginTop: 6,
+    marginTop: 4,
     marginBottom: 20,
   },
   addExerciseBtnText: {
-    color: colors.primary,
+    color: '#A0A8B4',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   editDayLink: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
   },
   editDayLinkText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  thumbInfoBadge: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#C8FF3D',
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#8E959F',
   },
   cardActionsRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   quickConfigBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#1C232E',
-    borderWidth: 1,
-    borderColor: '#2A3442',
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#1C222B',
     alignItems: 'center',
     justifyContent: 'center',
   },
   exerciseCardPressed: {
-    opacity: 0.85,
-    borderColor: 'rgba(200, 255, 61, 0.3)',
+    opacity: 0.8,
   },
   modalOverlayDismiss: {
     ...StyleSheet.absoluteFill,
