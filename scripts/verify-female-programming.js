@@ -67,12 +67,18 @@ let passed = 0;
   passed++;
 }
 
-// TEST 4: Profile & Onboarding Sex Customization
+// TEST 4: Onboarding Sex Persistence & Profile Integrity
 {
-  const editProfileSource = fs.readFileSync(path.join(__dirname, '..', 'components', 'profile', 'EditProfileModal.tsx'), 'utf8');
-  assert.ok(editProfileSource.includes("setSex('male')") && editProfileSource.includes("setSex('female')"), 'EditProfileModal.tsx must provide Male/Female sex selection');
+  const userProfileSource = fs.readFileSync(path.join(__dirname, '..', 'store', 'userProfileStore.ts'), 'utf8');
+  assert.ok(userProfileSource.includes("p.sex === 'male' || p.sex === 'female'"), 'normalizeLoadedProfile must persist sex when loading profile');
 
-  console.log('✅ TEST 4 PASSED: User profile supports switching gender & specialization with immediate program refresh');
+  const readySource = fs.readFileSync(path.join(__dirname, '..', 'app', 'onboarding', 'program-ready.tsx'), 'utf8');
+  assert.ok(readySource.includes("onboarding.sex && onboarding.sex !== 'unspecified'"), 'program-ready.tsx must prioritize onboarding.sex over default profile');
+
+  const editProfileSource = fs.readFileSync(path.join(__dirname, '..', 'components', 'profile', 'EditProfileModal.tsx'), 'utf8');
+  assert.ok(!editProfileSource.includes('sexRow'), 'EditProfileModal.tsx must not clutter profile with redundant gender switch');
+
+  console.log('✅ TEST 4 PASSED: Onboarding sex selection persists reliably into profile without loss');
   passed++;
 }
 

@@ -127,6 +127,8 @@ function normalizeLoadedProfile(parsed: unknown): UserProfile {
   return {
     name: typeof p.name === 'string' && p.name.trim().length > 0 ? p.name.trim() : DEFAULT_USER_PROFILE.name,
     avatar: validAvatars.includes(p.avatar as BeastAvatarId) ? (p.avatar as BeastAvatarId) : DEFAULT_USER_PROFILE.avatar,
+    age: typeof p.age === 'number' && p.age >= 10 && p.age <= 100 ? p.age : DEFAULT_USER_PROFILE.age,
+    sex: p.sex === 'male' || p.sex === 'female' ? p.sex : 'unspecified',
     weightKg: typeof p.weightKg === 'number' && p.weightKg >= 20 && p.weightKg <= 300 ? Math.round(p.weightKg * 10) / 10 : DEFAULT_USER_PROFILE.weightKg,
     heightCm: typeof p.heightCm === 'number' && p.heightCm >= 100 && p.heightCm <= 240 ? Math.round(p.heightCm) : DEFAULT_USER_PROFILE.heightCm,
     goal: validGoals.includes(p.goal as UserGoal) ? (p.goal as UserGoal) : DEFAULT_USER_PROFILE.goal,
@@ -200,6 +202,12 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         if (typeof ob.heightCm === 'number' && ob.heightCm > 50 && normalized.heightCm === DEFAULT_USER_PROFILE.heightCm) {
           normalized.heightCm = Math.round(ob.heightCm);
         }
+        if (typeof ob.age === 'number' && ob.age >= 10 && normalized.age === DEFAULT_USER_PROFILE.age) {
+          normalized.age = ob.age;
+        }
+        if ((ob.sex === 'female' || ob.sex === 'male') && (!normalized.sex || normalized.sex === 'unspecified')) {
+          normalized.sex = ob.sex;
+        }
         if (ob.baselineLifts && typeof ob.baselineLifts === 'object' && !normalized.baselineLifts) {
           normalized.baselineLifts = ob.baselineLifts as BaselineLifts;
         }
@@ -265,6 +273,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         weightKg: updated.weightKg,
         heightCm: updated.heightCm,
         avatar: updated.avatar,
+        sex: updated.sex,
         baselineLifts: updated.baselineLifts,
       };
       await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(nextOnboarding));

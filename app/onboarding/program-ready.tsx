@@ -32,6 +32,7 @@ import {
   loadOnboarding,
   saveOnboarding,
   type OnboardingData,
+  type OnboardingSex,
   type WorkoutSplitPreference,
 } from '@/store/workoutStore';
 import type { UserProgram, UserWorkout } from '@/types/userProgram';
@@ -95,11 +96,17 @@ export default function ProgramReady() {
   const syncProgramState = React.useCallback(async () => {
     const data = (await loadOnboarding()) ?? defaultOnboarding;
     const profile = useUserProfileStore.getState().profile;
+    const resolvedSex: OnboardingSex = (data.sex && data.sex !== 'unspecified')
+      ? data.sex
+      : (profile.sex && profile.sex !== 'unspecified')
+      ? profile.sex
+      : 'unspecified';
+
     const mergedData: OnboardingData = {
       ...data,
       name: (profile.name && profile.name !== 'IHOR') ? profile.name : data.name,
       age: (profile.age && profile.age > 0) ? profile.age : data.age,
-      sex: profile.sex || data.sex,
+      sex: resolvedSex,
       weightKg: (profile.weightKg && profile.weightKg > 0) ? profile.weightKg : data.weightKg,
       heightCm: (profile.heightCm && profile.heightCm > 0) ? profile.heightCm : data.heightCm,
       baselineLifts: profile.baselineLifts || data.baselineLifts,
@@ -277,7 +284,11 @@ export default function ProgramReady() {
     const finalBaselineLifts = profile.baselineLifts || onboarding.baselineLifts;
     const finalName = (profile.name && profile.name !== 'IHOR') ? profile.name : onboarding.name;
     const finalAge = (profile.age && profile.age > 0) ? profile.age : onboarding.age;
-    const finalSex = profile.sex || onboarding.sex;
+    const finalSex: OnboardingSex = (onboarding.sex && onboarding.sex !== 'unspecified')
+      ? onboarding.sex
+      : (profile.sex && profile.sex !== 'unspecified')
+      ? profile.sex
+      : 'unspecified';
 
     const updated = {
       ...onboarding,

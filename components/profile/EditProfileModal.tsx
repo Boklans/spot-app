@@ -34,7 +34,6 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
 
   const [name, setName] = useState(profile.name);
   const [selectedAvatar, setSelectedAvatar] = useState<BeastAvatarId>(profile.avatar);
-  const [sex, setSex] = useState<'male' | 'female' | 'unspecified'>(profile.sex || 'unspecified');
   const [weightStr, setWeightStr] = useState(
     profile.weightUnit === 'lbs'
       ? Math.round(profile.weightKg * 2.20462).toString()
@@ -50,7 +49,6 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
     if (visible) {
       setName(profile.name);
       setSelectedAvatar(profile.avatar);
-      setSex(profile.sex || 'unspecified');
       setWeightStr(
         profile.weightUnit === 'lbs'
           ? Math.round(profile.weightKg * 2.20462).toString()
@@ -89,7 +87,6 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
     await updateProfile({
       name: finalName,
       avatar: selectedAvatar,
-      sex,
       weightKg: Math.round(finalWeightKg * 10) / 10,
       heightCm: finalHeightCm,
     });
@@ -202,63 +199,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                 </View>
               </View>
 
-              {/* 3. Gender / Specialization */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  {language === 'uk' ? 'СТАТЬ ТА СПЕЦІАЛІЗАЦІЯ' : 'GENDER & SPECIALIZATION'}
-                </Text>
-                <View style={styles.sexRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Male profile"
-                    onPress={() => {
-                      hapticLight();
-                      setSex('male');
-                    }}
-                    style={[styles.sexOption, sex === 'male' && styles.sexOptionActive]}
-                  >
-                    <MaterialCommunityIcons
-                      name="gender-male"
-                      size={20}
-                      color={sex === 'male' ? '#0B0D0F' : '#94A3B8'}
-                    />
-                    <Text
-                      style={[
-                        styles.sexOptionText,
-                        sex === 'male' && styles.sexOptionTextActive,
-                      ]}
-                    >
-                      {language === 'uk' ? 'Чоловіча' : 'Male'}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Female profile"
-                    onPress={() => {
-                      hapticLight();
-                      setSex('female');
-                    }}
-                    style={[styles.sexOption, sex === 'female' && styles.sexOptionActive]}
-                  >
-                    <MaterialCommunityIcons
-                      name="gender-female"
-                      size={20}
-                      color={sex === 'female' ? '#0B0D0F' : '#94A3B8'}
-                    />
-                    <Text
-                      style={[
-                        styles.sexOptionText,
-                        sex === 'female' && styles.sexOptionTextActive,
-                      ]}
-                    >
-                      {language === 'uk' ? 'Жіноча' : 'Female'}
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              {/* 4. Body Metrics (Weight & Height) */}
+              {/* 3. Body Metrics (Weight & Height) */}
               <View style={styles.metricsRow}>
                 {/* Weight */}
                 <View style={styles.metricCol}>
@@ -459,36 +400,6 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 16,
-  },
-  sexRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
-  },
-  sexOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#161C24',
-    borderWidth: 1.5,
-    borderColor: '#232D3B',
-    borderRadius: 14,
-    paddingVertical: 13,
-  },
-  sexOptionActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  sexOptionText: {
-    color: '#94A3B8',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  sexOptionTextActive: {
-    color: '#0B0D0F',
-    fontWeight: '900',
   },
   inputBox: {
     flexDirection: 'row',

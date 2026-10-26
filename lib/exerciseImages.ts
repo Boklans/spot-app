@@ -2,36 +2,109 @@ import { ImageSourcePropType } from 'react-native';
 import { useUserProfileStore } from '@/store/userProfileStore';
 
 const FEMALE_EXERCISE_IMAGES: Record<string, ImageSourcePropType> = {
-  // Lower & Glutes
+  // --- Chest (Female Dumbbell Bench / Push) ---
+  'incline dumbbell press': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'incline dumbbell': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'incline barbell press': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'incline barbell': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'incline bench': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'incline press': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'dumbbell bench press': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'dumbbell bench': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'machine chest press': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'chest press machine': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'chest press': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'bench press': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'push-up': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'push up': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'pushup': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'chest dips': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'dips': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'cable chest fly': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'cable fly': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'chest fly': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'fly': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+
+  // --- Back (Female Lat Pulldown / Pull) ---
+  'single-arm dumbbell row': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'single arm dumbbell row': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'one-arm dumbbell row': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'one arm dumbbell row': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'dumbbell row': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'barbell bent-over row': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'barbell row': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'bent-over row': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'bent over row': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'seated cable row': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'seated row': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'cable row': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'lat pulldown': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'pulldown': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'pull-up': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'pull up': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'chin-up': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'chin up': require('@/assets/exercises/female/lat_pulldown.jpg'),
+  'face pull': require('@/assets/exercises/female/lateral_raises.jpg'),
+  'face-pull': require('@/assets/exercises/female/lateral_raises.jpg'),
+
+  // --- Shoulders (Female Shoulder Press & Lateral Raises) ---
+  'dumbbell shoulder press': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'overhead barbell press': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'overhead press': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'shoulder press': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'overhead': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'cable lateral raise': require('@/assets/exercises/female/lateral_raises.jpg'),
+  'lateral raise': require('@/assets/exercises/female/lateral_raises.jpg'),
+  'side raise': require('@/assets/exercises/female/lateral_raises.jpg'),
+
+  // --- Arms: Triceps ---
+  'overhead triceps extension': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'overhead triceps': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'triceps extension': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'triceps pushdown': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'tricep pushdown': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'skull crusher': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+  'skullcrusher': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
+
+  // --- Arms: Biceps ---
+  'incline dumbbell curl': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'incline curl': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'hammer curl': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'barbell biceps curl': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'biceps curl': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'bicep curl': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+  'curl': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
+
+  // --- Legs & Glutes (Female Squat, Hip Thrust, RDL, Lunges, Split Squat) ---
+  'bulgarian split squat': require('@/assets/exercises/female/bulgarian_split_squat.jpg'),
+  'bulgarian': require('@/assets/exercises/female/bulgarian_split_squat.jpg'),
+  'step-up': require('@/assets/exercises/female/bulgarian_split_squat.jpg'),
+  'step up': require('@/assets/exercises/female/bulgarian_split_squat.jpg'),
   'hip thrust': require('@/assets/exercises/female/hip_thrust.jpg'),
   'glute bridge': require('@/assets/exercises/female/hip_thrust.jpg'),
   'pull-through': require('@/assets/exercises/female/hip_thrust.jpg'),
   'glute': require('@/assets/exercises/female/hip_thrust.jpg'),
-  'romanian deadlift': require('@/assets/exercises/female/romanian_deadlift.jpg'),
-  'deadlift': require('@/assets/exercises/female/romanian_deadlift.jpg'),
-  'bulgarian split squat': require('@/assets/exercises/female/bulgarian_split_squat.jpg'),
-  'bulgarian': require('@/assets/exercises/female/bulgarian_split_squat.jpg'),
   'walking lunge': require('@/assets/exercises/female/walking_lunges.jpg'),
   'lunge': require('@/assets/exercises/female/walking_lunges.jpg'),
   'barbell squat': require('@/assets/exercises/female/barbell_squat.jpg'),
   'goblet squat': require('@/assets/exercises/female/barbell_squat.jpg'),
   'squat': require('@/assets/exercises/female/barbell_squat.jpg'),
+  'leg press': require('@/assets/exercises/female/barbell_squat.jpg'),
+  'lying leg curl': require('@/assets/exercises/female/romanian_deadlift.jpg'),
+  'leg curl': require('@/assets/exercises/female/romanian_deadlift.jpg'),
+  'leg extension': require('@/assets/exercises/female/barbell_squat.jpg'),
+  'romanian deadlift': require('@/assets/exercises/female/romanian_deadlift.jpg'),
+  'deadlift': require('@/assets/exercises/female/romanian_deadlift.jpg'),
+  'standing calf raise': require('@/assets/exercises/female/walking_lunges.jpg'),
+  'calf raise': require('@/assets/exercises/female/walking_lunges.jpg'),
+  'calf': require('@/assets/exercises/female/walking_lunges.jpg'),
 
-  // Upper Body
-  'lat pulldown': require('@/assets/exercises/female/lat_pulldown.jpg'),
-  'pulldown': require('@/assets/exercises/female/lat_pulldown.jpg'),
-  'dumbbell shoulder press': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
-  'overhead press': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
-  'shoulder press': require('@/assets/exercises/female/dumbbell_shoulder_press.jpg'),
-  'lateral raise': require('@/assets/exercises/female/lateral_raises.jpg'),
-  'side raise': require('@/assets/exercises/female/lateral_raises.jpg'),
-  'dumbbell bench press': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
-  'dumbbell bench': require('@/assets/exercises/female/dumbbell_bench_press.jpg'),
-
-  // Core
-  'plank': require('@/assets/exercises/female/plank.jpg'),
+  // --- Core (Female Plank & Cable Crunch) ---
   'cable crunch': require('@/assets/exercises/female/cable_crunch.jpg'),
   'kneeling crunch': require('@/assets/exercises/female/cable_crunch.jpg'),
+  'hanging knee raise': require('@/assets/exercises/female/cable_crunch.jpg'),
+  'knee raise': require('@/assets/exercises/female/cable_crunch.jpg'),
+  'plank': require('@/assets/exercises/female/plank.jpg'),
 };
 
 const EXERCISE_IMAGES: Record<string, ImageSourcePropType> = {
@@ -149,19 +222,24 @@ export function getExerciseImage(
   if (customImageUri) {
     return { uri: customImageUri };
   }
-  if (!name) return EXERCISE_IMAGES['bench press'];
-  const lower = name.toLowerCase().trim();
 
   // Resolve user sex (either explicit or from profile store)
   const currentSex = sexOverride ?? useUserProfileStore.getState().profile.sex;
 
   if (currentSex === 'female') {
+    if (!name) return FEMALE_EXERCISE_IMAGES['hip thrust'];
+    const lower = name.toLowerCase().trim();
     for (const [key, image] of Object.entries(FEMALE_EXERCISE_IMAGES)) {
       if (lower.includes(key)) {
         return image;
       }
     }
+    // NEVER fall back to male image for a female user
+    return FEMALE_EXERCISE_IMAGES['hip thrust'];
   }
+
+  if (!name) return EXERCISE_IMAGES['bench press'];
+  const lower = name.toLowerCase().trim();
 
   for (const [key, image] of Object.entries(EXERCISE_IMAGES)) {
     if (lower.includes(key)) {
