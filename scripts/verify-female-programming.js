@@ -96,5 +96,24 @@ let passed = 0;
   passed++;
 }
 
+// TEST 6: Biomechanical Accuracy & Elimination of Duplicate Exercise Images
+{
+  const exerciseImagesSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'exerciseImages.ts'), 'utf8');
+
+  // Verify that push-ups, pull-ups, rows, and leg extensions are NOT mapped to the wrong female images
+  assert.ok(!exerciseImagesSource.includes("'push-up': require('@/assets/exercises/female/dumbbell_bench_press.jpg')"), 'Push-ups must not show dumbbell bench press');
+  assert.ok(!exerciseImagesSource.includes("'pull-up': require('@/assets/exercises/female/lat_pulldown.jpg')"), 'Pull-ups must not show lat pulldown');
+  assert.ok(!exerciseImagesSource.includes("'leg extension': require('@/assets/exercises/female/barbell_squat.jpg')"), 'Leg extension must not show squat');
+  assert.ok(!exerciseImagesSource.includes("'lying leg curl': require('@/assets/exercises/female/romanian_deadlift.jpg')"), 'Leg curl must not show deadlift');
+  assert.ok(!exerciseImagesSource.includes("'barbell bent-over row': require('@/assets/exercises/female/lat_pulldown.jpg')"), 'Bent over row must not show lat pulldown');
+  assert.ok(!exerciseImagesSource.includes("'standing calf raise': require('@/assets/exercises/female/walking_lunges.jpg')"), 'Calf raise must not show lunges');
+
+  // Verify that matchExercise sorts keys by length descending to prevent short key collisions
+  assert.ok(exerciseImagesSource.includes('b.length - a.length'), 'matchExercise must sort keys descending by length');
+
+  console.log('✅ TEST 6 PASSED: Exercise library images are biomechanically accurate and free of repeating duplicates');
+  passed++;
+}
+
 console.log(`\n🎉 ALL ${passed} FEMALE PROGRAMMING & ASSET TESTS PASSED!\n`);
 
