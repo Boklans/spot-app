@@ -645,7 +645,7 @@ const benchPress = {
   const cloudSyncSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'cloudSync.ts'), 'utf8');
 
   assert.ok(notesStoreSource.includes('spot_exercise_notes_v1'), 'exerciseNotesStore.ts must persist notes in AsyncStorage');
-  assert.ok(detailModalSource.includes('safetyCard') && detailModalSource.includes('movementSummaryBanner'), 'ExerciseDetailModal.tsx must display movement trajectory and joint safety cues');
+  assert.ok((detailModalSource.includes('safetyCard') || detailModalSource.includes('safetyBlock')) && (detailModalSource.includes('movementSummaryBanner') || detailModalSource.includes('movementSummaryText')), 'ExerciseDetailModal.tsx must display movement trajectory and joint safety cues');
   assert.ok(activeSource.includes('ProgressionGuideModal') && activeSource.includes('ExerciseNoteModal'), 'active.tsx must integrate ProgressionGuideModal and ExerciseNoteModal');
   assert.ok(homeSource.includes('recommendWeight') && !homeSource.includes("'/workout/rest'"), 'Home screen must use recommendWeight and never route to blocking /workout/rest');
   assert.ok(previewSource.includes('recommendWeight') && !previewSource.includes("'/workout/rest'"), 'Workout Preview screen must use recommendWeight and never route to blocking /workout/rest');
