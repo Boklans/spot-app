@@ -99,6 +99,7 @@ export default function Active() {
   const session = useWorkoutSessionStore((state) => state.session);
   const restEndsAt = useWorkoutSessionStore((state) => state.restEndsAt);
   const completeCurrentSet = useWorkoutSessionStore((state) => state.completeCurrentSet);
+  const toggleSetCompletion = useWorkoutSessionStore((state) => state.toggleSetCompletion);
   const updateCurrentSet = useWorkoutSessionStore((state) => state.updateCurrentSet);
   const swapExercise = useWorkoutSessionStore((state) => state.swapExercise);
   const addRestTime = useWorkoutSessionStore((state) => state.addRestTime);
@@ -317,23 +318,6 @@ export default function Active() {
   );
   const isLastRemainingSet = remainingUncompletedSets === 1 && Boolean(activeSet && !activeSet.completed);
 
-  const adjustActiveWeight = (deltaDisplay: number) => {
-    if (!activeSet) return;
-    hapticLight();
-    const currentDisplay = fromKg(activeSet.weight ?? 0);
-    const newDisplay = Math.max(0, Math.round((currentDisplay + deltaDisplay) * 10) / 10);
-    const newKg = toKg(newDisplay);
-    updateCurrentSet({ weight: Math.round(newKg * 100) / 100 }, true);
-  };
-
-  const adjustActiveReps = (deltaReps: number) => {
-    if (!activeSet) return;
-    hapticLight();
-    const currentR = activeSet.reps ?? 8;
-    const newR = Math.max(1, Math.min(100, currentR + deltaReps));
-    updateCurrentSet({ reps: newR }, true);
-  };
-
   const handleSaveEditedSet = ({ weight, reps }: { weight: number; reps: number }) => {
     if (!editingTarget || !session) return;
     const { exerciseIndex, setIndex } = editingTarget;
@@ -398,38 +382,51 @@ export default function Active() {
           ? `Коли виконаєш ${maxTargetReps} повт у всіх підходах — збільшимо вагу`
           : `Hit ${maxTargetReps} reps on all sets to increase weight`);
 
-  const finishSet = async () => {
+  const handleToggleSet = async (targetSetIndex: number) => {
     if (isSubmittingSetRef.current || finishing || submittingSet) return;
-    isSubmittingSetRef.current = true;
-    setSubmittingSet(true);
+    const currentSet = exercise?.sets[targetSetIndex];
+    if (!currentSet) return;
 
-    try {
-      hapticMedium();
-      completeCurrentSet();
+    if (currentSet.completed) {
+      // Toggle to uncompleted (Undo)
+      hapticLight();
+      cancelRestTimerNotification();
+      toggleSetCompletion(session.currentExerciseIndex, targetSetIndex);
+    } else {
+      // Complete set in 1 TAP
+      isSubmittingSetRef.current = true;
+      setSubmittingSet(true);
+      try {
+        hapticSuccess();
+        toggleSetCompletion(session.currentExerciseIndex, targetSetIndex);
 
-      const latestSession = useWorkoutSessionStore.getState().session;
-      const isCompleted = Boolean(latestSession?.completed);
+        const latestSession = useWorkoutSessionStore.getState().session;
+        const isCompleted = Boolean(latestSession?.completed);
 
-      if (isCompleted) {
-        setFinishing(true);
-        if (latestSession) await finalizeWorkoutSession(latestSession);
-        router.replace('/workout/complete');
-      } else {
-        // Rest view (<Rest embedded />) or 0s Superset renders in-place without native screen replacement
-        setTimeout(() => {
-          isSubmittingSetRef.current = false;
-          setSubmittingSet(false);
-        }, 150);
+        if (isCompleted) {
+          setFinishing(true);
+          if (latestSession) await finalizeWorkoutSession(latestSession);
+          router.replace('/workout/complete');
+        } else {
+          setTimeout(() => {
+            isSubmittingSetRef.current = false;
+            setSubmittingSet(false);
+          }, 150);
+        }
+      } catch {
+        setFinishing(false);
+        setSubmittingSet(false);
+        isSubmittingSetRef.current = false;
+        Alert.alert(
+          t('couldNotSave'),
+          t('couldNotSaveDesc')
+        );
       }
-    } catch {
-      setFinishing(false);
-      setSubmittingSet(false);
-      isSubmittingSetRef.current = false;
-      Alert.alert(
-        t('couldNotSave'),
-        t('couldNotSaveDesc')
-      );
     }
+  };
+
+  const finishSet = async () => {
+    await handleToggleSet(session.currentSetIndex);
   };
 
   const percent = Math.round(progress.percentage);
@@ -665,112 +662,13 @@ export default function Active() {
             </Pressable>
           ) : null}
 
-          {/* Active Set Quick Stepper Bar (Clean, unified, non-cluttered) */}
-          <View style={styles.quickAdjustBar}>
-            {/* Weight Segment */}
-            <View style={styles.quickAdjustSegment}>
-              <Text style={styles.quickAdjustLabel} numberOfLines={1}>
-                {isAssisted
-                  ? (language === 'uk' ? `ПРОТИВАГА (${unitLabel})` : `ASSIST (${unitLabel})`)
-                  : `${t('weight').toUpperCase()} (${unitLabel})`}
-              </Text>
-              <View style={styles.stepperRow}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Decrease weight"
-                  hitSlop={6}
-                  onPress={() => adjustActiveWeight(unit === 'lbs' ? -1 : -0.5)}
-                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
-                >
-                  <Ionicons name="remove" size={16} color="#FFFFFF" />
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit active set weight"
-                  hitSlop={6}
-                  onPress={() => {
-                    hapticLight();
-                    setEditingTarget({
-                      exerciseIndex: session.currentExerciseIndex,
-                      setIndex: session.currentSetIndex,
-                      initialFocusField: 'weight',
-                    });
-                  }}
-                  style={styles.stepValueBox}
-                >
-                  <Text style={styles.stepValueText}>
-                    {activeSet?.weight ? format(activeSet.weight) : (language === 'uk' ? 'ВТ' : 'BW')}
-                  </Text>
-
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Increase weight"
-                  hitSlop={6}
-                  onPress={() => adjustActiveWeight(unit === 'lbs' ? 1 : 0.5)}
-                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
-                >
-                  <Ionicons name="add" size={16} color="#FFFFFF" />
-                </Pressable>
-              </View>
-            </View>
-
-            <View style={styles.quickAdjustDivider} />
-
-            {/* Reps Segment */}
-            <View style={styles.quickAdjustSegment}>
-              <Text style={styles.quickAdjustLabel}>{t('reps').toUpperCase()}</Text>
-              <View style={styles.stepperRow}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Decrease reps"
-                  hitSlop={6}
-                  onPress={() => adjustActiveReps(-1)}
-                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
-                >
-                  <Ionicons name="remove" size={16} color="#FFFFFF" />
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit active set reps"
-                  hitSlop={6}
-                  onPress={() => {
-                    hapticLight();
-                    setEditingTarget({
-                      exerciseIndex: session.currentExerciseIndex,
-                      setIndex: session.currentSetIndex,
-                      initialFocusField: 'reps',
-                    });
-                  }}
-                  style={styles.stepValueBox}
-                >
-                  <Text style={styles.stepValueText}>{activeSet?.reps ?? 8}</Text>
-
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Increase reps"
-                  hitSlop={6}
-                  onPress={() => adjustActiveReps(1)}
-                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
-                >
-                  <Ionicons name="add" size={16} color="#FFFFFF" />
-                </Pressable>
-              </View>
-            </View>
-          </View>
-
           {/* Sets Table */}
           <View style={styles.tableHeaderRow}>
-            <Text numberOfLines={1} style={styles.tableHeadSet}>{t('set')}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadSet}>{t('set').toUpperCase()}</Text>
             <Text numberOfLines={1} style={styles.tableHeadPrev}>{language === 'uk' ? 'МИНУЛЕ' : 'PREV'}</Text>
-            <Text numberOfLines={1} style={styles.tableHeadWeight}>{unitLabel}</Text>
-            <Text numberOfLines={1} style={styles.tableHeadReps}>{language === 'uk' ? 'ПОВТ.' : t('reps')}</Text>
-            <Text numberOfLines={1} style={styles.tableHeadStatus}>{t('status')}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadWeight}>{unitLabel.toUpperCase()}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadReps}>{language === 'uk' ? 'ПОВТ.' : t('reps').toUpperCase()}</Text>
+            <Text numberOfLines={1} style={styles.tableHeadStatus}>✓</Text>
           </View>
 
           {/* Sets Rows */}
@@ -790,14 +688,7 @@ export default function Active() {
                 <Pressable
                   key={set.id || index}
                   onPress={() => {
-                    if (isDone) {
-                      hapticLight();
-                      setEditingTarget({
-                        exerciseIndex: session.currentExerciseIndex,
-                        setIndex: index,
-                        initialFocusField: 'weight',
-                      });
-                    } else if (!isCurrent) {
+                    if (!isCurrent) {
                       hapticLight();
                       useWorkoutSessionStore.getState().setCurrentSetIndex(index);
                     }
@@ -817,9 +708,9 @@ export default function Active() {
                     {prevSetText}
                   </Text>
 
-                  {/* Direct Editable Weight */}
+                  {/* Direct Interactive Weight Pill */}
                   <Pressable
-                    hitSlop={6}
+                    hitSlop={4}
                     accessibilityRole="button"
                     accessibilityLabel={`Edit weight for set ${index + 1}`}
                     onPress={() => {
@@ -830,16 +721,21 @@ export default function Active() {
                         initialFocusField: 'weight',
                       });
                     }}
-                    style={styles.cellTouchTarget}
+                    style={[styles.cellPill, isCurrent && styles.cellPillActive, isDone && styles.cellPillDone]}
                   >
-                    <Text style={[styles.setColWeight, isCurrent && styles.textHighlight, isDone && styles.setColDoneText, setWeightIncreased && styles.textProgressionHighlight]}>
+                    <Text style={[
+                      styles.cellPillText,
+                      isCurrent && styles.cellPillTextActive,
+                      isDone && styles.cellPillTextDone,
+                      setWeightIncreased && styles.cellPillTextProgression,
+                    ]}>
                       {weightDisplay}{setWeightIncreased ? ' ↑' : ''}
                     </Text>
                   </Pressable>
 
-                  {/* Direct Editable Reps */}
+                  {/* Direct Interactive Reps Pill */}
                   <Pressable
-                    hitSlop={6}
+                    hitSlop={4}
                     accessibilityRole="button"
                     accessibilityLabel={`Edit reps for set ${index + 1}`}
                     onPress={() => {
@@ -850,42 +746,38 @@ export default function Active() {
                         initialFocusField: 'reps',
                       });
                     }}
-                    style={styles.cellTouchTarget}
+                    style={[styles.cellPill, isCurrent && styles.cellPillActive, isDone && styles.cellPillDone]}
                   >
-                    <Text style={[styles.setColReps, isCurrent && styles.textHighlight, isDone && styles.setColDoneText, setRepsIncreased && styles.textProgressionHighlight]}>
+                    <Text style={[
+                      styles.cellPillText,
+                      isCurrent && styles.cellPillTextActive,
+                      isDone && styles.cellPillTextDone,
+                      setRepsIncreased && styles.cellPillTextProgression,
+                    ]}>
                       {set.reps}{setRepsIncreased ? ' ↑' : ''}
                     </Text>
                   </Pressable>
 
+                  {/* 1-Tap Checkmark Complete Button */}
                   <Pressable
-                    hitSlop={12}
+                    hitSlop={10}
                     accessibilityRole="button"
-                    accessibilityLabel={isDone ? 'Set completed, tap to edit' : isCurrent ? 'Complete current set' : 'Set pending'}
-                    onPress={() => {
-                      if (isCurrent) {
-                        finishSet();
-                      } else if (isDone) {
-                        hapticLight();
-                        setEditingTarget({
-                          exerciseIndex: session.currentExerciseIndex,
-                          setIndex: index,
-                          initialFocusField: 'weight',
-                        });
-                      } else {
-                        hapticLight();
-                        useWorkoutSessionStore.getState().setCurrentSetIndex(index);
-                      }
-                    }}
+                    accessibilityLabel={isDone ? 'Set completed, tap to undo' : `Complete set ${index + 1}`}
+                    onPress={() => handleToggleSet(index)}
                     style={styles.setColStatus}
                   >
                     {isDone ? (
                       <View style={styles.statusDoneBadge}>
-                        <Ionicons name="checkmark" size={16} color="#0B0D0F" />
+                        <Ionicons name="checkmark" size={18} color="#0B0D0F" />
                       </View>
                     ) : isCurrent ? (
-                      <View style={styles.statusCurrentBadge} />
+                      <View style={styles.statusCurrentBadge}>
+                        <Ionicons name="checkmark" size={16} color={colors.primary} />
+                      </View>
                     ) : (
-                      <View style={styles.statusPendingBadge} />
+                      <View style={styles.statusPendingBadge}>
+                        <Ionicons name="checkmark" size={15} color="#384353" />
+                      </View>
                     )}
                   </Pressable>
                 </Pressable>
@@ -1215,71 +1107,6 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '600',
   },
-  quickAdjustBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#141A22',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginBottom: 14,
-  },
-  quickAdjustSegment: {
-    flex: 1,
-    gap: 4,
-  },
-  quickAdjustLabel: {
-    color: '#8E9BAE',
-    fontSize: 9.5,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    textAlign: 'center',
-  },
-  quickAdjustDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginHorizontal: 10,
-  },
-  stepperRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  stepBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepBtnPressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-  },
-  stepValueBox: {
-    minWidth: 64,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepValueText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  stepValueUnit: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#8E9BAE',
-  },
-
   safe: {
     flex: 1,
     backgroundColor: '#0B0D0F',
@@ -1723,103 +1550,125 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tableHeadSet: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#717B8A',
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#657181',
     letterSpacing: 0.8,
-    width: 28,
+    width: 26,
     textAlign: 'left',
   },
   tableHeadPrev: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#717B8A',
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#657181',
     letterSpacing: 0.8,
-    flex: 1.2,
+    flex: 1,
     textAlign: 'center',
   },
   tableHeadWeight: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#717B8A',
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#657181',
     letterSpacing: 0.8,
     flex: 1,
     textAlign: 'center',
+    marginHorizontal: 3,
   },
   tableHeadReps: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#717B8A',
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#657181',
     letterSpacing: 0.8,
     flex: 1,
     textAlign: 'center',
+    marginHorizontal: 3,
   },
   tableHeadStatus: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#717B8A',
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#657181',
     letterSpacing: 0.5,
-    width: 52,
+    width: 48,
     textAlign: 'center',
   },
   setsList: {
-    gap: 6,
+    gap: 7,
   },
   setRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 4,
     paddingHorizontal: 6,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'transparent',
-    minHeight: 44,
+    minHeight: 46,
   },
   setRowActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
-    borderColor: colors.primary,
+    backgroundColor: 'rgba(200, 255, 61, 0.05)',
+    borderColor: 'rgba(200, 255, 61, 0.35)',
   },
   setRowDone: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    opacity: 0.65,
+    backgroundColor: 'rgba(255, 255, 255, 0.015)',
+    opacity: 0.75,
   },
   setColNum: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#8E959F',
-    width: 28,
+    fontWeight: '700',
+    color: '#687484',
+    width: 26,
     textAlign: 'left',
     fontVariant: ['tabular-nums'],
   },
   setColPrev: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '500',
-    color: '#6C7787',
-    flex: 1.2,
-    textAlign: 'center',
-    fontVariant: ['tabular-nums'],
-  },
-  setColWeight: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#8E959F',
+    color: '#5E6978',
     flex: 1,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
-  setColReps: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#8E959F',
+  cellPill: {
     flex: 1,
-    textAlign: 'center',
+    height: 38,
+    marginHorizontal: 3,
+    borderRadius: 9,
+    backgroundColor: '#141820',
+    borderWidth: 1,
+    borderColor: '#242D3B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cellPillActive: {
+    backgroundColor: '#181F2B',
+    borderColor: 'rgba(200, 255, 61, 0.45)',
+  },
+  cellPillDone: {
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderColor: '#1D242F',
+  },
+  cellPillText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#9EABC0',
     fontVariant: ['tabular-nums'],
+  },
+  cellPillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  cellPillTextDone: {
+    color: '#768396',
+  },
+  cellPillTextProgression: {
+    color: colors.primary,
+    fontWeight: '800',
   },
   setColDoneText: {
-    color: '#94A3B8',
+    color: '#768396',
   },
   setColStatus: {
-    width: 52,
+    width: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1831,22 +1680,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statusDoneBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.35,
     shadowRadius: 6,
     elevation: 3,
   },
   statusCurrentBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     borderWidth: 2,
     borderColor: colors.primary,
     alignItems: 'center',
@@ -1854,12 +1703,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(200, 255, 61, 0.12)',
   },
   statusPendingBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#2A323F',
-    backgroundColor: '#12161D',
+    borderColor: '#262F3E',
+    backgroundColor: '#12161E',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bottomBar: {
     position: 'absolute',

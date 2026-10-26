@@ -69,6 +69,7 @@ type WorkoutSessionState = {
   hydrateSession: () => Promise<boolean>;
   initializeSession: (workout?: GeneratedWorkout | UserWorkout) => Promise<void>;
   completeCurrentSet: () => void;
+  toggleSetCompletion: (exerciseIndex: number, setIndex: number) => void;
   setPersonalRecords: (personalRecords: PersonalRecord[]) => void;
   updateCurrentSet: (values: { weight?: number; reps?: number }, propagate?: boolean) => void;
   updateSet: (exerciseIndex: number, setIndex: number, values: { weight?: number; reps?: number }, propagate?: boolean) => void;
@@ -281,21 +282,59 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
   },
 
   completeCurrentSet: () => {
+    const s = useWorkoutSessionStore.getState().session;
+    if (!s || s.completed) return;
+    const activeSet = s.exercises[s.currentExerciseIndex]?.sets[s.currentSetIndex];
+    if (!activeSet || activeSet.completed) return;
+    useWorkoutSessionStore.getState().toggleSetCompletion(s.currentExerciseIndex, s.currentSetIndex);
+  },
+
+  toggleSetCompletion: (targetExIdx: number, targetSetIdx: number) => {
     set((state) => {
-      if (!state.session || state.session.completed) return state;
+      if (!state.session) return state;
 
       const session = state.session;
-      const exercise = session.exercises[session.currentExerciseIndex];
-      const activeSet = exercise?.sets[session.currentSetIndex];
-      if (!exercise || !activeSet || activeSet.completed) return state;
+      const exercise = session.exercises[targetExIdx];
+      const targetSet = exercise?.sets[targetSetIdx];
+      if (!exercise || !targetSet) return state;
 
+      // Case A: Uncompleting an already completed set (undo)
+      if (targetSet.completed) {
+        const exercisesWithUncompletedSet = session.exercises.map((item, exIdx) => {
+          if (exIdx !== targetExIdx) return item;
+          return {
+            ...item,
+            sets: item.sets.map((s, sIdx) =>
+              sIdx === targetSetIdx
+                ? { ...s, completed: false, completedAt: undefined }
+                : s
+            ),
+          };
+        });
+
+        return {
+          ...state,
+          session: {
+            ...session,
+            exercises: exercisesWithUncompletedSet,
+            completed: false,
+            completedAt: undefined,
+            currentExerciseIndex: targetExIdx,
+            currentSetIndex: targetSetIdx,
+          },
+          restEndsAt: null,
+          restNextType: null,
+        };
+      }
+
+      // Case B: Completing a pending set
       const completedAt = new Date().toISOString();
-      const exercisesWithCompletedSet = session.exercises.map((item, exerciseIndex) => {
-        if (exerciseIndex !== session.currentExerciseIndex) return item;
+      const exercisesWithCompletedSet = session.exercises.map((item, exIdx) => {
+        if (exIdx !== targetExIdx) return item;
         return {
           ...item,
-          sets: item.sets.map((workoutSet, setIndex) =>
-            setIndex === session.currentSetIndex
+          sets: item.sets.map((workoutSet, sIdx) =>
+            sIdx === targetSetIdx
               ? { ...workoutSet, completed: true, completedAt }
               : workoutSet,
           ),
@@ -320,14 +359,14 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         };
       }
 
-      const currentExUpdated = exercisesWithCompletedSet[session.currentExerciseIndex];
-      let nextExerciseIndex = session.currentExerciseIndex;
-      let nextSetIndex = session.currentSetIndex;
+      const currentExUpdated = exercisesWithCompletedSet[targetExIdx];
+      let nextExerciseIndex = targetExIdx;
+      let nextSetIndex = targetSetIdx;
       let movedToAnotherExercise = false;
 
-      // 1. Next uncompleted set in current exercise after currentSetIndex
+      // 1. Next uncompleted set in current exercise after targetSetIdx
       const nextAfterInCurrent = currentExUpdated.sets.findIndex(
-        (s, idx) => idx > session.currentSetIndex && !s.completed
+        (s, idx) => idx > targetSetIdx && !s.completed
       );
       // 2. Any earlier uncompleted set in current exercise
       const anyUncompletedInCurrent = currentExUpdated.sets.findIndex((s) => !s.completed);
@@ -340,7 +379,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         // 3. Find next exercise with uncompleted sets
         movedToAnotherExercise = true;
         let foundExIdx = exercisesWithCompletedSet.findIndex(
-          (ex, idx) => idx > session.currentExerciseIndex && ex.sets.some((s) => !s.completed)
+          (ex, idx) => idx > targetExIdx && ex.sets.some((s) => !s.completed)
         );
         if (foundExIdx === -1) {
           foundExIdx = exercisesWithCompletedSet.findIndex((ex) =>
