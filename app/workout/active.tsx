@@ -21,7 +21,12 @@ import { colors } from '@/constants/colors';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
-import { cancelRestTimerNotification, scheduleRestTimerNotification } from '@/lib/notificationService';
+import {
+  cancelRestTimerNotification,
+  initNotifications,
+  requestNotificationPermissions,
+  scheduleRestTimerNotification,
+} from '@/lib/notificationService';
 import { playRestCompleteSound } from '@/lib/soundEffects';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
@@ -131,6 +136,11 @@ export default function Active() {
       loadExerciseNotes();
     }
   }, [notesHydrated, loadExerciseNotes]);
+
+  useEffect(() => {
+    initNotifications().catch(() => undefined);
+    requestNotificationPermissions().catch(() => undefined);
+  }, []);
 
   const [now, setNow] = useState(Date.now());
   const [isHydrating, setIsHydrating] = useState(!session);

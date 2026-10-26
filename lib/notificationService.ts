@@ -625,6 +625,9 @@ export async function scheduleRestTimerNotification(
         title: activeTitle,
         body: activeBody,
         sound: false,
+        sticky: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+        autoDismiss: false,
         categoryIdentifier: REST_ACTION_CATEGORY_ID,
         data: {
           screen: '/workout/active',
