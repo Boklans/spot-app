@@ -37,6 +37,7 @@ export type UserExperience = 'Beginner' | 'Intermediate' | 'Advanced';
 export type WeightUnit = 'kg' | 'lbs';
 export type HeightUnit = 'cm' | 'ft';
 export type AppLanguage = 'en' | 'uk';
+export type AppTheme = 'dark' | 'light';
 
 export type BaselineLifts = {
   benchPressKg?: number;
@@ -59,6 +60,7 @@ export type UserProfile = {
   heightUnit: HeightUnit;
   defaultRestSeconds: number;
   language: AppLanguage;
+  theme: AppTheme;
   notifications: boolean;
   notificationTime: string;
   soundEnabled: boolean;
@@ -80,6 +82,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   heightUnit: 'cm',
   defaultRestSeconds: 150,
   language: 'en',
+  theme: 'dark',
   notifications: true,
   notificationTime: '09:00',
   soundEnabled: true,
@@ -141,6 +144,7 @@ function normalizeLoadedProfile(parsed: unknown): UserProfile {
     heightUnit: p.heightUnit === 'ft' ? 'ft' : 'cm',
     defaultRestSeconds: typeof p.defaultRestSeconds === 'number' ? p.defaultRestSeconds : 150,
     language: p.language === 'uk' ? 'uk' : 'en',
+    theme: p.theme === 'light' ? 'light' : 'dark',
     notifications: typeof p.notifications === 'boolean' ? p.notifications : true,
     notificationTime:
       typeof p.notificationTime === 'string' && /^\d{1,2}:\d{2}$/.test(p.notificationTime)

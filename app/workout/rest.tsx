@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react';
 import {
   Alert,
   AppState,
@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -41,6 +41,8 @@ function formatElapsed(totalSec: number): string {
 }
 
 export default function Rest({ embedded = false }: { embedded?: boolean } = {}) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, te, language } = useI18n();
   const { formatWithUnit } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
@@ -546,10 +548,10 @@ export default function Rest({ embedded = false }: { embedded?: boolean } = {}) 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
@@ -601,7 +603,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   timerDigits: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 54,
     fontWeight: '900',
     letterSpacing: 2,
@@ -611,7 +613,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   timerLabel: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 2,
@@ -641,7 +643,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   kickerText: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.5,
@@ -649,7 +651,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   exerciseTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 21,
     fontWeight: '900',
     textAlign: 'center',
@@ -689,7 +691,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   targetWeightText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -702,7 +704,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   setCounterText: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -725,7 +727,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addTimeText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -748,7 +750,7 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
   },
   startBtnText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0.2,
@@ -760,7 +762,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 20,
@@ -837,14 +839,14 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   modalHeaderTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '800',
     marginBottom: 4,
     textAlign: 'center',
   },
   modalHeaderSubtitle: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 13,
     marginBottom: 16,
     textAlign: 'center',
@@ -870,7 +872,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   modalPresetText: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -892,13 +894,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.primary,
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 22,
     fontWeight: '800',
     textAlign: 'center',
   },
   customRestInputUnit: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -942,7 +944,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalSaveBtnText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '900',
   },

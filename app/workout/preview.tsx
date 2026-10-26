@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticImpact, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -50,6 +50,8 @@ function getExerciseIcon(name: string): keyof typeof MaterialCommunityIcons.glyp
 }
 
 export default function WorkoutPreview() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, tm, td, te, tw, language } = useI18n();
   const { unit, unitLabel, format, formatWithUnit, fromKg, toKg } = useWeightUnit();
   const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
@@ -525,7 +527,7 @@ export default function WorkoutPreview() {
             <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
               {alternatives.length === 0 ? (
                 <View style={{ paddingVertical: 28, alignItems: 'center' }}>
-                  <Text style={{ color: '#8E959F', fontSize: 14 }}>
+                  <Text style={{ color: colors.secondary, fontSize: 14 }}>
                     {language === 'uk'
                       ? 'Немає альтернативних вправ'
                       : 'No alternative exercises found'}
@@ -989,10 +991,10 @@ export default function WorkoutPreview() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
@@ -1019,12 +1021,12 @@ const styles = StyleSheet.create({
   workoutTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.4,
   },
   workoutMuscles: {
     fontSize: 14,
-    color: '#8E959F',
+    color: colors.secondary,
     marginTop: 4,
     marginBottom: 16,
     fontWeight: '400',
@@ -1049,7 +1051,7 @@ const styles = StyleSheet.create({
   readinessPercentText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#8E959F',
+    color: colors.secondary,
     fontVariant: ['tabular-nums'],
   },
   sectionHeaderRow: {
@@ -1062,13 +1064,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.2,
   },
   sectionMeta: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#8E959F',
+    color: colors.secondary,
     fontVariant: ['tabular-nums'],
   },
   exerciseList: {
@@ -1078,7 +1080,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 14,
   },
@@ -1102,12 +1104,12 @@ const styles = StyleSheet.create({
   exerciseName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.2,
   },
   exerciseMeta: {
     fontSize: 13,
-    color: '#8E959F',
+    color: colors.secondary,
     marginTop: 3,
     fontWeight: '400',
     fontVariant: ['tabular-nums'],
@@ -1120,7 +1122,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 24,
     paddingTop: 12,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: colors.background,
   },
   startButton: {
     width: '100%',
@@ -1139,13 +1141,13 @@ const styles = StyleSheet.create({
   quickLogPreviewBtnText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#8E959F',
+    color: colors.secondary,
   },
   swapBtn: {
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1174,13 +1176,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.3,
   },
   modalSubtitle: {
     fontSize: 13,
     fontWeight: '400',
-    color: '#8E959F',
+    color: colors.secondary,
     marginTop: 3,
   },
   modalCloseBtn: {
@@ -1216,12 +1218,12 @@ const styles = StyleSheet.create({
   altName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   altMeta: {
     fontSize: 13,
     fontWeight: '400',
-    color: '#8E959F',
+    color: colors.secondary,
     marginTop: 2,
   },
   altSelectBadge: {
@@ -1237,14 +1239,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     paddingVertical: 14,
     marginTop: 4,
     marginBottom: 20,
   },
   addExerciseBtnText: {
-    color: '#A0A8B4',
+    color: colors.secondary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1257,7 +1259,7 @@ const styles = StyleSheet.create({
   editDayLinkText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#8E959F',
+    color: colors.secondary,
   },
   cardActionsRight: {
     flexDirection: 'row',
@@ -1268,7 +1270,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1317,11 +1319,11 @@ const styles = StyleSheet.create({
   configExerciseTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   configExerciseSub: {
     fontSize: 13,
-    color: '#8E959F',
+    color: colors.secondary,
     marginTop: 2,
     fontWeight: '400',
   },
@@ -1342,7 +1344,7 @@ const styles = StyleSheet.create({
   configSectionLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#8E959F',
+    color: colors.secondary,
     letterSpacing: 0.8,
     marginBottom: 8,
   },
@@ -1377,7 +1379,7 @@ const styles = StyleSheet.create({
   configStepValueText: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
   },
@@ -1395,7 +1397,7 @@ const styles = StyleSheet.create({
   configWeightInput: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
     textAlign: 'center',
     width: '100%',
     paddingVertical: 0,
@@ -1421,7 +1423,7 @@ const styles = StyleSheet.create({
   configPillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#8E959F',
+    color: colors.secondary,
   },
   configPillTextActive: {
     color: colors.primary,
@@ -1443,7 +1445,7 @@ const styles = StyleSheet.create({
   configSaveBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     letterSpacing: 0.2,
   },
   configSecondaryRow: {
@@ -1466,7 +1468,7 @@ const styles = StyleSheet.create({
   configSecondaryBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   configDeleteBtn: {
     borderColor: 'rgba(239, 68, 68, 0.3)',

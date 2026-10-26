@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Image,
   Modal,
@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { inferEquipmentFromName, isAssistedExercise, recommendWeight } from '@/lib/adaptiveProgression';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
@@ -26,6 +26,8 @@ import { defaultOnboarding, loadOnboarding } from '@/store/workoutStore';
 const SHOW_INSTAGRAM_STORIES = false;
 
 export default function Complete() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, te, tw, language } = useI18n();
   const { formatVolume, formatWithUnit } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
@@ -414,7 +416,7 @@ export default function Complete() {
                       <Text numberOfLines={1} style={styles.prExerciseName}>
                         {te(item.name)}
                       </Text>
-                      <Text style={{ fontSize: 11.5, color: '#8E9BAE', marginTop: 2, fontVariant: ['tabular-nums'] }}>
+                      <Text style={{ fontSize: 11.5, color: colors.secondary, marginTop: 2, fontVariant: ['tabular-nums'] }}>
                         {item.hasPrev
                           ? `${prevWeightStr} × ${item.prevRepsStr}  →  ${todayWeightStr} × ${item.todayRepsStr}`
                           : `${language === 'uk' ? 'Сьогодні' : 'Today'}: ${todayWeightStr} × ${item.todayRepsStr}`}
@@ -443,7 +445,7 @@ export default function Complete() {
                   {/* Clean Matte Next Session Goal Box */}
                   <View
                     style={{
-                      backgroundColor: '#1C222B',
+                      backgroundColor: colors.elevated,
                       borderRadius: 12,
                       paddingHorizontal: 12,
                       paddingVertical: 9,
@@ -465,7 +467,7 @@ export default function Complete() {
                         {targetWeightStr} × {targetRepsStr} {language === 'uk' ? 'повт' : 'reps'}
                       </Text>
                     </View>
-                    <Text style={{ fontSize: 11.5, color: '#8E9BAE', lineHeight: 16 }}>
+                    <Text style={{ fontSize: 11.5, color: colors.secondary, lineHeight: 16 }}>
                       {language === 'uk'
                         ? (item.nextRec.explanationUk || item.nextRec.explanation)
                         : item.nextRec.explanation}
@@ -614,10 +616,10 @@ export default function Complete() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0E1114',
+    backgroundColor: colors.surface,
   },
   topBar: {
     flexDirection: 'row',
@@ -629,7 +631,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -658,14 +660,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245, 158, 11, 0.12)',
   },
   title: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.3,
     textAlign: 'center',
   },
   workoutSubtitle: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 13.5,
     fontWeight: '500',
     marginTop: 4,
@@ -677,7 +679,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     paddingVertical: 15,
     paddingHorizontal: 12,
@@ -693,21 +695,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   statValue: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 17,
     fontWeight: '800',
     marginBottom: 3,
     fontVariant: ['tabular-nums'],
   },
   statLabel: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 11,
     fontWeight: '500',
   },
   volumeCard: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     paddingVertical: 16,
     paddingHorizontal: 20,
@@ -731,25 +733,25 @@ const styles = StyleSheet.create({
   volumeSurgeBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     letterSpacing: 0.2,
   },
   volumeValue: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 24,
     fontWeight: '700',
     letterSpacing: -0.3,
     fontVariant: ['tabular-nums'],
   },
   volumeLabel: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 11,
     fontWeight: '500',
   },
   volumeComparisonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 10,
@@ -766,7 +768,7 @@ const styles = StyleSheet.create({
   prsCard: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     padding: 16,
     marginBottom: 14,
@@ -790,13 +792,13 @@ const styles = StyleSheet.create({
   },
   prRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.divider,
   },
   prThumbWrap: {
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -806,7 +808,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   prExerciseName: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14.5,
     fontWeight: '700',
     flex: 1,
@@ -834,7 +836,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   doneBtnText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -845,7 +847,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 22,
     fontWeight: '700',
     marginBottom: 20,
@@ -854,7 +856,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 'auto',
@@ -894,12 +896,12 @@ const styles = StyleSheet.create({
   storyBannerTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   storyBannerSubtitle: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#8E9BAE',
+    color: colors.secondary,
     marginTop: 2,
   },
   storyBannerBadge: {
@@ -927,7 +929,7 @@ const styles = StyleSheet.create({
   storiesModalHeaderTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: 1.5,
   },
   storiesCloseBtn: {
@@ -967,7 +969,7 @@ const styles = StyleSheet.create({
   storyBrandName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: 2,
   },
   storyBrandDot: {
@@ -985,7 +987,7 @@ const styles = StyleSheet.create({
   storyDateText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#6C7A8E',
+    color: colors.secondary,
     letterSpacing: 0.5,
   },
   storyWorkoutTag: {
@@ -999,7 +1001,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   storyWorkoutTagText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.8,
@@ -1022,7 +1024,7 @@ const styles = StyleSheet.create({
   storyHeroVolumeLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#8E9BAE',
+    color: colors.secondary,
     letterSpacing: 1.5,
     marginTop: 4,
   },
@@ -1042,12 +1044,12 @@ const styles = StyleSheet.create({
   storyTriNum: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   storyTriLabel: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#6C7A8E',
+    color: colors.secondary,
     letterSpacing: 1,
     marginTop: 2,
   },
@@ -1073,7 +1075,7 @@ const styles = StyleSheet.create({
     borderRadius: 26,
   },
   storyShareBtnText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.5,

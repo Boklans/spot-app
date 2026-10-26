@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,7 +26,7 @@ import { PrivacyPolicyModal } from '@/components/profile/PrivacyPolicyModal';
 import { ProPaywallModal } from '@/components/profile/ProPaywallModal';
 import { BetaAccessModal } from '@/components/profile/BetaAccessModal';
 import { ExerciseNoteModal } from '@/components/workout/ExerciseNoteModal';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { getSyncStatus, subscribeSyncStatus, syncUp, type SyncStatus } from '@/lib/cloudSync';
 import { hapticLight, hapticMedium, hapticSuccess, hapticError } from '@/lib/haptics';
 import {
@@ -87,6 +87,8 @@ const SHOW_PRO_SUBSCRIPTION = true;
 
 export default function Profile() {
   const { t, te, language } = useI18n();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const profile = useUserProfileStore((state) => state.profile);
   const updateProfile = useUserProfileStore((state) => state.updateProfile);
   const program = useProgramStore((state) => state.program);
@@ -528,7 +530,7 @@ export default function Profile() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Clean Header */}
       <View style={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 10 }}>
-        <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '900' }}>
+        <Text style={{ color: colors.text, fontSize: 28, fontWeight: '900' }}>
           {language === 'uk' ? 'Профіль' : 'Profile'}
         </Text>
       </View>
@@ -782,7 +784,7 @@ export default function Profile() {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', justifyContent: 'flex-end' }}>
           <SafeAreaView
             style={{
-              backgroundColor: '#0E1114',
+              backgroundColor: colors.surface,
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               maxHeight: '82%',
@@ -796,11 +798,11 @@ export default function Profile() {
                 paddingHorizontal: 20,
                 paddingVertical: 16,
                 borderBottomWidth: 1,
-                borderBottomColor: 'rgba(255,255,255,0.06)',
+                borderBottomColor: colors.divider,
               }}
             >
               <View>
-                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800' }}>
+                <Text style={{ color: colors.text, fontSize: 18, fontWeight: '800' }}>
                   {language === 'uk' ? 'Мої нотатки до вправ' : 'My Exercise Notes'}
                 </Text>
                 <Text style={{ color: '#8E9BAE', fontSize: 12, marginTop: 2 }}>
@@ -815,7 +817,7 @@ export default function Profile() {
                   width: 34,
                   height: 34,
                   borderRadius: 17,
-                  backgroundColor: '#1C222B',
+                  backgroundColor: colors.elevated,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -828,7 +830,7 @@ export default function Profile() {
               {notesEntries.length === 0 ? (
                 <View style={{ paddingVertical: 32, alignItems: 'center', gap: 8 }}>
                   <Ionicons name="bookmark-outline" size={28} color="#64748B" />
-                  <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700', textAlign: 'center' }}>
+                  <Text style={{ color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'center' }}>
                     {language === 'uk' ? 'Поки немає збережених нотаток' : 'No saved notes yet'}
                   </Text>
                   <Text style={{ color: '#8E9BAE', fontSize: 13, textAlign: 'center', lineHeight: 18 }}>
@@ -846,14 +848,14 @@ export default function Profile() {
                       setEditingNoteExercise(exKey);
                     }}
                     style={{
-                      backgroundColor: '#14181E',
+                      backgroundColor: colors.surface,
                       borderRadius: 16,
                       padding: 14,
                       gap: 6,
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
+                      <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>
                         {te(exKey)}
                       </Text>
                       <Ionicons name="create-outline" size={16} color="#64748B" />
@@ -888,7 +890,7 @@ export default function Profile() {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', justifyContent: 'flex-end' }}>
           <SafeAreaView
             style={{
-              backgroundColor: '#0E1114',
+              backgroundColor: colors.background,
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               maxHeight: '88%',
@@ -905,7 +907,7 @@ export default function Profile() {
                 borderBottomColor: 'rgba(255,255,255,0.06)',
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800' }}>
+              <Text style={{ color: colors.text, fontSize: 18, fontWeight: '800' }}>
                 {language === 'uk' ? 'Налаштування застосунку' : 'App Preferences'}
               </Text>
               <Pressable
@@ -914,7 +916,7 @@ export default function Profile() {
                   width: 34,
                   height: 34,
                   borderRadius: 17,
-                  backgroundColor: '#1C222B',
+                  backgroundColor: colors.elevated,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -1043,6 +1045,64 @@ export default function Profile() {
                       {(profile.defaultRestSeconds % 60).toString().padStart(2, '0')}
                     </Text>
                     <Ionicons name="chevron-forward" size={18} color="#8E9BAE" />
+                  </View>
+                </Pressable>
+
+                {/* Theme / Appearance */}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    hapticLight();
+                    updateProfile({ theme: profile.theme === 'light' ? 'dark' : 'light' });
+                  }}
+                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                >
+                  <View style={styles.rowLeftWithIcon}>
+                    <Ionicons
+                      name={profile.theme === 'light' ? 'sunny-outline' : 'moon-outline'}
+                      size={20}
+                      color="#8E9BAE"
+                    />
+                    <View>
+                      <Text style={styles.rowTitle}>{t('theme')}</Text>
+                      <Text style={styles.rowSubtitle}>
+                        {profile.theme === 'light' ? t('themeLight') : t('themeDark')}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.segmentWrap}>
+                    <Pressable
+                      onPress={() => {
+                        hapticLight();
+                        updateProfile({ theme: 'dark' });
+                      }}
+                      style={[styles.segmentBtn, (profile.theme ?? 'dark') === 'dark' && styles.segmentBtnActive]}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentBtnText,
+                          (profile.theme ?? 'dark') === 'dark' && styles.segmentBtnTextActive,
+                        ]}
+                      >
+                        {t('themeDark')}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        hapticLight();
+                        updateProfile({ theme: 'light' });
+                      }}
+                      style={[styles.segmentBtn, profile.theme === 'light' && styles.segmentBtnActive]}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentBtnText,
+                          profile.theme === 'light' && styles.segmentBtnTextActive,
+                        ]}
+                      >
+                        {t('themeLight')}
+                      </Text>
+                    </Pressable>
                   </View>
                 </Pressable>
 
@@ -1354,10 +1414,10 @@ export default function Profile() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0E1114',
+    backgroundColor: colors.background,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -1367,14 +1427,14 @@ const styles = StyleSheet.create({
   headerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
   },
   quickHubCard: {
     flex: 1,
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     padding: 14,
     gap: 10,
@@ -1388,12 +1448,12 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quickHubTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -1407,7 +1467,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     padding: 14,
     marginBottom: 24,
@@ -1422,7 +1482,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1435,7 +1495,7 @@ const styles = StyleSheet.create({
   cloudTitle: {
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   cloudSubtitle: {
     fontSize: 12,
@@ -1452,7 +1512,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1471,7 +1531,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   cloudLoginBtnText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -1496,11 +1556,11 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#14181E',
+    borderColor: colors.surface,
   },
   headerInfo: {
     flex: 1,
@@ -1512,7 +1572,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   userName: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 19,
     fontWeight: '800',
     letterSpacing: -0.2,
@@ -1560,7 +1620,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   card: {
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     marginBottom: 16,
     overflow: 'hidden',
@@ -1576,7 +1636,7 @@ const styles = StyleSheet.create({
     minHeight: 58,
     paddingVertical: 11,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.divider,
   },
   rowLast: {
     borderBottomWidth: 0,
@@ -1599,12 +1659,12 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rowTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14.5,
     fontWeight: '700',
   },
@@ -1663,7 +1723,7 @@ const styles = StyleSheet.create({
   segmentWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0E1114',
+    backgroundColor: colors.background,
     borderRadius: 10,
     padding: 3,
     width: 104,
@@ -1688,7 +1748,7 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
   segmentBtnTextActive: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontWeight: '800',
   },
   valueRow: {
@@ -1700,7 +1760,7 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     fontSize: 13,
     fontWeight: '700',
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 7,
@@ -1709,7 +1769,7 @@ const styles = StyleSheet.create({
   // Pro Modal Styles
   proModalSafe: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: colors.background,
   },
   proModalHeader: {
     paddingHorizontal: 20,
@@ -1754,7 +1814,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   proHeroTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 26,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -1791,7 +1851,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   unlockItemText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -1832,7 +1892,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   startProBtnText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '900',
   },

@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/colors';
+import { useThemeColors } from '@/constants/colors';
 import { useI18n } from '@/lib/i18n';
 
 const icons = {
@@ -12,6 +12,7 @@ const icons = {
 
 export default function TabsLayout() {
   const { t } = useI18n();
+  const colors = useThemeColors();
 
   return (
     <Tabs
@@ -19,11 +20,12 @@ export default function TabsLayout() {
         headerShown: false,
         animation: 'none',
         sceneContainerStyle: { backgroundColor: colors.background },
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.primaryText,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
           backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          borderTopColor: colors.divider,
+          borderTopWidth: 1,
           height: 78,
           paddingTop: 10,
           paddingBottom: 14,

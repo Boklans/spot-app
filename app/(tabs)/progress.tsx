@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   type ScrollViewInstance,
@@ -17,7 +17,7 @@ import {
 } from '@/components/progress/RealStrengthGraph';
 import { BodyWeightGraph } from '@/components/progress/BodyWeightGraph';
 import { LogWeightModal } from '@/components/progress/LogWeightModal';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { analyzeBodyAndStrength } from '@/lib/bodyCompositionAI';
 import { hapticLight } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -41,6 +41,8 @@ const CORE_MUSCLES = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core'];
 
 export default function Progress() {
   const { t, tm, te, language } = useI18n();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { unit, unitLabel, formatVolume, fromKg } = useWeightUnit();
   const profile = useUserProfileStore((state) => state.profile);
   const history = useWorkoutHistoryStore((state) => state.workouts);
@@ -1300,10 +1302,10 @@ export default function Progress() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0E1114',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -1325,15 +1327,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 7,
     borderRadius: 12,
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
   },
   historyHeaderBtnText: {
-    color: '#D8DEE9',
+    color: colors.text,
     fontSize: 12,
     fontWeight: '600',
   },
   title: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 28,
     fontWeight: '700',
     letterSpacing: -0.4,
@@ -1345,10 +1347,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 12,
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
   },
   dropdownBtnText: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1357,7 +1359,7 @@ const styles = StyleSheet.create({
     top: 56,
     right: 24,
     zIndex: 100,
-    backgroundColor: '#181D24',
+    backgroundColor: colors.elevated,
     borderRadius: 14,
     overflow: 'hidden',
   },
@@ -1369,17 +1371,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#222934',
   },
   dropdownItemText: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 13,
     fontWeight: '500',
   },
   dropdownItemTextActive: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontWeight: '700',
   },
   segmentBar: {
     flexDirection: 'row',
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     marginHorizontal: 24,
     marginTop: 6,
@@ -1397,14 +1399,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#202630',
   },
   segmentBtnText: {
-    color: '#7D8796',
+    color: colors.secondary,
     fontSize: 12.5,
     fontWeight: '600',
     textAlign: 'center',
     includeFontPadding: false,
   },
   segmentBtnTextActive: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontWeight: '700',
   },
   scrollContent: {
@@ -1417,7 +1419,7 @@ const styles = StyleSheet.create({
   statsSummaryStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     paddingVertical: 16,
     paddingHorizontal: 12,
@@ -1440,7 +1442,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     minHeight: 78,
     paddingVertical: 14,
@@ -1449,14 +1451,14 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statNumber: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 21,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
     letterSpacing: -0.3,
   },
   statLabel: {
-    color: '#7D8796',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -1472,22 +1474,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
   },
   exercisePillActive: {
     backgroundColor: '#222934',
   },
   exercisePillText: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 13,
     fontWeight: '600',
   },
   exercisePillTextActive: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontWeight: '700',
   },
   strengthCard: {
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 18,
     marginBottom: 14,
@@ -1499,32 +1501,32 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   strengthKicker: {
-    color: '#7D8796',
+    color: colors.secondary,
     fontSize: 11,
     fontWeight: '600',
     marginBottom: 4,
   },
   strengthExerciseName: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
   strengthBigWeight: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 26,
     fontWeight: '700',
     letterSpacing: -0.4,
     fontVariant: ['tabular-nums'],
   },
   strengthSubBest: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 12.5,
     fontWeight: '500',
     marginTop: 3,
   },
   strengthEst1RM: {
-    color: '#7D8796',
+    color: colors.secondary,
     fontSize: 11.5,
     fontWeight: '500',
     marginTop: 2,
@@ -1541,7 +1543,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   chartTrendPositive: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -1556,14 +1558,14 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
   },
   chartEmptyTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
     marginBottom: 6,
     textAlign: 'center',
   },
   chartEmptyBody: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 12.5,
     textAlign: 'center',
     maxWidth: 240,
@@ -1575,7 +1577,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    borderTopColor: colors.divider,
   },
   timePill: {
     flex: 1,
@@ -1589,16 +1591,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#28313F',
   },
   timePillText: {
-    color: '#7D8796',
+    color: colors.secondary,
     fontSize: 11.5,
     fontWeight: '600',
   },
   timePillTextActive: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontWeight: '700',
   },
   previewSectionCard: {
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 18,
   },
@@ -1609,7 +1611,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   previewSectionTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -1621,17 +1623,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   muscleMiniName: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 13.5,
   },
   muscleMiniVal: {
-    color: '#E5E9F0',
+    color: colors.text,
     fontSize: 13.5,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
   previewWeightVal: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
@@ -1643,21 +1645,21 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    borderTopColor: colors.divider,
   },
   previewWeightDelta: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 12.5,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
   },
   previewWeightLink: {
-    color: '#A0A8B4',
+    color: colors.secondary,
     fontSize: 12.5,
     fontWeight: '600',
   },
   muscleListCard: {
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 18,
     marginBottom: 14,
@@ -1667,7 +1669,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   muscleRowSelected: {
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -1678,7 +1680,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   muscleName: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1698,12 +1700,12 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
   },
   muscleSummaryCard: {
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 18,
   },
   summaryMuscleTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
@@ -1720,13 +1722,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   summaryMainVal: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   summarySubVal: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -1734,7 +1736,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   prCard: {
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 14,
     flexDirection: 'row',
@@ -1744,7 +1746,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1754,7 +1756,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   prCardName: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
@@ -1773,7 +1775,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   prCardDate: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '400',
   },
@@ -1783,7 +1785,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   prCardWeight: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
@@ -1797,12 +1799,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   logWeightHeaderBtnText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '700',
   },
   aiInsightCard: {
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 18,
     marginBottom: 16,
@@ -1818,7 +1820,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   aiInsightBadgeText: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 11.5,
     fontWeight: '600',
   },
@@ -1826,14 +1828,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
   },
   aiStatusPillText: {
     fontSize: 10.5,
     fontWeight: '600',
   },
   aiInsightTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 6,
@@ -1852,7 +1854,7 @@ const styles = StyleSheet.create({
   },
   aiRecoText: {
     flex: 1,
-    color: '#D8DEE9',
+    color: colors.text,
     fontSize: 12.5,
     lineHeight: 18,
     fontWeight: '400',
@@ -1873,7 +1875,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   weighInListCard: {
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     overflow: 'hidden',
   },
@@ -1884,7 +1886,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.divider,
   },
   weighInRowLast: {
     borderBottomWidth: 0,
@@ -1895,12 +1897,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   weighInDateText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
   },
   weighInNote: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 12,
     marginTop: 1,
   },
@@ -1910,7 +1912,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   weighInValue: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
@@ -1919,7 +1921,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   emptyCard: {
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 22,
     padding: 26,
     alignItems: 'center',
@@ -1929,7 +1931,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -1939,7 +1941,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: -0.2,
@@ -1947,7 +1949,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptySubtitle: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
@@ -1968,7 +1970,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   emptyCtaBtnText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -1977,7 +1979,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    borderTopColor: colors.divider,
     gap: 10,
   },
   emptyFeatureRow: {
@@ -1992,7 +1994,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   emptyFeatureText: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 13,
     fontWeight: '400',
   },

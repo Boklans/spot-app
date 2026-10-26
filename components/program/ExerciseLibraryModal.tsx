@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { EXERCISE_CATALOG, type CatalogExercise } from '@/lib/exerciseCatalog';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
@@ -34,6 +34,8 @@ export function ExerciseLibraryModal({
   onSelectExercise,
   onClose,
 }: ExerciseLibraryModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, tm, te, language } = useI18n();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -284,7 +286,7 @@ export function ExerciseLibraryModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   embeddedContainer: {
     flex: 1,
     backgroundColor: '#12161D',
@@ -317,12 +319,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   subtitle: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#8E9BAE',
+    color: colors.secondary,
     marginTop: 2,
   },
   closeBtn: {
@@ -348,7 +350,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -380,7 +382,7 @@ const styles = StyleSheet.create({
   categoryChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#8E9BAE',
+    color: colors.secondary,
   },
   categoryChipTextSelected: {
     color: colors.primary,
@@ -415,7 +417,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 10,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.elevated,
     borderWidth: 1,
     borderColor: '#242C38',
     overflow: 'hidden',
@@ -429,12 +431,12 @@ const styles = StyleSheet.create({
   exerciseName: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   exerciseMeta: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#8E9BAE',
+    color: colors.secondary,
     marginTop: 2,
   },
   listScrollView: {
@@ -450,7 +452,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   addBtnBadgeText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -476,7 +478,7 @@ const styles = StyleSheet.create({
     borderColor: '#2E3847',
   },
   bottomCloseBtnText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -502,12 +504,12 @@ const styles = StyleSheet.create({
   createExTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.2,
   },
   createExSubtitle: {
     fontSize: 12,
-    color: '#8E959F',
+    color: colors.secondary,
     marginTop: 2,
     fontWeight: '500',
   },

@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -28,6 +28,8 @@ import { ExerciseDetailModal } from '@/components/program/ExerciseDetailModal';
 const SHOW_INSTAGRAM_STORIES = false;
 
 export default function HistoryDetail() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, tm, te, tw, language } = useI18n();
   const { formatWithUnit } = useWeightUnit();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -585,10 +587,10 @@ export default function HistoryDetail() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
@@ -604,14 +606,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#15181C',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#292E35',
   },
   topBarTitle: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.2,
@@ -654,20 +656,20 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   title: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 26,
     fontWeight: '900',
     textAlign: 'center',
   },
   workoutSubtitle: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 4,
   },
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: '#15181C',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#242C38',
@@ -679,7 +681,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '900',
   },
@@ -697,7 +699,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   volumeCard: {
-    backgroundColor: '#15181C',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#242C38',
@@ -712,14 +714,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   volumeLabel: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,
     marginTop: 4,
   },
   prsCard: {
-    backgroundColor: '#15181C',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#242C38',
@@ -733,7 +735,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   prSectionTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 1.2,
@@ -742,7 +744,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   noPrText: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 13,
     lineHeight: 19,
   },
@@ -753,13 +755,13 @@ const styles = StyleSheet.create({
   },
   prRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    borderBottomColor: colors.divider,
   },
   prThumbWrap: {
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.elevated,
     borderWidth: 1,
     borderColor: '#242C38',
     overflow: 'hidden',
@@ -772,13 +774,13 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   prExerciseName: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
     flex: 1,
   },
   prValueText: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 14,
     fontWeight: '700',
     marginRight: 8,
@@ -812,12 +814,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   storyBannerTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '800',
   },
   storyBannerSubtitle: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 12,
     marginTop: 2,
   },
@@ -838,7 +840,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   exerciseCard: {
-    backgroundColor: '#15181C',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#242C38',
@@ -855,7 +857,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.elevated,
     borderWidth: 1,
     borderColor: '#242C38',
     overflow: 'hidden',
@@ -870,7 +872,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   exerciseName: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
   },
@@ -896,17 +898,17 @@ const styles = StyleSheet.create({
     width: 52,
   },
   setValue: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
     flex: 1,
   },
   setVolume: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 12,
   },
   emptyCard: {
-    backgroundColor: '#15181C',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#292E35',
@@ -916,14 +918,14 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   emptyTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '800',
     textAlign: 'center',
   },
   storiesModalOverlay: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: colors.background,
   },
   storiesModalHeader: {
     flexDirection: 'row',
@@ -935,7 +937,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#1A212D',
   },
   storiesModalHeaderTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '900',
     letterSpacing: 1.2,
@@ -991,13 +993,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#4B5565',
   },
   storyBrandSub: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 2,
   },
   storyDateText: {
-    color: '#6C7A8E',
+    color: colors.secondary,
     fontSize: 11,
     fontWeight: '600',
   },
@@ -1012,7 +1014,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   storyWorkoutTagText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.8,
@@ -1021,7 +1023,7 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   storyHeroVolumeNum: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 40,
     fontWeight: '900',
     letterSpacing: -0.5,
@@ -1046,12 +1048,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   storyTriNum: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 17,
     fontWeight: '900',
   },
   storyTriLabel: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.8,
@@ -1089,7 +1091,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   storyPrExerciseName: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '700',
     flex: 1,
@@ -1103,7 +1105,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   storyExercisesHeader: {
-    color: '#6C7A8E',
+    color: colors.secondary,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1,
@@ -1129,7 +1131,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    borderTopColor: colors.divider,
   },
   storyWatermarkText: {
     color: '#5A687A',
@@ -1155,7 +1157,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   shareActionBtnText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0.8,

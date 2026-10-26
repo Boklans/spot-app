@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
@@ -44,6 +44,8 @@ function formatRestLabel(sec: number): string {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function Input() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, language } = useI18n();
   const { unit, unitLabel, toKg, fromKg } = useWeightUnit();
   const { setIndex: setIndexParam } = useLocalSearchParams<{ setIndex?: string }>();
@@ -528,10 +530,10 @@ export default function Input() {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: colors.background,
   },
   emptyWrap: {
     flex: 1,
@@ -542,7 +544,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.text,
     marginBottom: 20,
   },
   emptyBtn: {
@@ -554,7 +556,7 @@ const styles = StyleSheet.create({
   emptyBtnText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0B0D0F',
+    color: colors.onPrimary,
   },
   // ── Top bar ───────────────────────────────────────────────────────────────
   topBar: {
@@ -571,7 +573,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   topBarTitle: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -692,7 +694,7 @@ const styles = StyleSheet.create({
   doneBtnText: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     letterSpacing: 1.2,
   },
   // ── Modals ───────────────────────────────────────────────────────────────
@@ -714,7 +716,7 @@ const styles = StyleSheet.create({
   modalHeaderTitle: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: colors.text,
     marginBottom: 4,
   },
   modalHeaderSubtitle: {
@@ -725,10 +727,10 @@ const styles = StyleSheet.create({
   modalInput: {
     height: 56,
     borderRadius: 14,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: '#2A3140',
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 26,
     fontWeight: '800',
     textAlign: 'center',
@@ -750,7 +752,7 @@ const styles = StyleSheet.create({
   modalCancelBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#8E959F',
+    color: colors.secondary,
   },
   modalSaveBtn: {
     flex: 1,
@@ -763,7 +765,7 @@ const styles = StyleSheet.create({
   modalSaveBtnText: {
     fontSize: 15,
     fontWeight: '900',
-    color: '#0B0D0F',
+    color: colors.onPrimary,
   },
   quickAdjustRow: {
     flexDirection: 'row',
@@ -792,7 +794,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   quickStepBtnText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.3,

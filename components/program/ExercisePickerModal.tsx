@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '@/components/ui/Card';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { EXERCISE_LIBRARY, type LibraryExercise } from '@/lib/exerciseLibrary';
@@ -36,6 +36,8 @@ export function ExercisePickerModal({
   onClose,
   onSelect,
 }: ExercisePickerModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { tm, te, language } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroupFilter>('All');
@@ -305,7 +307,7 @@ export function ExercisePickerModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -504,12 +506,12 @@ const styles = StyleSheet.create({
   createExTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.2,
   },
   createExSubtitle: {
     fontSize: 12,
-    color: '#8E959F',
+    color: colors.secondary,
     marginTop: 2,
     fontWeight: '500',
   },

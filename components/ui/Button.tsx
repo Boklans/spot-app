@@ -1,6 +1,6 @@
 import { PropsWithChildren } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, TextStyle, ViewStyle } from 'react-native';
-import { colors } from '@/constants/colors';
+import { useThemeColors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 
 export function Button({
@@ -17,6 +17,8 @@ export function Button({
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 }>) {
+  const colors = useThemeColors();
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -25,14 +27,20 @@ export function Button({
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
-        secondary && styles.secondary,
+        { backgroundColor: secondary ? 'transparent' : colors.primary },
         disabled && styles.disabled,
         style,
         pressed && styles.pressed,
       ]}
     >
       {typeof children === 'string' ? (
-        <Text style={[styles.text, secondary && styles.secondaryText, textStyle]}>
+        <Text
+          style={[
+            styles.text,
+            { color: secondary ? colors.secondary : colors.onPrimary },
+            textStyle,
+          ]}
+        >
           {children}
         </Text>
       ) : (
@@ -41,11 +49,22 @@ export function Button({
     </Pressable>
   );
 }
+
 const styles = StyleSheet.create({
-  base: { minHeight: 56, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
-  secondary: { backgroundColor: 'transparent' },
+  base: {
+    minHeight: 56,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.72 },
-  text: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2, textAlign: 'center', includeFontPadding: false },
-  secondaryText: { color: colors.secondary, fontWeight: '600', textAlign: 'center', includeFontPadding: false },
+  text: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
 });

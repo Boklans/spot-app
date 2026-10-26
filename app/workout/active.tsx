@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -99,6 +99,8 @@ function formatElapsed(totalSec: number): string {
 }
 
 export default function Active() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, tm, td, te, tw, language } = useI18n();
   const { unit, unitLabel, format, formatWithUnit, fromKg, toKg } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
@@ -610,7 +612,7 @@ export default function Active() {
             >
               <Text style={styles.targetChipText}>
                 {language === 'uk' ? 'Ціль: ' : 'Goal: '}
-                <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
+                <Text style={{ color: colors.text, fontWeight: '700' }}>
                   {currentWeight ? formatWithUnit(currentWeight) : t('bodyweight')} × {currentReps}
                 </Text>
                 {hasWeightIncrease
@@ -995,9 +997,9 @@ export default function Active() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   exerciseCard: {
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 16,
     marginBottom: 16,
@@ -1012,7 +1014,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.elevated,
     overflow: 'hidden',
   },
   exerciseThumb: {
@@ -1024,12 +1026,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   exerciseMuscleText: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '500',
   },
   exerciseNameText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.2,
@@ -1043,7 +1045,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1058,13 +1060,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
   targetChipText: {
-    color: '#A0A8B4',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -1080,7 +1082,7 @@ const styles = StyleSheet.create({
   },
   noteFullBarText: {
     flex: 1,
-    color: '#D8DEE9',
+    color: colors.text,
     fontSize: 12.5,
     fontWeight: '500',
     lineHeight: 17,
@@ -1089,19 +1091,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   addNoteChipText: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '500',
   },
   safe: {
     flex: 1,
-    backgroundColor: '#0E1114',
+    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
@@ -1126,19 +1128,19 @@ const styles = StyleSheet.create({
   topWorkoutName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.2,
   },
   stopwatchText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#8E959F',
+    color: colors.secondary,
     fontVariant: ['tabular-nums'],
   },
   topPercent: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#8E959F',
+    color: colors.secondary,
     width: 44,
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
@@ -1233,7 +1235,7 @@ const styles = StyleSheet.create({
   rirInlineText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#7D8796',
+    color: colors.secondary,
     marginTop: 1,
     fontVariant: ['tabular-nums'],
   },
@@ -1249,7 +1251,7 @@ const styles = StyleSheet.create({
     height: 36,
     marginHorizontal: 4,
     borderRadius: 8,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1262,15 +1264,15 @@ const styles = StyleSheet.create({
   cellPillText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#A0A8B4',
+    color: colors.secondary,
     fontVariant: ['tabular-nums'],
   },
   cellPillTextActive: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontWeight: '700',
   },
   cellPillTextDone: {
-    color: '#D8DEE9',
+    color: colors.text,
     fontWeight: '600',
   },
   cellPillTextProgression: {
@@ -1278,7 +1280,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   setColDoneText: {
-    color: '#8E959F',
+    color: colors.secondary,
   },
   setColStatus: {
     width: 44,
@@ -1286,7 +1288,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   textHighlight: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontWeight: '700',
   },
   statusDoneBadge: {
@@ -1309,7 +1311,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 9,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1321,7 +1323,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 24,
     paddingTop: 12,
-    backgroundColor: '#0E1114',
+    backgroundColor: colors.background,
     gap: 8,
   },
   completeBtn: {
@@ -1337,7 +1339,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     marginTop: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    borderTopColor: colors.divider,
   },
   tableAddSetBtn: {
     flexDirection: 'row',
@@ -1349,7 +1351,7 @@ const styles = StyleSheet.create({
   tableAddSetText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#D8DEE9',
+    color: colors.text,
   },
   tableRemoveSetBtn: {
     flexDirection: 'row',
@@ -1371,7 +1373,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
     marginBottom: 20,
   },
   modalOverlay: {
@@ -1380,7 +1382,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '75%',
@@ -1399,7 +1401,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   modalSubtitle: {
     fontSize: 13,
@@ -1441,7 +1443,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.elevated,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1453,7 +1455,7 @@ const styles = StyleSheet.create({
   swapItemName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   swapItemNameCurrent: {
     color: colors.primary,
@@ -1471,7 +1473,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   currentBadgeText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -1480,7 +1482,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#14181E',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     marginHorizontal: 16,
     marginTop: 10,
@@ -1503,15 +1505,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
   },
   restAdjustText: {
-    color: '#D8DEE9',
+    color: colors.text,
     fontSize: 12,
     fontWeight: '600',
   },
   restDigitsText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 20,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
@@ -1536,7 +1538,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   restSkipBtnText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 12.5,
     fontWeight: '700',
   },

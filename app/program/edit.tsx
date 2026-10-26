@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { ExercisePickerModal } from '@/components/program/ExercisePickerModal';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import type { LibraryExercise } from '@/lib/exerciseLibrary';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
@@ -26,6 +26,8 @@ import type { UserExercise, UserProgram, UserWorkout } from '@/types/userProgram
 
 export default function ProgramEdit() {
   const { t, tm, td, language } = useI18n();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const activeProgram = useProgramStore((state) => state.program);
   const setCustomProgram = useProgramStore((state) => state.setCustomProgram);
   const saveRoutine = useProgramStore((state) => state.saveRoutine);
@@ -908,7 +910,7 @@ export default function ProgramEdit() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1320,13 +1322,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   emptyWorkoutTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
     marginBottom: 4,
   },
   emptyWorkoutSubtitle: {
-    color: '#8E959F',
+    color: colors.secondary,
     fontSize: 13,
     textAlign: 'center',
     maxWidth: 280,
@@ -1352,12 +1354,12 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   weekdayChipText: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '800',
   },
   weekdayChipTextSelected: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontWeight: '900',
   },
   deleteWorkoutFullBtn: {

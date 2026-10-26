@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "build:web": "expo export -p web && node scripts/prepare-web.js",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/verify-rotation.js && node scripts/verify-workout-logging.js && node scripts/verify-progression.js && node scripts/verify-female-programming.js",
+    "test": "node scripts/verify-rotation.js && node scripts/verify-workout-logging.js && node scripts/verify-progression.js && node scripts/verify-female-programming.js && node scripts/verify-theme-system.js",
     "postinstall": "node scripts/patch-expo-notifications.js"
   },
   "dependencies": {
