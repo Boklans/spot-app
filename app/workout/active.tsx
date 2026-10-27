@@ -1068,6 +1068,7 @@ export default function Active() {
 
           {/* Add / Remove Set Row */}
           <View style={styles.tableFooterActions}>
+            {exercise.sets.length < 15 && (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Add set"
@@ -1083,6 +1084,8 @@ export default function Active() {
                 {language === 'uk' ? 'Додати підхід' : 'Add set'}
               </Text>
             </Pressable>
+
+            )}
 
             {exercise.sets.length > 1 && !exercise.sets[exercise.sets.length - 1].completed && (
               <Pressable

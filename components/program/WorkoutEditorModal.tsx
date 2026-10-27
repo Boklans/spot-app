@@ -540,11 +540,12 @@ export function WorkoutEditorModal({
                                   style={styles.stepperInput}
                                   value={String(ex.recommendedWeight ?? 0)}
                                   onChangeText={(text) => {
-                                    const num = parseFloat(text);
+                                    const num = parseFloat(text.replace(',', '.'));
                                     if (!isNaN(num) && num >= 0) {
-                                      handleUpdateExercise(index, { recommendedWeight: num });
+                                      handleUpdateExercise(index, { recommendedWeight: Math.min(999, Math.round(num * 10) / 10) });
                                     }
                                   }}
+                                  maxLength={5}
                                   keyboardType="decimal-pad"
                                   placeholder="0"
                                   placeholderTextColor="#64748B"

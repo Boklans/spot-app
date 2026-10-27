@@ -487,6 +487,14 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       // Completed sets must never propagate changes to other sets
       const shouldPropagate = propagate && !targetSet.completed;
 
+      const sanitizedValues = { ...values };
+      if (typeof sanitizedValues.weight === 'number') {
+        sanitizedValues.weight = Math.min(999, Math.max(0, Math.round(sanitizedValues.weight * 100) / 100));
+      }
+      if (typeof sanitizedValues.reps === 'number') {
+        sanitizedValues.reps = Math.min(200, Math.max(1, Math.floor(sanitizedValues.reps)));
+      }
+
       return {
         ...state,
         session: {
@@ -500,11 +508,11 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
                     // Update target set (preserves completed and completedAt)
                     if (sIdx === setIndex) {
                       const updatedRir = values.rir === null ? undefined : values.rir !== undefined ? values.rir : workoutSet.rir;
-                      return { ...workoutSet, ...values, rir: updatedRir };
+                      return { ...workoutSet, ...sanitizedValues, rir: updatedRir };
                     }
                     // Forward-propagate weight and reps ONLY if explicitly requested AND target is uncompleted
                     if (shouldPropagate && sIdx > setIndex && !workoutSet.completed) {
-                      const { rir: _unusedRir, ...propagateValues } = values;
+                      const { rir: _unusedRir, ...propagateValues } = sanitizedValues;
                       return { ...workoutSet, ...propagateValues };
                     }
                     return workoutSet;
@@ -627,6 +635,8 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
   addSet: (exerciseIndex) => {
     set((state) => {
       if (!state.session) return state;
+      const targetExercise = state.session.exercises[exerciseIndex];
+      if (!targetExercise || targetExercise.sets.length >= 15) return state;
       return {
         ...state,
         session: {

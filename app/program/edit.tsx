@@ -333,14 +333,14 @@ export default function ProgramEdit() {
   const handleSetsDelta = (workoutId: string, exercise: UserExercise, delta: number) => {
     hapticLight();
     isDirtyRef.current = true;
-    const nextSets = Math.max(1, exercise.sets + delta);
+    const nextSets = Math.max(1, Math.min(15, exercise.sets + delta));
     handleUpdateExercise(workoutId, exercise.id, { sets: nextSets });
   };
 
   const handleWeightDelta = (workoutId: string, exercise: UserExercise, delta: number) => {
     hapticLight();
     isDirtyRef.current = true;
-    const next = Math.max(0, parseFloat((exercise.recommendedWeight + delta).toFixed(2)));
+    const next = Math.max(0, Math.min(999, parseFloat((exercise.recommendedWeight + delta).toFixed(2))));
     setRawWeightInputs((prev) => ({ ...prev, [exercise.id]: String(next) }));
     handleUpdateExercise(workoutId, exercise.id, { recommendedWeight: next });
   };
@@ -627,6 +627,7 @@ export default function ProgramEdit() {
                         onPress={() => handleSetsDelta(selectedWorkout.id, exercise, 1)}
                         style={({ pressed }) => [
                           styles.stepperButton,
+                          exercise.sets >= 15 && styles.iconButtonDisabled,
                           pressed && styles.buttonPressed,
                         ]}
                       >
@@ -647,6 +648,7 @@ export default function ProgramEdit() {
                           targetRepRange: text,
                         })
                       }
+                      maxLength={10}
                       placeholder="8-10"
                       placeholderTextColor={colors.muted}
                       style={styles.gridInput}
@@ -672,14 +674,16 @@ export default function ProgramEdit() {
                       <TextInput
                         value={weightDisplay}
                         onChangeText={(text) => {
-                          setRawWeightInputs((prev) => ({ ...prev, [exercise.id]: text }));
-                          const num = parseFloat(text);
+                          const num = parseFloat(text.replace(',', '.'));
+                          const sanitized = !isNaN(num) && num > 999 ? '999' : text;
+                          setRawWeightInputs((prev) => ({ ...prev, [exercise.id]: sanitized }));
                           if (!isNaN(num) && num >= 0) {
                             handleUpdateExercise(selectedWorkout.id, exercise.id, {
-                              recommendedWeight: num,
+                              recommendedWeight: Math.min(999, Math.round(num * 10) / 10),
                             });
                           }
                         }}
+                        maxLength={5}
                         onBlur={() => {
                           const num = parseFloat(weightDisplay);
                           if (isNaN(num)) {
@@ -713,14 +717,16 @@ export default function ProgramEdit() {
                     <TextInput
                       value={incrementDisplay}
                       onChangeText={(text) => {
-                        setRawIncrementInputs((prev) => ({ ...prev, [exercise.id]: text }));
-                        const num = parseFloat(text);
+                        const num = parseFloat(text.replace(',', '.'));
+                        const sanitized = !isNaN(num) && num > 50 ? '50' : text;
+                        setRawIncrementInputs((prev) => ({ ...prev, [exercise.id]: sanitized }));
                         if (!isNaN(num) && num >= 0) {
                           handleUpdateExercise(selectedWorkout.id, exercise.id, {
-                            weightIncrement: num,
+                            weightIncrement: Math.min(50, Math.round(num * 10) / 10),
                           });
                         }
                       }}
+                      maxLength={4}
                       onBlur={() => {
                         const num = parseFloat(incrementDisplay);
                         if (isNaN(num)) {

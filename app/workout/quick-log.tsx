@@ -241,7 +241,7 @@ export default function QuickLogScreen() {
       prev.map((ex, idx) => {
         if (idx !== exIdx) return ex;
         const parsed = parseFloat(text.replace(',', '.'));
-        const nextKg = !isNaN(parsed) && parsed >= 0 ? toKg(parsed) : 0;
+        const nextKg = !isNaN(parsed) && parsed >= 0 ? toKg(Math.min(999, parsed)) : 0;
         return {
           ...ex,
           weight: nextKg,
@@ -299,7 +299,7 @@ export default function QuickLogScreen() {
     hapticLight();
     setExercises((prev) =>
       prev.map((ex, idx) => {
-        if (idx !== exIdx) return ex;
+        if (idx !== exIdx || ex.sets.length >= 15) return ex;
         const lastSet = ex.sets[ex.sets.length - 1];
         const fallbackRep = ex.recommendedReps || parseTargetReps(ex.targetRepRange);
         const newSet: QuickSet = {
@@ -666,6 +666,7 @@ export default function QuickLogScreen() {
 
                       <TextInput
                         style={styles.weightInput}
+                        maxLength={5}
                         keyboardType="decimal-pad"
                         value={ex.weightText}
                         onChangeText={(txt) => handleWeightTextChange(exIdx, txt)}
@@ -701,6 +702,7 @@ export default function QuickLogScreen() {
                             <Text style={styles.removeSetBtnText}>{t('delete')}</Text>
                           </Pressable>
                         )}
+                        {ex.sets.length < 15 && (
                         <Pressable
                           accessibilityRole="button"
                           onPress={() => handleAddSet(exIdx)}
@@ -710,6 +712,7 @@ export default function QuickLogScreen() {
                           <Ionicons name="add" size={14} color={colors.text} />
                           <Text style={styles.addSetBtnText}>{t('addSetBtn')}</Text>
                         </Pressable>
+                        )}
                       </View>
                     </View>
 

@@ -84,25 +84,25 @@ export function EditSetModal({
   const adjustWeightDelta = (delta: number) => {
     hapticLight();
     const curr = parseFloat(weightText.replace(',', '.')) || 0;
-    const next = Math.max(0, Math.round((curr + delta) * 10) / 10);
+    const next = Math.max(0, Math.min(999.5, Math.round((curr + delta) * 10) / 10));
     setWeightText(String(next));
   };
 
   const adjustRepsDelta = (delta: number) => {
     hapticLight();
     const curr = parseInt(repsText, 10) || 0;
-    const next = Math.max(1, Math.min(500, curr + delta));
+    const next = Math.max(1, Math.min(200, curr + delta));
     setRepsText(String(next));
   };
 
   const handleSave = () => {
     hapticMedium();
     const parsedW = parseFloat(weightText.replace(',', '.'));
-    const safeDisplayW = !isNaN(parsedW) && parsedW >= 0 ? Math.min(999, parsedW) : fromKg(initialWeightKg);
+    const safeDisplayW = !isNaN(parsedW) && parsedW >= 0 ? Math.min(999.5, parsedW) : fromKg(initialWeightKg);
     const safeKg = toKg(safeDisplayW);
 
     const parsedR = parseInt(repsText, 10);
-    const safeReps = !isNaN(parsedR) && parsedR >= 1 ? Math.min(500, parsedR) : initialReps;
+    const safeReps = !isNaN(parsedR) && parsedR >= 1 ? Math.min(200, parsedR) : initialReps;
 
     onSave({
       weight: Math.round(safeKg * 100) / 100,
@@ -173,7 +173,12 @@ export function EditSetModal({
                 style={styles.textInput}
                 keyboardType="decimal-pad"
                 value={weightText}
-                onChangeText={setWeightText}
+                onChangeText={(val) => {
+                  const num = parseFloat(val.replace(',', '.'));
+                  if (!isNaN(num) && num > 999.5) setWeightText('999.5');
+                  else setWeightText(val);
+                }}
+                maxLength={6}
                 placeholder="0"
                 placeholderTextColor="#5A6472"
                 selectTextOnFocus
@@ -205,7 +210,12 @@ export function EditSetModal({
                 style={styles.textInput}
                 keyboardType="number-pad"
                 value={repsText}
-                onChangeText={setRepsText}
+                onChangeText={(val) => {
+                  const num = parseInt(val, 10);
+                  if (!isNaN(num) && num > 200) setRepsText('200');
+                  else setRepsText(val);
+                }}
+                maxLength={3}
                 placeholder="8"
                 placeholderTextColor="#5A6472"
                 selectTextOnFocus
