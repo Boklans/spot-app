@@ -324,11 +324,10 @@ export async function syncCompletedWorkout(session: CompletedWorkout): Promise<v
  * Completely wipes all cloud data for the current user from Supabase.
  * Deletes user_programs, workout_history, body_weight_logs, and deletes/clears profiles.
  */
-export async function wipeAllCloudUserData(): Promise<{ success: boolean; error?: string }> {
+export async function wipeAllCloudUserData(): Promise<{ success: boolean; error?: string; rpcMissing?: boolean }> {
   if (!isSupabaseConfigured()) return { success: true };
 
   try {
-    // 1. Get current user
     let user = useAuthStore.getState().user;
     if (!user) {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -345,7 +344,7 @@ export async function wipeAllCloudUserData(): Promise<{ success: boolean; error?
 
     const userId = user.id;
 
-    // 2. Wipe user_metadata on auth.users so name is not preserved
+    // 1. Wipe user_metadata on auth.users so name and details are removed
     try {
       await supabase.auth.updateUser({
         data: {
@@ -357,64 +356,23 @@ export async function wipeAllCloudUserData(): Promise<{ success: boolean; error?
       // Continue
     }
 
-    // 3. Try to permanently delete user from auth.users via RPC
-    try {
-      await supabase.rpc('delete_user_account');
-    } catch {
-      // Continue
+    // 2. Permanently delete user from auth.users via RPC
+    const { error: rpcErr } = await supabase.rpc('delete_user_account');
+    let rpcMissing = false;
+    if (rpcErr) {
+      console.warn('[cloudSync] RPC delete_user_account error:', rpcErr.message);
+      if (rpcErr.code === 'PGRST202') {
+        rpcMissing = true;
+      }
     }
 
-    // 4. Delete workout history
-    const { error: historyErr } = await supabase
-      .from('workout_history')
-      .delete()
-      .eq('user_id', userId);
-    if (historyErr) {
-      console.warn('[cloudSync] Failed to delete workout_history:', historyErr.message);
-    }
+    // 3. Fallback explicit delete for all tables
+    await supabase.from('workout_history').delete().eq('user_id', userId);
+    await supabase.from('user_programs').delete().eq('user_id', userId);
+    await supabase.from('body_weight_logs').delete().eq('user_id', userId);
+    await supabase.from('profiles').delete().eq('id', userId);
 
-    // 3. Delete user programs
-    const { error: progErr } = await supabase
-      .from('user_programs')
-      .delete()
-      .eq('user_id', userId);
-    if (progErr) {
-      console.warn('[cloudSync] Failed to delete user_programs:', progErr.message);
-    }
-
-    // 4. Delete body weight logs
-    const { error: weightErr } = await supabase
-      .from('body_weight_logs')
-      .delete()
-      .eq('user_id', userId);
-    if (weightErr) {
-      console.warn('[cloudSync] Failed to delete body_weight_logs:', weightErr.message);
-    }
-
-    // 5. Delete or reset profiles
-    const { error: profileDeleteErr } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', userId);
-
-    if (profileDeleteErr) {
-      // If delete is restricted by RLS, clean the row so it does not resurrect old progress
-      await supabase
-        .from('profiles')
-        .update({
-          name: 'Athlete',
-          avatar: 'gorilla',
-          weight_kg: null,
-          height_cm: null,
-          goal: null,
-          experience: null,
-          workouts_per_week: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', userId);
-    }
-
-    // 6. Sign out from Supabase auth
+    // 4. Sign out
     await useAuthStore.getState().signOut();
 
     currentStatus = {
@@ -424,7 +382,7 @@ export async function wipeAllCloudUserData(): Promise<{ success: boolean; error?
     };
     notifyListeners();
 
-    return { success: true };
+    return { success: !rpcMissing, rpcMissing };
   } catch (err: any) {
     const errorMsg = err?.message || 'Failed to wipe cloud data';
     console.error('[cloudSync] Error during wipeAllCloudUserData:', errorMsg);
