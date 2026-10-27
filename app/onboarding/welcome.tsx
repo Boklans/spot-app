@@ -206,11 +206,6 @@ export default function Welcome() {
     }
   };
 
-  const toggleTheme = () => {
-    hapticLight();
-    updateProfile({ theme: profile.theme === 'light' ? 'dark' : 'light' });
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar
@@ -259,21 +254,6 @@ export default function Welcome() {
       {/* 2. Top Controls: Theme Toggle + Language Selector (EN / UA) */}
       <SafeAreaView style={styles.safeTop}>
         <View style={styles.topControlsRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Toggle theme"
-            onPress={toggleTheme}
-            style={({ pressed }) => [
-              styles.themeToggleBtn,
-              pressed && { opacity: 0.75, transform: [{ scale: 0.95 }] },
-            ]}
-          >
-            <Ionicons
-              name={colors.isDark ? 'sunny-outline' : 'moon-outline'}
-              size={16}
-              color={colors.text}
-            />
-          </Pressable>
 
           <View style={styles.langRow}>
             <Pressable
@@ -440,16 +420,6 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-    },
-    themeToggleBtn: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.isDark ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.75)',
-      borderWidth: 1,
-      borderColor: colors.isDark ? 'rgba(255,255,255,0.12)' : colors.border,
     },
     langRow: {
       flexDirection: 'row',
