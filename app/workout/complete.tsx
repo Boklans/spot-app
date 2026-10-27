@@ -857,8 +857,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderBottomColor: colors.divider,
   },
   prThumbWrap: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     borderRadius: 10,
     backgroundColor: colors.elevated,
     overflow: 'hidden',
