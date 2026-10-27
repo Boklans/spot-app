@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { ExerciseLibraryModal } from './ExerciseLibraryModal';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { type CatalogExercise } from '@/lib/exerciseCatalog';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticImpact, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
@@ -38,6 +38,8 @@ export function WorkoutEditorModal({
   onDeleteWorkout,
   onClose,
 }: WorkoutEditorModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, tm, td, te, tw, language } = useI18n();
   const [workoutName, setWorkoutName] = useState(workout ? tw(workout.name) : '');
   const [dayLabel, setDayLabel] = useState(workout?.dayLabel || 'MON');
@@ -61,9 +63,58 @@ export function WorkoutEditorModal({
     );
   };
 
+  const handleMoveExerciseUp = (index: number) => {
+    if (index <= 0) return;
+    hapticLight();
+    setExercises((prev) => {
+      const next = [...prev];
+      const temp = next[index - 1];
+      next[index - 1] = next[index];
+      next[index] = temp;
+      return next.map((ex, i) =>
+        i === next.length - 1 ? { ...ex, supersetWithNext: false } : ex
+      );
+    });
+  };
+
+  const handleMoveExerciseDown = (index: number) => {
+    setExercises((prev) => {
+      if (index >= prev.length - 1) return prev;
+      hapticLight();
+      const next = [...prev];
+      const temp = next[index + 1];
+      next[index + 1] = next[index];
+      next[index] = temp;
+      return next.map((ex, i) =>
+        i === next.length - 1 ? { ...ex, supersetWithNext: false } : ex
+      );
+    });
+  };
+
+  const handleToggleSuperset = (index: number) => {
+    hapticMedium();
+    setExercises((prev) => {
+      if (index < 0 || index >= prev.length - 1) return prev;
+      const targetWillEnable = !prev[index].supersetWithNext;
+      return prev.map((ex, i) => {
+        if (i === index) {
+          return { ...ex, supersetWithNext: targetWillEnable };
+        }
+        if (targetWillEnable && (i === index - 1 || i === index + 1)) {
+          return { ...ex, supersetWithNext: false };
+        }
+        return ex;
+      });
+    });
+  };
+
   const handleRemoveExercise = (index: number) => {
     hapticImpact();
-    setExercises((prev) => prev.filter((_, i) => i !== index));
+    setExercises((prev) =>
+      prev
+        .filter((_, i) => i !== index)
+        .map((ex, i, arr) => (i === arr.length - 1 ? { ...ex, supersetWithNext: false } : ex))
+    );
   };
 
   const handleAddFromLibrary = (item: CatalogExercise) => {
@@ -154,7 +205,7 @@ export function WorkoutEditorModal({
                       onPress={onClose}
                       style={styles.closeBtn}
                     >
-                      <Ionicons name="close" size={22} color="#FFFFFF" />
+                      <Ionicons name="close" size={22} color={colors.text} />
                     </Pressable>
                   </View>
                 </View>
@@ -240,45 +291,166 @@ export function WorkoutEditorModal({
                   </Pressable>
                 ) : (
                   <View style={styles.exercisesList}>
-                    {exercises.map((ex, index) => (
-                      <View key={ex.id || `${ex.name}-${index}`} style={styles.exerciseCard}>
-                        {/* Header Row: Number, Thumb, Name, Muscle, Delete button */}
-                        <View style={styles.exerciseCardHeader}>
-                          <View style={styles.exerciseHeaderLeft}>
-                            <View style={styles.orderBadge}>
-                              <Text style={styles.orderBadgeText}>{index + 1}</Text>
+                    {exercises.map((ex, index) => {
+                      const isFirst = index === 0;
+                      const isLast = index === exercises.length - 1;
+                      const isSupersetA1 = Boolean(ex.supersetWithNext && !isLast);
+                      const isSupersetA2 = Boolean(index > 0 && exercises[index - 1]?.supersetWithNext);
+
+                      return (
+                        <View
+                          key={ex.id || `${ex.name}-${index}`}
+                          style={[
+                            styles.exerciseCard,
+                            (isSupersetA1 || isSupersetA2) && {
+                              borderColor: 'rgba(168, 85, 247, 0.45)',
+                            },
+                          ]}
+                        >
+                          {/* Header Row: Number, Thumb, Name, Muscle, Reorder & Delete buttons */}
+                          <View style={styles.exerciseCardHeader}>
+                            <View style={styles.exerciseHeaderLeft}>
+                              <View
+                                style={[
+                                  styles.orderBadge,
+                                  (isSupersetA1 || isSupersetA2) && {
+                                    backgroundColor: 'rgba(168, 85, 247, 0.2)',
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.orderBadgeText,
+                                    (isSupersetA1 || isSupersetA2) && { color: '#A855F7' },
+                                  ]}
+                                >
+                                  {isSupersetA1 ? 'A1' : isSupersetA2 ? 'A2' : index + 1}
+                                </Text>
+                              </View>
+                              <View style={styles.exerciseThumbWrap}>
+                                <Image
+                                  source={getExerciseImage(ex.name, ex.customImageUri)}
+                                  style={styles.exerciseThumb}
+                                  resizeMode="cover"
+                                />
+                              </View>
+                              <View style={styles.exerciseHeaderInfo}>
+                                <Text style={styles.exerciseRowName} numberOfLines={1}>
+                                  {te(ex.name)}
+                                </Text>
+                                <Text style={styles.exerciseRowMeta}>
+                                  {tm(ex.muscleGroup)} • {ex.equipment}
+                                </Text>
+                              </View>
                             </View>
-                            <View style={styles.exerciseThumbWrap}>
-                              <Image
-                                source={getExerciseImage(ex.name, ex.customImageUri)}
-                                style={styles.exerciseThumb}
-                                resizeMode="cover"
-                              />
-                            </View>
-                            <View style={styles.exerciseHeaderInfo}>
-                              <Text style={styles.exerciseRowName} numberOfLines={1}>
-                                {te(ex.name)}
-                              </Text>
-                              <Text style={styles.exerciseRowMeta}>
-                                {tm(ex.muscleGroup)} • {ex.equipment}
-                              </Text>
+
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel="Move exercise up"
+                                disabled={isFirst}
+                                hitSlop={6}
+                                onPress={() => handleMoveExerciseUp(index)}
+                                style={[
+                                  styles.reorderIconBtn,
+                                  isFirst && { opacity: 0.3 },
+                                ]}
+                              >
+                                <Ionicons name="arrow-up" size={15} color={colors.text} />
+                              </Pressable>
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel="Move exercise down"
+                                disabled={isLast}
+                                hitSlop={6}
+                                onPress={() => handleMoveExerciseDown(index)}
+                                style={[
+                                  styles.reorderIconBtn,
+                                  isLast && { opacity: 0.3 },
+                                ]}
+                              >
+                                <Ionicons name="arrow-down" size={15} color={colors.text} />
+                              </Pressable>
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel="Remove exercise"
+                                hitSlop={8}
+                                onPress={() => handleRemoveExercise(index)}
+                                style={styles.deleteBtn}
+                              >
+                                <Ionicons
+                                  name="trash-outline"
+                                  size={17}
+                                  color="#F87171"
+                                />
+                              </Pressable>
                             </View>
                           </View>
 
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel="Remove exercise"
-                            hitSlop={10}
-                            onPress={() => handleRemoveExercise(index)}
-                            style={styles.deleteBtn}
-                          >
-                            <Ionicons
-                              name="trash-outline"
-                              size={18}
-                              color="#F87171"
-                            />
-                          </Pressable>
-                        </View>
+                          {/* Superset Link Action Bar (if not last exercise, or if A2 in superset) */}
+                          {(!isLast || isSupersetA2) && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                              {!isLast ? (
+                                <Pressable
+                                  accessibilityRole="button"
+                                  onPress={() => handleToggleSuperset(index)}
+                                  style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 6,
+                                    borderRadius: 10,
+                                    backgroundColor: isSupersetA1
+                                      ? 'rgba(168, 85, 247, 0.16)'
+                                      : colors.elevated,
+                                    borderWidth: 1,
+                                    borderColor: isSupersetA1
+                                      ? 'rgba(168, 85, 247, 0.45)'
+                                      : colors.border,
+                                  }}
+                                >
+                                  <Ionicons
+                                    name={isSupersetA1 ? 'link' : 'link-outline'}
+                                    size={14}
+                                    color={isSupersetA1 ? '#A855F7' : colors.secondary}
+                                  />
+                                  <Text
+                                    style={{
+                                      fontSize: 11.5,
+                                      fontWeight: '700',
+                                      color: isSupersetA1 ? '#A855F7' : colors.secondary,
+                                    }}
+                                  >
+                                    {isSupersetA1
+                                      ? language === 'uk'
+                                        ? `Суперсет A1+A2 з «${te(exercises[index + 1]?.name || '')}»`
+                                        : `Superset A1+A2 with "${te(exercises[index + 1]?.name || '')}"`
+                                      : language === 'uk'
+                                        ? '+ Зв’язати в суперсет із наступною (A1+A2)'
+                                        : '+ Link as Superset with next (A1+A2)'}
+                                  </Text>
+                                </Pressable>
+                              ) : (
+                                <View
+                                  style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 5,
+                                    borderRadius: 8,
+                                    backgroundColor: 'rgba(168, 85, 247, 0.14)',
+                                  }}
+                                >
+                                  <Ionicons name="link" size={13} color="#A855F7" />
+                                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#A855F7' }}>
+                                    {language === 'uk' ? 'Друга вправа суперсету (A2)' : 'Second exercise in Superset (A2)'}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          )}
 
                         {/* Parameter Controls Grid */}
                         <View style={styles.paramsGrid}>
@@ -476,7 +648,8 @@ export function WorkoutEditorModal({
                           </View>
                         </View>
                       </View>
-                    ))}
+                    );
+                  })}
                   </View>
                 )}
 
@@ -518,7 +691,7 @@ export function WorkoutEditorModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -529,11 +702,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   sheetContainer: {
-    backgroundColor: '#12161D',
+    backgroundColor: colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
@@ -549,17 +722,17 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#1A212B',
+    borderBottomColor: colors.divider,
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   headerSubtitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.primaryText,
     marginTop: 2,
   },
   headerActions: {
@@ -579,7 +752,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1C232E',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -609,15 +782,15 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#8E9BAE',
+    color: colors.secondary,
     letterSpacing: 1.2,
     marginBottom: 8,
   },
   nameInputWrap: {
-    backgroundColor: '#161B22',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 20,
@@ -634,25 +807,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 10,
-    backgroundColor: '#161B22',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
   },
   weekdayChipActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   weekdayChipText: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '800',
   },
   weekdayChipTextActive: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontWeight: '900',
   },
   nameInput: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -672,7 +845,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   addBtnSmallText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -680,10 +853,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   exerciseCard: {
-    backgroundColor: '#161B22',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#222B38',
+    borderColor: colors.border,
     padding: 14,
     gap: 12,
   },
@@ -705,12 +878,12 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 8,
-    backgroundColor: '#202836',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
   orderBadgeText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -718,9 +891,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.elevated,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -732,13 +905,23 @@ const styles = StyleSheet.create({
   exerciseRowName: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   exerciseRowMeta: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#8E9BAE',
+    color: colors.secondary,
     marginTop: 2,
+  },
+  reorderIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: colors.elevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteBtn: {
     width: 36,
@@ -752,7 +935,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    borderTopColor: colors.divider,
   },
   paramsRow: {
     flexDirection: 'row',
@@ -769,17 +952,17 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   paramLabel: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.8,
   },
   paramInput: {
-    backgroundColor: '#0E1115',
-    borderColor: '#242C38',
+    backgroundColor: colors.background,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 10,
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
     paddingHorizontal: 12,
@@ -788,8 +971,8 @@ const styles = StyleSheet.create({
   stepperWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0E1115',
-    borderColor: '#242C38',
+    backgroundColor: colors.background,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 10,
     height: 42,
@@ -799,12 +982,12 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: '#161B22',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperBtnText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '800',
     lineHeight: 20,
@@ -812,7 +995,7 @@ const styles = StyleSheet.create({
   stepperValue: {
     flex: 1,
     textAlign: 'center',
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '800',
     paddingHorizontal: 2,
@@ -820,7 +1003,7 @@ const styles = StyleSheet.create({
   stepperInput: {
     flex: 1,
     textAlign: 'center',
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
     paddingHorizontal: 2,
@@ -836,21 +1019,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
   },
   quickRestChipActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   quickRestChipText: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 11,
     fontWeight: '700',
   },
   quickRestChipTextActive: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontWeight: '900',
   },
   bottomBar: {
@@ -858,8 +1041,8 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 28 : 20,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#1A212B',
-    backgroundColor: '#12161D',
+    borderTopColor: colors.divider,
+    backgroundColor: colors.surface,
     flexShrink: 0,
   },
   saveBtn: {
@@ -873,30 +1056,30 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   saveBtnText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
   emptyCard: {
-    backgroundColor: '#161B22',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#2E3847',
+    borderColor: colors.border,
     padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
   },
   emptyTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 4,
   },
   emptySub: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 12,
     textAlign: 'center',
   },

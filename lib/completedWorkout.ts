@@ -25,6 +25,7 @@ export function createCompletedWorkoutSnapshot(
       exerciseId: exercise.id,
       exerciseName: exercise.name,
       muscleGroup: exercise.muscleGroup,
+      supersetWithNext: exercise.supersetWithNext,
       sets: exercise.sets.filter(isValidCompletedSet).map((set) => {
         const safeWeight = Math.max(0, Number.isFinite(set.weight) ? set.weight : 0);
         const safeReps = Math.max(0, Number.isFinite(set.reps) ? set.reps : 0);
@@ -34,11 +35,13 @@ export function createCompletedWorkoutSnapshot(
           volume: Math.round(safeWeight * safeReps * 100) / 100,
           completedAt: set.completedAt ?? completedAt,
           rir: set.rir,
+          setType: set.setType ?? 'normal',
         };
       }),
     }))
     .filter((exercise) => exercise.sets.length > 0);
   const completedSets = exercises.flatMap((exercise) => exercise.sets);
+  const workingSets = completedSets.filter((set) => set.setType !== 'warmup');
   const isPartial = plannedSets > 0 && completedSets.length < plannedSets;
 
   return {
@@ -52,7 +55,7 @@ export function createCompletedWorkoutSnapshot(
     totalSets: completedSets.length,
     plannedSets,
     isPartial,
-    totalVolume: Math.round(completedSets.reduce((total, set) => total + set.volume, 0) * 100) / 100,
+    totalVolume: Math.round(workingSets.reduce((total, set) => total + set.volume, 0) * 100) / 100,
     exercises,
     personalRecords,
   };

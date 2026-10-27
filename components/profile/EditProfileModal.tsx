@@ -1,6 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -12,7 +15,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticImpact, hapticLight, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useProgramStore } from '@/store/programStore';
@@ -28,12 +31,17 @@ interface EditProfileModalProps {
 }
 
 export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
-  const { t, language } = useI18n();
+  const { language } = useI18n();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const profile = useUserProfileStore((state) => state.profile);
   const updateProfile = useUserProfileStore((state) => state.updateProfile);
 
   const [name, setName] = useState(profile.name);
   const [selectedAvatar, setSelectedAvatar] = useState<BeastAvatarId>(profile.avatar);
+  const [customAvatarUri, setCustomAvatarUri] = useState<string | undefined>(
+    profile.customAvatarUri
+  );
   const [weightStr, setWeightStr] = useState(
     profile.weightUnit === 'lbs'
       ? Math.round(profile.weightKg * 2.20462).toString()
@@ -49,6 +57,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
     if (visible) {
       setName(profile.name);
       setSelectedAvatar(profile.avatar);
+      setCustomAvatarUri(profile.customAvatarUri);
       setWeightStr(
         profile.weightUnit === 'lbs'
           ? Math.round(profile.weightKg * 2.20462).toString()
@@ -61,6 +70,88 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
       );
     }
   }, [visible, profile]);
+
+  const handlePickFromGallery = async () => {
+    hapticLight();
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted && perm.status !== 'granted') {
+        Alert.alert(
+          language === 'uk' ? 'Потрібен дозвіл' : 'Permission Required',
+          language === 'uk'
+            ? 'Дозвольте доступ до фотогалереї в налаштуваннях телефона, щоб обрати аватар.'
+            : 'Please grant photo library access in your device settings to choose an avatar.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.75,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]?.uri) {
+        hapticSuccess();
+        setCustomAvatarUri(result.assets[0].uri);
+      }
+    } catch {
+      Alert.alert(
+        language === 'uk' ? 'Помилка' : 'Error',
+        language === 'uk'
+          ? 'Не вдалося відкрити галерею.'
+          : 'Could not open photo library.'
+      );
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    hapticLight();
+    try {
+      const perm =
+        typeof ImagePicker.requestCameraPermissionsAsync === 'function'
+          ? await ImagePicker.requestCameraPermissionsAsync()
+          : { granted: true, status: 'granted' };
+
+      if (!perm.granted && perm.status !== 'granted') {
+        Alert.alert(
+          language === 'uk' ? 'Потрібен дозвіл' : 'Permission Required',
+          language === 'uk'
+            ? 'Дозвольте доступ до камери в налаштуваннях телефона, щоб зробити фото.'
+            : 'Please grant camera access in your device settings to take a photo.'
+        );
+        return;
+      }
+
+      const result =
+        typeof ImagePicker.launchCameraAsync === 'function'
+          ? await ImagePicker.launchCameraAsync({
+              mediaTypes: ['images'],
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.75,
+            })
+          : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.75,
+            });
+
+      if (!result.canceled && result.assets && result.assets[0]?.uri) {
+        hapticSuccess();
+        setCustomAvatarUri(result.assets[0].uri);
+      }
+    } catch {
+      Alert.alert(
+        language === 'uk' ? 'Помилка' : 'Error',
+        language === 'uk'
+          ? 'Не вдалося відкрити камеру.'
+          : 'Could not open camera.'
+      );
+    }
+  };
 
   // Compute live BMI
   const parsedWeight = parseFloat(weightStr) || profile.weightKg;
@@ -87,6 +178,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
     await updateProfile({
       name: finalName,
       avatar: selectedAvatar,
+      customAvatarUri: customAvatarUri || undefined,
       weightKg: Math.round(finalWeightKg * 10) / 10,
       heightCm: finalHeightCm,
     });
@@ -98,6 +190,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
   };
 
   const beastKeys = Object.keys(BEAST_AVATARS) as BeastAvatarId[];
+  const activeBeast = BEAST_AVATARS[selectedAvatar] ?? BEAST_AVATARS.wolf;
 
   return (
     <Modal
@@ -124,7 +217,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                 onPress={onClose}
                 style={styles.closeBtn}
               >
-                <Ionicons name="close" size={22} color="#FFFFFF" />
+                <Ionicons name="close" size={20} color={colors.text} />
               </Pressable>
             </View>
 
@@ -133,9 +226,89 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
             >
-              {/* 1. Beast Avatar Selector */}
+              {/* 1. Custom Photo Upload (Camera / Gallery) + Preview */}
               <Text style={styles.inputLabel}>
-                {language === 'uk' ? 'ОБЕРІТЬ СВІЙ АВАТАР ЗВІРА' : 'CHOOSE YOUR BEAST AVATAR'}
+                {language === 'uk' ? 'ФОТО ПРОФІЛЮ АБО АВАТАР' : 'PROFILE PHOTO OR AVATAR'}
+              </Text>
+              <View style={styles.photoPickerCard}>
+                <View
+                  style={[
+                    styles.currentAvatarPreview,
+                    { backgroundColor: activeBeast.color },
+                  ]}
+                >
+                  {customAvatarUri ? (
+                    <Image
+                      source={{ uri: customAvatarUri }}
+                      style={styles.currentAvatarImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={styles.currentAvatarEmoji}>{activeBeast.emoji}</Text>
+                  )}
+                </View>
+
+                <View style={styles.photoActionsCol}>
+                  <View style={styles.photoButtonsRow}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={handlePickFromGallery}
+                      style={({ pressed }) => [
+                        styles.photoActionBtn,
+                        styles.photoActionBtnPrimary,
+                        pressed && { opacity: 0.85 },
+                      ]}
+                    >
+                      <Ionicons name="images-outline" size={16} color={colors.onPrimary} />
+                      <Text style={styles.photoActionBtnPrimaryText}>
+                        {language === 'uk' ? 'З галереї' : 'Gallery'}
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={handleTakePhoto}
+                      style={({ pressed }) => [
+                        styles.photoActionBtn,
+                        pressed && { opacity: 0.85 },
+                      ]}
+                    >
+                      <Ionicons name="camera-outline" size={16} color={colors.text} />
+                      <Text style={styles.photoActionBtnText}>
+                        {language === 'uk' ? 'Камера' : 'Camera'}
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {customAvatarUri ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => {
+                        hapticLight();
+                        setCustomAvatarUri(undefined);
+                      }}
+                      style={styles.removePhotoBtn}
+                    >
+                      <Ionicons name="trash-outline" size={13} color={colors.danger} />
+                      <Text style={styles.removePhotoText}>
+                        {language === 'uk'
+                          ? 'Видалити фото й повернути звіра'
+                          : 'Remove photo & use beast avatar'}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={styles.photoHintText}>
+                      {language === 'uk'
+                        ? 'Завантажте власне фото або оберіть тотемного звіра нижче'
+                        : 'Upload your own photo or pick a beast avatar below'}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {/* 2. Beast Avatar Selector */}
+              <Text style={styles.inputLabel}>
+                {language === 'uk' ? 'АБО ОБЕРІТЬ ТОТЕМНОГО ЗВІРА' : 'OR CHOOSE YOUR BEAST AVATAR'}
               </Text>
               <ScrollView
                 horizontal
@@ -144,7 +317,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
               >
                 {beastKeys.map((key) => {
                   const b = BEAST_AVATARS[key];
-                  const isSelected = selectedAvatar === key;
+                  const isSelected = !customAvatarUri && selectedAvatar === key;
                   return (
                     <Pressable
                       key={key}
@@ -152,10 +325,14 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                       onPress={() => {
                         hapticImpact();
                         setSelectedAvatar(key);
+                        setCustomAvatarUri(undefined);
                       }}
                       style={[
                         styles.avatarCard,
-                        isSelected && { borderColor: b.color, backgroundColor: 'rgba(200, 255, 61, 0.08)' },
+                        isSelected && {
+                          borderColor: b.color,
+                          backgroundColor: colors.primaryMuted,
+                        },
                       ]}
                     >
                       <View
@@ -169,7 +346,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                       <Text
                         style={[
                           styles.avatarLabel,
-                          isSelected && { color: b.color, fontWeight: '700' },
+                          isSelected && { color: colors.text, fontWeight: '700' },
                         ]}
                       >
                         {b.label}
@@ -180,18 +357,18 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                 })}
               </ScrollView>
 
-              {/* 2. Name Input */}
+              {/* 3. Name Input */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>
                   {language === 'uk' ? "ІМ'Я" : 'FULL NAME'}
                 </Text>
                 <View style={styles.inputBox}>
-                  <Ionicons name="person-outline" size={18} color="#8E9BAE" style={styles.inputIcon} />
+                  <Ionicons name="person-outline" size={18} color={colors.secondary} style={styles.inputIcon} />
                   <TextInput
                     value={name}
                     onChangeText={setName}
-                    placeholder="Enter your name"
-                    placeholderTextColor="#5A687A"
+                    placeholder={language === 'uk' ? "Введіть ваше ім'я" : 'Enter your name'}
+                    placeholderTextColor={colors.muted}
                     style={styles.textInput}
                     autoCapitalize="words"
                     maxLength={30}
@@ -199,7 +376,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                 </View>
               </View>
 
-              {/* 3. Body Metrics (Weight & Height) */}
+              {/* 4. Body Metrics (Weight & Height) */}
               <View style={styles.metricsRow}>
                 {/* Weight */}
                 <View style={styles.metricCol}>
@@ -210,7 +387,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                     <MaterialCommunityIcons
                       name="weight-kilogram"
                       size={18}
-                      color="#8E9BAE"
+                      color={colors.secondary}
                       style={styles.inputIcon}
                     />
                     <TextInput
@@ -232,7 +409,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                     <MaterialCommunityIcons
                       name="ruler"
                       size={18}
-                      color="#8E9BAE"
+                      color={colors.secondary}
                       style={styles.inputIcon}
                     />
                     <TextInput
@@ -246,14 +423,14 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                 </View>
               </View>
 
-              {/* 4. AI Body Stats Card */}
+              {/* 5. Body Stats Card */}
               <View style={styles.aiCard}>
                 <View style={styles.aiCardHeader}>
                   <View style={styles.aiIconWrap}>
-                    <MaterialCommunityIcons name="brain" size={18} color={colors.primary} />
+                    <MaterialCommunityIcons name="scale-bathroom" size={17} color={colors.primaryText} />
                   </View>
                   <Text style={styles.aiCardTitle}>
-                    {language === 'uk' ? 'КАЛІБРУВАННЯ НАВАНТАЖЕННЯ ШІ' : 'SPOT AI LOAD CALIBRATION'}
+                    {language === 'uk' ? 'КАЛІБРУВАННЯ РОБОЧИХ ВАГ' : 'LOAD CALIBRATION'}
                   </Text>
                 </View>
 
@@ -277,13 +454,13 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
 
                 <Text style={styles.aiDesc}>
                   {language === 'uk'
-                    ? 'ШІ автоматично адаптує стартові ваги на штанзі та таймер відпочинку під вашу масу тіла.'
-                    : 'SPOT AI calibrates your compound lift baselines and recovery timers based on your body mass.'}
+                    ? 'SPOT автоматично адаптує стартові ваги на штанзі та таймер відпочинку під вашу масу тіла.'
+                    : 'SPOT calibrates your compound lift baselines and recovery timers based on your body mass.'}
                 </Text>
               </View>
             </ScrollView>
 
-            {/* 5. Save Button */}
+            {/* 6. Save Button */}
             <View style={styles.footer}>
               <Pressable
                 accessibilityRole="button"
@@ -306,214 +483,291 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'flex-end',
-  },
-  keyboardAvoid: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#11151A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-    paddingBottom: Platform.OS === 'ios' ? 12 : 24,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1A212B',
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  closeBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#1A212B',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 24,
-  },
-  inputLabel: {
-    color: '#8E9BAE',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  avatarCarousel: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingBottom: 18,
-  },
-  avatarCard: {
-    width: 90,
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    borderRadius: 16,
-    backgroundColor: '#161C24',
-    borderWidth: 1.5,
-    borderColor: '#1E2632',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#202936',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  avatarEmoji: {
-    fontSize: 22,
-  },
-  avatarLabel: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  avatarTag: {
-    color: '#64748B',
-    fontSize: 9,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#161C24',
-    borderWidth: 1,
-    borderColor: '#232D3B',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    height: 50,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  textInput: {
-    flex: 1,
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  metricsRow: {
-    flexDirection: 'row',
-    gap: 14,
-    marginBottom: 18,
-  },
-  metricCol: {
-    flex: 1,
-  },
-  aiCard: {
-    backgroundColor: '#141A22',
-    borderWidth: 1,
-    borderColor: '#1E2938',
-    borderRadius: 18,
-    padding: 16,
-    marginTop: 4,
-    marginBottom: 12,
-  },
-  aiCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  aiIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  aiCardTitle: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  bmiDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    backgroundColor: '#1A222E',
-    padding: 12,
-    borderRadius: 12,
-  },
-  bmiNumber: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '900',
-    marginRight: 14,
-  },
-  bmiMeta: {
-    flex: 1,
-  },
-  bmiLabel: {
-    color: '#8E9BAE',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  bmiCategory: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  aiDesc: {
-    color: '#8E9BAE',
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  footer: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-  },
-  saveBtn: {
-    height: 52,
-    backgroundColor: colors.primary,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  saveBtnPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.985 }],
-  },
-  saveBtnText: {
-    color: '#0B0D0F',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-});
-
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.75)',
+      justifyContent: 'flex-end',
+    },
+    keyboardAvoid: {
+      flex: 1,
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      maxHeight: '92%',
+      paddingBottom: Platform.OS === 'ios' ? 12 : 20,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingTop: 18,
+      paddingBottom: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    closeBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: colors.elevated,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 16,
+      paddingBottom: 20,
+    },
+    inputLabel: {
+      color: colors.secondary,
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 0.8,
+      marginBottom: 8,
+    },
+    photoPickerCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.elevated,
+      borderRadius: 18,
+      padding: 14,
+      marginBottom: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 14,
+    },
+    currentAvatarPreview: {
+      width: 68,
+      height: 68,
+      borderRadius: 34,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      borderWidth: 2,
+      borderColor: colors.accentLine,
+    },
+    currentAvatarImage: {
+      width: '100%',
+      height: '100%',
+    },
+    currentAvatarEmoji: {
+      fontSize: 32,
+    },
+    photoActionsCol: {
+      flex: 1,
+      gap: 8,
+    },
+    photoButtonsRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    photoActionBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      height: 38,
+      borderRadius: 11,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 10,
+    },
+    photoActionBtnPrimary: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    photoActionBtnText: {
+      color: colors.text,
+      fontSize: 12.5,
+      fontWeight: '700',
+    },
+    photoActionBtnPrimaryText: {
+      color: colors.onPrimary,
+      fontSize: 12.5,
+      fontWeight: '800',
+    },
+    photoHintText: {
+      color: colors.secondary,
+      fontSize: 11.5,
+      lineHeight: 15,
+    },
+    removePhotoBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingVertical: 2,
+    },
+    removePhotoText: {
+      color: colors.danger,
+      fontSize: 11.5,
+      fontWeight: '600',
+    },
+    avatarCarousel: {
+      flexDirection: 'row',
+      gap: 10,
+      paddingBottom: 18,
+    },
+    avatarCard: {
+      width: 88,
+      paddingVertical: 11,
+      paddingHorizontal: 6,
+      borderRadius: 16,
+      backgroundColor: colors.elevated,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarCircle: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 6,
+    },
+    avatarEmoji: {
+      fontSize: 22,
+    },
+    avatarLabel: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '600',
+      marginBottom: 2,
+    },
+    avatarTag: {
+      color: colors.muted,
+      fontSize: 9,
+      fontWeight: '500',
+      textAlign: 'center',
+    },
+    inputGroup: {
+      marginBottom: 16,
+    },
+    inputBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      height: 50,
+    },
+    inputIcon: {
+      marginRight: 10,
+    },
+    textInput: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    metricsRow: {
+      flexDirection: 'row',
+      gap: 14,
+      marginBottom: 18,
+    },
+    metricCol: {
+      flex: 1,
+    },
+    aiCard: {
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 18,
+      padding: 16,
+      marginTop: 2,
+      marginBottom: 8,
+    },
+    aiCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    aiIconWrap: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: colors.primaryMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 8,
+    },
+    aiCardTitle: {
+      color: colors.secondary,
+      fontSize: 11,
+      fontWeight: '800',
+      letterSpacing: 0.5,
+    },
+    bmiDisplay: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 10,
+      backgroundColor: colors.surface,
+      padding: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    bmiNumber: {
+      color: colors.text,
+      fontSize: 26,
+      fontWeight: '900',
+      marginRight: 14,
+      fontVariant: ['tabular-nums'],
+    },
+    bmiMeta: {
+      flex: 1,
+    },
+    bmiLabel: {
+      color: colors.secondary,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    bmiCategory: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+      marginTop: 2,
+    },
+    aiDesc: {
+      color: colors.secondary,
+      fontSize: 12,
+      lineHeight: 17,
+    },
+    footer: {
+      paddingHorizontal: 20,
+      paddingTop: 12,
+    },
+    saveBtn: {
+      height: 52,
+      backgroundColor: colors.primary,
+      borderRadius: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    saveBtnPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.985 }],
+    },
+    saveBtnText: {
+      color: colors.onPrimary,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+  });

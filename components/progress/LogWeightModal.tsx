@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -11,8 +11,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { colors } from '@/constants/colors';
-import { hapticImpact, hapticLight, hapticSuccess } from '@/lib/haptics';
+import { useThemeColors, ThemeColors } from '@/constants/colors';
+import { hapticImpact, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useBodyWeightStore } from '@/store/bodyWeightStore';
 import { useUserProfileStore } from '@/store/userProfileStore';
@@ -24,7 +24,9 @@ interface LogWeightModalProps {
 }
 
 export function LogWeightModal({ visible, onClose, onSaved }: LogWeightModalProps) {
-  const { t, language } = useI18n();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { language } = useI18n();
   const profile = useUserProfileStore((state) => state.profile);
   const addEntry = useBodyWeightStore((state) => state.addEntry);
 
@@ -80,7 +82,7 @@ export function LogWeightModal({ visible, onClose, onSaved }: LogWeightModalProp
                 <MaterialCommunityIcons
                   name="scale-bathroom"
                   size={22}
-                  color={colors.primary}
+                  color={colors.primaryText}
                   style={{ marginRight: 8 }}
                 />
                 <Text style={styles.title}>
@@ -94,7 +96,7 @@ export function LogWeightModal({ visible, onClose, onSaved }: LogWeightModalProp
                 onPress={onClose}
                 style={styles.closeBtn}
               >
-                <Ionicons name="close" size={20} color="#FFFFFF" />
+                <Ionicons name="close" size={20} color={colors.text} />
               </Pressable>
             </View>
 
@@ -133,12 +135,12 @@ export function LogWeightModal({ visible, onClose, onSaved }: LogWeightModalProp
 
               {/* Optional Note */}
               <View style={styles.noteBox}>
-                <Ionicons name="document-text-outline" size={16} color="#8E9BAE" style={{ marginRight: 8 }} />
+                <Ionicons name="document-text-outline" size={16} color={colors.secondary} style={{ marginRight: 8 }} />
                 <TextInput
                   value={note}
                   onChangeText={setNote}
                   placeholder={language === 'uk' ? 'Нотатка (напр. ранкове зважування)' : 'Note (e.g. fasted morning)'}
-                  placeholderTextColor="#5A687A"
+                  placeholderTextColor={colors.muted}
                   style={styles.noteInput}
                   maxLength={50}
                 />
@@ -146,7 +148,7 @@ export function LogWeightModal({ visible, onClose, onSaved }: LogWeightModalProp
 
               {/* Quick Today Indicator */}
               <View style={styles.dateRow}>
-                <Ionicons name="calendar-outline" size={14} color="#8E9BAE" />
+                <Ionicons name="calendar-outline" size={14} color={colors.secondary} />
                 <Text style={styles.dateText}>
                   {language === 'uk' ? 'Сьогодні' : 'Today'},{' '}
                   {new Date().toLocaleDateString(language === 'uk' ? 'uk-UA' : 'en-US', {
@@ -178,147 +180,142 @@ export function LogWeightModal({ visible, onClose, onSaved }: LogWeightModalProp
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  keyboardAvoid: {
-    justifyContent: 'center',
-  },
-  sheet: {
-    backgroundColor: '#11151A',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#1E2632',
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1A212B',
-  },
-  headerTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#1A212B',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  weightBox: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  weightInput: {
-    color: '#FFFFFF',
-    fontSize: 48,
-    fontWeight: '900',
-    minWidth: 120,
-    textAlign: 'center',
-  },
-  weightUnit: {
-    color: colors.primary,
-    fontSize: 20,
-    fontWeight: '800',
-    marginLeft: 6,
-  },
-  stepperRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 18,
-    width: '100%',
-  },
-  stepperBtn: {
-    flex: 1,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#161C24',
-    borderWidth: 1,
-    borderColor: '#232D3B',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperBtnPressed: {
-    backgroundColor: '#202936',
-  },
-  stepperText: {
-    color: '#E0E0E0',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  noteBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    backgroundColor: '#161C24',
-    borderWidth: 1,
-    borderColor: '#232D3B',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    height: 44,
-    marginBottom: 12,
-  },
-  noteInput: {
-    flex: 1,
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 20,
-  },
-  dateText: {
-    color: '#8E9BAE',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  saveBtn: {
-    width: '100%',
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  saveBtnPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.985 }],
-  },
-  saveBtnText: {
-    color: '#0B0D0F',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-});
-
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.72)',
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+    },
+    keyboardAvoid: {
+      justifyContent: 'center',
+    },
+    sheet: {
+      backgroundColor: colors.surface,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingTop: 18,
+      paddingBottom: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    headerTitleWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    title: {
+      color: colors.text,
+      fontSize: 17,
+      fontWeight: '700',
+    },
+    closeBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.elevated,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    content: {
+      paddingHorizontal: 20,
+      paddingVertical: 20,
+      alignItems: 'center',
+    },
+    weightBox: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'center',
+      marginBottom: 16,
+    },
+    weightInput: {
+      color: colors.text,
+      fontSize: 48,
+      fontWeight: '900',
+      minWidth: 120,
+      textAlign: 'center',
+    },
+    weightUnit: {
+      color: colors.secondary,
+      fontSize: 20,
+      fontWeight: '800',
+      marginLeft: 6,
+    },
+    stepperRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 18,
+      width: '100%',
+    },
+    stepperBtn: {
+      flex: 1,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    stepperBtnPressed: {
+      opacity: 0.75,
+    },
+    stepperText: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    noteBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      width: '100%',
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      height: 44,
+      marginBottom: 12,
+    },
+    noteInput: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 14,
+    },
+    dateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 20,
+    },
+    dateText: {
+      color: colors.secondary,
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    saveBtn: {
+      width: '100%',
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    saveBtnPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.985 }],
+    },
+    saveBtnText: {
+      color: colors.onPrimary,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+  });

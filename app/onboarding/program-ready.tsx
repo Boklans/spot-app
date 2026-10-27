@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { WorkoutEditorModal } from '@/components/program/WorkoutEditorModal';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
@@ -74,7 +74,9 @@ const PRESET_SPLITS: SplitChoice[] = [
 ];
 
 export default function ProgramReady() {
-  const { t, tm, td, te, tw, language } = useI18n();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { tm, td, te, tw, language } = useI18n();
   const { formatWithUnit } = useWeightUnit();
   const [onboarding, setOnboarding] = useState<OnboardingData>(defaultOnboarding);
   const [program, setProgram] = useState<GeneratedProgram>(() =>
@@ -82,7 +84,6 @@ export default function ProgramReady() {
   );
   const [editingWorkout, setEditingWorkout] = useState<UserWorkout | null>(null);
   const [expandedWorkouts, setExpandedWorkouts] = useState<Record<string, boolean>>({});
-  // Track whether user manually edited the program so we persist edits instead of regenerating
   const [hasEdits, setHasEdits] = useState(false);
 
   const toggleWorkout = (id: string) => {
@@ -257,6 +258,7 @@ export default function ProgramReady() {
         equipment: ex.equipment,
         weightIncrement: ex.weightIncrement ?? 2.5,
         restSeconds: ex.restSeconds,
+        supersetWithNext: ex.supersetWithNext,
       })),
     })),
   });
@@ -349,7 +351,7 @@ export default function ProgramReady() {
           onPress={() => router.back()}
           style={styles.backBtn}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
         <View style={styles.aiBadge}>
           <Text style={styles.aiBadgeText}>
@@ -372,14 +374,14 @@ export default function ProgramReady() {
           <Text style={styles.title}>{program.name}</Text>
           <View style={styles.metaRow}>
             <View style={styles.metaPill}>
-              <Ionicons name="calendar-outline" size={14} color="#8E9BAE" />
+              <Ionicons name="calendar-outline" size={14} color={colors.secondary} />
               <Text style={styles.metaText}>
                 {program.daysPerWeek}{' '}
                 {language === 'uk' ? 'ДНІВ / ТИЖДЕНЬ' : 'DAYS / WEEK'}
               </Text>
             </View>
             <View style={styles.metaPill}>
-              <Ionicons name="time-outline" size={14} color="#8E9BAE" />
+              <Ionicons name="time-outline" size={14} color={colors.secondary} />
               <Text style={styles.metaText}>
                 ~{program.estimatedWorkoutMinutes} {language === 'uk' ? 'ХВ' : 'MIN'}
               </Text>
@@ -390,7 +392,7 @@ export default function ProgramReady() {
           </View>
         </View>
 
-        {/* 3. Split Switcher (3 Main Presets + Separated Custom Card) */}
+        {/* 3. Split Switcher */}
         <View style={styles.splitSwitchWrap}>
           <Text style={styles.splitSwitchLabel}>
             {language === 'uk' ? 'ОБЕРІТЬ ПРОГРАМУ ТРЕНУВАНЬ' : 'CHOOSE TRAINING PROGRAM'}
@@ -413,7 +415,7 @@ export default function ProgramReady() {
                     <MaterialCommunityIcons
                       name={split.icon}
                       size={20}
-                      color={isActive ? '#0B0D0F' : colors.primary}
+                      color={isActive ? colors.activeChipText : colors.primaryText}
                     />
                   </View>
                   <Text
@@ -433,7 +435,7 @@ export default function ProgramReady() {
             })}
           </View>
 
-          {/* Dedicated Custom Plan Card - Prominently Separated */}
+          {/* Dedicated Custom Plan Card */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={language === 'uk' ? 'Скласти свій план (Кастом)' : 'Build Custom Routine'}
@@ -445,7 +447,7 @@ export default function ProgramReady() {
                 <MaterialCommunityIcons
                   name="tune-vertical"
                   size={20}
-                  color={isCustom ? '#0B0D0F' : colors.primary}
+                  color={isCustom ? colors.onPrimary : colors.primaryText}
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -469,17 +471,17 @@ export default function ProgramReady() {
             <Ionicons
               name={isCustom ? 'checkmark-circle' : 'chevron-forward'}
               size={22}
-              color={isCustom ? colors.primary : '#8E9BAE'}
+              color={isCustom ? colors.primaryText : colors.secondary}
             />
           </Pressable>
         </View>
 
-        {/* 3.5 Custom Plan Builder Banner (if Custom is chosen) */}
+        {/* 3.5 Custom Plan Builder Banner */}
         {isCustom && (
           <View style={styles.customBanner}>
             <View style={styles.customBannerHeader}>
               <View style={styles.customBannerIconWrap}>
-                <MaterialCommunityIcons name="tune-vertical" size={20} color={colors.primary} />
+                <MaterialCommunityIcons name="tune-vertical" size={20} color={colors.primaryText} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.customBannerTitle}>
@@ -499,7 +501,7 @@ export default function ProgramReady() {
                 onPress={handleAddNewWorkoutDay}
                 style={styles.addDayBtn}
               >
-                <Ionicons name="add" size={16} color="#0B0D0F" />
+                <Ionicons name="add" size={16} color={colors.onPrimary} />
                 <Text style={styles.addDayBtnText}>
                   {language === 'uk' ? '+ Додати день' : '+ Add Day'}
                 </Text>
@@ -511,7 +513,7 @@ export default function ProgramReady() {
                 onPress={handleOpenFullBuilder}
                 style={styles.builderBtn}
               >
-                <Ionicons name="create-outline" size={15} color={colors.primary} />
+                <Ionicons name="create-outline" size={15} color={colors.primaryText} />
                 <Text style={styles.builderBtnText}>
                   {language === 'uk' ? 'Конструктор' : 'Full Editor'}
                 </Text>
@@ -579,7 +581,7 @@ export default function ProgramReady() {
                       }}
                       style={styles.editWorkoutBtn}
                     >
-                      <Ionicons name="create-outline" size={14} color={colors.primary} />
+                      <Ionicons name="create-outline" size={14} color={colors.primaryText} />
                       <Text style={styles.editWorkoutBtnText}>
                         {language === 'uk' ? 'Редагувати' : 'Edit'}
                       </Text>
@@ -587,7 +589,7 @@ export default function ProgramReady() {
                     <Ionicons
                       name={isExpanded ? 'chevron-up' : 'chevron-down'}
                       size={18}
-                      color="#8E9BAE"
+                      color={colors.secondary}
                       style={{ marginLeft: 2 }}
                     />
                   </View>
@@ -612,7 +614,7 @@ export default function ProgramReady() {
                     }}
                     style={styles.emptyExercisesPrompt}
                   >
-                    <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+                    <Ionicons name="add-circle-outline" size={18} color={colors.primaryText} />
                     <Text style={styles.emptyExercisesText}>
                       {language === 'uk'
                         ? 'Порожнє тренування. Натисніть, щоб додати вправи'
@@ -620,7 +622,6 @@ export default function ProgramReady() {
                     </Text>
                   </Pressable>
                 ) : !isExpanded ? (
-                  /* Collapsed View: Preview row */
                   <View style={styles.collapsedPreviewRow}>
                     <Text style={styles.collapsedPreviewText} numberOfLines={2}>
                       {language === 'uk'
@@ -631,11 +632,10 @@ export default function ProgramReady() {
                       <Text style={styles.viewMoreText}>
                         {language === 'uk' ? `Показати всі вправи (${workout.exercises.length})` : `View all exercises (${workout.exercises.length})`}
                       </Text>
-                      <Ionicons name="chevron-down" size={14} color={colors.primary} />
+                      <Ionicons name="chevron-down" size={14} color={colors.primaryText} />
                     </View>
                   </View>
                 ) : (
-                  /* Expanded View: Full Exercise Detail Cards */
                   <View style={styles.fullExerciseList}>
                     {workout.exercises.map((ex, exIdx) => {
                       const weightStr = ex.recommendedWeight
@@ -694,7 +694,7 @@ export default function ProgramReady() {
                       <Text style={styles.collapseCardBtnText}>
                         {language === 'uk' ? 'Згорнути день' : 'Collapse day'}
                       </Text>
-                      <Ionicons name="chevron-up" size={14} color="#8E9BAE" />
+                      <Ionicons name="chevron-up" size={14} color={colors.secondary} />
                     </Pressable>
                   </View>
                 )}
@@ -718,7 +718,7 @@ export default function ProgramReady() {
           <Text style={styles.startBtnText}>
             {language === 'uk' ? 'Застосувати план' : 'Apply Plan'}
           </Text>
-          <Ionicons name="arrow-forward" size={20} color="#0B0D0F" />
+          <Ionicons name="arrow-forward" size={20} color={colors.onPrimary} />
         </Pressable>
       </View>
 
@@ -734,584 +734,588 @@ export default function ProgramReady() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#0B0D0F',
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    height: 44,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
-    backgroundColor: '#161B22',
-  },
-  aiBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-  },
-  aiBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 1,
-  },
-  topBarPlaceholder: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 6,
-    paddingBottom: 24,
-  },
-  header: {
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  eyebrow: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 1.5,
-    marginBottom: 6,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
-    marginBottom: 12,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  metaPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: '#161B22',
-    borderWidth: 1,
-    borderColor: '#242B35',
-  },
-  metaText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#8E9BAE',
-    letterSpacing: 0.5,
-  },
-  goalPill: {
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-  },
-  goalText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 0.5,
-  },
-  splitSwitchWrap: {
-    marginBottom: 20,
-  },
-  splitSwitchLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#8E9BAE',
-    letterSpacing: 1.2,
-    marginBottom: 10,
-  },
-  splitPresetRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
-  },
-  splitPresetCard: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    borderRadius: 14,
-    backgroundColor: '#161B22',
-    borderWidth: 1.5,
-    borderColor: '#242B35',
-  },
-  splitPresetCardActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  splitPresetIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  splitPresetIconWrapActive: {
-    backgroundColor: 'transparent',
-  },
-  splitPresetTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  splitPresetTitleActive: {
-    color: '#0B0D0F',
-    fontWeight: '900',
-  },
-  splitPresetSub: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#8E9BAE',
-    textAlign: 'center',
-  },
-  splitPresetSubActive: {
-    color: 'rgba(11, 13, 15, 0.8)',
-    fontWeight: '700',
-  },
-  customSelectCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    backgroundColor: '#161B22',
-    borderWidth: 1.5,
-    borderColor: '#242B35',
-  },
-  customSelectCardActive: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(200, 255, 61, 0.06)',
-  },
-  customSelectLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-    marginRight: 8,
-  },
-  customSelectIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  customSelectIconWrapActive: {
-    backgroundColor: colors.primary,
-  },
-  customTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 2,
-  },
-  customSelectTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  customSelectTitleActive: {
-    color: colors.primary,
-  },
-  customBadge: {
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  customBadgeActive: {
-    backgroundColor: colors.primary,
-  },
-  customBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: colors.primary,
-    letterSpacing: 0.5,
-  },
-  customBadgeTextActive: {
-    color: '#0B0D0F',
-  },
-  customSelectSub: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#8E9BAE',
-  },
-  customBanner: {
-    backgroundColor: 'rgba(200, 255, 61, 0.06)',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 20,
-    borderWidth: 1.5,
-    borderColor: 'rgba(200, 255, 61, 0.3)',
-    gap: 12,
-  },
-  customBannerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  customBannerIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(200, 255, 61, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  customBannerTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  customBannerSub: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#8E9BAE',
-    marginTop: 2,
-  },
-  customBannerBtns: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  addDayBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  addDayBtnText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#0B0D0F',
-  },
-  builderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#161B22',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.3)',
-  },
-  builderBtnText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.primary,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#8E9BAE',
-    letterSpacing: 1.2,
-  },
-  sectionSub: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#4B5565',
-  },
-  toggleAllText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.primary,
-  },
-  workoutList: {
-    gap: 12,
-    marginBottom: 20,
-  },
-  workoutCard: {
-    backgroundColor: '#12161D',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#1D2430',
-    padding: 16,
-  },
-  workoutCardExpanded: {
-    borderColor: '#2A3646',
-    backgroundColor: '#131821',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  dayBadge: {
-    backgroundColor: '#161B22',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#242C38',
-  },
-  dayBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 0.5,
-  },
-  cardHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  exerciseCount: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#8E9BAE',
-  },
-  editWorkoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
-  },
-  editWorkoutBtnText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.primary,
-  },
-  workoutName: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  muscleRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 10,
-  },
-  musclePill: {
-    backgroundColor: '#161B22',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  musclePillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#8E9BAE',
-  },
-  emptyExercisesPrompt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    backgroundColor: 'rgba(200, 255, 61, 0.05)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.2)',
-  },
-  emptyExercisesText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  collapsedPreviewRow: {
-    marginTop: 4,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#1A212B',
-  },
-  collapsedPreviewText: {
-    fontSize: 12,
-    color: '#8E9BAE',
-    lineHeight: 18,
-    marginBottom: 6,
-  },
-  viewMoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  viewMoreText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.primary,
-  },
-  fullExerciseList: {
-    marginTop: 8,
-    gap: 8,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#1A212B',
-  },
-  exerciseDetailCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#161B22',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#222B38',
-    padding: 10,
-    gap: 10,
-  },
-  exerciseDetailThumbWrap: {
-    position: 'relative',
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: '#0E1115',
-  },
-  exerciseDetailThumb: {
-    width: '100%',
-    height: '100%',
-  },
-  exerciseOrderBadge: {
-    position: 'absolute',
-    top: 2,
-    left: 2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  exerciseOrderText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  exerciseDetailInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  exerciseDetailName: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-    marginBottom: 3,
-  },
-  exerciseDetailMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 2,
-  },
-  exerciseDetailTargetBadge: {
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  exerciseDetailTargetText: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  exerciseDetailWeightText: {
-    color: '#C8D2DE',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  exerciseDetailSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  exerciseDetailMuscle: {
-    color: '#8E9BAE',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  exerciseDetailRest: {
-    color: '#657385',
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  collapseCardBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    marginTop: 4,
-  },
-  collapseCardBtnText: {
-    color: '#8E9BAE',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  bottomBar: {
-    width: '100%',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 24,
-    backgroundColor: '#0B0D0F',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  startBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.primary,
-    height: 52,
-    borderRadius: 26,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  startBtnPressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.99 }],
-  },
-  startBtnText: {
-    color: '#0B0D0F',
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    safe: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      height: 44,
+    },
+    backBtn: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 20,
+      backgroundColor: colors.surface,
+      borderWidth: colors.isDark ? 0 : 1,
+      borderColor: colors.border,
+    },
+    aiBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 20,
+      backgroundColor: colors.primaryMuted,
+      borderWidth: 1,
+      borderColor: colors.accentLine,
+    },
+    aiBadgeText: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.primaryText,
+      letterSpacing: 1,
+    },
+    topBarPlaceholder: {
+      width: 40,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 6,
+      paddingBottom: 24,
+    },
+    header: {
+      marginTop: 8,
+      marginBottom: 16,
+    },
+    eyebrow: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.primaryText,
+      letterSpacing: 1.5,
+      marginBottom: 6,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: '900',
+      color: colors.text,
+      letterSpacing: -0.5,
+      marginBottom: 12,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    metaPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    metaText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.secondary,
+      letterSpacing: 0.5,
+    },
+    goalPill: {
+      backgroundColor: colors.primaryMuted,
+      borderColor: colors.accentLine,
+    },
+    goalText: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.primaryText,
+      letterSpacing: 0.5,
+    },
+    splitSwitchWrap: {
+      marginBottom: 20,
+    },
+    splitSwitchLabel: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.secondary,
+      letterSpacing: 1.2,
+      marginBottom: 10,
+    },
+    splitPresetRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 10,
+    },
+    splitPresetCard: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 6,
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+    },
+    splitPresetCardActive: {
+      backgroundColor: colors.activeChipBg,
+      borderColor: colors.activeChipBg,
+    },
+    splitPresetIconWrap: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      backgroundColor: colors.primaryMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 6,
+    },
+    splitPresetIconWrapActive: {
+      backgroundColor: 'transparent',
+    },
+    splitPresetTitle: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: colors.text,
+      textAlign: 'center',
+      marginBottom: 2,
+    },
+    splitPresetTitleActive: {
+      color: colors.activeChipText,
+      fontWeight: '900',
+    },
+    splitPresetSub: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: colors.secondary,
+      textAlign: 'center',
+    },
+    splitPresetSubActive: {
+      color: colors.activeChipText,
+      opacity: 0.85,
+      fontWeight: '700',
+    },
+    customSelectCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+    },
+    customSelectCardActive: {
+      borderColor: colors.accentLine,
+      backgroundColor: colors.primaryMuted,
+    },
+    customSelectLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      flex: 1,
+      marginRight: 8,
+    },
+    customSelectIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: colors.primaryMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    customSelectIconWrapActive: {
+      backgroundColor: colors.primary,
+    },
+    customTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 2,
+    },
+    customSelectTitle: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    customSelectTitleActive: {
+      color: colors.primaryText,
+    },
+    customBadge: {
+      backgroundColor: colors.primaryMuted,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    customBadgeActive: {
+      backgroundColor: colors.primary,
+    },
+    customBadgeText: {
+      fontSize: 9,
+      fontWeight: '900',
+      color: colors.primaryText,
+      letterSpacing: 0.5,
+    },
+    customBadgeTextActive: {
+      color: colors.onPrimary,
+    },
+    customSelectSub: {
+      fontSize: 11,
+      fontWeight: '500',
+      color: colors.secondary,
+    },
+    customBanner: {
+      backgroundColor: colors.primaryMuted,
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 20,
+      borderWidth: 1.5,
+      borderColor: colors.accentLine,
+      gap: 12,
+    },
+    customBannerHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    customBannerIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: colors.primaryMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    customBannerTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    customBannerSub: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: colors.secondary,
+      marginTop: 2,
+    },
+    customBannerBtns: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    addDayBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 10,
+    },
+    addDayBtnText: {
+      fontSize: 12,
+      fontWeight: '900',
+      color: colors.onPrimary,
+    },
+    builderBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.accentLine,
+    },
+    builderBtnText: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.primaryText,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    sectionTitle: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.secondary,
+      letterSpacing: 1.2,
+    },
+    sectionSub: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.muted,
+    },
+    toggleAllText: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.primaryText,
+    },
+    workoutList: {
+      gap: 12,
+      marginBottom: 20,
+    },
+    workoutCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 16,
+    },
+    workoutCardExpanded: {
+      borderColor: colors.accentLine,
+      backgroundColor: colors.surface,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    dayBadge: {
+      backgroundColor: colors.elevated,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    dayBadgeText: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.primaryText,
+      letterSpacing: 0.5,
+    },
+    cardHeaderRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    exerciseCount: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.secondary,
+    },
+    editWorkoutBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.primaryMuted,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.accentLine,
+    },
+    editWorkoutBtnText: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.primaryText,
+    },
+    workoutName: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    muscleRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginBottom: 10,
+    },
+    musclePill: {
+      backgroundColor: colors.elevated,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
+    musclePillText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.secondary,
+    },
+    emptyExercisesPrompt: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      backgroundColor: colors.primaryMuted,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.accentLine,
+    },
+    emptyExercisesText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.primaryText,
+    },
+    collapsedPreviewRow: {
+      marginTop: 4,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    collapsedPreviewText: {
+      fontSize: 12,
+      color: colors.secondary,
+      lineHeight: 18,
+      marginBottom: 6,
+    },
+    viewMoreRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    viewMoreText: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.primaryText,
+    },
+    fullExerciseList: {
+      marginTop: 8,
+      gap: 8,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    exerciseDetailCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.elevated,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 10,
+      gap: 10,
+    },
+    exerciseDetailThumbWrap: {
+      position: 'relative',
+      width: 48,
+      height: 48,
+      borderRadius: 10,
+      overflow: 'hidden',
+      backgroundColor: colors.surface,
+    },
+    exerciseDetailThumb: {
+      width: '100%',
+      height: '100%',
+    },
+    exerciseOrderBadge: {
+      position: 'absolute',
+      top: 2,
+      left: 2,
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      backgroundColor: 'rgba(15, 23, 42, 0.78)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    exerciseOrderText: {
+      color: '#FFFFFF',
+      fontSize: 9,
+      fontWeight: '900',
+    },
+    exerciseDetailInfo: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    exerciseDetailName: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '800',
+      marginBottom: 3,
+    },
+    exerciseDetailMetaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 2,
+    },
+    exerciseDetailTargetBadge: {
+      backgroundColor: colors.primaryMuted,
+      borderRadius: 4,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+    },
+    exerciseDetailTargetText: {
+      color: colors.primaryText,
+      fontSize: 11,
+      fontWeight: '800',
+    },
+    exerciseDetailWeightText: {
+      color: colors.text,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    exerciseDetailSubRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    exerciseDetailMuscle: {
+      color: colors.secondary,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    exerciseDetailRest: {
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: '500',
+    },
+    collapseCardBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      marginTop: 4,
+    },
+    collapseCardBtnText: {
+      color: colors.secondary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    bottomBar: {
+      width: '100%',
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: Platform.OS === 'ios' ? 20 : 24,
+      backgroundColor: colors.background,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    startBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: colors.primary,
+      height: 52,
+      borderRadius: 26,
+      shadowColor: colors.isDark ? colors.primary : '#0F172A',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: colors.isDark ? 0.35 : 0.12,
+      shadowRadius: 10,
+      elevation: 4,
+    },
+    startBtnPressed: {
+      opacity: 0.85,
+      transform: [{ scale: 0.99 }],
+    },
+    startBtnText: {
+      color: colors.onPrimary,
+      fontSize: 16,
+      fontWeight: '900',
+      letterSpacing: 0.5,
+    },
+  });

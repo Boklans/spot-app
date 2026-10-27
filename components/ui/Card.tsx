@@ -1,6 +1,6 @@
 import { PropsWithChildren } from 'react';
 import { StyleProp, View, ViewStyle } from 'react-native';
-import { useThemeColors } from '@/constants/colors';
+import { cardElevation, useThemeColors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 
 export function Card({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
@@ -10,8 +10,9 @@ export function Card({ children, style }: PropsWithChildren<{ style?: StyleProp<
       style={[
         {
           backgroundColor: colors.surface,
-          borderRadius: 18,
+          borderRadius: 20,
           padding: spacing.lg,
+          ...cardElevation(colors),
         },
         style,
       ]}
@@ -20,3 +21,4 @@ export function Card({ children, style }: PropsWithChildren<{ style?: StyleProp<
     </View>
   );
 }
+

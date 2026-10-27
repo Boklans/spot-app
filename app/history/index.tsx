@@ -251,7 +251,7 @@ export default function History() {
       ) : viewMode === 'compare' ? (
         <View style={{ gap: 12 }}>
           <View style={styles.compareBanner}>
-            <Ionicons name="trending-up" size={18} color={colors.primary} />
+            <Ionicons name="trending-up" size={18} color={colors.primaryText} />
             <Text style={styles.compareBannerText}>
               {isUk
                 ? 'Порівняння ваших перших зафіксованих робочих ваг із останнім виконанням кожної вправи.'
@@ -327,19 +327,51 @@ export default function History() {
                     </Text>
                   </View>
 
-                  <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+                  <Ionicons
+                    name="arrow-forward"
+                    size={16}
+                    color={item.sessionsCount > 1 ? colors.primaryText : colors.muted}
+                  />
 
-                  <View style={[styles.thenBox, styles.nowBox]}>
-                    <Text style={[styles.thenNowLabel, { color: colors.primary }]}>
-                      {isUk ? `ЗАРАЗ (${latestDateStr})` : `NOW (${latestDateStr})`}
-                    </Text>
-                    <Text style={styles.nowValue}>
-                      {item.latest.workingWeight > 0
-                        ? formatWithUnit(item.latest.workingWeight)
-                        : t('bodyweight')}{' '}
-                      × {item.latest.repsSummary}
-                    </Text>
-                  </View>
+                  {item.sessionsCount > 1 ? (
+                    <View style={[styles.thenBox, styles.nowBox]}>
+                      <Text style={[styles.thenNowLabel, { color: colors.primaryText }]}>
+                        {isUk ? `ЗАРАЗ (${latestDateStr})` : `NOW (${latestDateStr})`}
+                      </Text>
+                      <Text style={styles.nowValue}>
+                        {item.latest.workingWeight > 0
+                          ? formatWithUnit(item.latest.workingWeight)
+                          : t('bodyweight')}{' '}
+                        × {item.latest.repsSummary}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.thenBox,
+                        {
+                          borderStyle: 'dashed',
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          backgroundColor: 'transparent',
+                          justifyContent: 'center',
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.thenNowLabel, { color: colors.muted }]}>
+                        {isUk ? 'ЗАРАЗ' : 'NOW'}
+                      </Text>
+                      <Text
+                        style={{
+                          color: colors.secondary,
+                          fontSize: 12,
+                          fontWeight: '600',
+                        }}
+                      >
+                        {isUk ? 'Після 2-го тренування' : 'After 2nd session'}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </Card>
             );
@@ -430,7 +462,29 @@ export default function History() {
                             )}
                           </Text>
                         </View>
-                        <Text style={styles.arrow}>›</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={isUk ? 'Видалити сесію' : 'Delete session'}
+                            hitSlop={10}
+                            onPress={(e) => {
+                              e.stopPropagation?.();
+                              hapticLight();
+                              void useWorkoutHistoryStore.getState().deleteWorkout(workout.id);
+                            }}
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: 8,
+                              backgroundColor: colors.elevated,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <Ionicons name="trash-outline" size={15} color={colors.secondary} />
+                          </Pressable>
+                          <Text style={styles.arrow}>›</Text>
+                        </View>
                       </View>
 
                       {/* Exercise Summary List inside Card so user sees weights at a glance */}
@@ -448,7 +502,7 @@ export default function History() {
                                   {te(ex.exerciseName)}
                                 </Text>
                                 {hasNote && (
-                                  <Ionicons name="bookmark" size={11} color={colors.primary} />
+                                  <Ionicons name="bookmark" size={11} color={colors.primaryText} />
                                 )}
                               </View>
                               <Text style={styles.exercisePreviewSets}>
@@ -518,11 +572,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   modeTabsWrap: {
     flexDirection: 'row',
-    backgroundColor: '#12161D',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     padding: 4,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
     marginBottom: 14,
   },
   modeTab: {
@@ -554,13 +608,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
-    backgroundColor: '#12161D',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
   },
   filterPillActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.14)',
-    borderColor: 'rgba(200, 255, 61, 0.45)',
+    backgroundColor: colors.primaryMuted,
+    borderColor: colors.accentLine,
   },
   filterPillText: {
     color: colors.secondary,
@@ -568,12 +622,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '700',
   },
   filterPillTextActive: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontWeight: '800',
   },
   group: { marginBottom: spacing.xl },
   groupTitle: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1.4,
@@ -601,7 +655,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  prBadgeText: { color: '#FFD130', fontSize: 10, fontWeight: '800' },
+  prBadgeText: { color: '#D97706', fontSize: 10, fontWeight: '800' },
   exercisePreviewList: {
     marginTop: 12,
     paddingTop: 10,
@@ -616,7 +670,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 10,
   },
   exercisePreviewName: {
-    color: '#CBD5E1',
+    color: colors.secondary,
     fontSize: 13,
     fontWeight: '600',
     flexShrink: 1,
@@ -639,14 +693,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    backgroundColor: colors.primaryMuted,
     borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
+    borderColor: colors.border,
     borderRadius: 14,
     padding: 12,
   },
   compareBannerText: {
-    color: '#E2E8F0',
+    color: colors.text,
     fontSize: 12.5,
     lineHeight: 17,
     flex: 1,
@@ -666,7 +720,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.elevated,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   compareThumb: {
@@ -684,26 +738,26 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 2,
   },
   deltaBadgePositive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.16)',
+    backgroundColor: colors.primaryMuted,
     borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.4)',
+    borderColor: colors.accentLine,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
   deltaBadgePositiveText: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 12,
     fontWeight: '900',
   },
   deltaBadgeNeutral: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: colors.elevated,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
   deltaBadgeNeutralText: {
-    color: '#94A3B8',
+    color: colors.secondary,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -718,11 +772,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 12,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
   },
   nowBox: {
-    borderColor: 'rgba(200, 255, 61, 0.35)',
-    backgroundColor: 'rgba(200, 255, 61, 0.05)',
+    borderColor: colors.accentLine,
+    backgroundColor: colors.primaryMuted,
   },
   thenNowLabel: {
     color: colors.secondary,
@@ -732,7 +786,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 4,
   },
   thenValue: {
-    color: '#CBD5E1',
+    color: colors.secondary,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -745,7 +799,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#292E35',
+    borderColor: colors.border,
     padding: 28,
     alignItems: 'center',
     marginVertical: 12,
@@ -754,9 +808,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    backgroundColor: colors.primaryMuted,
     borderWidth: 1.5,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
+    borderColor: colors.accentLine,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -770,7 +824,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   emptyTitle: {
-    color: '#F5F7FA',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '900',
     letterSpacing: 1,

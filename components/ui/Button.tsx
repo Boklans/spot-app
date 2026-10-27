@@ -1,5 +1,5 @@
-import { PropsWithChildren } from 'react';
-import { Pressable, StyleProp, StyleSheet, Text, TextStyle, ViewStyle } from 'react-native';
+import { PropsWithChildren, useRef } from 'react';
+import { Animated, Pressable, StyleProp, StyleSheet, Text, TextStyle, ViewStyle } from 'react-native';
 import { useThemeColors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 
@@ -18,35 +18,59 @@ export function Button({
   textStyle?: StyleProp<TextStyle>;
 }>) {
   const colors = useThemeColors();
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    if (disabled) return;
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 28,
+      bounciness: 6,
+    }).start();
+  };
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.base,
-        { backgroundColor: secondary ? 'transparent' : colors.primary },
-        disabled && styles.disabled,
-        style,
-        pressed && styles.pressed,
-      ]}
-    >
-      {typeof children === 'string' ? (
-        <Text
-          style={[
-            styles.text,
-            { color: secondary ? colors.secondary : colors.onPrimary },
-            textStyle,
-          ]}
-        >
-          {children}
-        </Text>
-      ) : (
-        children
-      )}
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={({ pressed }) => [
+          styles.base,
+          { backgroundColor: secondary ? 'transparent' : colors.primary },
+          disabled && styles.disabled,
+          style,
+          pressed && styles.pressed,
+        ]}
+      >
+        {typeof children === 'string' ? (
+          <Text
+            style={[
+              styles.text,
+              { color: secondary ? colors.secondary : colors.onPrimary },
+              textStyle,
+            ]}
+          >
+            {children}
+          </Text>
+        ) : (
+          children
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 

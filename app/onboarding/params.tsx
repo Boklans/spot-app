@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -13,7 +13,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/constants/colors';
+import { OnboardingHeader } from '@/components/onboarding/OnboardingHeader';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useWeightUnit } from '@/lib/weightUtils';
@@ -22,8 +23,10 @@ import { useBodyWeightStore } from '@/store/bodyWeightStore';
 import { loadOnboarding, type OnboardingSex, saveOnboarding } from '@/store/workoutStore';
 
 export default function ParamsSetup() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, language } = useI18n();
-  const { unitLabel, toKg, fromKg } = useWeightUnit();
+  const { unit, unitLabel, toKg, fromKg } = useWeightUnit();
 
   const nameRef = useRef<TextInputInstance>(null);
   const ageRef = useRef<TextInputInstance>(null);
@@ -64,6 +67,20 @@ export default function ParamsSetup() {
   );
 
   const isNameValid = name.trim().length >= 2;
+
+  const handleToggleUnit = (nextUnit: 'kg' | 'lbs') => {
+    if (unit === nextUnit) return;
+    hapticLight();
+    const parsed = parseFloat(weight.replace(',', '.'));
+    if (!isNaN(parsed) && parsed > 0) {
+      const currentKg = unit === 'lbs' ? parsed / 2.20462262 : parsed;
+      const converted = nextUnit === 'lbs'
+        ? Math.round(currentKg * 2.20462262)
+        : Math.round(currentKg * 10) / 10;
+      setWeight(String(converted));
+    }
+    useUserProfileStore.getState().updateProfile({ weightUnit: nextUnit }).catch(() => undefined);
+  };
 
   const sexOptions: Array<{ value: OnboardingSex; label: string }> = [
     { value: 'female', label: isUk ? 'Жіноча' : 'Female' },
@@ -122,20 +139,8 @@ export default function ParamsSetup() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* 1. Top Bar with 1/5 Progress */}
-      <View style={styles.topBar}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={12}
-          onPress={() => router.back()}
-          style={styles.backBtn}
-        >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-        </Pressable>
-        <Text style={styles.stepText}>1/5</Text>
-        <View style={styles.topBarPlaceholder} />
-      </View>
+      {/* 1. Unified Header with 1/5 Progress Bar */}
+      <OnboardingHeader step={1} totalSteps={5} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -174,7 +179,7 @@ export default function ParamsSetup() {
                 <Ionicons
                   name="person-outline"
                   size={20}
-                  color={nameError ? '#EF4444' : '#717B8A'}
+                  color={nameError ? colors.danger : colors.muted}
                   style={styles.inputIcon}
                 />
                 <TextInput
@@ -182,7 +187,7 @@ export default function ParamsSetup() {
                   editable={true}
                   style={styles.textInput}
                   placeholder={isUk ? 'Як до вас звертатися?' : 'Enter your name'}
-                  placeholderTextColor="#4E5A6C"
+                  placeholderTextColor={colors.muted}
                   value={name}
                   onChangeText={(val) => {
                     setName(val);
@@ -237,7 +242,35 @@ export default function ParamsSetup() {
               </Text>
             </View>
 
-            {/* Age, Weight, Height Grid */}
+            {/* Quick Unit Switcher + Age, Weight, Height Grid */}
+            <View style={styles.unitHeaderRow}>
+              <Text style={styles.inputLabel}>
+                {isUk ? 'Фізичні показники' : 'Body Metrics'}
+              </Text>
+              <View style={styles.unitPillGroup}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Kilograms"
+                  onPress={() => handleToggleUnit('kg')}
+                  style={[styles.unitPill, unit === 'kg' && styles.unitPillActive]}
+                >
+                  <Text style={[styles.unitPillText, unit === 'kg' && styles.unitPillTextActive]}>
+                    {isUk ? 'КГ' : 'KG'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Pounds"
+                  onPress={() => handleToggleUnit('lbs')}
+                  style={[styles.unitPill, unit === 'lbs' && styles.unitPillActive]}
+                >
+                  <Text style={[styles.unitPillText, unit === 'lbs' && styles.unitPillTextActive]}>
+                    LBS
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
             <View style={styles.metricsRow}>
               {/* Age */}
               <View style={styles.metricCol}>
@@ -253,7 +286,7 @@ export default function ParamsSetup() {
                     editable={true}
                     style={styles.textInput}
                     placeholder="28"
-                    placeholderTextColor="#4E5A6C"
+                    placeholderTextColor={colors.muted}
                     keyboardType="number-pad"
                     maxLength={2}
                     value={age}
@@ -279,7 +312,7 @@ export default function ParamsSetup() {
                     editable={true}
                     style={styles.textInput}
                     placeholder="70"
-                    placeholderTextColor="#4E5A6C"
+                    placeholderTextColor={colors.muted}
                     keyboardType="decimal-pad"
                     value={weight}
                     onChangeText={setWeight}
@@ -304,7 +337,7 @@ export default function ParamsSetup() {
                     editable={true}
                     style={styles.textInput}
                     placeholder="172"
-                    placeholderTextColor="#4E5A6C"
+                    placeholderTextColor={colors.muted}
                     keyboardType="number-pad"
                     value={height}
                     onChangeText={setHeight}
@@ -343,200 +376,211 @@ export default function ParamsSetup() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#0B0D0F',
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    height: 44,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-  },
-  stepText: {
-    color: '#8E9BAE',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  topBarPlaceholder: {
-    width: 40,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 6,
-    paddingBottom: 16,
-  },
-  titleSection: {
-    marginBottom: 18,
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    color: '#8E9BAE',
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 6,
-    lineHeight: 20,
-  },
-  formContainer: {
-    gap: 18,
-    marginBottom: 24,
-  },
-  inputGroup: {
-    gap: 8,
-  },
-  inputLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  requiredStar: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  inputLabel: {
-    color: '#CBD5E1',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#12161D',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#1E2530',
-    paddingHorizontal: 16,
-    height: 54,
-  },
-  inputWrapError: {
-    borderColor: '#EF4444',
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-  },
-  errorText: {
-    color: '#EF4444',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
-    marginLeft: 4,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  textInput: {
-    flex: 1,
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    height: '100%',
-  },
-  unitSuffix: {
-    color: '#717B8A',
-    fontSize: 11,
-    fontWeight: '800',
-    marginLeft: 6,
-  },
-  sexRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  sexChip: {
-    flex: 1,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: '#12161D',
-    borderWidth: 1.5,
-    borderColor: '#1E2530',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
-  sexChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
-  },
-  sexChipText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  sexChipTextActive: {
-    color: colors.primary,
-    fontWeight: '800',
-  },
-  helperHint: {
-    color: '#717B8A',
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 2,
-  },
-  metricsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  metricCol: {
-    flex: 1,
-    gap: 8,
-  },
-  metricInputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#12161D',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#1E2530',
-    paddingHorizontal: 12,
-    height: 54,
-  },
-  bottomBar: {
-    width: '100%',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 24,
-    backgroundColor: '#0B0D0F',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  continueBtn: {
-    width: '100%',
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  continueBtnDisabled: {
-    backgroundColor: '#161B22',
-    borderWidth: 1,
-    borderColor: '#212A38',
-    opacity: 0.7,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  continueBtnText: {
-    color: '#0B0D0F',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  continueBtnTextDisabled: {
-    color: '#64748B',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    safe: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    unitHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: -8,
+    },
+    unitPillGroup: {
+      flexDirection: 'row',
+      backgroundColor: colors.surface,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 2,
+    },
+    unitPill: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 8,
+    },
+    unitPillActive: {
+      backgroundColor: colors.primaryMuted,
+    },
+    unitPillText: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.muted,
+    },
+    unitPillTextActive: {
+      color: colors.primaryText,
+    },
+    scrollContent: {
+      paddingHorizontal: 24,
+      paddingTop: 6,
+      paddingBottom: 16,
+    },
+    titleSection: {
+      marginBottom: 18,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontWeight: '900',
+      letterSpacing: -0.5,
+    },
+    subtitle: {
+      color: colors.secondary,
+      fontSize: 14,
+      fontWeight: '500',
+      marginTop: 6,
+      lineHeight: 20,
+    },
+    formContainer: {
+      gap: 18,
+      marginBottom: 24,
+    },
+    inputGroup: {
+      gap: 8,
+    },
+    inputLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    requiredStar: {
+      color: colors.primaryText,
+      fontSize: 14,
+      fontWeight: '900',
+    },
+    inputLabel: {
+      color: colors.secondary,
+      fontSize: 13,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+    },
+    inputWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      paddingHorizontal: 16,
+      height: 54,
+    },
+    inputWrapError: {
+      borderColor: colors.danger,
+      backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    },
+    errorText: {
+      color: colors.danger,
+      fontSize: 12,
+      fontWeight: '600',
+      marginTop: 4,
+      marginLeft: 4,
+    },
+    inputIcon: {
+      marginRight: 12,
+    },
+    textInput: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '700',
+      height: '100%',
+    },
+    unitSuffix: {
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: '800',
+      marginLeft: 6,
+    },
+    sexRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    sexChip: {
+      flex: 1,
+      height: 46,
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+    },
+    sexChipActive: {
+      borderColor: colors.accentLine,
+      backgroundColor: colors.primaryMuted,
+    },
+    sexChipText: {
+      color: colors.secondary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    sexChipTextActive: {
+      color: colors.primaryText,
+      fontWeight: '800',
+    },
+    helperHint: {
+      color: colors.muted,
+      fontSize: 12,
+      lineHeight: 17,
+      marginTop: 2,
+    },
+    metricsRow: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    metricCol: {
+      flex: 1,
+      gap: 8,
+    },
+    metricInputWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      height: 54,
+    },
+    bottomBar: {
+      width: '100%',
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: Platform.OS === 'ios' ? 20 : 24,
+      backgroundColor: colors.background,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    continueBtn: {
+      width: '100%',
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: colors.isDark ? colors.primary : '#0F172A',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: colors.isDark ? 0.35 : 0.12,
+      shadowRadius: 10,
+      elevation: 4,
+    },
+    continueBtnDisabled: {
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      opacity: 0.7,
+      shadowOpacity: 0,
+      elevation: 0,
+    },
+    continueBtnText: {
+      color: colors.onPrimary,
+      fontSize: 16,
+      fontWeight: '900',
+    },
+    continueBtnTextDisabled: {
+      color: colors.muted,
+    },
+  });

@@ -12,6 +12,8 @@ type WorkoutHistoryState = {
   error: string | null;
   loadHistory: () => Promise<CompletedWorkout[]>;
   addCompletedWorkout: (workout: CompletedWorkout) => Promise<boolean>;
+  updateWorkout: (updatedWorkout: CompletedWorkout) => Promise<boolean>;
+  replaceHistory: (workouts: CompletedWorkout[]) => Promise<boolean>;
   deleteWorkout: (id: string) => Promise<boolean>;
   clearHistory: () => Promise<boolean>;
 };
@@ -137,6 +139,61 @@ export const useWorkoutHistoryStore = create<WorkoutHistoryState>((set, get) => 
       return true;
     } catch {
       set({ error: 'Workout could not be deleted.' });
+      return false;
+    }
+  },
+
+  updateWorkout: async (updatedWorkout: CompletedWorkout) => {
+    const current = get().hydrated ? get().workouts : await get().loadHistory();
+    const cleanedExercises = updatedWorkout.exercises
+      .map((ex) => ({
+        ...ex,
+        sets: ex.sets
+          .filter((s) => typeof s.reps === 'number' && s.reps > 0 && typeof s.weight === 'number' && s.weight >= 0)
+          .map((s) => ({
+            ...s,
+            volume: s.setType === 'warmup' ? 0 : Math.round(s.weight * s.reps * 100) / 100,
+          })),
+      }))
+      .filter((ex) => ex.sets.length > 0);
+
+    const allSets = cleanedExercises.flatMap((ex) => ex.sets);
+    const workingSets = allSets.filter((s) => s.setType !== 'warmup');
+    const totalVolume =
+      Math.round(workingSets.reduce((sum, s) => sum + s.weight * s.reps, 0) * 100) / 100;
+
+    const normalizedWorkout: CompletedWorkout = {
+      ...updatedWorkout,
+      exercises: cleanedExercises,
+      totalSets: allSets.length,
+      totalVolume,
+    };
+
+    const replaced = current.map((item) =>
+      item.id === normalizedWorkout.id ? normalizedWorkout : item
+    );
+    const next = recalculateHistoryPRs(replaced);
+    try {
+      await AsyncStorage.setItem(WORKOUT_HISTORY_STORAGE_KEY, JSON.stringify(next));
+      set({ workouts: next, hydrated: true, error: null });
+      return true;
+    } catch {
+      set({ error: 'Workout could not be updated.' });
+      return false;
+    }
+  },
+
+  replaceHistory: async (incomingWorkouts: CompletedWorkout[]) => {
+    const valid = Array.isArray(incomingWorkouts)
+      ? incomingWorkouts.filter(isCompletedWorkout)
+      : [];
+    const next = recalculateHistoryPRs(valid);
+    try {
+      await AsyncStorage.setItem(WORKOUT_HISTORY_STORAGE_KEY, JSON.stringify(next));
+      set({ workouts: next, hydrated: true, error: null });
+      return true;
+    } catch {
+      set({ error: 'Workout history could not be imported.' });
       return false;
     }
   },

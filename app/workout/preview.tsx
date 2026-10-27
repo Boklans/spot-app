@@ -348,7 +348,7 @@ export default function WorkoutPreview() {
           }}
           style={({ pressed }) => [styles.navBtn, pressed && { opacity: 0.6 }]}
         >
-          <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
 
         <Pressable
@@ -361,7 +361,7 @@ export default function WorkoutPreview() {
           }}
           style={({ pressed }) => [styles.navBtn, pressed && { opacity: 0.6 }]}
         >
-          <Ionicons name="create-outline" size={24} color="#FFFFFF" />
+          <Ionicons name="create-outline" size={24} color={colors.text} />
         </Pressable>
       </View>
 
@@ -417,6 +417,13 @@ export default function WorkoutPreview() {
               ? `${rec.recommendedReps} ${language === 'uk' ? 'повт' : 'reps'}`
               : `${exercise.targetRepRange || '8-12'} ${language === 'uk' ? 'повт' : 'reps'}`;
 
+            const isSupersetA1 = Boolean(
+              exercise.supersetWithNext && index < workout.exercises.length - 1
+            );
+            const isSupersetA2 = Boolean(
+              index > 0 && workout.exercises[index - 1]?.supersetWithNext
+            );
+
             return (
               <Pressable
                 key={exercise.id || `${exercise.name}-${index}`}
@@ -428,6 +435,10 @@ export default function WorkoutPreview() {
                 }}
                 style={({ pressed }) => [
                   styles.exerciseCard,
+                  (isSupersetA1 || isSupersetA2) && {
+                    borderColor: 'rgba(168, 85, 247, 0.45)',
+                    borderWidth: 1,
+                  },
                   pressed && styles.exerciseCardPressed,
                 ]}
               >
@@ -439,7 +450,31 @@ export default function WorkoutPreview() {
                   />
                 </View>
                 <View style={styles.exerciseInfoCol}>
-                  <Text numberOfLines={1} style={styles.exerciseName}>{te(exercise.name)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {(isSupersetA1 || isSupersetA2) && (
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 3,
+                          backgroundColor: 'rgba(168, 85, 247, 0.16)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(168, 85, 247, 0.38)',
+                          borderRadius: 6,
+                          paddingHorizontal: 5,
+                          paddingVertical: 1.5,
+                        }}
+                      >
+                        <Ionicons name="link" size={9} color="#A855F7" />
+                        <Text style={{ color: '#A855F7', fontSize: 9.5, fontWeight: '800' }}>
+                          {isSupersetA1 ? 'A1' : 'A2'}
+                        </Text>
+                      </View>
+                    )}
+                    <Text numberOfLines={1} style={[styles.exerciseName, { flex: 1 }]}>
+                      {te(exercise.name)}
+                    </Text>
+                  </View>
                   <Text style={styles.exerciseMeta}>
                     {exercise.sets} {t('sets').toLowerCase()} · {weightLabel} · {targetRepsDisplay}
                   </Text>
@@ -553,7 +588,7 @@ export default function WorkoutPreview() {
                       key={alt.id}
                       style={({ pressed }) => [
                         styles.altCard,
-                        pressed && { backgroundColor: '#1A212D' },
+                        pressed && { opacity: 0.8 },
                       ]}
                       onPress={() => handleSelectAlternative(alt)}
                     >
@@ -571,7 +606,7 @@ export default function WorkoutPreview() {
                         </Text>
                       </View>
                       <View style={styles.altSelectBadge}>
-                        <Ionicons name="checkmark" size={14} color="#0B0D0F" />
+                        <Ionicons name="checkmark" size={14} color={colors.text} />
                       </View>
                     </Pressable>
                   );
@@ -637,8 +672,8 @@ export default function WorkoutPreview() {
                   }}
                   style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}
                 >
-                  <Ionicons name="information-circle" size={13} color={colors.primary} style={{ marginRight: 4 }} />
-                  <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
+                  <Ionicons name="information-circle" size={13} color={colors.primaryText} style={{ marginRight: 4 }} />
+                  <Text style={{ fontSize: 12, color: colors.primaryText, fontWeight: '700' }}>
                     {language === 'uk' ? 'Анатомія та техніка' : 'Anatomy & Guide'}
                   </Text>
                 </Pressable>
@@ -673,7 +708,7 @@ export default function WorkoutPreview() {
                     }}
                     style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
                   >
-                    <Ionicons name="remove" size={22} color="#FFFFFF" />
+                    <Ionicons name="remove" size={22} color={colors.text} />
                   </Pressable>
 
                   <View style={styles.configStepValueBox}>
@@ -703,7 +738,7 @@ export default function WorkoutPreview() {
                     }}
                     style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
                   >
-                    <Ionicons name="add" size={22} color="#FFFFFF" />
+                    <Ionicons name="add" size={22} color={colors.text} />
                   </Pressable>
                 </View>
               </View>
@@ -726,7 +761,7 @@ export default function WorkoutPreview() {
                     }}
                     style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
                   >
-                    <Ionicons name="remove" size={22} color="#FFFFFF" />
+                    <Ionicons name="remove" size={22} color={colors.text} />
                   </Pressable>
 
                   <View style={styles.configWeightInputWrap}>
@@ -753,7 +788,7 @@ export default function WorkoutPreview() {
                     }}
                     style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
                   >
-                    <Ionicons name="add" size={22} color="#FFFFFF" />
+                    <Ionicons name="add" size={22} color={colors.text} />
                   </Pressable>
                 </View>
               </View>
@@ -776,7 +811,7 @@ export default function WorkoutPreview() {
                     }}
                     style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
                   >
-                    <Ionicons name="remove" size={22} color="#FFFFFF" />
+                    <Ionicons name="remove" size={22} color={colors.text} />
                   </Pressable>
 
                   <View style={styles.configWeightInputWrap}>
@@ -803,7 +838,7 @@ export default function WorkoutPreview() {
                     }}
                     style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
                   >
-                    <Ionicons name="add" size={22} color="#FFFFFF" />
+                    <Ionicons name="add" size={22} color={colors.text} />
                   </Pressable>
                 </View>
 
@@ -847,7 +882,7 @@ export default function WorkoutPreview() {
                     }}
                     style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
                   >
-                    <Ionicons name="remove" size={22} color="#FFFFFF" />
+                    <Ionicons name="remove" size={22} color={colors.text} />
                   </Pressable>
 
                   <View style={styles.configStepValueBox}>
@@ -868,7 +903,7 @@ export default function WorkoutPreview() {
                     }}
                     style={({ pressed }) => [styles.configStepBtn, pressed && styles.configStepBtnPressed]}
                   >
-                    <Ionicons name="add" size={22} color="#FFFFFF" />
+                    <Ionicons name="add" size={22} color={colors.text} />
                   </Pressable>
                 </View>
 
@@ -925,7 +960,7 @@ export default function WorkoutPreview() {
                   onPress={handleSwapFromConfig}
                   style={styles.configSecondaryBtn}
                 >
-                  <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
+                  <Ionicons name="swap-horizontal" size={16} color={colors.primaryText} />
                   <Text numberOfLines={1} style={styles.configSecondaryBtnText}>
                     {language === 'uk' ? 'Замінити' : 'Swap'}
                   </Text>
@@ -1083,12 +1118,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 14,
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.border,
   },
   exerciseThumbWrap: {
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.elevated,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1157,12 +1194,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#15191F',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 36,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1171,7 +1210,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    borderBottomColor: colors.divider,
   },
   modalTitle: {
     fontSize: 20,
@@ -1189,7 +1228,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1E242D',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1197,7 +1236,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: '#1A2029',
+    backgroundColor: colors.elevated,
     borderRadius: 16,
     padding: 14,
     marginBottom: 8,
@@ -1206,7 +1245,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.surface,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1230,7 +1269,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#252D3A',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1244,6 +1283,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 14,
     marginTop: 4,
     marginBottom: 20,
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.border,
   },
   addExerciseBtnText: {
     color: colors.secondary,
@@ -1281,14 +1322,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     ...StyleSheet.absoluteFill,
   },
   configSheet: {
-    backgroundColor: '#15191F',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: Platform.OS === 'ios' ? 40 : 28,
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
     maxHeight: '85%',
   },
   configHeader: {
@@ -1297,17 +1338,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 12,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#242B35',
+    borderBottomColor: colors.divider,
     marginBottom: 16,
   },
   configThumbWrap: {
     width: 46,
     height: 46,
     borderRadius: 12,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.elevated,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
   },
   configThumb: {
     width: '100%',
@@ -1331,7 +1372,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1E242D',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1357,22 +1398,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#1A212D',
+    backgroundColor: colors.elevated,
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   configStepBtnPressed: {
-    backgroundColor: '#242B35',
+    opacity: 0.75,
   },
   configStepValueBox: {
     flex: 1,
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1387,9 +1428,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
@@ -1412,13 +1453,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 12,
-    backgroundColor: '#1A212D',
+    backgroundColor: colors.elevated,
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
   },
   configPillActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.15)',
-    borderColor: colors.primary,
+    backgroundColor: colors.primaryMuted,
+    borderColor: colors.accentLine,
   },
   configPillText: {
     fontSize: 13,
@@ -1426,7 +1467,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.secondary,
   },
   configPillTextActive: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontWeight: '700',
   },
   configSaveBtn: {
@@ -1459,9 +1500,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#1A212D',
+    backgroundColor: colors.elevated,
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
     borderRadius: 12,
     paddingVertical: 11,
   },

@@ -101,7 +101,12 @@ export function detectPersonalRecords(
 
   for (const exercise of current.exercises) {
     const currentSets = (exercise.sets || []).filter(
-      (s) => typeof s.reps === 'number' && s.reps > 0 && typeof s.weight === 'number' && s.weight >= 0
+      (s) =>
+        s.setType !== 'warmup' &&
+        typeof s.reps === 'number' &&
+        s.reps > 0 &&
+        typeof s.weight === 'number' &&
+        s.weight >= 0
     );
     if (currentSets.length === 0) continue;
 
@@ -109,7 +114,14 @@ export function detectPersonalRecords(
       .flatMap((workout) => workout.exercises)
       .filter((item) => isSameExercise(item, exercise))
       .flatMap((item) => item.sets)
-      .filter((s) => typeof s.reps === 'number' && s.reps > 0 && typeof s.weight === 'number' && s.weight >= 0);
+      .filter(
+        (s) =>
+          s.setType !== 'warmup' &&
+          typeof s.reps === 'number' &&
+          s.reps > 0 &&
+          typeof s.weight === 'number' &&
+          s.weight >= 0
+      );
 
     const baselineKg = getBaselineWeightForExercise(exercise.exerciseName, baselineLifts);
     if (historicalSets.length === 0 && baselineKg <= 0) {
@@ -254,7 +266,12 @@ export function getAllTimePersonalRecords(
     const workoutDate = workout.completedAt || workout.startedAt;
     for (const exercise of workout.exercises || []) {
       const validSets = (exercise.sets || []).filter(
-        (s) => typeof s.reps === 'number' && s.reps > 0 && typeof s.weight === 'number' && s.weight >= 0
+        (s) =>
+          s.setType !== 'warmup' &&
+          typeof s.reps === 'number' &&
+          s.reps > 0 &&
+          typeof s.weight === 'number' &&
+          s.weight >= 0
       );
       if (validSets.length === 0) continue;
 

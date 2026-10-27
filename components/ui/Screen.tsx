@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 
 export function Screen({
   children,
@@ -10,11 +11,28 @@ export function Screen({
   style,
 }: PropsWithChildren<{ scroll?: boolean; style?: ViewStyle }>) {
   const colors = useThemeColors();
-  const content = <View style={[styles.content, style]}>{children}</View>;
+  const hasActiveSession = useWorkoutSessionStore((s) => Boolean(s.session && !s.session.completed));
+  const content = (
+    <View
+      style={[
+        styles.content,
+        hasActiveSession && { paddingBottom: 108 },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
-      {scroll ? <ScrollView contentContainerStyle={styles.scroll}>{content}</ScrollView> : content}
+      {scroll ? (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          {content}
+        </ScrollView>
+      ) : (
+        content
+      )}
     </SafeAreaView>
   );
 }

@@ -5,14 +5,17 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Linking,
   Modal,
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,7 +29,7 @@ import { PrivacyPolicyModal } from '@/components/profile/PrivacyPolicyModal';
 import { ProPaywallModal } from '@/components/profile/ProPaywallModal';
 import { BetaAccessModal } from '@/components/profile/BetaAccessModal';
 import { ExerciseNoteModal } from '@/components/workout/ExerciseNoteModal';
-import { useThemeColors, type ThemeColors } from '@/constants/colors';
+import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
 import { getSyncStatus, subscribeSyncStatus, syncUp, type SyncStatus } from '@/lib/cloudSync';
 import { hapticLight, hapticMedium, hapticSuccess, hapticError } from '@/lib/haptics';
 import {
@@ -37,7 +40,7 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useAuthStore } from '@/store/authStore';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
-import { useBodyWeightStore } from '@/store/bodyWeightStore';
+import { BODY_WEIGHT_STORAGE_KEY, useBodyWeightStore } from '@/store/bodyWeightStore';
 import { useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
 import {
@@ -49,7 +52,7 @@ import {
 } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
-import { useExerciseNotesStore } from '@/store/exerciseNotesStore';
+import { EXERCISE_NOTES_STORAGE_KEY, useExerciseNotesStore } from '@/store/exerciseNotesStore';
 import {
   defaultOnboarding,
   loadOnboarding,
@@ -112,6 +115,13 @@ export default function Profile() {
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
   const [appSettingsVisible, setAppSettingsVisible] = useState(false);
   const [notesModalVisible, setNotesModalVisible] = useState(false);
+  const [backupModalVisible, setBackupModalVisible] = useState(false);
+  const [backupJsonInput, setBackupJsonInput] = useState('');
+  const [backupCopied, setBackupCopied] = useState(false);
+  const [backupStatusMessage, setBackupStatusMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
   const [editingNoteExercise, setEditingNoteExercise] = useState<string | null>(null);
   const [showTrainingParams, setShowTrainingParams] = useState(false);
   const [isSendingTest, setIsSendingTest] = useState(false);
@@ -125,8 +135,201 @@ export default function Profile() {
     useUserProfileStore.getState().loadProfile();
     useWorkoutHistoryStore.getState().loadHistory();
     useExerciseNotesStore.getState().loadNotes();
+    useBodyWeightStore.getState().loadHistory();
     return subscribeSyncStatus(setSyncStatus);
   }, []);
+
+  const buildBackupPayload = () => {
+    return {
+      app: 'SPOT',
+      version: '1.0.2',
+      exportedAt: new Date().toISOString(),
+      profile: useUserProfileStore.getState().profile,
+      program: useProgramStore.getState().program,
+      workouts: useWorkoutHistoryStore.getState().workouts,
+      notes: useExerciseNotesStore.getState().notes,
+      bodyWeight: useBodyWeightStore.getState().entries,
+    };
+  };
+
+  const handleDownloadBackupJson = async () => {
+    hapticMedium();
+    setBackupStatusMessage(null);
+    const payload = buildBackupPayload();
+    const jsonString = JSON.stringify(payload, null, 2);
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    const fileName = `spot-backup-${dateStamp}.json`;
+
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      try {
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        hapticSuccess();
+        setBackupStatusMessage({
+          type: 'success',
+          text:
+            language === 'uk'
+              ? `Файл ${fileName} успішно завантажено!`
+              : `File ${fileName} downloaded!`,
+        });
+        return;
+      } catch {
+        // Fallback to Share
+      }
+    }
+
+    try {
+      await Share.share({
+        title: fileName,
+        message: jsonString,
+      });
+    } catch {
+      setBackupStatusMessage({
+        type: 'error',
+        text:
+          language === 'uk'
+            ? 'Не вдалося експортувати файл.'
+            : 'Could not export backup file.',
+      });
+    }
+  };
+
+  const handleCopyBackupJson = async () => {
+    hapticLight();
+    setBackupStatusMessage(null);
+    const jsonString = JSON.stringify(buildBackupPayload(), null, 2);
+    try {
+      if (
+        Platform.OS === 'web' &&
+        typeof navigator !== 'undefined' &&
+        navigator.clipboard
+      ) {
+        await navigator.clipboard.writeText(jsonString);
+      } else {
+        await Share.share({ message: jsonString });
+      }
+      setBackupCopied(true);
+      hapticSuccess();
+      setTimeout(() => setBackupCopied(false), 2500);
+    } catch {
+      setBackupStatusMessage({
+        type: 'error',
+        text:
+          language === 'uk'
+            ? 'Не вдалося скопіювати JSON.'
+            : 'Could not copy JSON.',
+      });
+    }
+  };
+
+  const applyBackupJsonString = async (rawJson: string) => {
+    setBackupStatusMessage(null);
+    const trimmed = rawJson.trim();
+    if (!trimmed) {
+      setBackupStatusMessage({
+        type: 'error',
+        text:
+          language === 'uk'
+            ? 'Вставте JSON-код резервної копії або виберіть файл.'
+            : 'Paste backup JSON or choose a file first.',
+      });
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error('Invalid JSON structure');
+      }
+
+      const hasWorkouts = Array.isArray(parsed.workouts);
+      const hasProgram = parsed.program && Array.isArray(parsed.program.workouts);
+      const hasNotes = parsed.notes && typeof parsed.notes === 'object';
+
+      if (!hasWorkouts && !hasProgram && !hasNotes) {
+        setBackupStatusMessage({
+          type: 'error',
+          text:
+            language === 'uk'
+              ? 'Файл не містить даних тренувань або програми SPOT.'
+              : 'File does not contain valid SPOT workout or program data.',
+        });
+        return;
+      }
+
+      if (hasWorkouts) {
+        await useWorkoutHistoryStore.getState().replaceHistory(parsed.workouts);
+      }
+      if (hasProgram) {
+        await useProgramStore.getState().updateUserProgram(parsed.program);
+      }
+      if (hasNotes) {
+        await AsyncStorage.setItem(
+          EXERCISE_NOTES_STORAGE_KEY,
+          JSON.stringify(parsed.notes)
+        );
+        await useExerciseNotesStore.getState().loadNotes();
+      }
+      if (Array.isArray(parsed.bodyWeight) && parsed.bodyWeight.length > 0) {
+        await AsyncStorage.setItem(
+          BODY_WEIGHT_STORAGE_KEY,
+          JSON.stringify(parsed.bodyWeight)
+        );
+        await useBodyWeightStore.getState().loadHistory();
+      }
+      if (parsed.profile && typeof parsed.profile === 'object') {
+        await useUserProfileStore.getState().updateProfile(parsed.profile);
+      }
+
+      hapticSuccess();
+      setBackupJsonInput('');
+      setBackupStatusMessage({
+        type: 'success',
+        text:
+          language === 'uk'
+            ? `Дані успішно відновлено! (${hasWorkouts ? parsed.workouts.length : 0} тренувань)`
+            : `Backup restored! (${hasWorkouts ? parsed.workouts.length : 0} workouts)`,
+      });
+    } catch {
+      hapticError();
+      setBackupStatusMessage({
+        type: 'error',
+        text:
+          language === 'uk'
+            ? 'Помилка формату JSON. Перевірте правильність скопійованих даних.'
+            : 'Invalid JSON format. Please check the backup data.',
+      });
+    }
+  };
+
+  const handlePickBackupFileWeb = () => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    hapticLight();
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = (event: any) => {
+      const file = event?.target?.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const content = typeof e.target?.result === 'string' ? e.target.result : '';
+        if (content) {
+          setBackupJsonInput(content);
+          await applyBackupJsonString(content);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
 
   const notesEntries = Object.entries(notes).filter(([, text]) => text && text.trim().length > 0);
 
@@ -417,6 +620,7 @@ export default function Profile() {
               await useExerciseNotesStore.getState().clearNotes();
 
               await hapticSuccess();
+              setAppSettingsVisible(false);
               router.replace('/onboarding/welcome');
             } catch {
               Alert.alert(
@@ -550,11 +754,19 @@ export default function Profile() {
           style={({ pressed }) => [styles.headerCard, pressed && { opacity: 0.85 }]}
         >
           <View style={styles.avatarWrap}>
-            <View style={[styles.avatar, { backgroundColor: currentBeast.color }]}>
-              <Text style={styles.avatarEmoji}>{currentBeast.emoji}</Text>
+            <View style={[styles.avatar, { backgroundColor: currentBeast.color, overflow: 'hidden' }]}>
+              {profile.customAvatarUri ? (
+                <Image
+                  source={{ uri: profile.customAvatarUri }}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.avatarEmoji}>{currentBeast.emoji}</Text>
+              )}
             </View>
             <View style={styles.editBadge}>
-              <Ionicons name="pencil" size={10} color="#E2E8F0" />
+              <Ionicons name="camera" size={11} color={colors.text} />
             </View>
           </View>
 
@@ -583,7 +795,7 @@ export default function Profile() {
           </View>
 
           <View style={styles.chevronWrap}>
-            <Ionicons name="chevron-forward" size={17} color="#64748B" />
+            <Ionicons name="chevron-forward" size={17} color={colors.muted} />
           </View>
         </Pressable>
 
@@ -602,9 +814,9 @@ export default function Profile() {
           >
             <View style={styles.quickHubTopRow}>
               <View style={styles.quickHubIconWrap}>
-                <MaterialCommunityIcons name="history" size={18} color="#E2E8F0" />
+                <MaterialCommunityIcons name="history" size={18} color={colors.text} />
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#64748B" />
+              <Ionicons name="chevron-forward" size={16} color={colors.muted} />
             </View>
             <View>
               <Text style={styles.quickHubTitle}>
@@ -631,9 +843,9 @@ export default function Profile() {
           >
             <View style={styles.quickHubTopRow}>
               <View style={styles.quickHubIconWrap}>
-                <Ionicons name="bookmark-outline" size={17} color="#E2E8F0" />
+                <Ionicons name="bookmark-outline" size={17} color={colors.text} />
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#64748B" />
+              <Ionicons name="chevron-forward" size={16} color={colors.muted} />
             </View>
             <View>
               <Text style={styles.quickHubTitle}>
@@ -655,7 +867,7 @@ export default function Profile() {
               <Ionicons
                 name={isAuthenticated ? 'cloud-done-outline' : 'cloud-outline'}
                 size={20}
-                color={isAuthenticated ? colors.primary : '#94A3B8'}
+                color={isAuthenticated ? colors.primaryText : colors.secondary}
               />
             </View>
             <View style={styles.cloudInfo}>
@@ -691,9 +903,9 @@ export default function Profile() {
                 style={({ pressed }) => [styles.cloudSyncBtn, pressed && { opacity: 0.7 }]}
               >
                 {syncStatus.isSyncing ? (
-                  <ActivityIndicator size="small" color="#E2E8F0" />
+                  <ActivityIndicator size="small" color={colors.text} />
                 ) : (
-                  <Ionicons name="sync" size={17} color="#E2E8F0" />
+                  <Ionicons name="sync" size={17} color={colors.text} />
                 )}
               </Pressable>
               <Pressable
@@ -731,7 +943,7 @@ export default function Profile() {
           >
             <View style={styles.rowLeftWithIcon}>
               <View style={styles.rowIconBox}>
-                <Ionicons name="options-outline" size={18} color="#E2E8F0" />
+                <Ionicons name="options-outline" size={18} color={colors.text} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowTitle}>
@@ -745,7 +957,34 @@ export default function Profile() {
                 </Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={17} color="#64748B" />
+            <Ionicons name="chevron-forward" size={17} color={colors.muted} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              hapticLight();
+              setBackupStatusMessage(null);
+              setBackupModalVisible(true);
+            }}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
+            <View style={styles.rowLeftWithIcon}>
+              <View style={styles.rowIconBox}>
+                <Ionicons name="archive-outline" size={17} color={colors.text} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowTitle}>
+                  {language === 'uk' ? 'Резервна копія даних (JSON)' : 'Data Backup & Restore (JSON)'}
+                </Text>
+                <Text style={styles.rowSubtitle}>
+                  {language === 'uk'
+                    ? 'Експорт історії, програми й нотаток або імпорт із файлу'
+                    : 'Export workouts, program & notes or import backup'}
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={17} color={colors.muted} />
           </Pressable>
 
           <Pressable
@@ -756,7 +995,7 @@ export default function Profile() {
           >
             <View style={styles.rowLeftWithIcon}>
               <View style={styles.rowIconBox}>
-                <Ionicons name="paper-plane-outline" size={17} color="#E2E8F0" />
+                <Ionicons name="paper-plane-outline" size={17} color={colors.text} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowTitle}>
@@ -767,12 +1006,295 @@ export default function Profile() {
                 </Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={17} color="#64748B" />
+            <Ionicons name="chevron-forward" size={17} color={colors.muted} />
           </Pressable>
         </View>
 
         <Text style={styles.versionText}>SPOT v1.0.2 · VanzaLabs</Text>
       </ScrollView>
+
+      {/* JSON Backup & Restore Modal */}
+      <Modal
+        visible={backupModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setBackupModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', justifyContent: 'flex-end' }}>
+          <SafeAreaView
+            style={{
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              maxHeight: '88%',
+            }}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.divider,
+              }}
+            >
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={{ color: colors.text, fontSize: 18, fontWeight: '800' }}>
+                  {language === 'uk' ? 'Резервна копія (JSON)' : 'JSON Data Backup'}
+                </Text>
+                <Text style={{ color: colors.secondary, fontSize: 12, marginTop: 2 }}>
+                  {language === 'uk'
+                    ? `${workouts.length} тренувань · ${program.workouts.length} днів програми · ${notesEntries.length} нотаток`
+                    : `${workouts.length} workouts · ${program.workouts.length} program days · ${notesEntries.length} notes`}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setBackupModalVisible(false)}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 17,
+                  backgroundColor: colors.elevated,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="close" size={18} color={colors.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={{ padding: 20, gap: 16 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {backupStatusMessage && (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: 12,
+                    borderRadius: 12,
+                    backgroundColor:
+                      backupStatusMessage.type === 'success'
+                        ? colors.primaryMuted
+                        : 'rgba(239, 68, 68, 0.12)',
+                    borderWidth: 1,
+                    borderColor:
+                      backupStatusMessage.type === 'success'
+                        ? colors.accentLine
+                        : 'rgba(239, 68, 68, 0.35)',
+                  }}
+                >
+                  <Ionicons
+                    name={
+                      backupStatusMessage.type === 'success'
+                        ? 'checkmark-circle'
+                        : 'alert-circle'
+                    }
+                    size={18}
+                    color={
+                      backupStatusMessage.type === 'success'
+                        ? colors.primaryText
+                        : '#EF4444'
+                    }
+                  />
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontSize: 12.5,
+                      fontWeight: '700',
+                      flex: 1,
+                    }}
+                  >
+                    {backupStatusMessage.text}
+                  </Text>
+                </View>
+              )}
+
+              {/* Export Section */}
+              <View
+                style={{
+                  backgroundColor: colors.elevated,
+                  borderRadius: 16,
+                  padding: 16,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  gap: 10,
+                }}
+              >
+                <Text style={{ color: colors.text, fontSize: 15, fontWeight: '800' }}>
+                  {language === 'uk' ? '1. Експорт ваших даних' : '1. Export Your Data'}
+                </Text>
+                <Text style={{ color: colors.secondary, fontSize: 12.5, lineHeight: 18 }}>
+                  {language === 'uk'
+                    ? 'Збережіть повну копію історії тренувань, рекордів, власної програми та нотаток у файл .json.'
+                    : 'Save a full copy of your workout history, PRs, custom routine, and exercise notes as a .json file.'}
+                </Text>
+
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleDownloadBackupJson}
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      backgroundColor: colors.primary,
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                    }}
+                  >
+                    <Ionicons name="download-outline" size={17} color={colors.onPrimary} />
+                    <Text style={{ color: colors.onPrimary, fontSize: 13, fontWeight: '800' }}>
+                      {language === 'uk' ? 'Завантажити .JSON' : 'Download .JSON'}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleCopyBackupJson}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      backgroundColor: colors.surface,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                    }}
+                  >
+                    <Ionicons
+                      name={backupCopied ? 'checkmark' : 'copy-outline'}
+                      size={16}
+                      color={backupCopied ? colors.primaryText : colors.text}
+                    />
+                    <Text
+                      style={{
+                        color: backupCopied ? colors.primaryText : colors.text,
+                        fontSize: 12.5,
+                        fontWeight: '700',
+                      }}
+                    >
+                      {backupCopied
+                        ? language === 'uk'
+                          ? 'Скопійовано'
+                          : 'Copied'
+                        : language === 'uk'
+                          ? 'Копіювати'
+                          : 'Copy'}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Import Section */}
+              <View
+                style={{
+                  backgroundColor: colors.elevated,
+                  borderRadius: 16,
+                  padding: 16,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  gap: 10,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Text style={{ color: colors.text, fontSize: 15, fontWeight: '800' }}>
+                    {language === 'uk' ? '2. Відновлення з копії' : '2. Restore from Backup'}
+                  </Text>
+                  {Platform.OS === 'web' && (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={handlePickBackupFileWeb}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                        backgroundColor: colors.primaryMuted,
+                        borderWidth: 1,
+                        borderColor: colors.accentLine,
+                        paddingHorizontal: 10,
+                        paddingVertical: 5,
+                        borderRadius: 8,
+                      }}
+                    >
+                      <Ionicons name="folder-open-outline" size={14} color={colors.primaryText} />
+                      <Text style={{ color: colors.primaryText, fontSize: 11.5, fontWeight: '800' }}>
+                        {language === 'uk' ? 'Вибрати файл' : 'Choose File'}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+
+                <Text style={{ color: colors.secondary, fontSize: 12.5, lineHeight: 18 }}>
+                  {language === 'uk'
+                    ? 'Виберіть раніше збережений .json файл або вставте його вміст нижче, щоб відновити дані.'
+                    : 'Choose a previously saved .json file or paste its contents below to restore your data.'}
+                </Text>
+
+                <TextInput
+                  value={backupJsonInput}
+                  onChangeText={setBackupJsonInput}
+                  placeholder={
+                    language === 'uk'
+                      ? '{"app": "SPOT", "workouts": [...], "program": {...}}'
+                      : '{"app": "SPOT", "workouts": [...], "program": {...}}'
+                  }
+                  placeholderTextColor={colors.muted}
+                  multiline
+                  numberOfLines={4}
+                  style={{
+                    backgroundColor: colors.background,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 12,
+                    padding: 12,
+                    color: colors.text,
+                    fontSize: 12,
+                    minHeight: 90,
+                    textAlignVertical: 'top',
+                  }}
+                />
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => applyBackupJsonString(backupJsonInput)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.accentLine,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                  }}
+                >
+                  <Ionicons name="cloud-upload-outline" size={17} color={colors.primaryText} />
+                  <Text style={{ color: colors.primaryText, fontSize: 13, fontWeight: '800' }}>
+                    {language === 'uk' ? 'Відновити дані з JSON' : 'Restore Data from JSON'}
+                  </Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+      </Modal>
 
       {/* Saved Exercise Notes Modal */}
       <Modal
@@ -822,18 +1344,18 @@ export default function Profile() {
                   justifyContent: 'center',
                 }}
               >
-                <Ionicons name="close" size={18} color="#FFFFFF" />
+                <Ionicons name="close" size={18} color={colors.text} />
               </Pressable>
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 20, gap: 10 }}>
               {notesEntries.length === 0 ? (
                 <View style={{ paddingVertical: 32, alignItems: 'center', gap: 8 }}>
-                  <Ionicons name="bookmark-outline" size={28} color="#64748B" />
+                  <Ionicons name="bookmark-outline" size={28} color={colors.muted} />
                   <Text style={{ color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'center' }}>
                     {language === 'uk' ? 'Поки немає збережених нотаток' : 'No saved notes yet'}
                   </Text>
-                  <Text style={{ color: '#8E9BAE', fontSize: 13, textAlign: 'center', lineHeight: 18 }}>
+                  <Text style={{ color: colors.secondary, fontSize: 13, textAlign: 'center', lineHeight: 18 }}>
                     {language === 'uk'
                       ? 'Під час тренування натисніть «Нотатка» біля будь-якої вправи, щоб записати рівень сидіння, хват або підказку.'
                       : 'Tap "Note" on any exercise during a workout to save seat settings, grip, or cues.'}
@@ -848,7 +1370,7 @@ export default function Profile() {
                       setEditingNoteExercise(exKey);
                     }}
                     style={{
-                      backgroundColor: colors.surface,
+                      backgroundColor: colors.elevated,
                       borderRadius: 16,
                       padding: 14,
                       gap: 6,
@@ -858,9 +1380,9 @@ export default function Profile() {
                       <Text style={{ color: colors.text, fontSize: 14, fontWeight: '700' }}>
                         {te(exKey)}
                       </Text>
-                      <Ionicons name="create-outline" size={16} color="#64748B" />
+                      <Ionicons name="create-outline" size={16} color={colors.secondary} />
                     </View>
-                    <Text style={{ color: '#94A3B8', fontSize: 13, lineHeight: 18 }}>{noteText}</Text>
+                    <Text style={{ color: colors.secondary, fontSize: 13, lineHeight: 18 }}>{noteText}</Text>
                   </Pressable>
                 ))
               )}
@@ -904,7 +1426,7 @@ export default function Profile() {
                 paddingHorizontal: 20,
                 paddingVertical: 16,
                 borderBottomWidth: 1,
-                borderBottomColor: 'rgba(255,255,255,0.06)',
+                borderBottomColor: colors.divider,
               }}
             >
               <Text style={{ color: colors.text, fontSize: 18, fontWeight: '800' }}>
@@ -921,7 +1443,7 @@ export default function Profile() {
                   justifyContent: 'center',
                 }}
               >
-                <Ionicons name="close" size={18} color="#FFFFFF" />
+                <Ionicons name="close" size={18} color={colors.text} />
               </Pressable>
             </View>
 
@@ -1168,9 +1690,9 @@ export default function Profile() {
                     </View>
                   </View>
                   <Switch
-                    trackColor={{ false: '#1A212B', true: colors.primary }}
-                    thumbColor={profile.notifications ? '#0B0D0F' : '#8E9BAE'}
-                    ios_backgroundColor="#1A212B"
+                    trackColor={{ false: colors.elevated, true: colors.accentLine }}
+                    thumbColor="#FFFFFF"
+                    ios_backgroundColor={colors.elevated}
                     onValueChange={handleToggleNotifications}
                     value={profile.notifications}
                   />
@@ -1190,9 +1712,9 @@ export default function Profile() {
                     <Text style={styles.rowTitle}>{t('soundEffects')}</Text>
                   </View>
                   <Switch
-                    trackColor={{ false: '#1A212B', true: colors.primary }}
-                    thumbColor={profile.soundEnabled ? '#0B0D0F' : '#8E9BAE'}
-                    ios_backgroundColor="#1A212B"
+                    trackColor={{ false: colors.elevated, true: colors.accentLine }}
+                    thumbColor="#FFFFFF"
+                    ios_backgroundColor={colors.elevated}
                     onValueChange={(val) => {
                       hapticLight();
                       updateProfile({ soundEnabled: val });
@@ -1290,10 +1812,10 @@ export default function Profile() {
                   style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
                 >
                   <View>
-                    <Text style={[styles.rowTitle, { color: colors.primary }]}>{t('restartOnboarding')}</Text>
+                    <Text style={[styles.rowTitle, { color: colors.primaryText }]}>{t('restartOnboarding')}</Text>
                     <Text style={styles.rowSubtitle}>{t('restartSubtitle')}</Text>
                   </View>
-                  <Ionicons name="refresh" size={18} color={colors.primary} />
+                  <Ionicons name="refresh" size={18} color={colors.primaryText} />
                 </Pressable>
               </View>
 
@@ -1303,7 +1825,6 @@ export default function Profile() {
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => {
-                    setAppSettingsVisible(false);
                     handleResetPress();
                   }}
                   style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
@@ -1431,6 +1952,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
+    ...cardElevation(colors),
   },
   quickHubCard: {
     flex: 1,
@@ -1438,6 +1960,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 18,
     padding: 14,
     gap: 10,
+    ...cardElevation(colors),
   },
   quickHubTopRow: {
     flexDirection: 'row',
@@ -1458,10 +1981,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '700',
   },
   quickHubSub: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 11.5,
     fontWeight: '500',
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   cloudCard: {
     flexDirection: 'row',
@@ -1471,6 +1995,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 18,
     padding: 14,
     marginBottom: 24,
+    ...cardElevation(colors),
   },
   cloudCardLeft: {
     flexDirection: 'row',
@@ -1487,7 +2012,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   cloudIconWrapActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    backgroundColor: colors.primaryMuted,
   },
   cloudInfo: {
     flex: 1,
@@ -1500,7 +2025,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   cloudSubtitle: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#8E9BAE',
+    color: colors.secondary,
     marginTop: 2,
   },
   cloudActions: {
@@ -1546,6 +2071,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
   avatarEmoji: {
     fontSize: 28,
   },
@@ -1581,7 +2111,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.elevated,
   },
   beastPillText: {
     fontSize: 10,
@@ -1589,7 +2119,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textTransform: 'uppercase',
   },
   userSubtitle: {
-    color: '#94A3B8',
+    color: colors.secondary,
     fontSize: 12.5,
     fontWeight: '500',
     marginTop: 2,
@@ -1598,7 +2128,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 4,
   },
   statsText: {
-    color: '#CBD5E1',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
@@ -1607,7 +2137,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginLeft: 8,
   },
   sectionTitle: {
-    color: '#64748B',
+    color: colors.muted,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -1624,6 +2154,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 18,
     marginBottom: 16,
     overflow: 'hidden',
+    ...cardElevation(colors),
   },
   dangerCard: {
     backgroundColor: 'rgba(248, 113, 113, 0.06)',
@@ -1642,10 +2173,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderBottomWidth: 0,
   },
   rowPressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.elevated,
   },
   subRow: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: colors.elevated,
     paddingLeft: 22,
   },
   rowLeftWithIcon: {
@@ -1669,10 +2200,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '700',
   },
   rowSubtitle: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '500',
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   badgeRow: {
     flexDirection: 'row',
@@ -1686,7 +2218,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 6,
   },
   proBadgeActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.16)',
+    backgroundColor: colors.primaryMuted,
   },
   betaBadgeActive: {
     backgroundColor: 'rgba(124, 92, 255, 0.2)',
@@ -1697,7 +2229,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '800',
   },
   proBadgeTextActive: {
-    color: colors.primary,
+    color: colors.primaryText,
   },
   betaBadgeTextActive: {
     color: '#C4B5FD',
@@ -1708,12 +2240,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '700',
   },
   dangerSubText: {
-    color: '#6C7A8E',
+    color: colors.secondary,
     fontSize: 12,
     marginTop: 2,
   },
   versionText: {
-    color: '#475569',
+    color: colors.muted,
     textAlign: 'center',
     fontSize: 11,
     fontWeight: '600',
@@ -1723,7 +2255,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   segmentWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: colors.elevated,
     borderRadius: 10,
     padding: 3,
     width: 104,
@@ -1736,10 +2268,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 7,
   },
   segmentBtnActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.activeChipBg,
   },
   segmentBtnText: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 11.5,
     fontWeight: '700',
     letterSpacing: 0.4,
@@ -1748,7 +2280,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     lineHeight: 14,
   },
   segmentBtnTextActive: {
-    color: colors.onPrimary,
+    color: colors.activeChipText,
     fontWeight: '800',
   },
   valueRow: {
@@ -1757,7 +2289,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 8,
   },
   valuePill: {
-    color: '#CBD5E1',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '700',
     backgroundColor: colors.elevated,

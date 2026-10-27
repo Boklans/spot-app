@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 
 interface ExerciseNoteModalProps {
@@ -104,6 +104,8 @@ export function ExerciseNoteModal({
   onClose,
   onSave,
 }: ExerciseNoteModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isUk = language === 'uk';
   const [text, setText] = useState(initialNote);
 
@@ -156,7 +158,7 @@ export function ExerciseNoteModal({
               onPress={onClose}
               style={styles.closeBtn}
             >
-              <Ionicons name="close" size={20} color="#CBD5E1" />
+              <Ionicons name="close" size={20} color={colors.secondary} />
             </Pressable>
           </View>
 
@@ -191,7 +193,7 @@ export function ExerciseNoteModal({
                   pressed && { opacity: 0.75 },
                 ]}
               >
-                <Ionicons name="add" size={12} color={colors.primary} />
+                <Ionicons name="add" size={12} color={colors.primaryText} />
                 <Text style={styles.presetChipText}>{chip}</Text>
               </Pressable>
             ))}
@@ -239,7 +241,7 @@ export function ExerciseNoteModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'center',
@@ -254,11 +256,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.78)',
   },
   card: {
-    backgroundColor: '#13171F',
+    backgroundColor: colors.surface,
     borderRadius: 24,
     padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(182, 240, 0, 0.25)',
+    borderColor: colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -267,14 +269,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   kicker: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.7,
     marginBottom: 2,
   },
   title: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '900',
   },
@@ -282,22 +284,22 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#1C222D',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
   helperText: {
-    color: '#94A3B8',
+    color: colors.secondary,
     fontSize: 12,
     lineHeight: 17,
     marginBottom: 10,
   },
   input: {
-    backgroundColor: '#0D1015',
+    backgroundColor: colors.background,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#262F3D',
-    color: '#FFFFFF',
+    borderColor: colors.border,
+    color: colors.text,
     fontSize: 14,
     lineHeight: 20,
     minHeight: 74,
@@ -315,16 +317,16 @@ const styles = StyleSheet.create({
   presetChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1B222D',
+    backgroundColor: colors.elevated,
     borderRadius: 12,
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderWidth: 1,
-    borderColor: '#2A3444',
+    borderColor: colors.border,
     gap: 3,
   },
   presetChipText: {
-    color: '#CBD5E1',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '600',
   },
@@ -337,7 +339,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#1B222D',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -345,12 +347,12 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#1B222D',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
-    color: '#CBD5E1',
+    color: colors.secondary,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -363,7 +365,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '900',
   },

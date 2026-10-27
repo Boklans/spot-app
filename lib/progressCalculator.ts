@@ -136,12 +136,119 @@ export function calculateProgressSummary(history: CompletedWorkout[], period: Pr
   };
 }
 
+export type MuscleRecoveryStat = {
+  muscle: string;
+  weeklySets: number;
+  targetSets: number;
+  weeklyVolume: number;
+  hoursSinceLast: number | null;
+  recoveryPercent: number;
+  status: 'fresh' | 'recovering' | 'fatigued';
+  lastTrainedDate: string | null;
+};
+
+const OPTIMAL_WEEKLY_SETS: Record<string, number> = {
+  Chest: 12,
+  Back: 14,
+  Legs: 14,
+  Shoulders: 10,
+  Arms: 10,
+  Core: 8,
+};
+
+export function calculateMuscleRecoveryStats(
+  history: CompletedWorkout[],
+  now = new Date()
+): Record<string, MuscleRecoveryStat> {
+  const coreMuscles = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core'];
+  const sevenDaysAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+  const sorted = [...history].sort(
+    (a, b) =>
+      new Date(b.completedAt || b.startedAt).getTime() -
+      new Date(a.completedAt || a.startedAt).getTime()
+  );
+
+  const result: Record<string, MuscleRecoveryStat> = {};
+
+  for (const muscle of coreMuscles) {
+    let weeklySets = 0;
+    let weeklyVolume = 0;
+    let lastTrainedMs: number | null = null;
+    let lastSessionSets = 0;
+    let lastTrainedDate: string | null = null;
+
+    for (const workout of sorted) {
+      const wTime = new Date(workout.completedAt || workout.startedAt).getTime();
+      if (isNaN(wTime)) continue;
+
+      const matchingExercises = (workout.exercises || []).filter(
+        (ex) => normalizeMuscleCategory(ex.muscleGroup).toLowerCase() === muscle.toLowerCase()
+      );
+      if (matchingExercises.length === 0) continue;
+
+      let workoutWorkingSets = 0;
+      let workoutWorkingVol = 0;
+
+      for (const ex of matchingExercises) {
+        const workingSets = (ex.sets || []).filter((s) => s.setType !== 'warmup');
+        workoutWorkingSets += workingSets.length;
+        workoutWorkingVol += workingSets.reduce(
+          (sum, s) => sum + (s.volume || (s.weight || 0) * (s.reps || 0)),
+          0
+        );
+      }
+
+      if (workoutWorkingSets === 0) continue;
+
+      if (wTime >= sevenDaysAgo) {
+        weeklySets += workoutWorkingSets;
+        weeklyVolume += workoutWorkingVol;
+      }
+
+      if (lastTrainedMs === null) {
+        lastTrainedMs = wTime;
+        lastSessionSets = workoutWorkingSets;
+        lastTrainedDate = workout.completedAt || workout.startedAt;
+      }
+    }
+
+    const hoursSinceLast =
+      lastTrainedMs !== null
+        ? Math.max(0, Math.round((now.getTime() - lastTrainedMs) / (1000 * 60 * 60)))
+        : null;
+
+    // Recovery window scales between 36h and 72h based on working sets in last session
+    const requiredHours = Math.min(72, Math.max(36, 36 + lastSessionSets * 3));
+    const recoveryPercent =
+      hoursSinceLast === null
+        ? 100
+        : Math.min(100, Math.max(15, Math.round((hoursSinceLast / requiredHours) * 100)));
+
+    const status: 'fresh' | 'recovering' | 'fatigued' =
+      recoveryPercent >= 85 ? 'fresh' : recoveryPercent >= 50 ? 'recovering' : 'fatigued';
+
+    result[muscle] = {
+      muscle,
+      weeklySets,
+      targetSets: OPTIMAL_WEEKLY_SETS[muscle] ?? 12,
+      weeklyVolume,
+      hoursSinceLast,
+      recoveryPercent,
+      status,
+      lastTrainedDate,
+    };
+  }
+
+  return result;
+}
+
 function calculateMuscleVolumes(workouts: CompletedWorkout[]) {
   const volumes = new Map<string, number>();
   for (const workout of workouts) {
     for (const exercise of workout.exercises) {
       const category = normalizeMuscleCategory(exercise.muscleGroup);
-      const volume = exercise.sets.reduce((total, set) => total + set.volume, 0);
+      const workingSets = exercise.sets.filter((s) => s.setType !== 'warmup');
+      const volume = workingSets.reduce((total, set) => total + set.volume, 0);
       volumes.set(category, (volumes.get(category) ?? 0) + volume);
     }
   }

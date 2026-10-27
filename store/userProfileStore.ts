@@ -49,6 +49,7 @@ export type BaselineLifts = {
 export type UserProfile = {
   name: string;
   avatar: BeastAvatarId;
+  customAvatarUri?: string;
   age?: number;
   sex?: 'male' | 'female' | 'unspecified';
   weightKg: number;
@@ -71,6 +72,7 @@ export type UserProfile = {
 export const DEFAULT_USER_PROFILE: UserProfile = {
   name: 'IHOR',
   avatar: 'gorilla',
+  customAvatarUri: undefined,
   age: 28,
   sex: 'unspecified',
   weightKg: 78,
@@ -130,6 +132,10 @@ function normalizeLoadedProfile(parsed: unknown): UserProfile {
   return {
     name: typeof p.name === 'string' && p.name.trim().length > 0 ? p.name.trim() : DEFAULT_USER_PROFILE.name,
     avatar: validAvatars.includes(p.avatar as BeastAvatarId) ? (p.avatar as BeastAvatarId) : DEFAULT_USER_PROFILE.avatar,
+    customAvatarUri:
+      typeof p.customAvatarUri === 'string' && p.customAvatarUri.trim().length > 0
+        ? p.customAvatarUri.trim()
+        : undefined,
     age: typeof p.age === 'number' && p.age >= 10 && p.age <= 100 ? p.age : DEFAULT_USER_PROFILE.age,
     sex: p.sex === 'male' || p.sex === 'female' ? p.sex : 'unspecified',
     weightKg: typeof p.weightKg === 'number' && p.weightKg >= 20 && p.weightKg <= 300 ? Math.round(p.weightKg * 10) / 10 : DEFAULT_USER_PROFILE.weightKg,
@@ -277,6 +283,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         weightKg: updated.weightKg,
         heightCm: updated.heightCm,
         avatar: updated.avatar,
+        customAvatarUri: updated.customAvatarUri,
         sex: updated.sex,
         baselineLifts: updated.baselineLifts,
       };

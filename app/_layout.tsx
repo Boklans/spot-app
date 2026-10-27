@@ -9,7 +9,11 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useAuthStore } from '@/store/authStore';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
-import { initNotifications, scheduleWorkoutDayReminders } from '@/lib/notificationService';
+import {
+  initNotifications,
+  scheduleWorkoutDayReminders,
+  startLiveWorkoutNotificationSync,
+} from '@/lib/notificationService';
 
 // Initialize non-UI services once at module load time so the root layout stays 100% hook-free
 loadAsync({
@@ -19,10 +23,14 @@ loadAsync({
 
 useAuthStore.getState().init();
 useSubscriptionStore.getState().init();
+useUserProfileStore.getState().loadProfile().catch(() => undefined);
 useWorkoutSessionStore.getState().hydrateSession().catch(() => undefined);
 
 initNotifications()
-  .then(() => scheduleWorkoutDayReminders().catch(() => undefined))
+  .then(() => {
+    startLiveWorkoutNotificationSync();
+    return scheduleWorkoutDayReminders().catch(() => undefined);
+  })
   .catch(() => undefined);
 
 export default function SpotAppRoot() {

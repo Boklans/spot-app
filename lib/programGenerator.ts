@@ -14,8 +14,7 @@ export type GeneratedExercise = {
   targetRepRange: string;
   equipment: EquipmentId;
   weightIncrement: number;
-  restSeconds?: number;
-};
+  restSeconds?: number;  supersetWithNext?: boolean;};
 
 export type GeneratedWorkout = {
   id: string;

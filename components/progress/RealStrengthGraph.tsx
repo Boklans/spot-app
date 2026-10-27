@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Dimensions,
   Pressable,
@@ -6,7 +6,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import { colors } from '@/constants/colors';
+import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
+import { ThemeColors, useThemeColors } from '@/constants/colors';
 import { hapticLight } from '@/lib/haptics';
 
 export type StrengthSessionPoint = {
@@ -18,19 +19,25 @@ export type StrengthSessionPoint = {
   est1RM: number;
 };
 
+export type StrengthChartMetric = 'weight' | 'est1RM' | 'volume';
+
 type RealStrengthGraphProps = {
   data: StrengthSessionPoint[];
   width?: number;
   height?: number;
   unit?: string;
+  metric?: StrengthChartMetric;
 };
 
 export function RealStrengthGraph({
   data,
   width,
-  height = 160,
+  height = 175,
   unit = 'kg',
+  metric = 'weight',
 }: RealStrengthGraphProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const screenWidth = Dimensions.get('window').width;
   const chartWidth = width ?? Math.min(screenWidth - 68, 330);
 
@@ -38,55 +45,109 @@ export function RealStrengthGraph({
     data.length > 0 ? data.length - 1 : 0
   );
 
+  useEffect(() => {
+    if (data.length > 0) {
+      setSelectedIdx(data.length - 1);
+    }
+  }, [data.length, data[0]?.date, data[data.length - 1]?.weight, metric]);
+
   if (!data || data.length === 0) return null;
 
-  // 1. Calculate smart scaling for Y-axis
-  const weights = data.map((d) => d.weight);
-  let rawMin = Math.min(...weights);
-  let rawMax = Math.max(...weights);
+  const getMetricValue = (d: StrengthSessionPoint) => {
+    if (metric === 'est1RM') return Math.round(d.est1RM * 10) / 10;
+    if (metric === 'volume') return Math.round(d.volume);
+    return Math.round(d.weight * 10) / 10;
+  };
+
+  // 1. Calculate smart scaling for Y-axis + Average
+  const values = data.map(getMetricValue);
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const avgVal =
+    Math.round((values.reduce((acc, v) => acc + v, 0) / values.length) * 10) / 10;
 
   let minY: number;
   let maxY: number;
 
   if (rawMin === rawMax) {
-    minY = Math.max(0, rawMin - 10);
-    maxY = rawMax + 10;
+    const step = metric === 'volume' ? Math.max(50, Math.round(rawMax * 0.2)) : 10;
+    minY = Math.max(0, rawMin - step);
+    maxY = rawMax + step;
   } else {
-    const pad = Math.max(2.5, (rawMax - rawMin) * 0.25);
-    minY = Math.max(0, Math.floor((rawMin - pad) / 2.5) * 2.5);
-    maxY = Math.ceil((rawMax + pad) / 2.5) * 2.5;
+    const pad = Math.max(metric === 'volume' ? 25 : 2.5, (rawMax - rawMin) * 0.25);
+    const snap = metric === 'volume' ? 10 : 2.5;
+    minY = Math.max(0, Math.floor((rawMin - pad) / snap) * snap);
+    maxY = Math.ceil((rawMax + pad) / snap) * snap;
   }
 
   const rangeY = maxY - minY || 1;
   const midY = Math.round(((minY + maxY) / 2) * 10) / 10;
 
   // Geometry dimensions
-  const yAxisWidth = 42;
-  const graphAreaWidth = chartWidth - yAxisWidth - 10;
-  const graphAreaHeight = height - 42; // leave space for X-axis dates
-  const topPadding = 16;
-  const bottomPadding = 12;
+  const yAxisWidth = metric === 'volume' ? 46 : 40;
+  const graphAreaWidth = chartWidth - yAxisWidth - 6;
+  const graphAreaHeight = height - 48; // leave space for tooltip & X-axis dates
+  const topPadding = 14;
+  const bottomPadding = 10;
   const usableHeight = graphAreaHeight - topPadding - bottomPadding;
 
   // 2. Map data to coordinates
   const points = data.map((item, idx) => {
+    const val = getMetricValue(item);
     const x =
       data.length === 1
         ? graphAreaWidth / 2
-        : (idx / (data.length - 1)) * (graphAreaWidth - 24) + 12;
+        : (idx / (data.length - 1)) * (graphAreaWidth - 28) + 14;
 
-    const normalizedVal = (item.weight - minY) / rangeY;
+    const normalizedVal = (val - minY) / rangeY;
     const y = topPadding + usableHeight - normalizedVal * usableHeight;
 
     return {
       ...item,
+      metricVal: val,
       x,
       y,
       idx,
     };
   });
 
-  const selectedPoint = points[selectedIdx] ?? points[points.length - 1];
+  const avgNorm = (avgVal - minY) / rangeY;
+  const avgY = topPadding + usableHeight - avgNorm * usableHeight;
+
+  // 3. Smooth Cubic Bezier SVG Path & Gradient Area
+  let linePath = '';
+  let areaPath = '';
+
+  if (points.length === 1) {
+    const p = points[0];
+    linePath = `M ${Math.max(8, p.x - 28)} ${p.y} L ${Math.min(graphAreaWidth - 8, p.x + 28)} ${p.y}`;
+    areaPath = `${linePath} L ${Math.min(graphAreaWidth - 8, p.x + 28)} ${topPadding + usableHeight} L ${Math.max(8, p.x - 28)} ${topPadding + usableHeight} Z`;
+  } else {
+    points.forEach((p, i) => {
+      if (i === 0) {
+        linePath = `M ${p.x} ${p.y}`;
+      } else {
+        const prev = points[i - 1];
+        const cp1x = prev.x + (p.x - prev.x) * 0.45;
+        const cp1y = prev.y;
+        const cp2x = prev.x + (p.x - prev.x) * 0.55;
+        const cp2y = p.y;
+        linePath += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p.x} ${p.y}`;
+      }
+    });
+
+    const first = points[0];
+    const last = points[points.length - 1];
+    const baselineY = topPadding + usableHeight;
+    areaPath = `${linePath} L ${last.x} ${baselineY} L ${first.x} ${baselineY} Z`;
+  }
+
+  const safeSelectedIdx = Math.min(selectedIdx, points.length - 1);
+  const selectedPoint = points[safeSelectedIdx] ?? points[points.length - 1];
+  const prevPoint = safeSelectedIdx > 0 ? points[safeSelectedIdx - 1] : null;
+  const deltaVal = prevPoint
+    ? Math.round((selectedPoint.metricVal - prevPoint.metricVal) * 10) / 10
+    : 0;
 
   const handlePointPress = (idx: number) => {
     hapticLight();
@@ -95,17 +156,40 @@ export function RealStrengthGraph({
 
   return (
     <View style={[styles.wrapper, { width: chartWidth, height }]}>
-      {/* Tooltip for Selected Point */}
+      {/* Interactive Selected Point Callout Pill */}
       {selectedPoint && (
         <View style={styles.tooltipContainer}>
           <View style={styles.tooltipPill}>
             <Text style={styles.tooltipWeight}>
-              {selectedPoint.weight} {unit}
+              {metric === 'est1RM'
+                ? `1RM ${selectedPoint.metricVal} ${unit}`
+                : metric === 'volume'
+                  ? `${selectedPoint.metricVal} ${unit}`
+                  : `${selectedPoint.weight} ${unit}`}
             </Text>
-            <Text style={styles.tooltipDivider}>•</Text>
-            <Text style={styles.tooltipReps}>
-              {selectedPoint.reps} reps
-            </Text>
+            {metric === 'weight' && (
+              <>
+                <Text style={styles.tooltipDivider}>×</Text>
+                <Text style={styles.tooltipReps}>{selectedPoint.reps}</Text>
+              </>
+            )}
+            {deltaVal !== 0 && (
+              <View
+                style={[
+                  styles.deltaBadge,
+                  deltaVal < 0 && styles.deltaBadgeNegative,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.deltaBadgeText,
+                    deltaVal < 0 && styles.deltaBadgeTextNegative,
+                  ]}
+                >
+                  {deltaVal > 0 ? `+${deltaVal}` : `${deltaVal}`} {unit}
+                </Text>
+              </View>
+            )}
             <Text style={styles.tooltipDivider}>•</Text>
             <Text style={styles.tooltipDate}>
               {selectedPoint.formattedDate}
@@ -114,7 +198,7 @@ export function RealStrengthGraph({
         </View>
       )}
 
-      {/* Main Chart Body: Y-Axis + Graph Canvas */}
+      {/* Main Chart Body: Y-Axis + SVG Graph Canvas */}
       <View style={[styles.mainBody, { height: graphAreaHeight }]}>
         {/* Y-Axis Labels */}
         <View style={[styles.yAxis, { width: yAxisWidth }]}>
@@ -124,100 +208,138 @@ export function RealStrengthGraph({
         </View>
 
         {/* Plot Area */}
-        <View style={[styles.plotArea, { width: graphAreaWidth }]}>
-          {/* Horizontal Grid Lines */}
-          <View style={[styles.gridLine, { top: topPadding }]} />
-          <View style={[styles.gridLine, { top: topPadding + usableHeight / 2 }]} />
-          <View style={[styles.gridLine, { top: topPadding + usableHeight }]} />
-
-          {/* Vertical Stems down from points */}
-          {points.map((p) => {
-            const isSelected = p.idx === selectedIdx;
-            return (
-              <View
-                key={`stem-${p.idx}`}
-                style={{
-                  position: 'absolute',
-                  left: p.x - 0.5,
-                  top: p.y,
-                  width: 1,
-                  height: topPadding + usableHeight - p.y,
-                  backgroundColor: isSelected
-                    ? 'rgba(200, 255, 61, 0.35)'
-                    : 'rgba(255, 255, 255, 0.05)',
-                }}
-              />
-            );
-          })}
-
-          {/* Connecting Line Segments */}
-          {points.length > 1 &&
-            points.slice(0, -1).map((p1, idx) => {
-              const p2 = points[idx + 1];
-              const dx = p2.x - p1.x;
-              const dy = p2.y - p1.y;
-              const length = Math.sqrt(dx * dx + dy * dy);
-              const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-              const midX = (p1.x + p2.x) / 2;
-              const midY = (p1.y + p2.y) / 2;
-
-              return (
-                <View
-                  key={`seg-${idx}`}
-                  style={{
-                    position: 'absolute',
-                    left: midX - length / 2,
-                    top: midY - 1.5,
-                    width: length,
-                    height: 3,
-                    backgroundColor: colors.primary,
-                    borderRadius: 1.5,
-                    transform: [{ rotate: `${angle}deg` }],
-                    shadowColor: colors.primary,
-                    shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 0.7,
-                    shadowRadius: 5,
-                  }}
+        <View style={[styles.plotArea, { width: graphAreaWidth, height: graphAreaHeight }]}>
+          <Svg width={graphAreaWidth} height={graphAreaHeight}>
+            <Defs>
+              <LinearGradient id="strengthGrad" x1="0" y1="0" x2="0" y2="1">
+                <Stop
+                  offset="0%"
+                  stopColor={colors.accentLine}
+                  stopOpacity={colors.isDark ? 0.34 : 0.22}
                 />
+                <Stop
+                  offset="65%"
+                  stopColor={colors.accentLine}
+                  stopOpacity={colors.isDark ? 0.08 : 0.05}
+                />
+                <Stop offset="100%" stopColor={colors.accentLine} stopOpacity={0} />
+              </LinearGradient>
+            </Defs>
+
+            {/* Horizontal Grid Lines */}
+            {[topPadding, topPadding + usableHeight / 2, topPadding + usableHeight].map(
+              (yPos, idx) => (
+                <Line
+                  key={`grid-${idx}`}
+                  x1={0}
+                  y1={yPos}
+                  x2={graphAreaWidth}
+                  y2={yPos}
+                  stroke={colors.divider}
+                  strokeWidth={1}
+                />
+              )
+            )}
+
+            {/* Dashed Average Reference Line (when multiple sessions exist) */}
+            {points.length > 1 && (
+              <Line
+                x1={0}
+                y1={avgY}
+                x2={graphAreaWidth}
+                y2={avgY}
+                stroke={colors.isDark ? 'rgba(200, 255, 61, 0.32)' : 'rgba(22, 163, 74, 0.32)'}
+                strokeDasharray="4 4"
+                strokeWidth={1.2}
+              />
+            )}
+
+            {/* Gradient Area Fill under Curve */}
+            {areaPath ? <Path d={areaPath} fill="url(#strengthGrad)" /> : null}
+
+            {/* Selected Point Vertical Crosshair Stem */}
+            {selectedPoint && (
+              <Line
+                x1={selectedPoint.x}
+                y1={topPadding}
+                x2={selectedPoint.x}
+                y2={topPadding + usableHeight}
+                stroke={colors.isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(15, 23, 42, 0.14)'}
+                strokeDasharray="3 3"
+                strokeWidth={1}
+              />
+            )}
+
+            {/* Main Smooth Data Curve */}
+            <Path
+              d={linePath}
+              fill="none"
+              stroke={colors.accentLine}
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+
+            {/* Data Points */}
+            {points.map((p) => {
+              const isSelected = p.idx === safeSelectedIdx;
+              return (
+                <React.Fragment key={`pt-${p.idx}`}>
+                  {isSelected && (
+                    <Circle
+                      cx={p.x}
+                      cy={p.y}
+                      r={10}
+                      fill={colors.primaryMuted}
+                    />
+                  )}
+                  <Circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={isSelected ? 5.5 : 3.5}
+                    fill={isSelected ? colors.surface : colors.accentLine}
+                    stroke={isSelected ? colors.accentLine : colors.surface}
+                    strokeWidth={isSelected ? 2.5 : 1.5}
+                  />
+                </React.Fragment>
               );
             })}
+          </Svg>
 
-          {/* Data Nodes */}
-          {points.map((p) => {
-            const isSelected = p.idx === selectedIdx;
-            return (
-              <Pressable
-                key={`node-${p.idx}`}
-                hitSlop={14}
-                onPress={() => handlePointPress(p.idx)}
-                style={{
-                  position: 'absolute',
-                  left: p.x - 12,
-                  top: p.y - 12,
-                  width: 24,
-                  height: 24,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  zIndex: isSelected ? 10 : 2,
-                }}
-              >
-                {isSelected ? (
-                  <View style={styles.selectedNodeOuter}>
-                    <View style={styles.selectedNodeInner} />
-                  </View>
-                ) : (
-                  <View style={styles.standardNode} />
-                )}
-              </Pressable>
-            );
-          })}
+          {/* Average Label Tag on Right Edge */}
+          {points.length > 1 && (
+            <View
+              pointerEvents="none"
+              style={[
+                styles.avgTag,
+                { top: Math.max(2, Math.min(graphAreaHeight - 18, avgY - 8)) },
+              ]}
+            >
+              <Text style={styles.avgTagText}>AVG {avgVal}</Text>
+            </View>
+          )}
+
+          {/* Interactive Touch Targets */}
+          {points.map((p) => (
+            <Pressable
+              key={`touch-${p.idx}`}
+              hitSlop={14}
+              onPress={() => handlePointPress(p.idx)}
+              style={{
+                position: 'absolute',
+                left: p.x - 16,
+                top: p.y - 16,
+                width: 32,
+                height: 32,
+              }}
+            />
+          ))}
         </View>
       </View>
 
       {/* X-Axis Timeline Dates */}
       <View style={[styles.xAxis, { marginLeft: yAxisWidth, width: graphAreaWidth }]}>
         {points.map((p, idx) => {
-          // If too many points, show first, middle, last
           const showLabel =
             points.length <= 4 ||
             idx === 0 ||
@@ -232,9 +354,9 @@ export function RealStrengthGraph({
               style={[
                 styles.xAxisText,
                 {
-                  left: Math.max(0, Math.min(graphAreaWidth - 45, p.x - 20)),
+                  left: Math.max(0, Math.min(graphAreaWidth - 48, p.x - 22)),
                 },
-                p.idx === selectedIdx && styles.xAxisTextActive,
+                p.idx === safeSelectedIdx && styles.xAxisTextActive,
               ]}
             >
               {p.formattedDate}
@@ -246,118 +368,120 @@ export function RealStrengthGraph({
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    position: 'relative',
-    marginTop: 6,
-    marginBottom: 4,
-  },
-  tooltipContainer: {
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  tooltipPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#161B24',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  tooltipWeight: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  tooltipDivider: {
-    color: '#4B5565',
-    fontSize: 12,
-  },
-  tooltipReps: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  tooltipDate: {
-    color: '#8E9BAE',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  mainBody: {
-    flexDirection: 'row',
-    width: '100%',
-  },
-  yAxis: {
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    alignItems: 'flex-start',
-  },
-  yAxisText: {
-    color: '#6C7A8E',
-    fontSize: 10,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  plotArea: {
-    position: 'relative',
-    height: '100%',
-  },
-  gridLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  standardNode: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-  },
-  selectedNodeOuter: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    backgroundColor: '#12161D',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  selectedNodeInner: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
-  },
-  xAxis: {
-    position: 'relative',
-    height: 20,
-    marginTop: 4,
-  },
-  xAxisText: {
-    position: 'absolute',
-    color: '#6C7A8E',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  xAxisTextActive: {
-    color: colors.primary,
-    fontWeight: '800',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    wrapper: {
+      position: 'relative',
+      marginTop: 4,
+      marginBottom: 4,
+    },
+    tooltipContainer: {
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    tooltipPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.elevated,
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    tooltipWeight: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '800',
+      fontVariant: ['tabular-nums'],
+    },
+    tooltipDivider: {
+      color: colors.muted,
+      fontSize: 11,
+    },
+    tooltipReps: {
+      color: colors.text,
+      fontSize: 12.5,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    deltaBadge: {
+      backgroundColor: colors.primaryMuted,
+      paddingHorizontal: 6,
+      paddingVertical: 1.5,
+      borderRadius: 6,
+    },
+    deltaBadgeNegative: {
+      backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    },
+    deltaBadgeText: {
+      color: colors.primaryText,
+      fontSize: 10.5,
+      fontWeight: '800',
+      fontVariant: ['tabular-nums'],
+    },
+    deltaBadgeTextNegative: {
+      color: colors.danger,
+    },
+    tooltipDate: {
+      color: colors.secondary,
+      fontSize: 11,
+      fontWeight: '600',
+      fontVariant: ['tabular-nums'],
+    },
+    mainBody: {
+      flexDirection: 'row',
+      width: '100%',
+    },
+    yAxis: {
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+      alignItems: 'flex-start',
+    },
+    yAxisText: {
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    plotArea: {
+      position: 'relative',
+      height: '100%',
+    },
+    avgTag: {
+      position: 'absolute',
+      right: 4,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 5,
+      paddingVertical: 1,
+      borderRadius: 4,
+      borderWidth: 1,
+      borderColor: colors.border,
+      opacity: 0.9,
+    },
+    avgTagText: {
+      color: colors.secondary,
+      fontSize: 8.5,
+      fontWeight: '800',
+      letterSpacing: 0.3,
+      fontVariant: ['tabular-nums'],
+    },
+    xAxis: {
+      position: 'relative',
+      height: 18,
+      marginTop: 4,
+    },
+    xAxisText: {
+      position: 'absolute',
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: '600',
+      fontVariant: ['tabular-nums'],
+    },
+    xAxisTextActive: {
+      color: colors.text,
+      fontWeight: '800',
+    },
+  });
 

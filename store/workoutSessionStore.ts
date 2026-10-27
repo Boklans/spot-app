@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { generateProgram, resolveRestSeconds, type EquipmentId, type GeneratedExercise, type GeneratedWorkout } from '@/lib/programGenerator';
 import { findLatestExerciseSets, inferEquipmentFromName, practicalIncrement, recommendWeight, type WeightRecommendation } from '@/lib/adaptiveProgression';
-import type { CompletedWorkout, PersonalRecord } from '@/types/workout';
+import type { CompletedWorkout, PersonalRecord, SetType } from '@/types/workout';
 import type { UserWorkout } from '@/types/userProgram';
 import { defaultOnboarding } from './workoutStore';
 import { useWorkoutHistoryStore } from './workoutHistoryStore';
@@ -18,6 +18,7 @@ export type WorkoutSet = {
   completed: boolean;
   completedAt?: string;
   rir?: number;
+  setType?: SetType;
 };
 
 export type PreviousSet = {
@@ -38,6 +39,7 @@ export type WorkoutExercise = {
   isCustomRest?: boolean;
   customImageUri?: string;
   isCustom?: boolean;
+  supersetWithNext?: boolean;
 };
 
 export type WorkoutSession = {
@@ -74,10 +76,28 @@ type WorkoutSessionState = {
   setPersonalRecords: (personalRecords: PersonalRecord[]) => void;
   updateCurrentSet: (values: { weight?: number; reps?: number; rir?: number | null }, propagate?: boolean) => void;
   updateSet: (exerciseIndex: number, setIndex: number, values: { weight?: number; reps?: number; rir?: number | null }, propagate?: boolean) => void;
+  cycleSetType: (exerciseIndex: number, setIndex: number) => void;
   updateExerciseRest: (exerciseIndex: number, restSeconds: number, applyToAll?: boolean) => void;
   addRestTime: (seconds: number) => void;
   skipRest: () => void;
-  swapExercise: (newExercise: { name: string; muscleGroup: string; defaultWeight?: number }) => void;
+  swapExercise: (newExercise: {
+    name: string;
+    muscleGroup: string;
+    defaultWeight?: number;
+    customImageUri?: string;
+    isCustom?: boolean;
+    equipment?: EquipmentId;
+  }) => void;
+  addExercise: (newExercise: {
+    name: string;
+    muscleGroup: string;
+    defaultWeight?: number;
+    customImageUri?: string;
+    isCustom?: boolean;
+    equipment?: EquipmentId;
+  }) => void;
+  toggleSuperset: (exerciseIndex: number) => void;
+  setCurrentExerciseIndex: (exerciseIndex: number) => void;
   setCurrentSetIndex: (setIndex: number) => void;
   addSet: (exerciseIndex: number) => void;
   removeSet: (exerciseIndex: number) => void;
@@ -217,6 +237,7 @@ function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history
       isCustomRest: (exercise as any).isCustomRest,
       customImageUri: (exercise as any).customImageUri,
       isCustom: (exercise as any).isCustom,
+      supersetWithNext: Boolean((exercise as any).supersetWithNext),
       sets: Array.from({ length: exercise.sets || 3 }, (_, setIndex) => ({
         id: `exercise-${exerciseIndex + 1}-set-${setIndex + 1}`,
         weight,
@@ -364,42 +385,75 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       let nextExerciseIndex = targetExIdx;
       let nextSetIndex = targetSetIdx;
       let movedToAnotherExercise = false;
+      let isSupersetTransitionToSecond = false;
 
-      // 1. Next uncompleted set in current exercise after targetSetIdx
-      const nextAfterInCurrent = currentExUpdated.sets.findIndex(
-        (s, idx) => idx > targetSetIdx && !s.completed
-      );
-      // 2. Any earlier uncompleted set in current exercise
-      const anyUncompletedInCurrent = currentExUpdated.sets.findIndex((s) => !s.completed);
+      // Smart Superset Check:
+      // 1) If current exercise is A1 in a superset (supersetWithNext === true), jump to A2 (targetExIdx + 1) if A2 has uncompleted sets
+      const nextPartnerEx = currentExUpdated.supersetWithNext
+        ? exercisesWithCompletedSet[targetExIdx + 1]
+        : undefined;
+      const prevPartnerEx = targetExIdx > 0 && exercisesWithCompletedSet[targetExIdx - 1]?.supersetWithNext
+        ? exercisesWithCompletedSet[targetExIdx - 1]
+        : undefined;
 
-      if (nextAfterInCurrent !== -1) {
-        nextSetIndex = nextAfterInCurrent;
-      } else if (anyUncompletedInCurrent !== -1) {
-        nextSetIndex = anyUncompletedInCurrent;
-      } else {
-        // 3. Find next exercise with uncompleted sets
+      const nextPartnerUncompletedIdx = nextPartnerEx
+        ? nextPartnerEx.sets.findIndex((s) => !s.completed)
+        : -1;
+      const prevPartnerUncompletedIdx = prevPartnerEx
+        ? prevPartnerEx.sets.findIndex((s) => !s.completed)
+        : -1;
+
+      if (nextPartnerEx && nextPartnerUncompletedIdx !== -1) {
+        // Jump from A1 -> A2
+        nextExerciseIndex = targetExIdx + 1;
+        nextSetIndex = nextPartnerUncompletedIdx;
         movedToAnotherExercise = true;
-        let foundExIdx = exercisesWithCompletedSet.findIndex(
-          (ex, idx) => idx > targetExIdx && ex.sets.some((s) => !s.completed)
+        isSupersetTransitionToSecond = true;
+      } else if (prevPartnerEx && prevPartnerUncompletedIdx !== -1) {
+        // Jump from A2 -> A1 for the next round of the superset
+        nextExerciseIndex = targetExIdx - 1;
+        nextSetIndex = prevPartnerUncompletedIdx;
+        movedToAnotherExercise = true;
+      } else {
+        // Standard progression within current exercise
+        // 1. Next uncompleted set in current exercise after targetSetIdx
+        const nextAfterInCurrent = currentExUpdated.sets.findIndex(
+          (s, idx) => idx > targetSetIdx && !s.completed
         );
-        if (foundExIdx === -1) {
-          foundExIdx = exercisesWithCompletedSet.findIndex((ex) =>
-            ex.sets.some((s) => !s.completed)
+        // 2. Any earlier uncompleted set in current exercise
+        const anyUncompletedInCurrent = currentExUpdated.sets.findIndex((s) => !s.completed);
+
+        if (nextAfterInCurrent !== -1) {
+          nextSetIndex = nextAfterInCurrent;
+        } else if (anyUncompletedInCurrent !== -1) {
+          nextSetIndex = anyUncompletedInCurrent;
+        } else {
+          // 3. Find next exercise with uncompleted sets
+          movedToAnotherExercise = true;
+          let foundExIdx = exercisesWithCompletedSet.findIndex(
+            (ex, idx) => idx > targetExIdx && ex.sets.some((s) => !s.completed)
           );
-        }
-        if (foundExIdx !== -1) {
-          nextExerciseIndex = foundExIdx;
-          nextSetIndex = Math.max(
-            0,
-            exercisesWithCompletedSet[foundExIdx].sets.findIndex((s) => !s.completed)
-          );
+          if (foundExIdx === -1) {
+            foundExIdx = exercisesWithCompletedSet.findIndex((ex) =>
+              ex.sets.some((s) => !s.completed)
+            );
+          }
+          if (foundExIdx !== -1) {
+            nextExerciseIndex = foundExIdx;
+            nextSetIndex = Math.max(
+              0,
+              exercisesWithCompletedSet[foundExIdx].sets.findIndex((s) => !s.completed)
+            );
+          }
         }
       }
 
       const targetExerciseForRest = movedToAnotherExercise
         ? exercisesWithCompletedSet[nextExerciseIndex] ?? exercise
         : exercise;
-      const restDuration = resolveRestSeconds(targetExerciseForRest);
+      const restDuration = isSupersetTransitionToSecond
+        ? 0
+        : resolveRestSeconds(targetExerciseForRest);
 
       return {
         ...state,
@@ -457,6 +511,88 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
                   }),
                 },
           ),
+        },
+      };
+    });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
+  },
+
+  cycleSetType: (exerciseIndex, setIndex) => {
+    const order: SetType[] = ['normal', 'warmup', 'dropset', 'failure'];
+    set((state) => {
+      if (!state.session) return state;
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          exercises: state.session.exercises.map((exercise, exIdx) => {
+            if (exIdx !== exerciseIndex) return exercise;
+            return {
+              ...exercise,
+              sets: exercise.sets.map((workoutSet, sIdx) => {
+                if (sIdx !== setIndex) return workoutSet;
+                const currentType: SetType = workoutSet.setType ?? 'normal';
+                const nextType = order[(order.indexOf(currentType) + 1) % order.length];
+                return { ...workoutSet, setType: nextType };
+              }),
+            };
+          }),
+        },
+      };
+    });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
+  },
+
+  setCurrentExerciseIndex: (exerciseIndex) => {
+    set((state) => {
+      if (!state.session) return state;
+      const boundedEx = Math.max(0, Math.min(state.session.exercises.length - 1, exerciseIndex));
+      const targetEx = state.session.exercises[boundedEx];
+      if (!targetEx) return state;
+      const firstUncompleted = targetEx.sets.findIndex((s) => !s.completed);
+      const nextSetIdx = firstUncompleted !== -1 ? firstUncompleted : Math.max(0, targetEx.sets.length - 1);
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          currentExerciseIndex: boundedEx,
+          currentSetIndex: nextSetIdx,
+        },
+      };
+    });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session && !state.session.completed) {
+      persistSnapshot({
+        session: state.session,
+        restEndsAt: state.restEndsAt,
+        restNextType: state.restNextType,
+      });
+    }
+  },
+
+  toggleSuperset: (exerciseIndex) => {
+    set((state) => {
+      if (!state.session) return state;
+      if (exerciseIndex < 0 || exerciseIndex >= state.session.exercises.length - 1) return state;
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          exercises: state.session.exercises.map((ex, idx) => {
+            if (idx === exerciseIndex) {
+              return { ...ex, supersetWithNext: !ex.supersetWithNext };
+            }
+            // Prevent chaining more than 2 exercises into a single superset pair for clean A1/A2 UX
+            if (idx === exerciseIndex - 1 && !state.session?.exercises[exerciseIndex]?.supersetWithNext) {
+              return { ...ex, supersetWithNext: false };
+            }
+            if (idx === exerciseIndex + 1 && !state.session?.exercises[exerciseIndex]?.supersetWithNext) {
+              return { ...ex, supersetWithNext: false };
+            }
+            return ex;
+          }),
         },
       };
     });
@@ -631,7 +767,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       const currentEx = state.session.exercises[currentExerciseIndex];
       const history = useWorkoutHistoryStore.getState().workouts;
       const isBw = typeof newExercise.defaultWeight === 'number' && newExercise.defaultWeight === 0;
-      const inferredEquipment = isBw ? 'bodyweight' : inferEquipmentFromName(newExercise.name, 'barbell');
+      const inferredEquipment = newExercise.equipment || (isBw ? 'bodyweight' : inferEquipmentFromName(newExercise.name, 'barbell'));
       const swappedId = newExercise.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const generatedEx: GeneratedExercise = {
         id: swappedId || `swapped-${Date.now()}`,
@@ -667,6 +803,8 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
               previousSets,
               recommendation: rec,
               weightIncrement: resolvedIncrement,
+              customImageUri: newExercise.customImageUri,
+              isCustom: newExercise.isCustom,
               sets: ex.sets.map((s) => ({
                 ...s,
                 weight: rec.recommendedWeight,
@@ -676,6 +814,73 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
               })),
             };
           }),
+        },
+      };
+    });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session) {
+      persistSnapshot({
+        session: state.session,
+        restEndsAt: state.restEndsAt,
+        restNextType: state.restNextType,
+      });
+    }
+  },
+
+  addExercise: (newExercise) => {
+    set((state) => {
+      if (!state.session) return state;
+      const history = useWorkoutHistoryStore.getState().workouts;
+      const isBw = typeof newExercise.defaultWeight === 'number' && newExercise.defaultWeight === 0;
+      const inferredEquipment = newExercise.equipment || (isBw ? 'bodyweight' : inferEquipmentFromName(newExercise.name, 'barbell'));
+      const addedId = `${newExercise.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'ex'}-${Date.now()}`;
+      const generatedEx: GeneratedExercise = {
+        id: addedId,
+        name: newExercise.name,
+        muscleGroup: newExercise.muscleGroup,
+        equipment: inferredEquipment,
+        sets: 3,
+        targetRepRange: '8-12',
+        recommendedWeight: newExercise.defaultWeight ?? 20,
+        weightIncrement: practicalIncrement(inferredEquipment, newExercise.defaultWeight ?? 20),
+        restSeconds: resolveRestSeconds(),
+      };
+      const previousSets = findLatestExerciseSets(history, generatedEx);
+      const rec = recommendWeight(generatedEx, previousSets);
+      const defaultMinReps = Number.parseInt(generatedEx.targetRepRange ? generatedEx.targetRepRange.split('-')[0] : '8', 10) || 8;
+      const resolvedIncrement = practicalIncrement(inferredEquipment, rec.recommendedWeight);
+      const newExerciseIndex = state.session.exercises.length;
+
+      const createdExercise: WorkoutExercise = {
+        id: generatedEx.id,
+        name: newExercise.name,
+        muscleGroup: newExercise.muscleGroup,
+        equipment: inferredEquipment,
+        previousSets,
+        recommendation: rec,
+        weightIncrement: resolvedIncrement,
+        restSeconds: generatedEx.restSeconds ?? 90,
+        customImageUri: newExercise.customImageUri,
+        isCustom: newExercise.isCustom,
+        sets: Array.from({ length: 3 }, (_, sIdx) => ({
+          id: `exercise-${newExerciseIndex + 1}-set-${sIdx + 1}-${Date.now()}`,
+          weight: rec.recommendedWeight,
+          reps: rec.recommendedReps ?? defaultMinReps,
+          targetReps: '8-12',
+          completed: false,
+          setType: 'normal',
+        })),
+      };
+
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          completed: false,
+          completedAt: undefined,
+          currentExerciseIndex: newExerciseIndex,
+          currentSetIndex: 0,
+          exercises: [...state.session.exercises, createdExercise],
         },
       };
     });
@@ -720,12 +925,13 @@ export function getSessionProgress(session: WorkoutSession) {
 export function getSessionSummary(session: WorkoutSession) {
   const plannedSets = session.exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
   const completedSets = session.exercises.flatMap((exercise) => exercise.sets.filter(isValidSessionSet));
+  const workingCompletedSets = completedSets.filter((s) => s.setType !== 'warmup');
   const durationMs = session.completedAt
     ? Math.max(0, new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime())
     : 0;
   const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
   const volume = Math.round(
-    completedSets.reduce((total, workoutSet) => total + workoutSet.weight * workoutSet.reps, 0) * 100
+    workingCompletedSets.reduce((total, workoutSet) => total + workoutSet.weight * workoutSet.reps, 0) * 100
   ) / 100;
   const exerciseCount = session.exercises.filter((exercise) => exercise.sets.some(isValidSessionSet)).length;
   const plannedExerciseCount = session.exercises.length;

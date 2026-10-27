@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/constants/colors';
+import { OnboardingHeader } from '@/components/onboarding/OnboardingHeader';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticImpact, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { loadOnboarding, saveOnboarding } from '@/store/workoutStore';
@@ -23,6 +24,8 @@ interface EquipmentOption {
 }
 
 export default function Equipment() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, language } = useI18n();
   const isUk = language === 'uk';
   const [selected, setSelected] = useState<string[]>(['full_gym']);
@@ -91,20 +94,8 @@ export default function Equipment() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* 1. Top Bar */}
-      <View style={styles.topBar}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={12}
-          onPress={() => router.back()}
-          style={styles.backBtn}
-        >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-        </Pressable>
-        <Text style={styles.stepText}>4/5</Text>
-        <View style={styles.topBarPlaceholder} />
-      </View>
+      {/* 1. Unified Top Bar with 4/5 Progress */}
+      <OnboardingHeader step={4} totalSteps={5} />
 
       <ScrollView
         style={styles.scrollView}
@@ -148,7 +139,7 @@ export default function Equipment() {
                   <MaterialCommunityIcons
                     name={opt.icon}
                     size={24}
-                    color={isSelected ? colors.primary : '#8E9BAE'}
+                    color={isSelected ? colors.primaryText : colors.secondary}
                   />
                 </View>
 
@@ -171,7 +162,7 @@ export default function Equipment() {
                   ]}
                 >
                   {isSelected && (
-                    <Ionicons name="checkmark" size={16} color="#0B0D0F" />
+                    <Ionicons name="checkmark" size={16} color={colors.onPrimary} />
                   )}
                 </View>
               </Pressable>
@@ -198,150 +189,153 @@ export default function Equipment() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#0B0D0F',
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    height: 44,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
-    backgroundColor: '#161B22',
-  },
-  stepText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#8E9BAE',
-    letterSpacing: 0.5,
-  },
-  topBarPlaceholder: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 6,
-    paddingBottom: 24,
-  },
-  titleSection: {
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#8E9BAE',
-    marginTop: 6,
-    lineHeight: 20,
-  },
-  optionsList: {
-    gap: 12,
-  },
-  optionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#12161D',
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#1D2430',
-    padding: 16,
-  },
-  optionCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(200, 255, 61, 0.05)',
-  },
-  iconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#161B22',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  iconWrapSelected: {
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
-  },
-  textWrap: {
-    flex: 1,
-  },
-  optionLabel: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  optionLabelSelected: {
-    color: '#FFFFFF',
-  },
-  optionDetail: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#8E9BAE',
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    borderWidth: 1.5,
-    borderColor: '#2D3748',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-  checkboxSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  bottomBar: {
-    width: '100%',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 24,
-    backgroundColor: '#0B0D0F',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  continueBtn: {
-    width: '100%',
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  continueBtnPressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.99 }],
-  },
-  continueText: {
-    color: '#0B0D0F',
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    safe: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      height: 44,
+    },
+    backBtn: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 20,
+      backgroundColor: colors.surface,
+      borderWidth: colors.isDark ? 0 : 1,
+      borderColor: colors.border,
+    },
+    stepText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.secondary,
+      letterSpacing: 0.5,
+    },
+    topBarPlaceholder: {
+      width: 40,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 6,
+      paddingBottom: 24,
+    },
+    titleSection: {
+      marginTop: 8,
+      marginBottom: 16,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: '900',
+      color: colors.text,
+      letterSpacing: -0.5,
+    },
+    subtitle: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.secondary,
+      marginTop: 6,
+      lineHeight: 20,
+    },
+    optionsList: {
+      gap: 12,
+    },
+    optionCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 18,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      padding: 16,
+    },
+    optionCardSelected: {
+      borderColor: colors.accentLine,
+      backgroundColor: colors.primaryMuted,
+    },
+    iconWrap: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      backgroundColor: colors.elevated,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 14,
+    },
+    iconWrapSelected: {
+      backgroundColor: colors.primaryMuted,
+    },
+    textWrap: {
+      flex: 1,
+    },
+    optionLabel: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    optionLabelSelected: {
+      color: colors.text,
+    },
+    optionDetail: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.secondary,
+      marginTop: 4,
+      lineHeight: 18,
+    },
+    checkbox: {
+      width: 24,
+      height: 24,
+      borderRadius: 7,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 12,
+    },
+    checkboxSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.accentLine,
+    },
+    bottomBar: {
+      width: '100%',
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: Platform.OS === 'ios' ? 20 : 24,
+      backgroundColor: colors.background,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    continueBtn: {
+      width: '100%',
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: colors.isDark ? colors.primary : '#0F172A',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: colors.isDark ? 0.35 : 0.12,
+      shadowRadius: 10,
+      elevation: 4,
+    },
+    continueBtnPressed: {
+      opacity: 0.85,
+      transform: [{ scale: 0.99 }],
+    },
+    continueText: {
+      color: colors.onPrimary,
+      fontSize: 16,
+      fontWeight: '900',
+      letterSpacing: 0.5,
+    },
+  });

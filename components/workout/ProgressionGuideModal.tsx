@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   Platform,
@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 
 interface ProgressionGuideModalProps {
@@ -24,6 +24,8 @@ export function ProgressionGuideModal({
   onClose,
   language,
 }: ProgressionGuideModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isUk = language === 'uk';
   if (!visible) return null;
 
@@ -39,7 +41,7 @@ export function ProgressionGuideModal({
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
               <View style={styles.kickerBadge}>
-                <Ionicons name="trending-up" size={12} color={colors.primary} />
+                <Ionicons name="trending-up" size={12} color={colors.primaryText} />
                 <Text style={styles.kickerText}>
                   {isUk ? 'АДАПТИВНИЙ АЛГОРИТМ SPOT' : 'SPOT ADAPTIVE ENGINE'}
                 </Text>
@@ -58,7 +60,7 @@ export function ProgressionGuideModal({
               }}
               style={styles.closeBtn}
             >
-              <Ionicons name="close" size={22} color="#CBD5E1" />
+              <Ionicons name="close" size={22} color={colors.secondary} />
             </Pressable>
           </View>
 
@@ -69,8 +71,8 @@ export function ProgressionGuideModal({
             {/* Card 0: How starting weight is determined */}
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <View style={[styles.iconCircle, { backgroundColor: 'rgba(200, 255, 61, 0.14)' }]}>
-                  <Ionicons name="speedometer-outline" size={18} color={colors.primary} />
+                <View style={[styles.iconCircle, { backgroundColor: colors.primaryMuted }]}>
+                  <Ionicons name="speedometer-outline" size={18} color={colors.primaryText} />
                 </View>
                 <Text style={styles.cardTitle}>
                   {isUk ? '0. Як визначається стартова вага?' : '0. How Is Starting Weight Set?'}
@@ -113,7 +115,7 @@ export function ProgressionGuideModal({
             <View style={styles.card}>
               <View style={styles.cardHeader}>
                 <View style={styles.iconCircle}>
-                  <Ionicons name="repeat" size={18} color={colors.primary} />
+                  <Ionicons name="repeat" size={18} color={colors.primaryText} />
                 </View>
                 <Text style={styles.cardTitle}>
                   {isUk
@@ -293,19 +295,19 @@ export function ProgressionGuideModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.82)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#0B0D0F',
+    backgroundColor: colors.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '90%',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(182, 240, 0, 0.22)',
+    borderTopColor: colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -315,7 +317,7 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    borderBottomColor: colors.divider,
   },
   kickerBadge: {
     flexDirection: 'row',
@@ -324,13 +326,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   kickerText: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.8,
   },
   title: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 20,
     fontWeight: '900',
   },
@@ -338,7 +340,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#161B22',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -348,11 +350,11 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   card: {
-    backgroundColor: '#12161D',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#1E2530',
+    borderColor: colors.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -364,18 +366,18 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'rgba(182, 240, 0, 0.14)',
+    backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
     flex: 1,
   },
   cardBody: {
-    color: '#CBD5E1',
+    color: colors.secondary,
     fontSize: 13,
     lineHeight: 19,
     marginBottom: 12,
@@ -386,14 +388,14 @@ const styles = StyleSheet.create({
   stepRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#171C24',
+    backgroundColor: colors.elevated,
     borderRadius: 12,
     padding: 10,
     gap: 10,
   },
   stepBadge: {
-    backgroundColor: '#262F3D',
-    color: colors.primary,
+    backgroundColor: colors.surface,
+    color: colors.primaryText,
     fontSize: 10,
     fontWeight: '900',
     paddingHorizontal: 7,
@@ -403,7 +405,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   stepRowText: {
-    color: '#F1F5F9',
+    color: colors.text,
     fontSize: 12,
     lineHeight: 18,
     fontWeight: '600',
@@ -424,7 +426,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   bulletText: {
-    color: '#E2E8F0',
+    color: colors.text,
     fontSize: 12,
     lineHeight: 18,
     flex: 1,
@@ -434,7 +436,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 18 : 22,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    borderTopColor: colors.divider,
   },
   gotItBtn: {
     height: 50,
@@ -445,7 +447,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   gotItText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '900',
   },

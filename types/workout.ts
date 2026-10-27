@@ -9,12 +9,15 @@ export type PersonalRecord = {
   label: string;
 };
 
+export type SetType = 'normal' | 'warmup' | 'dropset' | 'failure';
+
 export type CompletedSet = {
   weight: number;
   reps: number;
   volume: number;
   completedAt: string;
   rir?: number;
+  setType?: SetType;
 };
 
 export type CompletedExercise = {
@@ -22,6 +25,7 @@ export type CompletedExercise = {
   exerciseName: string;
   muscleGroup: string;
   sets: CompletedSet[];
+  supersetWithNext?: boolean;
 };
 
 export type CompletedWorkout = {

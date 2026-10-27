@@ -312,7 +312,7 @@ export function ExerciseDetailModal({
                   pressed && { opacity: 0.8 },
                 ]}
               >
-                <Ionicons name="options-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Ionicons name="options-outline" size={18} color={colors.text} style={{ marginRight: 6 }} />
                 <Text style={styles.configureBtnText}>
                   {isUk ? 'Налаштувати' : 'Configure'}
                 </Text>
@@ -349,7 +349,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     height: '92%',
@@ -364,6 +364,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
+    backgroundColor: colors.surface,
   },
   headerKickerText: {
     color: colors.secondary,
@@ -398,6 +399,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 18,
     backgroundColor: colors.surface,
     overflow: 'hidden',
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.border,
   },
   heroImage: {
     width: '100%',
@@ -408,6 +411,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     gap: 12,
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.border,
   },
   sectionHeaderTitle: {
     color: colors.text,
@@ -499,7 +504,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '500',
   },
   stepDescription: {
-    color: '#94A3B8',
+    color: colors.secondary,
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '400',
@@ -516,12 +521,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: '#6C7685',
+    backgroundColor: colors.secondary,
     marginTop: 7,
   },
   mistakeItemText: {
     flex: 1,
-    color: '#CBD5E1',
+    color: colors.text,
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '400',
@@ -572,7 +577,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statDivider: {
     width: 1,
     height: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: colors.divider,
     marginHorizontal: 14,
   },
   bottomBar: {

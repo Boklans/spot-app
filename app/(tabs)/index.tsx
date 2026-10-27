@@ -1,10 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
-import { useThemeColors, type ThemeColors } from '@/constants/colors';
+import { HomeSkeleton } from '@/components/ui/Skeleton';
+import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { countWorkoutsThisWeek, getStartOfWeek } from '@/lib/progressCalculator';
 import { findLatestExerciseSets, inferEquipmentFromName, recommendWeight } from '@/lib/adaptiveProgression';
@@ -27,12 +28,19 @@ export default function Home() {
 
   const profile = useUserProfileStore((state) => state.profile);
   const program = useProgramStore((state) => state.program);
+  const programHydrated = useProgramStore((state) => state.hydrated);
   const activeSession = useWorkoutSessionStore((state) => state.session);
   const progress = useProgramProgressStore((state) => state.progress);
   const setNextWorkout = useProgramProgressStore((state) => state.setNextWorkout);
   const history = useWorkoutHistoryStore((state) => state.workouts);
+  const historyHydrated = useWorkoutHistoryStore((state) => state.hydrated);
   const [switchModalVisible, setSwitchModalVisible] = useState(false);
   const [switchModalMode, setSwitchModalMode] = useState<'switch' | 'start'>('switch');
+
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const entryFadeAnim = useRef(new Animated.Value(0)).current;
+  const entrySlideAnim = useRef(new Animated.Value(8)).current;
 
   // Focus synchronization
   useFocusEffect(
@@ -241,7 +249,62 @@ export default function Home() {
     ? `${greetingPrefix}, ${userGreetingName}`
     : greetingPrefix;
 
-  if (!program || !program.workouts || program.workouts.length === 0 || !nextWorkout) {
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(entryFadeAnim, {
+        toValue: 1,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(entrySlideAnim, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [homeState, entryFadeAnim, entrySlideAnim]);
+
+  useEffect(() => {
+    if (homeState !== 'IN_PROGRESS') return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.45,
+          duration: 850,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 850,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [homeState, pulseAnim]);
+
+  useEffect(() => {
+    const targetPct = inProgressData?.percent ?? 0;
+    Animated.spring(progressAnim, {
+      toValue: targetPct,
+      useNativeDriver: false,
+      speed: 16,
+      bounciness: 5,
+    }).start();
+  }, [inProgressData?.percent, progressAnim]);
+
+  const animatedProgressWidth = progressAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
+
+  if (!programHydrated || (!historyHydrated && history.length === 0) || !program || !program.workouts || program.workouts.length === 0 || !nextWorkout) {
     return (
       <Screen style={styles.screenContent}>
         <View style={styles.header}>
@@ -249,6 +312,7 @@ export default function Home() {
             {greetingText}
           </Text>
         </View>
+        <HomeSkeleton />
       </Screen>
     );
   }
@@ -423,11 +487,23 @@ export default function Home() {
 
       {/* STATE B: Workout in Progress */}
       {homeState === 'IN_PROGRESS' && inProgressData && (
-        <>
+        <Animated.View
+          style={{
+            opacity: entryFadeAnim,
+            transform: [{ translateY: entrySlideAnim }],
+          }}
+        >
           <View style={styles.stateCard}>
             <View style={styles.stateCardHeaderRow}>
               <View style={styles.inProgressBadge}>
-                <View style={styles.pulseDot} />
+                <Animated.View
+                  style={[
+                    styles.pulseDot,
+                    {
+                      transform: [{ scale: pulseAnim }],
+                    },
+                  ]}
+                />
                 <Text style={styles.inProgressBadgeText}>{t('workoutInProgress')}</Text>
               </View>
               <Text style={styles.progressCounterText}>{inProgressData.percent}%</Text>
@@ -441,7 +517,7 @@ export default function Home() {
 
             {/* Progress Bar Track */}
             <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: `${inProgressData.percent}%` }]} />
+              <Animated.View style={[styles.progressBarFill, { width: animatedProgressWidth }]} />
             </View>
 
             {/* Current Active Exercise Info */}
@@ -494,7 +570,7 @@ export default function Home() {
               {language === 'uk' ? 'Швидкий запис списком' : 'Switch to Quick Log'}
             </Text>
           </Pressable>
-        </>
+        </Animated.View>
       )}
 
       {/* STATE C: Workout Completed Today */}
@@ -747,7 +823,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    backgroundColor: colors.isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(217, 119, 6, 0.10)',
     borderWidth: 1,
     borderColor: 'rgba(245, 158, 11, 0.3)',
     borderRadius: 14,
@@ -759,13 +835,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: '#FDE68A',
+    color: colors.isDark ? '#FDE68A' : colors.warning,
   },
   workoutCard: {
     backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 20,
     marginBottom: 14,
+    ...cardElevation(colors),
   },
   workoutCardLabel: {
     fontSize: 13,
@@ -850,6 +927,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.secondary,
     marginTop: 4,
     fontWeight: '500',
+    fontVariant: ['tabular-nums'],
   },
   ctaButton: {
     width: '100%',
@@ -865,6 +943,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 20,
     padding: 18,
     marginBottom: 24,
+    ...cardElevation(colors),
   },
   weekHeader: {
     flexDirection: 'row',
@@ -920,7 +999,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.text,
   },
   indicatorFuture: {
     width: 6,
@@ -996,12 +1075,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: colors.elevated,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   switchItemBadgeActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.activeChipBg,
   },
   switchItemBadgeText: {
     fontSize: 13,
@@ -1009,7 +1088,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.secondary,
   },
   switchItemBadgeTextActive: {
-    color: colors.onPrimary,
+    color: colors.activeChipText,
   },
   switchItemName: {
     fontSize: 15,
@@ -1029,6 +1108,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     marginBottom: 14,
+    ...cardElevation(colors),
   },
   stateCardHeaderRow: {
     flexDirection: 'row',
@@ -1045,12 +1125,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accentLine,
   },
   inProgressBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.primaryText,
   },
   progressCounterText: {
     fontSize: 14,
@@ -1069,7 +1149,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accentLine,
     borderRadius: 2,
   },
   currentExBox: {
@@ -1109,7 +1189,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   completedBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.primaryText,
   },
   completedSubtitle: {
     fontSize: 13,
@@ -1165,6 +1245,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 20,
     padding: 18,
     marginBottom: 16,
+    ...cardElevation(colors),
   },
   nextUpHeaderRow: {
     flexDirection: 'row',

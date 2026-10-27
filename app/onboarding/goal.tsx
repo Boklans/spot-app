@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/constants/colors';
+import { OnboardingHeader } from '@/components/onboarding/OnboardingHeader';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useUserProfileStore } from '@/store/userProfileStore';
@@ -22,6 +23,8 @@ import {
 } from '@/store/workoutStore';
 
 export default function Goal() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, language } = useI18n();
   const isUk = language === 'uk';
   const [selectedGoal, setSelectedGoal] = useState<OnboardingGoal>('build_muscle');
@@ -121,20 +124,8 @@ export default function Goal() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* 1. Top Bar with 2/5 Progress */}
-      <View style={styles.topBar}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={12}
-          onPress={() => router.back()}
-          style={styles.backBtn}
-        >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-        </Pressable>
-        <Text style={styles.stepText}>2/5</Text>
-        <View style={styles.topBarPlaceholder} />
-      </View>
+      {/* 1. Unified Top Bar with 2/5 Progress */}
+      <OnboardingHeader step={2} totalSteps={5} />
 
       <ScrollView
         style={styles.scrollView}
@@ -178,7 +169,7 @@ export default function Goal() {
                   <MaterialCommunityIcons
                     name={opt.icon}
                     size={22}
-                    color={isSelected ? colors.primary : '#8E9BAE'}
+                    color={isSelected ? colors.primaryText : colors.secondary}
                   />
                 </View>
 
@@ -194,7 +185,7 @@ export default function Goal() {
                   ]}
                 >
                   {isSelected && (
-                    <Ionicons name="checkmark" size={15} color="#0B0D0F" />
+                    <Ionicons name="checkmark" size={15} color={colors.onPrimary} />
                   )}
                 </View>
               </Pressable>
@@ -227,7 +218,7 @@ export default function Goal() {
                   <MaterialCommunityIcons
                     name={opt.icon}
                     size={22}
-                    color={isSelected ? colors.primary : '#8E9BAE'}
+                    color={isSelected ? colors.primaryText : colors.secondary}
                   />
                 </View>
 
@@ -243,7 +234,7 @@ export default function Goal() {
                   ]}
                 >
                   {isSelected && (
-                    <Ionicons name="checkmark" size={15} color="#0B0D0F" />
+                    <Ionicons name="checkmark" size={15} color={colors.onPrimary} />
                   )}
                 </View>
               </Pressable>
@@ -267,144 +258,145 @@ export default function Goal() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#0B0D0F',
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    height: 44,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-  },
-  stepText: {
-    color: '#8E9BAE',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  topBarPlaceholder: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 6,
-    paddingBottom: 28,
-  },
-  titleSection: {
-    marginBottom: 16,
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    color: '#8E9BAE',
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 6,
-    lineHeight: 20,
-  },
-  sectionLabel: {
-    color: '#8E9BAE',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.1,
-    marginBottom: 10,
-  },
-  optionsList: {
-    gap: 10,
-  },
-  optionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#12161D',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
-  },
-  optionCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(200, 255, 61, 0.05)',
-  },
-  iconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    backgroundColor: '#181E27',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 13,
-  },
-  iconWrapSelected: {
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
-  },
-  textWrap: {
-    flex: 1,
-    paddingRight: 8,
-  },
-  optionLabel: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  optionDetail: {
-    color: '#8E9BAE',
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 2,
-    lineHeight: 17,
-  },
-  checkCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkCircleSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-  },
-  bottomBar: {
-    width: '100%',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 24,
-    backgroundColor: '#0B0D0F',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  continueBtn: {
-    width: '100%',
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  continueBtnText: {
-    color: '#0B0D0F',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    safe: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      height: 44,
+    },
+    backBtn: {
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+    },
+    stepText: {
+      color: colors.secondary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    topBarPlaceholder: {
+      width: 40,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: 24,
+      paddingTop: 6,
+      paddingBottom: 28,
+    },
+    titleSection: {
+      marginBottom: 16,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontWeight: '900',
+      letterSpacing: -0.5,
+    },
+    subtitle: {
+      color: colors.secondary,
+      fontSize: 14,
+      fontWeight: '500',
+      marginTop: 6,
+      lineHeight: 20,
+    },
+    sectionLabel: {
+      color: colors.secondary,
+      fontSize: 12,
+      fontWeight: '800',
+      letterSpacing: 1.1,
+      marginBottom: 10,
+    },
+    optionsList: {
+      gap: 10,
+    },
+    optionCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 18,
+      padding: 14,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+    },
+    optionCardSelected: {
+      borderColor: colors.accentLine,
+      backgroundColor: colors.primaryMuted,
+    },
+    iconWrap: {
+      width: 42,
+      height: 42,
+      borderRadius: 13,
+      backgroundColor: colors.elevated,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 13,
+    },
+    iconWrapSelected: {
+      backgroundColor: colors.primaryMuted,
+    },
+    textWrap: {
+      flex: 1,
+      paddingRight: 8,
+    },
+    optionLabel: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    optionDetail: {
+      color: colors.secondary,
+      fontSize: 12,
+      fontWeight: '500',
+      marginTop: 2,
+      lineHeight: 17,
+    },
+    checkCircle: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    checkCircleSelected: {
+      borderColor: colors.accentLine,
+      backgroundColor: colors.primary,
+    },
+    bottomBar: {
+      width: '100%',
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: Platform.OS === 'ios' ? 20 : 24,
+      backgroundColor: colors.background,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    continueBtn: {
+      width: '100%',
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: colors.isDark ? colors.primary : '#0F172A',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: colors.isDark ? 0.35 : 0.12,
+      shadowRadius: 10,
+      elevation: 4,
+    },
+    continueBtnText: {
+      color: colors.onPrimary,
+      fontSize: 16,
+      fontWeight: '900',
+    },
+  });

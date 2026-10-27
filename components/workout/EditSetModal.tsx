@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 
@@ -50,6 +50,8 @@ export function EditSetModal({
   onSave,
   initialFocusField = 'weight',
 }: EditSetModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { language } = useI18n();
   const isUk = language === 'uk';
 
@@ -301,7 +303,7 @@ export function EditSetModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
@@ -315,14 +317,14 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 420,
-    backgroundColor: '#15191F',
+    backgroundColor: colors.surface,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
     padding: 20,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.25,
     shadowRadius: 18,
     elevation: 8,
   },
@@ -341,7 +343,7 @@ const styles = StyleSheet.create({
   kicker: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#8E99A8',
+    color: colors.secondary,
     letterSpacing: 0.5,
   },
   completedBadge: {
@@ -355,20 +357,20 @@ const styles = StyleSheet.create({
   completedBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     letterSpacing: 0.4,
   },
   exerciseTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.3,
   },
   closeBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#1C222B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
@@ -380,28 +382,28 @@ const styles = StyleSheet.create({
   },
   inputBox: {
     flex: 1,
-    backgroundColor: '#0E1116',
+    backgroundColor: colors.background,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
     padding: 12,
     alignItems: 'center',
   },
   inputLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#8E99A8',
+    color: colors.secondary,
     letterSpacing: 0.5,
     marginBottom: 8,
   },
   textInput: {
     width: '100%',
     height: 48,
-    backgroundColor: '#181E27',
+    backgroundColor: colors.surface,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    color: colors.primary,
+    borderColor: colors.border,
+    color: colors.primaryText,
     fontSize: 24,
     fontWeight: '800',
     textAlign: 'center',
@@ -416,15 +418,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chipBtn: {
-    backgroundColor: '#202836',
+    backgroundColor: colors.elevated,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   chipText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -433,10 +435,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   rirSection: {
-    backgroundColor: '#12161E',
+    backgroundColor: colors.background,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#212936',
+    borderColor: colors.border,
     padding: 12,
     marginBottom: 16,
     gap: 8,
@@ -447,13 +449,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   rirTitle: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.6,
   },
   rirSubtitle: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -465,9 +467,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#181F2B',
+    backgroundColor: colors.elevated,
     borderWidth: 1,
-    borderColor: '#263142',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -476,24 +478,24 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   rirChipText: {
-    color: '#8E9BAC',
+    color: colors.secondary,
     fontSize: 11.5,
     fontWeight: '700',
   },
   rirChipTextActive: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontWeight: '900',
   },
   cancelBtn: {
     flex: 1,
     height: 46,
     borderRadius: 12,
-    backgroundColor: '#202836',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
-    color: '#8E99A8',
+    color: colors.secondary,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -506,7 +508,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnText: {
-    color: '#0B0D0F',
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '800',
   },

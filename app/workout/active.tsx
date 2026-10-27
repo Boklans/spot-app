@@ -17,15 +17,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
-import { useThemeColors, type ThemeColors } from '@/constants/colors';
+import { ActiveWorkoutSkeleton } from '@/components/ui/Skeleton';
+import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import {
   cancelRestTimerNotification,
+  dismissActiveWorkoutNotification,
   initNotifications,
   requestNotificationPermissions,
-  scheduleRestTimerNotification,
+  syncActiveWorkoutNotification,
 } from '@/lib/notificationService';
 import { playRestCompleteSound } from '@/lib/soundEffects';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
@@ -34,58 +36,10 @@ import { inferEquipmentFromName, isAssistedExercise, parseRepRange, practicalInc
 import { getSessionProgress, useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { useExerciseNotesStore } from '@/store/exerciseNotesStore';
 import { ExerciseDetailModal } from '@/components/program/ExerciseDetailModal';
+import { ExercisePickerModal } from '@/components/program/ExercisePickerModal';
 import { EditSetModal } from '@/components/workout/EditSetModal';
 import { ProgressionGuideModal } from '@/components/workout/ProgressionGuideModal';
 import { ExerciseNoteModal } from '@/components/workout/ExerciseNoteModal';
-
-const EXERCISE_ALTERNATIVES: Record<string, Array<{ name: string; muscleGroup: string; defaultWeight: number }>> = {
-  Chest: [
-    { name: 'Barbell Bench Press', muscleGroup: 'Chest', defaultWeight: 60 },
-    { name: 'Incline Dumbbell Press', muscleGroup: 'Chest', defaultWeight: 22 },
-    { name: 'Dumbbell Bench Press', muscleGroup: 'Chest', defaultWeight: 24 },
-    { name: 'Cable Chest Fly', muscleGroup: 'Chest', defaultWeight: 15 },
-    { name: 'Machine Chest Press', muscleGroup: 'Chest', defaultWeight: 45 },
-    { name: 'Push-Ups', muscleGroup: 'Chest', defaultWeight: 0 },
-  ],
-  Back: [
-    { name: 'Barbell Bent Over Row', muscleGroup: 'Back', defaultWeight: 50 },
-    { name: 'Lat Pulldown', muscleGroup: 'Back', defaultWeight: 45 },
-    { name: 'Seated Cable Row', muscleGroup: 'Back', defaultWeight: 45 },
-    { name: 'Dumbbell Single-Arm Row', muscleGroup: 'Back', defaultWeight: 22 },
-    { name: 'Pull-Ups / Chin-Ups', muscleGroup: 'Back', defaultWeight: 0 },
-  ],
-  Shoulders: [
-    { name: 'Overhead Barbell Press', muscleGroup: 'Shoulders', defaultWeight: 40 },
-    { name: 'Dumbbell Shoulder Press', muscleGroup: 'Shoulders', defaultWeight: 18 },
-    { name: 'Lateral Dumbbell Raise', muscleGroup: 'Shoulders', defaultWeight: 10 },
-    { name: 'Face Pulls', muscleGroup: 'Shoulders', defaultWeight: 25 },
-  ],
-  Legs: [
-    { name: 'Barbell Back Squat', muscleGroup: 'Legs', defaultWeight: 70 },
-    { name: 'Leg Press', muscleGroup: 'Legs', defaultWeight: 120 },
-    { name: 'Romanian Deadlift', muscleGroup: 'Legs', defaultWeight: 60 },
-    { name: 'Bulgarian Split Squat', muscleGroup: 'Legs', defaultWeight: 16 },
-    { name: 'Leg Extension', muscleGroup: 'Legs', defaultWeight: 40 },
-    { name: 'Lying Leg Curl', muscleGroup: 'Legs', defaultWeight: 35 },
-  ],
-  Arms: [
-    { name: 'Barbell Biceps Curl', muscleGroup: 'Arms', defaultWeight: 25 },
-    { name: 'Incline Dumbbell Curl', muscleGroup: 'Arms', defaultWeight: 12 },
-    { name: 'Hammer Curl', muscleGroup: 'Arms', defaultWeight: 14 },
-    { name: 'Triceps Cable Pushdown', muscleGroup: 'Arms', defaultWeight: 30 },
-    { name: 'Overhead Triceps Extension', muscleGroup: 'Arms', defaultWeight: 20 },
-    { name: 'Skull Crushers', muscleGroup: 'Arms', defaultWeight: 25 },
-  ],
-};
-
-function getExerciseIcon(name: string): keyof typeof MaterialCommunityIcons.glyphMap {
-  const lower = name.toLowerCase();
-  if (lower.includes('bench') || lower.includes('chest')) return 'dumbbell';
-  if (lower.includes('squat') || lower.includes('leg') || lower.includes('press')) return 'dumbbell';
-  if (lower.includes('row') || lower.includes('pulldown') || lower.includes('pull')) return 'arm-flex';
-  if (lower.includes('curl') || lower.includes('tricep') || lower.includes('arm')) return 'dumbbell';
-  return 'dumbbell';
-}
 
 function formatElapsed(totalSec: number): string {
   const hrs = Math.floor(totalSec / 3600);
@@ -108,7 +62,11 @@ export default function Active() {
   const completeCurrentSet = useWorkoutSessionStore((state) => state.completeCurrentSet);
   const toggleSetCompletion = useWorkoutSessionStore((state) => state.toggleSetCompletion);
   const updateCurrentSet = useWorkoutSessionStore((state) => state.updateCurrentSet);
+  const cycleSetType = useWorkoutSessionStore((state) => state.cycleSetType);
   const swapExercise = useWorkoutSessionStore((state) => state.swapExercise);
+  const addExercise = useWorkoutSessionStore((state) => state.addExercise);
+  const toggleSuperset = useWorkoutSessionStore((state) => state.toggleSuperset);
+  const setCurrentExerciseIndex = useWorkoutSessionStore((state) => state.setCurrentExerciseIndex);
   const addRestTime = useWorkoutSessionStore((state) => state.addRestTime);
   const skipRest = useWorkoutSessionStore((state) => state.skipRest);
 
@@ -118,7 +76,7 @@ export default function Active() {
   const isExitingRef = useRef(false);
   const lastHapticSecond = useRef<number | null>(null);
 
-  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'swap' | 'add' | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showProgressionModal, setShowProgressionModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -140,8 +98,10 @@ export default function Active() {
   }, [notesHydrated, loadExerciseNotes]);
 
   useEffect(() => {
-    initNotifications().catch(() => undefined);
-    requestNotificationPermissions().catch(() => undefined);
+    initNotifications()
+      .then(() => requestNotificationPermissions())
+      .then(() => syncActiveWorkoutNotification(false))
+      .catch(() => undefined);
   }, []);
 
   const [now, setNow] = useState(Date.now());
@@ -151,7 +111,61 @@ export default function Active() {
   const isResting = restEndsAt !== null && restRemainingSeconds > 0;
 
   const restAnim = useRef(new Animated.Value(0)).current;
+  const headerProgressAnim = useRef(new Animated.Value(0)).current;
+  const setCheckScaleAnims = useRef<Record<number, Animated.Value>>({}).current;
+  const setRowScaleAnims = useRef<Record<number, Animated.Value>>({}).current;
   const [totalRestSeconds, setTotalRestSeconds] = useState<number>(90);
+
+  const getSetCheckScale = (idx: number) => {
+    if (!setCheckScaleAnims[idx]) {
+      setCheckScaleAnims[idx] = new Animated.Value(1);
+    }
+    return setCheckScaleAnims[idx];
+  };
+
+  const getSetRowScale = (idx: number) => {
+    if (!setRowScaleAnims[idx]) {
+      setRowScaleAnims[idx] = new Animated.Value(1);
+    }
+    return setRowScaleAnims[idx];
+  };
+
+  const triggerSetBounce = (idx: number) => {
+    const checkAnim = getSetCheckScale(idx);
+    const rowAnim = getSetRowScale(idx);
+    checkAnim.setValue(0.75);
+    rowAnim.setValue(0.985);
+    Animated.parallel([
+      Animated.sequence([
+        Animated.spring(checkAnim, {
+          toValue: 1.28,
+          useNativeDriver: true,
+          speed: 45,
+          bounciness: 12,
+        }),
+        Animated.spring(checkAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          speed: 24,
+          bounciness: 8,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.spring(rowAnim, {
+          toValue: 1.015,
+          useNativeDriver: true,
+          speed: 40,
+          bounciness: 8,
+        }),
+        Animated.spring(rowAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          speed: 26,
+          bounciness: 6,
+        }),
+      ]),
+    ]).start();
+  };
 
   useEffect(() => {
     if (!restEndsAt || restEndsAt <= Date.now()) {
@@ -219,38 +233,44 @@ export default function Active() {
       lastHapticSecond.current = 0;
       hapticSuccess();
       playRestCompleteSound();
-      cancelRestTimerNotification();
       skipRest();
+      void cancelRestTimerNotification();
     }
   }, [restEndsAt, now, skipRest]);
 
-  // Background notifications for rest timer
+  // Keep OS Notification Shade in sync whenever session or rest timer changes
   useEffect(() => {
-    const handleBgNotification = (nextState: string) => {
-      if (nextState === 'background' || nextState === 'inactive') {
-        if (restEndsAt && restEndsAt > Date.now()) {
-          const remaining = Math.max(1, Math.ceil((restEndsAt - Date.now()) / 1000));
-          const currentEx = session?.exercises[session.currentExerciseIndex];
-          scheduleRestTimerNotification(
-            remaining,
-            te(currentEx?.name || 'Workout'),
-            (session?.currentSetIndex ?? 0) + 1,
-            currentEx?.sets.length ?? 3,
-            language
-          );
-        }
-      } else if (nextState === 'active') {
-        cancelRestTimerNotification();
-      }
-    };
-    const sub = AppState.addEventListener('change', handleBgNotification);
-    return () => {
-      sub.remove();
-      cancelRestTimerNotification();
-    };
-  }, [restEndsAt, session, te, language]);
+    if (session && !session.completed) {
+      void syncActiveWorkoutNotification(false);
+    } else if (session?.completed) {
+      void dismissActiveWorkoutNotification();
+    }
+  }, [
+    session?.id,
+    session?.completed,
+    session?.currentExerciseIndex,
+    session?.currentSetIndex,
+    restEndsAt,
+    language,
+  ]);
 
   const progress = session ? getSessionProgress(session) : { completedSets: 0, totalSets: 0, percentage: 0 };
+  const percent = Math.round(progress.percentage);
+
+  useEffect(() => {
+    Animated.spring(headerProgressAnim, {
+      toValue: percent,
+      useNativeDriver: false,
+      speed: 16,
+      bounciness: 5,
+    }).start();
+  }, [percent, headerProgressAnim]);
+
+  const headerProgressWidth = headerProgressAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
 
   const exitWorkout = useCallback(() => {
     if (isExitingRef.current) return;
@@ -304,7 +324,11 @@ export default function Active() {
   }, [handleClose]);
 
   if (isHydrating) {
-    return <SafeAreaView style={styles.safe} />;
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ActiveWorkoutSkeleton />
+      </SafeAreaView>
+    );
   }
 
   if (!session || !session.exercises || session.exercises.length === 0 || !session.exercises[session.currentExerciseIndex]) {
@@ -399,7 +423,7 @@ export default function Active() {
     const currentSet = exercise?.sets[targetSetIndex];
     if (!currentSet) return;
 
-    if (currentSet.completed) {
+      if (currentSet.completed) {
       // Toggle to uncompleted (Undo)
       hapticLight();
       cancelRestTimerNotification();
@@ -410,6 +434,7 @@ export default function Active() {
       setSubmittingSet(true);
       try {
         hapticSuccess();
+        triggerSetBounce(targetSetIndex);
         toggleSetCompletion(session.currentExerciseIndex, targetSetIndex);
 
         const latestSession = useWorkoutSessionStore.getState().session;
@@ -441,8 +466,6 @@ export default function Active() {
     await handleToggleSet(session.currentSetIndex);
   };
 
-  const percent = Math.round(progress.percentage);
-
   return (
     <SafeAreaView style={styles.safe}>
       {/* 1. Top Bar */}
@@ -454,7 +477,7 @@ export default function Active() {
           onPress={handleClose}
           style={({ pressed }) => [styles.navBtn, pressed && { opacity: 0.6 }]}
         >
-          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
         </Pressable>
 
         <View style={styles.topWorkoutCenter}>
@@ -467,7 +490,7 @@ export default function Active() {
 
       {/* Progress Line */}
       <View style={styles.progressBarTrack}>
-        <View style={[styles.progressBarFill, { width: `${percent}%` }]} />
+        <Animated.View style={[styles.progressBarFill, { width: headerProgressWidth }]} />
       </View>
 
       {/* Sleek Hevy-style Rest Timer Pill */}
@@ -534,6 +557,98 @@ export default function Active() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Horizontal Exercise Switcher Strip + Superset Connectors + Add Exercise */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.exerciseStrip}
+        >
+          {session.exercises.map((exItem, exIdx) => {
+            const isSelectedEx = exIdx === session.currentExerciseIndex;
+            const doneCount = exItem.sets.filter((s) => s.completed).length;
+            const totalCount = exItem.sets.length;
+            const allDone = totalCount > 0 && doneCount === totalCount;
+            const isSupersetA1 = Boolean(exItem.supersetWithNext && exIdx < session.exercises.length - 1);
+            const isSupersetA2 = Boolean(exIdx > 0 && session.exercises[exIdx - 1]?.supersetWithNext);
+
+            return (
+              <React.Fragment key={exItem.id || exIdx}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={te(exItem.name)}
+                  onPress={() => {
+                    hapticLight();
+                    setCurrentExerciseIndex(exIdx);
+                  }}
+                  style={({ pressed }) => [
+                    styles.exPill,
+                    isSelectedEx && styles.exPillActive,
+                    allDone && !isSelectedEx && styles.exPillDone,
+                    pressed && { opacity: 0.8 },
+                  ]}
+                >
+                  {(isSupersetA1 || isSupersetA2) && (
+                    <View style={styles.supersetMiniTag}>
+                      <Text style={styles.supersetMiniTagText}>
+                        {isSupersetA1 ? 'A1' : 'A2'}
+                      </Text>
+                    </View>
+                  )}
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.exPillTitle,
+                      isSelectedEx && styles.exPillTitleActive,
+                      allDone && !isSelectedEx && styles.exPillTitleDone,
+                    ]}
+                  >
+                    {exIdx + 1}. {te(exItem.name)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.exPillCount,
+                      isSelectedEx && styles.exPillCountActive,
+                      allDone && !isSelectedEx && { color: colors.primaryText },
+                    ]}
+                  >
+                    {doneCount}/{totalCount}
+                  </Text>
+                </Pressable>
+
+                {isSupersetA1 && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Unlink superset"
+                    onPress={() => {
+                      hapticMedium();
+                      toggleSuperset(exIdx);
+                    }}
+                    style={styles.supersetConnectorPill}
+                  >
+                    <Ionicons name="link" size={14} color="#A855F7" />
+                  </Pressable>
+                )}
+              </React.Fragment>
+            );
+          })}
+
+          {/* Add Exercise Mid-Workout Pill */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add exercise"
+            onPress={() => {
+              hapticLight();
+              setPickerMode('add');
+            }}
+            style={({ pressed }) => [styles.addExStripBtn, pressed && { opacity: 0.75 }]}
+          >
+            <Ionicons name="add" size={16} color={colors.primaryText} />
+            <Text style={styles.addExStripText}>
+              {language === 'uk' ? 'Вправа' : 'Exercise'}
+            </Text>
+          </Pressable>
+        </ScrollView>
+
         {/* Clean Exercise Card */}
         <View style={styles.exerciseCard}>
           {/* Header Row: Thumbnail + Info + Actions */}
@@ -555,7 +670,25 @@ export default function Active() {
             </Pressable>
 
             <View style={styles.exerciseInfoCol}>
-              <Text style={styles.exerciseMuscleText}>{tm(exercise.muscleGroup)}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.exerciseMuscleText}>{tm(exercise.muscleGroup)}</Text>
+                {(exercise.supersetWithNext ||
+                  (session.currentExerciseIndex > 0 &&
+                    session.exercises[session.currentExerciseIndex - 1]?.supersetWithNext)) && (
+                  <View style={styles.supersetHeaderBadge}>
+                    <Ionicons name="link" size={11} color="#A855F7" />
+                    <Text style={styles.supersetHeaderBadgeText}>
+                      {exercise.supersetWithNext
+                        ? language === 'uk'
+                          ? 'СУПЕРСЕТ A1'
+                          : 'SUPERSET A1'
+                        : language === 'uk'
+                          ? 'СУПЕРСЕТ A2'
+                          : 'SUPERSET A2'}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Pressable
                 onPress={() => {
                   hapticLight();
@@ -589,7 +722,7 @@ export default function Active() {
                 hitSlop={8}
                 onPress={() => {
                   hapticLight();
-                  setShowSwapModal(true);
+                  setPickerMode('swap');
                 }}
                 style={({ pressed }) => [styles.iconActionBtn, pressed && { opacity: 0.7 }]}
               >
@@ -598,7 +731,7 @@ export default function Active() {
             </View>
           </View>
 
-          {/* Sub-header Context Row: Adaptive Target + Add Note */}
+          {/* Sub-header Context Row: Adaptive Target + Superset Link + Add Note */}
           <View style={styles.contextChipsRow}>
             <Pressable
               accessibilityRole="button"
@@ -623,6 +756,71 @@ export default function Active() {
               </Text>
               <Ionicons name="chevron-forward" size={12} color="#6C7685" />
             </Pressable>
+
+            {/* Superset Link / Unlink Chip */}
+            {(session.currentExerciseIndex < session.exercises.length - 1 ||
+              (session.currentExerciseIndex > 0 &&
+                session.exercises[session.currentExerciseIndex - 1]?.supersetWithNext)) && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Toggle superset"
+                hitSlop={6}
+                onPress={() => {
+                  hapticMedium();
+                  if (
+                    session.currentExerciseIndex > 0 &&
+                    session.exercises[session.currentExerciseIndex - 1]?.supersetWithNext
+                  ) {
+                    toggleSuperset(session.currentExerciseIndex - 1);
+                  } else {
+                    toggleSuperset(session.currentExerciseIndex);
+                  }
+                }}
+                style={[
+                  styles.addNoteChip,
+                  (exercise.supersetWithNext ||
+                    (session.currentExerciseIndex > 0 &&
+                      session.exercises[session.currentExerciseIndex - 1]?.supersetWithNext)) &&
+                    styles.supersetChipActive,
+                ]}
+              >
+                <Ionicons
+                  name="link-outline"
+                  size={14}
+                  color={
+                    exercise.supersetWithNext ||
+                    (session.currentExerciseIndex > 0 &&
+                      session.exercises[session.currentExerciseIndex - 1]?.supersetWithNext)
+                      ? '#A855F7'
+                      : '#8E959F'
+                  }
+                />
+                <Text
+                  style={[
+                    styles.addNoteChipText,
+                    (exercise.supersetWithNext ||
+                      (session.currentExerciseIndex > 0 &&
+                        session.exercises[session.currentExerciseIndex - 1]?.supersetWithNext)) && {
+                      color: '#A855F7',
+                      fontWeight: '700',
+                    },
+                  ]}
+                >
+                  {exercise.supersetWithNext
+                    ? language === 'uk'
+                      ? 'Суперсет A1'
+                      : 'Superset A1'
+                    : session.currentExerciseIndex > 0 &&
+                      session.exercises[session.currentExerciseIndex - 1]?.supersetWithNext
+                    ? language === 'uk'
+                      ? 'Суперсет A2'
+                      : 'Superset A2'
+                    : language === 'uk'
+                    ? 'Суперсет'
+                    : 'Superset'}
+                </Text>
+              </Pressable>
+            )}
 
             {!currentNote && (
               <Pressable
@@ -673,123 +871,199 @@ export default function Active() {
 
           {/* Sets Rows */}
           <View style={styles.setsList}>
-            {exercise.sets.map((set, index) => {
-              const isCurrent = index === session.currentSetIndex;
-              const isDone = set.completed;
-              const weightDisplay = set.weight ? format(set.weight) : (language === 'uk' ? 'ВТ' : 'BW');
-              const prevForThisSet = exercise.previousSets?.[index] || (index === 0 ? exercise.previousSets?.[0] : null);
-              const prevSetText = prevForThisSet
-                ? `${prevForThisSet.weight ? format(prevForThisSet.weight) : (language === 'uk' ? 'ВТ' : 'BW')} × ${prevForThisSet.reps}`
-                : '—';
-              const setWeightIncreased = isDone && prevForThisSet && prevForThisSet.weight > 0 && (set.weight ?? 0) > prevForThisSet.weight;
-              const setRepsIncreased = isDone && prevForThisSet && (set.weight ?? 0) >= prevForThisSet.weight && (set.reps ?? 0) > prevForThisSet.reps;
+            {(() => {
+              let workingSetCounter = 0;
+              return exercise.sets.map((set, index) => {
+                const setType = set.setType ?? 'normal';
+                if (setType !== 'warmup') {
+                  workingSetCounter += 1;
+                }
+                const setBadgeLabel =
+                  setType === 'warmup'
+                    ? 'W'
+                    : setType === 'dropset'
+                    ? 'D'
+                    : setType === 'failure'
+                    ? 'F'
+                    : String(workingSetCounter);
 
-              return (
-                <Pressable
-                  key={set.id || index}
-                  onPress={() => {
-                    if (!isCurrent) {
-                      hapticLight();
-                      useWorkoutSessionStore.getState().setCurrentSetIndex(index);
-                    }
-                  }}
-                  style={({ pressed }) => [
-                    styles.setRow,
-                    isCurrent && styles.setRowActive,
-                    isDone && styles.setRowDone,
-                    pressed && { opacity: 0.85 },
-                  ]}
-                >
-                  <Text style={[styles.setColNum, isCurrent && styles.textHighlight, isDone && styles.setColDoneText]}>
-                    {index + 1}
-                  </Text>
+                const isCurrent = index === session.currentSetIndex;
+                const isDone = set.completed;
+                const weightDisplay = set.weight ? format(set.weight) : (language === 'uk' ? 'ВТ' : 'BW');
+                const prevForThisSet = exercise.previousSets?.[index] || (index === 0 ? exercise.previousSets?.[0] : null);
+                const prevSetText = prevForThisSet
+                  ? `${prevForThisSet.weight ? format(prevForThisSet.weight) : (language === 'uk' ? 'ВТ' : 'BW')} × ${prevForThisSet.reps}`
+                  : '—';
+                const setWeightIncreased =
+                  setType !== 'warmup' &&
+                  isDone &&
+                  prevForThisSet &&
+                  prevForThisSet.weight > 0 &&
+                  (set.weight ?? 0) > prevForThisSet.weight;
+                const setRepsIncreased =
+                  setType !== 'warmup' &&
+                  isDone &&
+                  prevForThisSet &&
+                  (set.weight ?? 0) >= prevForThisSet.weight &&
+                  (set.reps ?? 0) > prevForThisSet.reps;
 
-                  <View style={styles.prevColWrap}>
-                    <Text style={[styles.setColPrev, isDone && styles.setColDoneText]}>
-                      {prevSetText}
-                    </Text>
-                    {set.rir !== undefined && (
-                      <Text style={styles.rirInlineText}>
-                        {set.rir === 0 ? '0 RIR' : `${set.rir} RIR`}
-                      </Text>
-                    )}
-                  </View>
+                const checkScale = getSetCheckScale(index);
+                const rowScale = getSetRowScale(index);
 
-                  {/* Direct Interactive Weight Pill */}
-                  <Pressable
-                    hitSlop={4}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Edit weight for set ${index + 1}`}
-                    onPress={() => {
-                      hapticLight();
-                      setEditingTarget({
-                        exerciseIndex: session.currentExerciseIndex,
-                        setIndex: index,
-                        initialFocusField: 'weight',
-                      });
-                    }}
-                    style={[styles.cellPill, isCurrent && styles.cellPillActive, isDone && styles.cellPillDone]}
+                return (
+                  <Animated.View
+                    key={set.id || index}
+                    style={{ transform: [{ scale: rowScale }] }}
                   >
-                    <Text style={[
-                      styles.cellPillText,
-                      isCurrent && styles.cellPillTextActive,
-                      isDone && styles.cellPillTextDone,
-                      setWeightIncreased && styles.cellPillTextProgression,
-                    ]}>
-                      {weightDisplay}{setWeightIncreased ? ' ↑' : ''}
-                    </Text>
-                  </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        if (!isCurrent) {
+                          hapticLight();
+                          useWorkoutSessionStore.getState().setCurrentSetIndex(index);
+                        }
+                      }}
+                      style={({ pressed }) => [
+                        styles.setRow,
+                        isCurrent && styles.setRowActive,
+                        isDone && styles.setRowDone,
+                        pressed && { opacity: 0.85 },
+                      ]}
+                    >
+                      {/* Interactive Set Type Badge (Tap to cycle: 1..N -> W -> D -> F) */}
+                      <Pressable
+                        hitSlop={6}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Set ${index + 1} type: ${setType}. Tap to change`}
+                        onPress={() => {
+                          hapticLight();
+                          cycleSetType(session.currentExerciseIndex, index);
+                        }}
+                        style={[
+                          styles.setTypeBadge,
+                          setType === 'warmup' && styles.setTypeWarmup,
+                          setType === 'dropset' && styles.setTypeDropset,
+                          setType === 'failure' && styles.setTypeFailure,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.setColNum,
+                            isCurrent && setType === 'normal' && styles.textHighlight,
+                            isDone && setType === 'normal' && styles.setColDoneText,
+                            setType === 'warmup' && styles.setTypeWarmupText,
+                            setType === 'dropset' && styles.setTypeDropsetText,
+                            setType === 'failure' && styles.setTypeFailureText,
+                          ]}
+                        >
+                          {setBadgeLabel}
+                        </Text>
+                      </Pressable>
 
-                  {/* Direct Interactive Reps Pill */}
-                  <Pressable
-                    hitSlop={4}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Edit reps for set ${index + 1}`}
-                    onPress={() => {
-                      hapticLight();
-                      setEditingTarget({
-                        exerciseIndex: session.currentExerciseIndex,
-                        setIndex: index,
-                        initialFocusField: 'reps',
-                      });
-                    }}
-                    style={[styles.cellPill, isCurrent && styles.cellPillActive, isDone && styles.cellPillDone]}
-                  >
-                    <Text style={[
-                      styles.cellPillText,
-                      isCurrent && styles.cellPillTextActive,
-                      isDone && styles.cellPillTextDone,
-                      setRepsIncreased && styles.cellPillTextProgression,
-                    ]}>
-                      {set.reps}{setRepsIncreased ? ' ↑' : ''}
-                    </Text>
-                  </Pressable>
+                      <View style={styles.prevColWrap}>
+                        <Text style={[styles.setColPrev, isDone && styles.setColDoneText]}>
+                          {prevSetText}
+                        </Text>
+                        {set.rir !== undefined && (
+                          <Text style={styles.rirInlineText}>
+                            {set.rir === 0 ? '0 RIR' : `${set.rir} RIR`}
+                          </Text>
+                        )}
+                      </View>
 
-                  {/* 1-Tap Checkmark Complete Button */}
-                  <Pressable
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityLabel={isDone ? 'Set completed, tap to undo' : `Complete set ${index + 1}`}
-                    onPress={() => handleToggleSet(index)}
-                    style={styles.setColStatus}
-                  >
-                    {isDone ? (
-                      <View style={styles.statusDoneBadge}>
-                        <Ionicons name="checkmark" size={17} color="#0B0D0F" />
-                      </View>
-                    ) : isCurrent ? (
-                      <View style={styles.statusCurrentBadge}>
-                        <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                      </View>
-                    ) : (
-                      <View style={styles.statusPendingBadge}>
-                        <Ionicons name="checkmark" size={15} color="#4A5464" />
-                      </View>
-                    )}
-                  </Pressable>
-                </Pressable>
-              );
-            })}
+                      {/* Direct Interactive Weight Pill */}
+                      <Pressable
+                        hitSlop={4}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Edit weight for set ${index + 1}`}
+                        onPress={() => {
+                          hapticLight();
+                          setEditingTarget({
+                            exerciseIndex: session.currentExerciseIndex,
+                            setIndex: index,
+                            initialFocusField: 'weight',
+                          });
+                        }}
+                        style={[styles.cellPill, isCurrent && styles.cellPillActive, isDone && styles.cellPillDone]}
+                      >
+                        <Text style={[
+                          styles.cellPillText,
+                          isCurrent && styles.cellPillTextActive,
+                          isDone && styles.cellPillTextDone,
+                          setWeightIncreased && styles.cellPillTextProgression,
+                        ]}>
+                          {weightDisplay}{setWeightIncreased ? ' ↑' : ''}
+                        </Text>
+                      </Pressable>
+
+                      {/* Direct Interactive Reps Pill */}
+                      <Pressable
+                        hitSlop={4}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Edit reps for set ${index + 1}`}
+                        onPress={() => {
+                          hapticLight();
+                          setEditingTarget({
+                            exerciseIndex: session.currentExerciseIndex,
+                            setIndex: index,
+                            initialFocusField: 'reps',
+                          });
+                        }}
+                        style={[styles.cellPill, isCurrent && styles.cellPillActive, isDone && styles.cellPillDone]}
+                      >
+                        <Text style={[
+                          styles.cellPillText,
+                          isCurrent && styles.cellPillTextActive,
+                          isDone && styles.cellPillTextDone,
+                          setRepsIncreased && styles.cellPillTextProgression,
+                        ]}>
+                          {set.reps}{setRepsIncreased ? ' ↑' : ''}
+                        </Text>
+                      </Pressable>
+
+                      {/* 1-Tap Checkmark Complete Button */}
+                      <Pressable
+                        hitSlop={10}
+                        accessibilityRole="button"
+                        accessibilityLabel={isDone ? 'Set completed, tap to undo' : `Complete set ${index + 1}`}
+                        onPress={() => handleToggleSet(index)}
+                        style={styles.setColStatus}
+                      >
+                        <Animated.View style={{ transform: [{ scale: checkScale }] }}>
+                          {isDone ? (
+                            <View style={styles.statusDoneBadge}>
+                              <Ionicons name="checkmark" size={17} color="#0B0D0F" />
+                            </View>
+                          ) : isCurrent ? (
+                            <View style={styles.statusCurrentBadge}>
+                              <Ionicons name="checkmark" size={16} color={colors.text} />
+                            </View>
+                          ) : (
+                            <View style={styles.statusPendingBadge}>
+                              <Ionicons name="checkmark" size={15} color={colors.secondary} />
+                            </View>
+                          )}
+                        </Animated.View>
+                      </Pressable>
+                    </Pressable>
+                  </Animated.View>
+                );
+              });
+            })()}
+          </View>
+
+          {/* Set Types Hint Bar */}
+          <View style={styles.setTypesLegendRow}>
+            <Text style={styles.setTypesLegendHint}>
+              {language === 'uk'
+                ? 'Натисни № підходу: '
+                : 'Tap set # to cycle: '}
+              <Text style={{ color: '#F59E0B', fontWeight: '700' }}>W</Text>
+              {language === 'uk' ? ' розігрів • ' : ' warmup • '}
+              <Text style={{ color: '#A855F7', fontWeight: '700' }}>D</Text>
+              {language === 'uk' ? ' дроп • ' : ' drop • '}
+              <Text style={{ color: '#EF4444', fontWeight: '700' }}>F</Text>
+              {language === 'uk' ? ' відмова' : ' failure'}
+            </Text>
           </View>
 
           {/* Add / Remove Set Row */}
@@ -804,7 +1078,7 @@ export default function Active() {
               }}
               style={({ pressed }) => [styles.tableAddSetBtn, pressed && { opacity: 0.7 }]}
             >
-              <Ionicons name="add" size={16} color="#D8DEE9" />
+              <Ionicons name="add" size={16} color={colors.text} />
               <Text style={styles.tableAddSetText}>
                 {language === 'uk' ? 'Додати підхід' : 'Add set'}
               </Text>
@@ -844,104 +1118,40 @@ export default function Active() {
         </Button>
       </View>
 
-      {/* 6. Exercise Swap Modal */}
-      {showSwapModal && (
-      <Modal
-        visible={showSwapModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowSwapModal(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setShowSwapModal(false)}
-        >
-          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>{t('swapExercise')}</Text>
-                <Text style={styles.modalSubtitle}>
-                  {t('alternativesFor')} {tm(exercise.muscleGroup)}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-                onPress={() => setShowSwapModal(false)}
-                style={styles.modalCloseBtn}
-              >
-                <Ionicons name="close" size={20} color="#FFFFFF" />
-              </Pressable>
-            </View>
-
-            <ScrollView
-              style={styles.modalScroll}
-              showsVerticalScrollIndicator={false}
-            >
-              {(
-                EXERCISE_ALTERNATIVES[exercise.muscleGroup] ??
-                Object.values(EXERCISE_ALTERNATIVES).flat()
-              ).map((alt) => {
-                const isCurrent =
-                  alt.name.toLowerCase() === exercise.name.toLowerCase();
-                return (
-                  <Pressable
-                    key={alt.name}
-                    accessibilityRole="button"
-                    accessibilityLabel={alt.name}
-                    onPress={() => {
-                      if (!isCurrent) {
-                        hapticMedium();
-                        swapExercise(alt);
-                      }
-                      setShowSwapModal(false);
-                    }}
-                    style={[
-                      styles.swapItem,
-                      isCurrent && styles.swapItemCurrent,
-                    ]}
-                  >
-                    <View style={styles.swapItemLeft}>
-                      <View style={styles.swapItemThumbWrap}>
-                        <Image
-                          source={getExerciseImage(alt.name)}
-                          style={styles.swapItemThumb}
-                          resizeMode="cover"
-                        />
-                      </View>
-                      <View>
-                        <Text
-                          style={[
-                            styles.swapItemName,
-                            isCurrent && styles.swapItemNameCurrent,
-                          ]}
-                        >
-                          {te(alt.name)}
-                        </Text>
-                        <Text style={styles.swapItemDetail}>
-                          {tm(alt.muscleGroup)} • {t('base')} {formatWithUnit(alt.defaultWeight)}
-                        </Text>
-                      </View>
-                    </View>
-                    {isCurrent ? (
-                      <View style={styles.currentBadge}>
-                        <Text style={styles.currentBadgeText}>{t('activeBadge')}</Text>
-                      </View>
-                    ) : (
-                      <Ionicons
-                        name="chevron-forward"
-                        size={18}
-                        color="#4B5565"
-                      />
-                    )}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
-      )}
+      {/* 6. Exercise Swap / Add Picker Modal (Full Catalog + Custom Exercises + Search) */}
+      <ExercisePickerModal
+        visible={pickerMode !== null}
+        mode={pickerMode === 'swap' ? 'swap' : 'add'}
+        initialMuscle={pickerMode === 'swap' ? exercise.muscleGroup : 'All'}
+        activeExerciseName={pickerMode === 'swap' ? exercise.name : undefined}
+        onClose={() => setPickerMode(null)}
+        onSelect={(selectedEx) => {
+          if (pickerMode === 'swap') {
+            if (selectedEx.name.trim().toLowerCase() !== exercise.name.trim().toLowerCase()) {
+              hapticMedium();
+              swapExercise({
+                name: selectedEx.name,
+                muscleGroup: selectedEx.muscleGroup,
+                defaultWeight: selectedEx.defaultWeight,
+                customImageUri: selectedEx.customImageUri,
+                isCustom: selectedEx.isCustom,
+                equipment: selectedEx.equipment,
+              });
+            }
+          } else if (pickerMode === 'add') {
+            hapticMedium();
+            addExercise({
+              name: selectedEx.name,
+              muscleGroup: selectedEx.muscleGroup,
+              defaultWeight: selectedEx.defaultWeight,
+              customImageUri: selectedEx.customImageUri,
+              isCustom: selectedEx.isCustom,
+              equipment: selectedEx.equipment,
+            });
+          }
+          setPickerMode(null);
+        }}
+      />
 
       {/* Exercise Detail Modal (Anatomy, Technique, Mistakes, Personal Best) */}
       {exercise && (
@@ -998,11 +1208,120 @@ export default function Active() {
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  exerciseStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 14,
+  },
+  exPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    maxWidth: 210,
+  },
+  exPillActive: {
+    backgroundColor: colors.activeChipBg,
+    borderColor: colors.activeChipBg,
+  },
+  exPillDone: {
+    borderColor: colors.accentLine,
+    backgroundColor: colors.primaryMuted,
+  },
+  exPillTitle: {
+    color: colors.text,
+    fontSize: 12.5,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  exPillTitleActive: {
+    color: colors.activeChipText,
+  },
+  exPillTitleDone: {
+    color: colors.primaryText,
+  },
+  exPillCount: {
+    color: colors.secondary,
+    fontSize: 11,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  exPillCountActive: {
+    color: colors.activeChipText,
+    opacity: 0.85,
+  },
+  supersetMiniTag: {
+    backgroundColor: 'rgba(168, 85, 247, 0.22)',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  supersetMiniTagText: {
+    color: '#A855F7',
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  supersetConnectorPill: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(168, 85, 247, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.38)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addExStripBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primaryMuted,
+    borderWidth: 1,
+    borderColor: colors.accentLine,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  addExStripText: {
+    color: colors.primaryText,
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  supersetHeaderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.35)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  supersetHeaderBadgeText: {
+    color: '#A855F7',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  supersetChipActive: {
+    backgroundColor: 'rgba(168, 85, 247, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.35)',
+  },
   exerciseCard: {
     backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 16,
     marginBottom: 16,
+    ...cardElevation(colors),
   },
   exerciseHeaderRow: {
     flexDirection: 'row',
@@ -1069,12 +1388,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.secondary,
     fontSize: 12,
     fontWeight: '500',
+    fontVariant: ['tabular-nums'],
   },
   noteFullBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#1A1F27',
+    backgroundColor: colors.elevated,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1148,11 +1468,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   progressBarTrack: {
     width: '100%',
     height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: colors.elevated,
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#C8FF3D',
+    backgroundColor: colors.accentLine,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -1168,21 +1488,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   tableHeadSet: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6C7685',
-    width: 28,
-    textAlign: 'left',
+    color: colors.secondary,
+    width: 32,
+    textAlign: 'center',
   },
   tableHeadPrev: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6C7685',
+    color: colors.secondary,
     flex: 1,
     textAlign: 'center',
   },
   tableHeadWeight: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6C7685',
+    color: colors.secondary,
     flex: 1,
     textAlign: 'center',
     marginHorizontal: 4,
@@ -1190,7 +1510,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   tableHeadReps: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6C7685',
+    color: colors.secondary,
     flex: 1,
     textAlign: 'center',
     marginHorizontal: 4,
@@ -1198,7 +1518,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   tableHeadStatus: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6C7685',
+    color: colors.secondary,
     width: 44,
     textAlign: 'center',
   },
@@ -1214,18 +1534,61 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     minHeight: 46,
   },
   setRowActive: {
-    backgroundColor: '#1A2029',
+    backgroundColor: colors.elevated,
   },
   setRowDone: {
-    backgroundColor: 'rgba(200, 255, 61, 0.04)',
+    backgroundColor: colors.primaryMuted,
+  },
+  setTypeBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 4,
+  },
+  setTypeWarmup: {
+    backgroundColor: 'rgba(245, 158, 11, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+  },
+  setTypeWarmupText: {
+    color: '#F59E0B',
+    fontWeight: '800',
+  },
+  setTypeDropset: {
+    backgroundColor: 'rgba(168, 85, 247, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.4)',
+  },
+  setTypeDropsetText: {
+    color: '#A855F7',
+    fontWeight: '800',
+  },
+  setTypeFailure: {
+    backgroundColor: 'rgba(239, 68, 68, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  setTypeFailureText: {
+    color: '#EF4444',
+    fontWeight: '800',
   },
   setColNum: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6C7685',
-    width: 28,
-    textAlign: 'left',
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: colors.secondary,
+    textAlign: 'center',
     fontVariant: ['tabular-nums'],
+  },
+  setTypesLegendRow: {
+    marginTop: 10,
+    paddingHorizontal: 4,
+  },
+  setTypesLegendHint: {
+    fontSize: 11,
+    color: colors.secondary,
+    fontWeight: '500',
   },
   prevColWrap: {
     flex: 1,
@@ -1242,7 +1605,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   setColPrev: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#6C7685',
+    color: colors.secondary,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
@@ -1256,7 +1619,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   cellPillActive: {
-    backgroundColor: '#252D3A',
+    backgroundColor: colors.isDark ? '#252D3A' : colors.surface,
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.border,
   },
   cellPillDone: {
     backgroundColor: 'transparent',
@@ -1276,7 +1641,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
   },
   cellPillTextProgression: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontWeight: '700',
   },
   setColDoneText: {
@@ -1303,7 +1668,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 9,
-    backgroundColor: '#2A3342',
+    backgroundColor: colors.isDark ? '#2A3342' : colors.surface,
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1330,7 +1697,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: '100%',
     minHeight: 54,
     borderRadius: 16,
-    backgroundColor: '#C8FF3D',
+    backgroundColor: colors.primary,
   },
   tableFooterActions: {
     flexDirection: 'row',
@@ -1396,7 +1763,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    borderBottomColor: colors.divider,
   },
   modalTitle: {
     fontSize: 20,
@@ -1406,14 +1773,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   modalSubtitle: {
     fontSize: 13,
     fontWeight: '400',
-    color: '#8E9BAE',
+    color: colors.secondary,
     marginTop: 2,
   },
   modalCloseBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1C232E',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1425,13 +1792,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1A2029',
+    backgroundColor: colors.elevated,
     borderRadius: 14,
     padding: 14,
     marginBottom: 8,
   },
   swapItemCurrent: {
-    backgroundColor: '#232B38',
+    backgroundColor: colors.primaryMuted,
   },
   swapItemLeft: {
     flexDirection: 'row',
@@ -1443,7 +1810,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: colors.elevated,
+    backgroundColor: colors.surface,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1458,12 +1825,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
   },
   swapItemNameCurrent: {
-    color: colors.primary,
+    color: colors.primaryText,
   },
   swapItemDetail: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#8E9BAE',
+    color: colors.secondary,
     marginTop: 2,
   },
   currentBadge: {
@@ -1490,6 +1857,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 14,
+    ...cardElevation(colors),
   },
   restTimerCenterCol: {
     flex: 1,
@@ -1511,6 +1879,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
     fontSize: 12,
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   restDigitsText: {
     color: colors.text,
@@ -1522,13 +1891,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   restProgressTrack: {
     width: '100%',
     height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.elevated,
     borderRadius: 1.5,
     overflow: 'hidden',
   },
   restProgressFill: {
     height: '100%',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accentLine,
     borderRadius: 1.5,
   },
   restSkipBtn: {

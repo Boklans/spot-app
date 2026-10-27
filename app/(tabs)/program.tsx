@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useThemeColors, type ThemeColors } from '@/constants/colors';
+import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
 import { WorkoutEditorModal } from '@/components/program/WorkoutEditorModal';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
@@ -256,23 +256,54 @@ export default function Program() {
               </View>
 
               <View style={styles.exerciseList}>
-                {workout.exercises.map((exercise, exIndex) => (
-                  <View key={`${exercise.name}-${exIndex}`} style={styles.exerciseRow}>
-                    <View style={styles.exerciseRowLeft}>
-                      <View style={styles.exerciseThumbMini}>
-                        <Image
-                          source={getExerciseImage(exercise.name)}
-                          style={styles.exerciseThumb}
-                          resizeMode="cover"
-                        />
+                {workout.exercises.map((exercise, exIndex) => {
+                  const isSupersetA1 = Boolean(
+                    exercise.supersetWithNext && exIndex < workout.exercises.length - 1
+                  );
+                  const isSupersetA2 = Boolean(
+                    exIndex > 0 && workout.exercises[exIndex - 1]?.supersetWithNext
+                  );
+
+                  return (
+                    <View key={`${exercise.name}-${exIndex}`} style={styles.exerciseRow}>
+                      <View style={styles.exerciseRowLeft}>
+                        <View style={styles.exerciseThumbMini}>
+                          <Image
+                            source={getExerciseImage(exercise.name)}
+                            style={styles.exerciseThumb}
+                            resizeMode="cover"
+                          />
+                        </View>
+                        {(isSupersetA1 || isSupersetA2) && (
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 2,
+                              backgroundColor: 'rgba(168, 85, 247, 0.16)',
+                              borderWidth: 1,
+                              borderColor: 'rgba(168, 85, 247, 0.35)',
+                              borderRadius: 5,
+                              paddingHorizontal: 5,
+                              paddingVertical: 1.5,
+                            }}
+                          >
+                            <Ionicons name="link" size={9} color="#A855F7" />
+                            <Text style={{ color: '#A855F7', fontSize: 9.5, fontWeight: '800' }}>
+                              {isSupersetA1 ? 'A1' : 'A2'}
+                            </Text>
+                          </View>
+                        )}
+                        <Text numberOfLines={1} style={styles.exerciseNameText}>
+                          {te(exercise.name)}
+                        </Text>
                       </View>
-                      <Text numberOfLines={1} style={styles.exerciseNameText}>{te(exercise.name)}</Text>
+                      <Text style={styles.exerciseMetaText}>
+                        {exercise.sets} × {exercise.targetRepRange}
+                      </Text>
                     </View>
-                    <Text style={styles.exerciseMetaText}>
-                      {exercise.sets} × {exercise.targetRepRange}
-                    </Text>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             </Pressable>
           );
@@ -366,9 +397,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
     backgroundColor: colors.surface,
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.border,
   },
   splitChipActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.activeChipBg,
+    borderColor: colors.activeChipBg,
   },
   splitChipText: {
     color: colors.secondary,
@@ -376,7 +410,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
   },
   splitChipTextActive: {
-    color: colors.onPrimary,
+    color: colors.activeChipText,
     fontWeight: '700',
   },
   customProgramHeaderBanner: {
@@ -388,6 +422,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: 14,
     marginTop: 12,
     gap: 12,
+    ...cardElevation(colors),
   },
   customProgramLeft: {
     flexDirection: 'row',
@@ -420,6 +455,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 18,
+    ...cardElevation(colors),
   },
   workoutCardHead: {
     flexDirection: 'row',
@@ -458,12 +494,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accentLine,
   },
   upNextBadgeText: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   workoutName: {
     color: colors.text,
@@ -477,6 +513,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     marginTop: 4,
+    fontVariant: ['tabular-nums'],
   },
   exerciseList: {
     marginTop: 14,
@@ -532,6 +569,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 16,
     marginTop: 4,
     marginBottom: 20,
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.border,
   },
   addCustomWorkoutBtnText: {
     fontSize: 14,

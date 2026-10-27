@@ -228,7 +228,7 @@ export default function Complete() {
           onPress={handleFinish}
           style={styles.backButton}
         >
-          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
         </Pressable>
 
         <Pressable
@@ -238,7 +238,7 @@ export default function Complete() {
           onPress={handleNativeShare}
           style={styles.topShareBtn}
         >
-          <Ionicons name="share-outline" size={20} color="#E2E8F0" />
+          <Ionicons name="share-outline" size={20} color={colors.text} />
         </Pressable>
       </View>
 
@@ -257,7 +257,7 @@ export default function Complete() {
             <Ionicons
               name={isPartial ? 'bookmark-outline' : 'checkmark-done'}
               size={24}
-              color={isPartial ? '#F59E0B' : colors.primary}
+              color={isPartial ? '#F59E0B' : colors.primaryText}
             />
           </View>
           <Text style={styles.title}>
@@ -311,7 +311,7 @@ export default function Complete() {
             }}
           >
             <Ionicons name="information-circle-outline" size={18} color="#F59E0B" />
-            <Text style={{ color: '#E2E8F0', fontSize: 12.5, lineHeight: 17, flex: 1 }}>
+            <Text style={{ color: colors.text, fontSize: 12.5, lineHeight: 17, flex: 1 }}>
               {language === 'uk'
                 ? 'Збережено лише фактично виконані підходи. Це тренування залишається наступним за розкладом.'
                 : 'Only completed sets were logged. This workout remains next in your schedule.'}
@@ -364,14 +364,14 @@ export default function Complete() {
               {progressedExercisesCount > 0 && (
                 <View
                   style={{
-                    backgroundColor: 'rgba(200, 255, 61, 0.14)',
+                    backgroundColor: colors.primaryMuted,
                     paddingHorizontal: 8,
                     paddingVertical: 3,
                     borderRadius: 7,
                     flexShrink: 0,
                   }}
                 >
-                  <Text style={{ color: colors.primary, fontSize: 10.5, fontWeight: '700' }}>
+                  <Text style={{ color: colors.primaryText, fontSize: 10.5, fontWeight: '700' }}>
                     {language === 'uk'
                       ? `+${progressedExercisesCount} з прогресом`
                       : `+${progressedExercisesCount} progressed`}
@@ -425,13 +425,13 @@ export default function Complete() {
                     {item.isProgressedToday ? (
                       <View
                         style={{
-                          backgroundColor: 'rgba(200, 255, 61, 0.14)',
+                          backgroundColor: colors.primaryMuted,
                           paddingHorizontal: 8,
                           paddingVertical: 3.5,
                           borderRadius: 7,
                         }}
                       >
-                        <Text style={{ fontSize: 10.5, fontWeight: '700', color: colors.primary, fontVariant: ['tabular-nums'] }}>
+                        <Text style={{ fontSize: 10.5, fontWeight: '700', color: colors.primaryText, fontVariant: ['tabular-nums'] }}>
                           {item.progressedWeight
                             ? `${item.weightDiff > 0 ? '+' : ''}${formatWithUnit(item.weightDiff)}`
                             : item.progressedReps
@@ -453,14 +453,14 @@ export default function Complete() {
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={{ fontSize: 11.5, fontWeight: '600', color: '#94A3B8' }}>
+                      <Text style={{ fontSize: 11.5, fontWeight: '600', color: colors.secondary }}>
                         {language === 'uk' ? 'Наступна ціль' : 'Next session target'}
                       </Text>
                       <Text
                         style={{
                           fontSize: 12,
                           fontWeight: '700',
-                          color: isIncrease ? colors.primary : isReduce ? '#F59E0B' : '#FFFFFF',
+                          color: isIncrease ? colors.primaryText : isReduce ? '#D97706' : colors.text,
                           fontVariant: ['tabular-nums'],
                         }}
                       >
@@ -619,7 +619,7 @@ export default function Complete() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
@@ -632,6 +632,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 38,
     borderRadius: 12,
     backgroundColor: colors.surface,
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -654,7 +656,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 12,
   },
   statusIconWrapComplete: {
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    backgroundColor: colors.primaryMuted,
   },
   statusIconWrapPartial: {
     backgroundColor: 'rgba(245, 158, 11, 0.12)',
@@ -684,6 +686,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 12,
     marginBottom: 14,
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.border,
   },
   statBox: {
     flex: 1,
@@ -692,7 +696,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statDivider: {
     width: 1,
     height: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: colors.divider,
   },
   statValue: {
     color: colors.text,
@@ -714,6 +718,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     marginBottom: 14,
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.border,
   },
   volumeValueRow: {
     flexDirection: 'row',
@@ -762,7 +768,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '500',
-    color: '#B0BAC7',
+    color: colors.secondary,
     lineHeight: 16,
   },
   prsCard: {
@@ -772,6 +778,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     marginBottom: 14,
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.border,
   },
   prHeader: {
     flexDirection: 'row',
@@ -780,7 +788,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 10,
   },
   prSectionTitle: {
-    color: '#94A3B8',
+    color: colors.secondary,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -814,7 +822,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
   },
   prValueText: {
-    color: '#CBD5E1',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
@@ -857,6 +865,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 38,
     borderRadius: 12,
     backgroundColor: colors.surface,
+    borderWidth: colors.isDark ? 0 : 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 'auto',
