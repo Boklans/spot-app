@@ -2,14 +2,13 @@ import React, { useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
-  Modal,
-  Pressable,
+  Modal,  Platform,  Pressable,  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '@/components/ui/Card';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
@@ -43,6 +42,8 @@ export function ExercisePickerModal({
   activeExerciseName,
 }: ExercisePickerModalProps) {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'ios' ? 52 : (StatusBar.currentHeight ?? 24));
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { tm, te, language } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,7 +111,7 @@ export function ExercisePickerModal({
       transparent={false}
       onRequestClose={handleClose}
     >
-      <SafeAreaView style={styles.safeArea}>
+      <View style={[styles.safeArea, { paddingTop: topInset + 6 }]}>
         <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
@@ -129,7 +130,7 @@ export function ExercisePickerModal({
               style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
               hitSlop={12}
             >
-              <Text style={styles.closeText}>✕</Text>
+              <Ionicons name="close" size={22} color={colors.text} />
             </Pressable>
           </View>
 
@@ -339,7 +340,7 @@ export function ExercisePickerModal({
             equipment={detailExercise.equipment}
           />
         )}
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
@@ -373,9 +374,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 2,
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,

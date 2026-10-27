@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { colors } from '@/constants/colors';
@@ -50,6 +50,8 @@ export function CreateExerciseModal({
   onClose,
   onCreated,
 }: CreateExerciseModalProps) {
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'ios' ? 52 : 24);
   const { tm, language } = useI18n();
   const { unit, unitLabel, fromKg, toKg } = useWeightUnit();
   const addCustomExercise = useCustomExercisesStore((state) => state.addCustomExercise);
@@ -166,7 +168,7 @@ export function CreateExerciseModal({
       transparent={false}
       onRequestClose={handleClose}
     >
-      <SafeAreaView style={styles.safeArea}>
+      <View style={[styles.safeArea, { paddingTop: topInset + 6 }]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardContainer}
@@ -421,7 +423,7 @@ export function CreateExerciseModal({
             </Pressable>
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }

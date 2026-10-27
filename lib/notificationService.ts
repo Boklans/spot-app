@@ -211,6 +211,16 @@ export async function initNotifications(): Promise<void> {
   if (!isHandlerConfigured) {
     Notifications.setNotificationHandler({
       handleNotification: async (notification) => {
+        // While user is actively in the app, NEVER pop up any banner or alert over the screen!
+        if (AppState.currentState === 'active') {
+          return {
+            shouldShowAlert: false,
+            shouldPlaySound: false,
+            shouldSetBadge: false,
+            shouldShowBanner: false,
+            shouldShowList: false,
+          };
+        }
         const id = notification.request.identifier;
         const isSilentShadeUpdate =
           id === ACTIVE_SESSION_NOTIFICATION_ID || id === ACTIVE_REST_NOTIFICATION_ID;
@@ -852,6 +862,11 @@ export async function syncActiveWorkoutNotification(forceRescheduleAlert: boolea
         snapshot.lang === 'uk'
           ? `⏱️ Відпочинок (${durClock})${endClock ? ` • до ${endClock}` : ''}`
           : `⏱️ Rest (${durClock})${endClock ? ` • until ${endClock}` : ''}`;
+    }
+
+    // Never schedule immediate active session alert on iOS while in foreground
+    if (Platform.OS === 'ios' && AppState.currentState === 'active') {
+      return;
     }
 
     await Notifications.scheduleNotificationAsync({
