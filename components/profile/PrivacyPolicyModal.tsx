@@ -71,7 +71,7 @@ export function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.badgeRow}>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>SPOT 1.0.0 • GDPR & Google Play Compliant</Text>
+              <Text style={styles.badgeText}>SPOT 1.0.3 • GDPR & Google Play Compliant</Text>
             </View>
           </View>
 

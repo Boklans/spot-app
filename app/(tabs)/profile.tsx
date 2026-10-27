@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -60,6 +61,8 @@ import {
   saveOnboarding,
   type WorkoutSplitPreference,
 } from '@/store/workoutStore';
+
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.3';
 
 const GOAL_OPTIONS: UserGoal[] = [
   'Build Muscle',
@@ -167,7 +170,7 @@ export default function Profile() {
   const buildBackupPayload = () => {
     return {
       app: 'SPOT',
-      version: '1.0.2',
+      version: APP_VERSION,
       exportedAt: new Date().toISOString(),
       profile: useUserProfileStore.getState().profile,
       program: useProgramStore.getState().program,
@@ -537,8 +540,8 @@ export default function Profile() {
     );
     const body = encodeURIComponent(
       language === 'uk'
-        ? `Привіт, VanzaLabs!\n\nЧого мені не вистачає в SPOT:\n- \n\nЩо сподобалося / Що покращити:\n- \n\nВерсія: SPOT v1.0.0 (${Platform.OS})`
-        : `Hi VanzaLabs team!\n\nWhat I would love to see in SPOT:\n- \n\nWhat I like / Suggestions:\n- \n\nVersion: SPOT v1.0.0 (${Platform.OS})`
+        ? `Привіт, VanzaLabs!\n\nЧого мені не вистачає в SPOT:\n- \n\nЩо сподобалося / Що покращити:\n- \n\nВерсія: SPOT v${APP_VERSION} (${Platform.OS})`
+        : `Hi VanzaLabs team!\n\nWhat I would love to see in SPOT:\n- \n\nWhat I like / Suggestions:\n- \n\nVersion: SPOT v${APP_VERSION} (${Platform.OS})`
     );
     Linking.openURL(`mailto:${email}?subject=${subject}&body=${body}`).catch(() => {
       Alert.alert(
@@ -1034,7 +1037,7 @@ export default function Profile() {
           </Pressable>
         </View>
 
-        <Text style={styles.versionText}>SPOT v1.0.2 · VanzaLabs</Text>
+        <Text style={styles.versionText}>SPOT v{APP_VERSION} · VanzaLabs</Text>
         </Animated.View>
       </ScrollView>
 
