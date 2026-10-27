@@ -24,6 +24,7 @@ import {
   type BeastAvatarId,
   useUserProfileStore,
 } from '@/store/userProfileStore';
+import { saveOnboarding } from '@/store/workoutStore';
 
 interface EditProfileModalProps {
   visible: boolean;
@@ -38,6 +39,9 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
   const updateProfile = useUserProfileStore((state) => state.updateProfile);
 
   const [name, setName] = useState(profile.name);
+  const [sex, setSex] = useState<'male' | 'female'>(
+    profile.sex === 'female' ? 'female' : 'male'
+  );
   const [selectedAvatar, setSelectedAvatar] = useState<BeastAvatarId>(profile.avatar);
   const [customAvatarUri, setCustomAvatarUri] = useState<string | undefined>(
     profile.customAvatarUri
@@ -56,6 +60,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
   useEffect(() => {
     if (visible) {
       setName(profile.name);
+      setSex(profile.sex === 'female' ? 'female' : 'male');
       setSelectedAvatar(profile.avatar);
       setCustomAvatarUri(profile.customAvatarUri);
       setWeightStr(
@@ -177,11 +182,19 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
 
     await updateProfile({
       name: finalName,
+      sex,
       avatar: selectedAvatar,
       customAvatarUri: customAvatarUri || undefined,
       weightKg: Math.round(finalWeightKg * 10) / 10,
       heightCm: finalHeightCm,
     });
+
+    await saveOnboarding({
+      name: finalName,
+      sex,
+      weightKg: Math.round(finalWeightKg * 10) / 10,
+      heightCm: finalHeightCm,
+    }).catch(() => undefined);
 
     // Refresh program generator with new body metrics
     await useProgramStore.getState().refreshProgram();
@@ -373,6 +386,41 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                     autoCapitalize="words"
                     maxLength={30}
                   />
+                </View>
+              </View>
+
+              {/* 3b. Sex Selector (Male / Female) */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>
+                  {language === 'uk' ? 'СТАТЬ' : 'SEX'}
+                </Text>
+                <View style={styles.sexRow}>
+                  {([
+                    { value: 'male', label: language === 'uk' ? 'Чоловіча' : 'Male', icon: 'male-outline' },
+                    { value: 'female', label: language === 'uk' ? 'Жіноча' : 'Female', icon: 'female-outline' },
+                  ] as const).map((opt) => {
+                    const isActive = sex === opt.value;
+                    return (
+                      <Pressable
+                        key={opt.value}
+                        accessibilityRole="button"
+                        onPress={() => {
+                          hapticLight();
+                          setSex(opt.value);
+                        }}
+                        style={[styles.sexBtn, isActive && styles.sexBtnActive]}
+                      >
+                        <Ionicons
+                          name={opt.icon}
+                          size={16}
+                          color={isActive ? colors.primaryText : colors.secondary}
+                        />
+                        <Text style={[styles.sexBtnText, isActive && styles.sexBtnTextActive]}>
+                          {opt.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
 
@@ -681,6 +729,35 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       gap: 14,
       marginBottom: 18,
+    },
+    sexRow: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    sexBtn: {
+      flex: 1,
+      height: 46,
+      borderRadius: 14,
+      backgroundColor: colors.elevated,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    sexBtnActive: {
+      borderColor: colors.accentLine,
+      backgroundColor: colors.primaryMuted,
+    },
+    sexBtnText: {
+      color: colors.secondary,
+      fontSize: 13.5,
+      fontWeight: '700',
+    },
+    sexBtnTextActive: {
+      color: colors.primaryText,
+      fontWeight: '800',
     },
     metricCol: {
       flex: 1,

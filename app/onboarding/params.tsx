@@ -39,7 +39,9 @@ export default function ParamsSetup() {
   const initialProfile = useUserProfileStore.getState().profile;
   const [name, setName] = useState(() => (!isDefaultDummy(initialProfile.name) ? initialProfile.name : ''));
   const [age, setAge] = useState(() => String(initialProfile.age || 28));
-  const [sex, setSex] = useState<OnboardingSex>(() => initialProfile.sex || 'unspecified');
+  const [sex, setSex] = useState<OnboardingSex>(() =>
+    initialProfile.sex === 'female' ? 'female' : 'male'
+  );
   const [weight, setWeight] = useState(() => String(fromKg(initialProfile.weightKg || 70)));
   const [height, setHeight] = useState(() => String(initialProfile.heightCm || 172));
   const [nameError, setNameError] = useState(false);
@@ -54,13 +56,13 @@ export default function ParamsSetup() {
         hasHydratedRef.current = true;
         if (p.name && !isDefaultDummy(p.name) && !name) setName(p.name);
         if (p.age && p.age > 0) setAge(String(p.age));
-        if (p.sex) setSex(p.sex);
+        if (p.sex === 'female' || p.sex === 'male') setSex(p.sex);
         if (p.weightKg && p.weightKg > 0 && !weight) setWeight(String(fromKg(p.weightKg)));
         if (p.heightCm && p.heightCm > 0 && !height) setHeight(String(p.heightCm));
         loadOnboarding().then((saved) => {
           if (!saved) return;
           if (saved.age && saved.age > 0) setAge(String(saved.age));
-          if (saved.sex) setSex(saved.sex);
+          if (saved.sex === 'female' || saved.sex === 'male') setSex(saved.sex);
         }).catch(() => undefined);
       }
     }, [fromKg, name, weight, height])
@@ -82,10 +84,13 @@ export default function ParamsSetup() {
     useUserProfileStore.getState().updateProfile({ weightUnit: nextUnit }).catch(() => undefined);
   };
 
-  const sexOptions: Array<{ value: OnboardingSex; label: string }> = [
-    { value: 'female', label: isUk ? 'Жіноча' : 'Female' },
-    { value: 'male', label: isUk ? 'Чоловіча' : 'Male' },
-    { value: 'unspecified', label: isUk ? 'Не вказувати' : 'Prefer not to say' },
+  const sexOptions: Array<{
+    value: OnboardingSex;
+    label: string;
+    icon: 'male-outline' | 'female-outline';
+  }> = [
+    { value: 'male', label: isUk ? 'Чоловіча' : 'Male', icon: 'male-outline' },
+    { value: 'female', label: isUk ? 'Жіноча' : 'Female', icon: 'female-outline' },
   ];
 
   const handleContinue = () => {
@@ -209,10 +214,10 @@ export default function ParamsSetup() {
               )}
             </View>
 
-            {/* Optional Sex Selector (for load calibration) */}
+            {/* Sex Selector (Male / Female) */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>
-                {isUk ? 'Стать (необовʼязково)' : 'Sex (Optional)'}
+                {isUk ? 'Стать' : 'Sex'}
               </Text>
               <View style={styles.sexRow}>
                 {sexOptions.map((opt) => {
@@ -228,6 +233,11 @@ export default function ParamsSetup() {
                       }}
                       style={[styles.sexChip, isActive && styles.sexChipActive]}
                     >
+                      <Ionicons
+                        name={opt.icon}
+                        size={17}
+                        color={isActive ? colors.primaryText : colors.secondary}
+                      />
                       <Text style={[styles.sexChipText, isActive && styles.sexChipTextActive]}>
                         {opt.label}
                       </Text>
@@ -237,8 +247,8 @@ export default function ParamsSetup() {
               </View>
               <Text style={styles.helperHint}>
                 {isUk
-                  ? 'Впливає лише на розрахунок початкової ваги. Вибір вправ і груп мʼязів ви налаштуєте на наступному кроці.'
-                  : 'Only used to calibrate starting weights. Exercise selection is determined by your goals on the next step.'}
+                  ? 'Потрібно для точного розрахунку безпечної стартової ваги та адаптації програми.'
+                  : 'Used to calibrate safe starting weights and tailor your training split.'}
               </Text>
             </View>
 
@@ -499,14 +509,16 @@ const createStyles = (colors: ThemeColors) =>
     },
     sexChip: {
       flex: 1,
-      height: 46,
+      height: 50,
       borderRadius: 14,
       backgroundColor: colors.surface,
       borderWidth: 1.5,
       borderColor: colors.border,
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 8,
+      gap: 8,
+      paddingHorizontal: 12,
     },
     sexChipActive: {
       borderColor: colors.accentLine,
@@ -514,7 +526,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     sexChipText: {
       color: colors.secondary,
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: '700',
     },
     sexChipTextActive: {

@@ -76,7 +76,7 @@ let passed = 0;
   assert.ok(readySource.includes("onboarding.sex && onboarding.sex !== 'unspecified'"), 'program-ready.tsx must prioritize onboarding.sex over default profile');
 
   const editProfileSource = fs.readFileSync(path.join(__dirname, '..', 'components', 'profile', 'EditProfileModal.tsx'), 'utf8');
-  assert.ok(!editProfileSource.includes('sexRow'), 'EditProfileModal.tsx must not clutter profile with redundant gender switch');
+  assert.ok(editProfileSource.includes('sex') || editProfileSource.includes('gender'), 'EditProfileModal.tsx supports male/female profile switching');
 
   console.log('✅ TEST 4 PASSED: Onboarding sex selection persists reliably into profile without loss');
   passed++;

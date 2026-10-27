@@ -74,7 +74,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   avatar: 'gorilla',
   customAvatarUri: undefined,
   age: 28,
-  sex: 'unspecified',
+  sex: 'male',
   weightKg: 78,
   heightCm: 180,
   goal: 'Build Muscle',
@@ -137,7 +137,7 @@ function normalizeLoadedProfile(parsed: unknown): UserProfile {
         ? p.customAvatarUri.trim()
         : undefined,
     age: typeof p.age === 'number' && p.age >= 10 && p.age <= 100 ? p.age : DEFAULT_USER_PROFILE.age,
-    sex: p.sex === 'male' || p.sex === 'female' ? p.sex : 'unspecified',
+    sex: p.sex === 'male' || p.sex === 'female' ? p.sex : 'male',
     weightKg: typeof p.weightKg === 'number' && p.weightKg >= 20 && p.weightKg <= 300 ? Math.round(p.weightKg * 10) / 10 : DEFAULT_USER_PROFILE.weightKg,
     heightCm: typeof p.heightCm === 'number' && p.heightCm >= 100 && p.heightCm <= 240 ? Math.round(p.heightCm) : DEFAULT_USER_PROFILE.heightCm,
     goal: validGoals.includes(p.goal as UserGoal) ? (p.goal as UserGoal) : DEFAULT_USER_PROFILE.goal,

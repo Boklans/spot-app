@@ -17,7 +17,8 @@ import type { CompletedWorkout } from '@/types/workout';
 
 const NOTIFICATION_CHANNEL_ID = 'workout-reminders';
 const REST_TIMER_CHANNEL_ID = 'rest-timer-channel';
-const LIVE_SESSION_CHANNEL_ID = 'spot-live-workout-session';
+// Fresh v2 silent channel ID so Android does not reuse cached HIGH importance settings
+const LIVE_SESSION_CHANNEL_ID = 'spot-live-workout-silent-v2';
 const REMINDER_ID_PREFIX = 'spot-workout-reminder-';
 export const REST_TIMER_NOTIFICATION_ID = 'spot-rest-timer';
 export const ACTIVE_REST_NOTIFICATION_ID = 'spot-active-rest-notification';
@@ -46,8 +47,10 @@ const DAY_KEY_TO_EXPO_WEEKDAY: Record<string, number> = {
 let isHandlerConfigured = false;
 let isResponseListenerConfigured = false;
 let isLiveSyncConfigured = false;
-let liveTickerInterval: ReturnType<typeof setInterval> | null = null;
+let restEndTransitionTimeout: ReturnType<typeof setTimeout> | null = null;
+let syncDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 let lastScheduledRestEndTimestamp: number | null = null;
+let lastSyncedShadeSignature: string | null = null;
 let lastCategoriesLang: AppLanguage | null = null;
 
 function formatTimerClock(totalSeconds: number): string {
@@ -56,6 +59,18 @@ function formatTimerClock(totalSeconds: number): string {
   const secs = safe % 60;
   const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
   return `${pad(mins)}:${pad(secs)}`;
+}
+
+function formatEndTimeClock(timestampMs: number, lang: AppLanguage): string {
+  try {
+    return new Date(timestampMs).toLocaleTimeString(lang === 'uk' ? 'uk-UA' : 'en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  } catch {
+    return '';
+  }
 }
 
 export async function setupNotificationCategories(lang: AppLanguage = 'uk'): Promise<void> {
@@ -199,11 +214,37 @@ export async function initNotifications(): Promise<void> {
         const id = notification.request.identifier;
         const isSilentShadeUpdate =
           id === ACTIVE_SESSION_NOTIFICATION_ID || id === ACTIVE_REST_NOTIFICATION_ID;
+        const isRestFinishedAlert = id === REST_TIMER_NOTIFICATION_ID;
+        const isAppInForeground = AppState.currentState === 'active';
+
+        // 1. Live ongoing shade card: NEVER pop up a banner or play sound; only sit quietly in the shade list
+        if (isSilentShadeUpdate) {
+          return {
+            shouldShowAlert: false,
+            shouldPlaySound: false,
+            shouldSetBadge: false,
+            shouldShowBanner: false,
+            shouldShowList: true,
+          };
+        }
+
+        // 2. Rest timer completion alert: if user is already looking at the app in foreground,
+        // the in-app timer already plays the sound & haptic, so don't double-popup a banner over the screen
+        if (isRestFinishedAlert && isAppInForeground) {
+          return {
+            shouldShowAlert: false,
+            shouldPlaySound: false,
+            shouldSetBadge: false,
+            shouldShowBanner: false,
+            shouldShowList: false,
+          };
+        }
+
         return {
           shouldShowAlert: true,
-          shouldPlaySound: !isSilentShadeUpdate,
+          shouldPlaySound: true,
           shouldSetBadge: false,
-          shouldShowBanner: !isSilentShadeUpdate,
+          shouldShowBanner: true,
           shouldShowList: true,
         };
       },
@@ -223,16 +264,17 @@ export async function initNotifications(): Promise<void> {
 
       await Notifications.setNotificationChannelAsync(REST_TIMER_CHANNEL_ID, {
         name: 'Rest Timer Alert',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 500, 250, 500],
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 400, 200, 400],
         lightColor: '#C8FF3D',
         sound: 'default',
       });
 
       await Notifications.setNotificationChannelAsync(LIVE_SESSION_CHANNEL_ID, {
-        name: 'Active Workout & Live Timer',
+        name: 'Active Workout Status (Silent)',
         importance: Notifications.AndroidImportance.LOW,
         enableVibrate: false,
+        showBadge: false,
         lightColor: '#C8FF3D',
         sound: null,
       });
@@ -379,7 +421,6 @@ export function buildWorkoutReminderContent(
 ): ReminderNotificationContent {
   const workoutName = nextWorkout?.name || (lang === 'uk' ? 'Тренування' : 'Workout');
 
-  // Extract target muscles (prioritize specific exercise muscles like Triceps/Chest if available)
   const exerciseMuscles = nextWorkout?.exercises
     ? nextWorkout.exercises.map((e) => e.muscleGroup).filter(Boolean)
     : [];
@@ -388,14 +429,12 @@ export function buildWorkoutReminderContent(
     : (nextWorkout?.muscleGroups || []);
   const distinctMuscles = [...new Set(combinedMuscles)];
 
-  // Calculate muscle recovery
   const recoveryStatuses = calculateMuscleRecovery(history);
   const recoveryMap = new Map<string, number>();
   for (const s of recoveryStatuses) {
     recoveryMap.set(s.muscleGroup.toLowerCase(), s.readinessPercentage);
   }
 
-  // Score each candidate muscle by its core recovery status
   const scoredMuscles = distinctMuscles.map((muscle) => {
     const core = normalizeMuscleGroup(muscle).toLowerCase();
     const readiness = recoveryMap.get(core) ?? 100;
@@ -405,7 +444,6 @@ export function buildWorkoutReminderContent(
     };
   });
 
-  // Pick fully recovered muscles (>= 95%), otherwise sort by highest recovery
   const fullyRecovered = scoredMuscles.filter((s) => s.readiness >= 95);
   const selectedMuscles = (fullyRecovered.length > 0 ? fullyRecovered : scoredMuscles)
     .sort((a, b) => b.readiness - a.readiness)
@@ -422,7 +460,7 @@ export function buildWorkoutReminderContent(
   const targetMuscleNames = selectedMuscles.map((s) => s.muscle);
   const musclesText = formatMusclesList(targetMuscleNames, lang);
 
-  let title = lang === 'uk' ? 'Сьогодні день тренування! ⚡' : 'Training Day Today! ⚡';
+  const title = lang === 'uk' ? 'Сьогодні день тренування! ⚡' : 'Training Day Today! ⚡';
   let body: string;
 
   if (lang === 'uk') {
@@ -467,7 +505,6 @@ export async function scheduleWorkoutDayReminders(): Promise<void> {
     return;
   }
 
-  // Cancel existing workout reminders to prevent duplicates
   await cancelAllWorkoutReminders();
 
   const onboarding = await loadOnboarding();
@@ -487,7 +524,6 @@ export async function scheduleWorkoutDayReminders(): Promise<void> {
 
   const reminderContent = buildWorkoutReminderContent(program, nextWorkout, history, lang);
 
-  // Parse reminder time (format HH:mm, e.g. "09:00")
   const reminderTime = profile.notificationTime || '09:00';
   const [hourStr, minStr] = reminderTime.split(':');
   const hour = parseInt(hourStr || '9', 10);
@@ -731,7 +767,7 @@ export function getLiveShadeNotificationSnapshot(nowMs: number = Date.now()): Li
 
 /**
  * Synchronizes the persistent OS notification in the Android/iOS shade
- * with the current active workout session & rest timer.
+ * WITHOUT spamming or popping heads-up banners every second.
  */
 export async function syncActiveWorkoutNotification(forceRescheduleAlert: boolean = false): Promise<void> {
   if (Platform.OS === 'web') return;
@@ -746,9 +782,9 @@ export async function syncActiveWorkoutNotification(forceRescheduleAlert: boolea
     await initNotifications();
     await setupNotificationCategories(snapshot.lang);
 
-    const { restEndsAt } = useWorkoutSessionStore.getState();
+    const { session, restEndsAt } = useWorkoutSessionStore.getState();
 
-    // 1. Manage the exact rest-completion sound alert
+    // 1. Manage the exact rest-completion sound alert (fires once when rest finishes)
     if (snapshot.mode === 'resting' && restEndsAt && snapshot.restRemainingSeconds > 0) {
       if (forceRescheduleAlert || lastScheduledRestEndTimestamp !== restEndsAt) {
         lastScheduledRestEndTimestamp = restEndsAt;
@@ -786,18 +822,46 @@ export async function syncActiveWorkoutNotification(forceRescheduleAlert: boolea
       await Notifications.dismissNotificationAsync(REST_TIMER_NOTIFICATION_ID).catch(() => undefined);
     }
 
-    // 2. Show/Update the sticky ongoing workout & rest timer panel in the notification shade
+    // 2. Deduplicate shade updates: only re-post ACTIVE_SESSION_NOTIFICATION_ID when state actually changes
+    const signature = [
+      session?.id ?? '',
+      snapshot.mode,
+      session?.currentExerciseIndex ?? 0,
+      session?.currentSetIndex ?? 0,
+      snapshot.weightText,
+      snapshot.reps,
+      snapshot.progressPercent,
+      snapshot.mode === 'resting' ? String(restEndsAt ?? 0) : 'active',
+      snapshot.lang,
+    ].join('|');
+
+    if (!forceRescheduleAlert && lastSyncedShadeSignature === signature) {
+      return;
+    }
+    lastSyncedShadeSignature = signature;
+
     const categoryId =
       snapshot.mode === 'resting' ? REST_ACTION_CATEGORY_ID : ACTIVE_SET_CATEGORY_ID;
+
+    // For native OS shade, show exact rest duration & finish time so we don't spam 1-second notifications
+    let shadeTitle = snapshot.title;
+    if (snapshot.mode === 'resting' && restEndsAt) {
+      const endClock = formatEndTimeClock(restEndsAt, snapshot.lang);
+      const durClock = formatTimerClock(snapshot.restRemainingSeconds);
+      shadeTitle =
+        snapshot.lang === 'uk'
+          ? `⏱️ Відпочинок (${durClock})${endClock ? ` • до ${endClock}` : ''}`
+          : `⏱️ Rest (${durClock})${endClock ? ` • until ${endClock}` : ''}`;
+    }
 
     await Notifications.scheduleNotificationAsync({
       identifier: ACTIVE_SESSION_NOTIFICATION_ID,
       content: {
-        title: snapshot.title,
+        title: shadeTitle,
         body: snapshot.body,
         sound: false,
         sticky: true,
-        priority: Notifications.AndroidNotificationPriority.HIGH,
+        priority: Notifications.AndroidNotificationPriority.LOW,
         autoDismiss: false,
         categoryIdentifier: categoryId,
         data: {
@@ -825,47 +889,39 @@ export function startLiveWorkoutNotificationSync(): void {
   if (Platform.OS === 'web' || isLiveSyncConfigured) return;
   isLiveSyncConfigured = true;
 
-  const ensureLiveTicker = () => {
-    const { session, restEndsAt } = useWorkoutSessionStore.getState();
-    const isResting = Boolean(session && !session.completed && restEndsAt && restEndsAt > Date.now());
+  const scheduleRestEndShadeTransition = () => {
+    if (restEndTransitionTimeout) {
+      clearTimeout(restEndTransitionTimeout);
+      restEndTransitionTimeout = null;
+    }
 
-    if (isResting && !liveTickerInterval) {
-      liveTickerInterval = setInterval(() => {
-        const current = useWorkoutSessionStore.getState();
-        if (!current.session || current.session.completed) {
-          if (liveTickerInterval) {
-            clearInterval(liveTickerInterval);
-            liveTickerInterval = null;
-          }
-          void dismissActiveWorkoutNotification();
-          return;
-        }
-        if (!current.restEndsAt || current.restEndsAt <= Date.now()) {
-          if (liveTickerInterval) {
-            clearInterval(liveTickerInterval);
-            liveTickerInterval = null;
-          }
-          // Rest finished: transition shade notification back to Active Set mode
-          void syncActiveWorkoutNotification(false);
-          return;
-        }
+    const { session, restEndsAt } = useWorkoutSessionStore.getState();
+    if (!session || session.completed || !restEndsAt) return;
+
+    const remainingMs = restEndsAt - Date.now();
+    if (remainingMs > 0) {
+      restEndTransitionTimeout = setTimeout(() => {
+        restEndTransitionTimeout = null;
         void syncActiveWorkoutNotification(false);
-      }, 1000);
-    } else if (!isResting && liveTickerInterval) {
-      clearInterval(liveTickerInterval);
-      liveTickerInterval = null;
+      }, remainingMs + 250);
     }
   };
 
   useWorkoutSessionStore.subscribe(() => {
-    void syncActiveWorkoutNotification(false);
-    ensureLiveTicker();
+    scheduleRestEndShadeTransition();
+    if (syncDebounceTimeout) {
+      clearTimeout(syncDebounceTimeout);
+    }
+    syncDebounceTimeout = setTimeout(() => {
+      syncDebounceTimeout = null;
+      void syncActiveWorkoutNotification(false);
+    }, 250);
   });
 
   AppState.addEventListener('change', (nextState) => {
     if (nextState === 'background' || nextState === 'inactive' || nextState === 'active') {
+      scheduleRestEndShadeTransition();
       void syncActiveWorkoutNotification(false);
-      ensureLiveTicker();
     }
   });
 }
@@ -892,6 +948,10 @@ export async function cancelRestTimerNotification(): Promise<void> {
 
   try {
     lastScheduledRestEndTimestamp = null;
+    if (restEndTransitionTimeout) {
+      clearTimeout(restEndTransitionTimeout);
+      restEndTransitionTimeout = null;
+    }
     await Notifications.cancelScheduledNotificationAsync(REST_TIMER_NOTIFICATION_ID).catch(() => undefined);
     await Notifications.dismissNotificationAsync(REST_TIMER_NOTIFICATION_ID).catch(() => undefined);
     await Notifications.cancelScheduledNotificationAsync(ACTIVE_REST_NOTIFICATION_ID).catch(() => undefined);
@@ -910,9 +970,14 @@ export async function dismissActiveWorkoutNotification(): Promise<void> {
 
   try {
     lastScheduledRestEndTimestamp = null;
-    if (liveTickerInterval) {
-      clearInterval(liveTickerInterval);
-      liveTickerInterval = null;
+    lastSyncedShadeSignature = null;
+    if (restEndTransitionTimeout) {
+      clearTimeout(restEndTransitionTimeout);
+      restEndTransitionTimeout = null;
+    }
+    if (syncDebounceTimeout) {
+      clearTimeout(syncDebounceTimeout);
+      syncDebounceTimeout = null;
     }
     await Notifications.cancelScheduledNotificationAsync(REST_TIMER_NOTIFICATION_ID).catch(() => undefined);
     await Notifications.dismissNotificationAsync(REST_TIMER_NOTIFICATION_ID).catch(() => undefined);

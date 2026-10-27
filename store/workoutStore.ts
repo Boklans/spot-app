@@ -42,7 +42,7 @@ export const defaultOnboarding: OnboardingData = {
   name: '',
   avatar: 'gorilla',
   age: 28,
-  sex: 'unspecified',
+  sex: 'male',
   weightKg: 70,
   heightCm: 172,
   goal: 'build_muscle',
@@ -110,10 +110,10 @@ function normalizeSplitPreference(value: unknown): WorkoutSplitPreference | unde
 }
 
 function normalizeSex(value: unknown): OnboardingSex {
-  if (value === 'male' || value === 'female' || value === 'unspecified') {
-    return value;
+  if (value === 'female') {
+    return 'female';
   }
-  return 'unspecified';
+  return 'male';
 }
 
 function normalizePriorityMuscles(value: unknown): PriorityMuscleFocus[] {

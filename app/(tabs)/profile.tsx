@@ -1,10 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   Linking,
   Modal,
@@ -130,6 +131,30 @@ export default function Profile() {
   const user = useAuthStore((state) => state.user);
   const signOut = useAuthStore((state) => state.signOut);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(getSyncStatus());
+
+  // Tab focus entrance animation
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(14)).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      fadeAnim.setValue(0.35);
+      slideAnim.setValue(12);
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 240,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          friction: 8,
+          tension: 90,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, [fadeAnim, slideAnim])
+  );
 
   useEffect(() => {
     useUserProfileStore.getState().loadProfile();
@@ -743,6 +768,12 @@ export default function Profile() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          }}
+        >
         {/* 1. Interactive Profile Header Card with Beast Avatar */}
         <Pressable
           accessibilityRole="button"
@@ -1011,6 +1042,7 @@ export default function Profile() {
         </View>
 
         <Text style={styles.versionText}>SPOT v1.0.2 · VanzaLabs</Text>
+        </Animated.View>
       </ScrollView>
 
       {/* JSON Backup & Restore Modal */}

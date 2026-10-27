@@ -1,7 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
+  Easing,
   Image,
   Modal,
   Pressable,
@@ -37,12 +39,47 @@ export default function Complete() {
   const [, setName] = useState(defaultOnboarding.name);
   const [isStoriesModalVisible, setIsStoriesModalVisible] = useState(false);
 
+  const badgeScale = useRef(new Animated.Value(0.35)).current;
+  const badgeOpacity = useRef(new Animated.Value(0)).current;
+  const bodyOpacity = useRef(new Animated.Value(0)).current;
+  const bodyTranslateY = useRef(new Animated.Value(24)).current;
+
   useEffect(() => {
     loadOnboarding().then((data) => {
       if (data?.name) setName(data.name);
     });
     loadHistory();
-  }, [loadHistory]);
+
+    Animated.sequence([
+      Animated.parallel([
+        Animated.spring(badgeScale, {
+          toValue: 1,
+          friction: 5,
+          tension: 85,
+          useNativeDriver: true,
+        }),
+        Animated.timing(badgeOpacity, {
+          toValue: 1,
+          duration: 280,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(bodyOpacity, {
+          toValue: 1,
+          duration: 340,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.spring(bodyTranslateY, {
+          toValue: 0,
+          friction: 7,
+          tension: 65,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [badgeOpacity, badgeScale, bodyOpacity, bodyTranslateY, loadHistory]);
 
   if (!session) {
     return (
@@ -247,7 +284,15 @@ export default function Complete() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* 2. Status Header (Calm for Partial, Clean for Full) */}
-        <View style={styles.heroSection}>
+        <Animated.View
+          style={[
+            styles.heroSection,
+            {
+              opacity: badgeOpacity,
+              transform: [{ scale: badgeScale }],
+            },
+          ]}
+        >
           <View
             style={[
               styles.statusIconWrap,
@@ -272,8 +317,16 @@ export default function Complete() {
                   : `Completed ${summary.completedSets} of ${summary.plannedSets} sets · ${tw(session.workoutName)}`)
               : tw(session.workoutName)}
           </Text>
-        </View>
+        </Animated.View>
 
+        <Animated.View
+          style={{
+            width: '100%',
+            alignItems: 'center',
+            opacity: bodyOpacity,
+            transform: [{ translateY: bodyTranslateY }],
+          }}
+        >
         {/* 3. Unified Stats Summary Strip */}
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
@@ -510,6 +563,7 @@ export default function Complete() {
             </View>
           </Pressable>
         )}
+        </Animated.View>
       </ScrollView>
 
       {/* 7. Sticky Bottom Done Button */}
