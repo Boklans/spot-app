@@ -70,7 +70,7 @@ export type UserProfile = {
 };
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
-  name: 'IHOR',
+  name: 'Athlete',
   avatar: 'gorilla',
   customAvatarUri: undefined,
   age: 28,

@@ -6,7 +6,7 @@
 -- 1. Profiles Table
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL DEFAULT 'IHOR',
+  name TEXT NOT NULL DEFAULT 'Athlete',
   avatar TEXT NOT NULL DEFAULT 'gorilla',
   weight_kg NUMERIC DEFAULT 78,
   height_cm NUMERIC DEFAULT 180,
@@ -114,3 +114,15 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+
+-- ==============================================================================
+-- Allow users to permanently delete their own account from auth.users
+-- ==============================================================================
+CREATE OR REPLACE FUNCTION public.delete_user_account()
+RETURNS void AS $$
+BEGIN
+  DELETE FROM auth.users WHERE id = auth.uid();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.delete_user_account() TO authenticated;

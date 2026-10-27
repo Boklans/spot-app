@@ -156,9 +156,13 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
 
     if (profileRow && (profileRow.goal || profileRow.weight_kg)) {
       const existingProfile = useUserProfileStore.getState().profile;
+      const isDummy = (n?: string | null) => !n || ['IHOR', 'ATHLETE', 'АТЛЕТ'].includes(n.trim().toUpperCase());
+      const cleanName = !isDummy(profileRow.name)
+        ? profileRow.name.trim()
+        : (!isDummy(existingProfile?.name) ? existingProfile.name : 'Athlete');
       const mergedProfile = {
         ...existingProfile,
-        name: profileRow.name || existingProfile?.name || 'Athlete',
+        name: cleanName,
         avatar: profileRow.avatar || existingProfile?.avatar || 'gorilla',
         weightKg: Number(profileRow.weight_kg) || existingProfile?.weightKg || 78,
         heightCm: Number(profileRow.height_cm) || existingProfile?.heightCm || 180,
@@ -341,7 +345,26 @@ export async function wipeAllCloudUserData(): Promise<{ success: boolean; error?
 
     const userId = user.id;
 
-    // 2. Delete workout history
+    // 2. Wipe user_metadata on auth.users so name is not preserved
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          name: '',
+          full_name: '',
+        },
+      });
+    } catch {
+      // Continue
+    }
+
+    // 3. Try to permanently delete user from auth.users via RPC
+    try {
+      await supabase.rpc('delete_user_account');
+    } catch {
+      // Continue
+    }
+
+    // 4. Delete workout history
     const { error: historyErr } = await supabase
       .from('workout_history')
       .delete()
