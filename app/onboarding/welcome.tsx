@@ -22,6 +22,8 @@ import { useUserProfileStore } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { AuthModal } from '@/components/auth/AuthModal';
+import { loadOnboarding } from '@/store/workoutStore';
+import { useProgramStore } from '@/store/programStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -173,9 +175,28 @@ export default function Welcome() {
     setAuthModalVisible(true);
   };
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = async (authMode?: 'signin' | 'signup') => {
     setAuthModalVisible(false);
-    router.replace('/(tabs)');
+
+    // Brand new sign-up: ALWAYS go to onboarding questionnaire
+    if (authMode === 'signup') {
+      router.push('/onboarding/params');
+      return;
+    }
+
+    // Existing sign-in: verify if user has a real completed program
+    const onboarding = await loadOnboarding();
+    const program = useProgramStore.getState().program;
+
+    const hasCompletedProgram =
+      Boolean(onboarding?.completed) &&
+      Boolean(program && Array.isArray(program.workouts) && program.workouts.length > 0);
+
+    if (hasCompletedProgram) {
+      router.replace('/(tabs)');
+    } else {
+      router.push('/onboarding/params');
+    }
   };
 
   const setLang = (lang: 'en' | 'uk') => {

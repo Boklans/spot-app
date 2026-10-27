@@ -26,7 +26,7 @@ interface AuthModalProps {
   visible: boolean;
   onClose: () => void;
   initialMode?: 'signin' | 'signup';
-  onSuccess?: () => void;
+  onSuccess?: (mode?: 'signin' | 'signup') => void;
 }
 
 export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess }: AuthModalProps) {
@@ -137,6 +137,9 @@ export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess 
         }
 
         hapticSuccess();
+        if (name.trim()) {
+          void useUserProfileStore.getState().updateProfile({ name: name.trim() });
+        }
         // Upload initial local data to newly registered cloud account
         await syncUp();
         setLoading(false);
@@ -180,12 +183,13 @@ export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess 
   };
 
   const handleFinishSuccess = () => {
+    const finishedMode = successState || mode;
     setSuccessState(null);
     setErrorMessage(null);
     setEmailNotConfirmed(false);
     setResendSuccessMsg(null);
     onClose();
-    onSuccess?.();
+    onSuccess?.(finishedMode as 'signin' | 'signup');
   };
 
   const handleClose = () => {
