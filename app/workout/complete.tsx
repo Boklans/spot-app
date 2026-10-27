@@ -398,10 +398,20 @@ export default function Complete() {
                     resizeMode="cover"
                   />
                 </View>
-                <Text numberOfLines={1} style={styles.prExerciseName}>
-                  {te(record.exerciseName)}
-                </Text>
-                <Text style={styles.prValueText}>{record.label}</Text>
+
+                <View style={styles.prInfoCol}>
+                  <Text numberOfLines={1} style={styles.prExerciseName}>
+                    {te(record.exerciseName)}
+                  </Text>
+                  <Text numberOfLines={1} style={styles.prValueText}>
+                    {record.label}
+                  </Text>
+                </View>
+
+                <View style={styles.prTrophyBadge}>
+                  <MaterialCommunityIcons name="trophy" size={12} color="#FFD130" />
+                  <Text style={styles.prTrophyBadgeText}>PR</Text>
+                </View>
               </View>
             ))}
           </View>
@@ -457,7 +467,7 @@ export default function Complete() {
                   ]}
                 >
                   {/* Top Row: Exercise Name + Progress Badge */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <View style={styles.prThumbWrap}>
                       <Image
                         source={getExerciseImage(item.name, item.customImageUri)}
@@ -857,29 +867,52 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderBottomColor: colors.divider,
   },
   prThumbWrap: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: 10,
     backgroundColor: colors.elevated,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 14,
   },
   prThumb: {
     width: '100%',
     height: '100%',
   },
+  prInfoCol: {
+    flex: 1,
+    justifyContent: 'center',
+    minWidth: 0,
+  },
   prExerciseName: {
     color: colors.text,
     fontSize: 14.5,
     fontWeight: '700',
-    flex: 1,
+    marginBottom: 2,
   },
   prValueText: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '700',
+    color: colors.secondary,
+    fontSize: 12.5,
+    fontWeight: '600',
     fontVariant: ['tabular-nums'],
+  },
+  prTrophyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 209, 48, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 7,
+    marginLeft: 8,
+    flexShrink: 0,
+  },
+  prTrophyBadgeText: {
+    color: '#EAB308',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   bottomBar: {
     paddingHorizontal: 20,
