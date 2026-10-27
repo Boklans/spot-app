@@ -15,7 +15,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useThemeColors, type ThemeColors } from '@/constants/colors';
+import { darkColors, type ThemeColors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useUserProfileStore } from '@/store/userProfileStore';
@@ -28,7 +28,7 @@ import { useProgramStore } from '@/store/programStore';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function Welcome() {
-  const colors = useThemeColors();
+  const colors = darkColors;
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, language } = useI18n();
   const profile = useUserProfileStore((state) => state.profile);
@@ -209,7 +209,7 @@ export default function Welcome() {
   return (
     <View style={styles.container}>
       <StatusBar
-        barStyle={colors.isDark ? 'light-content' : 'dark-content'}
+        barStyle="light-content"
         {...({ translucent: true, backgroundColor: 'transparent' } as any)}
       />
 

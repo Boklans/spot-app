@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Stack, ThemeProvider, DarkTheme, DefaultTheme } from 'expo-router';
-import { StatusBar } from 'react-native';
+import { StatusBar, LogBox } from 'react-native';
 import { useThemeColors } from '@/constants/colors';
 import { useUserProfileStore } from '@/store/userProfileStore';
 import { loadAsync } from 'expo-font';
@@ -14,6 +14,8 @@ import {
   scheduleWorkoutDayReminders,
   startLiveWorkoutNotificationSync,
 } from '@/lib/notificationService';
+
+LogBox.ignoreLogs(['Error configuring Purchases', 'Invalid API key']);
 
 // Initialize non-UI services once at module load time so the root layout stays 100% hook-free
 loadAsync({

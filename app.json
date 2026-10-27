@@ -2,7 +2,7 @@
   "expo": {
     "name": "SPOT",
     "slug": "spot-app",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "spot",
@@ -60,7 +60,7 @@
     },
     "android": {
       "package": "com.vanzalabs.spot",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "POST_NOTIFICATIONS",
         "VIBRATE",
