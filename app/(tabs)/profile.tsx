@@ -31,7 +31,7 @@ import { ProPaywallModal } from '@/components/profile/ProPaywallModal';
 import { BetaAccessModal } from '@/components/profile/BetaAccessModal';
 import { ExerciseNoteModal } from '@/components/workout/ExerciseNoteModal';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
-import { getSyncStatus, subscribeSyncStatus, syncUp, type SyncStatus } from '@/lib/cloudSync';
+import { getSyncStatus, subscribeSyncStatus, syncUp, wipeAllCloudUserData, type SyncStatus } from '@/lib/cloudSync';
 import { hapticLight, hapticMedium, hapticSuccess, hapticError } from '@/lib/haptics';
 import {
   requestNotificationPermissions,
@@ -590,7 +590,12 @@ export default function Profile() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // 1. Fetch all storage keys and remove every SPOT-related key
+              // 1. Wipe cloud data FIRST while session is fully authenticated and intact
+              if (isSupabaseConfigured()) {
+                await wipeAllCloudUserData();
+              }
+
+              // 2. Fetch all storage keys and remove every SPOT-related key
               const allKeys = await AsyncStorage.getAllKeys();
               const keysToRemove = allKeys.filter(
                 (k) =>
@@ -600,13 +605,14 @@ export default function Profile() {
                   k.includes('onboarding') ||
                   k.includes('profile') ||
                   k.includes('body-weight') ||
-                  k.includes('session')
+                  k.includes('session') ||
+                  k.includes('notes')
               );
               if (keysToRemove.length > 0) {
                 await AsyncStorage.multiRemove(keysToRemove);
               }
 
-              // 2. Also explicitly remove known storage keys directly
+              // 3. Also explicitly remove known storage keys directly
               await AsyncStorage.multiRemove([
                 'spot-onboarding',
                 'spot-user-program',
@@ -619,22 +625,9 @@ export default function Profile() {
                 'spot_active_workout_session',
                 'spot-active-workout-session',
                 'spot-body-weight-history',
+                'spot_exercise_notes',
+                'spot_custom_exercises',
               ]);
-
-              // 3. Clear cloud data if authenticated
-              if (isSupabaseConfigured()) {
-                const user = useAuthStore.getState().user;
-                if (user) {
-                  try {
-                    await supabase.from('user_programs').delete().eq('user_id', user.id);
-                    await supabase.from('workout_history').delete().eq('user_id', user.id);
-                    await supabase.from('body_weight_logs').delete().eq('user_id', user.id);
-                    await signOut();
-                  } catch {
-                    // Cloud delete error ignored
-                  }
-                }
-              }
 
               // 4. Reset in-memory stores
               useWorkoutSessionStore.getState().clearSession();

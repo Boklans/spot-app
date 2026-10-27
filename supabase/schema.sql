@@ -72,6 +72,10 @@ DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile" ON public.profiles
   FOR INSERT WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can delete own profile" ON public.profiles;
+CREATE POLICY "Users can delete own profile" ON public.profiles
+  FOR DELETE USING (auth.uid() = id);
+
 -- User Programs Policies
 DROP POLICY IF EXISTS "Users can manage own programs" ON public.user_programs;
 CREATE POLICY "Users can manage own programs" ON public.user_programs
