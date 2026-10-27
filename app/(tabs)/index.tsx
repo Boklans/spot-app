@@ -249,22 +249,34 @@ export default function Home() {
     ? `${greetingPrefix}, ${userGreetingName}`
     : greetingPrefix;
 
-  useEffect(() => {
+  const triggerEntryAnim = useCallback(() => {
+    entryFadeAnim.setValue(0);
+    entrySlideAnim.setValue(18);
     Animated.parallel([
       Animated.timing(entryFadeAnim, {
         toValue: 1,
-        duration: 260,
+        duration: 320,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.timing(entrySlideAnim, {
+      Animated.spring(entrySlideAnim, {
         toValue: 0,
-        duration: 260,
-        easing: Easing.out(Easing.cubic),
+        friction: 7,
+        tension: 70,
         useNativeDriver: true,
       }),
     ]).start();
-  }, [homeState, entryFadeAnim, entrySlideAnim]);
+  }, [entryFadeAnim, entrySlideAnim]);
+
+  useFocusEffect(
+    useCallback(() => {
+      triggerEntryAnim();
+    }, [triggerEntryAnim])
+  );
+
+  useEffect(() => {
+    triggerEntryAnim();
+  }, [homeState, triggerEntryAnim]);
 
   useEffect(() => {
     if (homeState !== 'IN_PROGRESS') return;

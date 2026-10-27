@@ -1,8 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   Dimensions,
+  Easing,
   Image,
   Platform,
   Pressable,
@@ -26,8 +29,137 @@ export default function Welcome() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, language } = useI18n();
+  const profile = useUserProfileStore((state) => state.profile);
   const updateProfile = useUserProfileStore((state) => state.updateProfile);
   const [authModalVisible, setAuthModalVisible] = useState(false);
+
+  // Entrance & ambient animations
+  const heroScale = useRef(new Animated.Value(1.1)).current;
+  const heroOpacity = useRef(new Animated.Value(0)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const logoTranslateY = useRef(new Animated.Value(28)).current;
+  const logoScale = useRef(new Animated.Value(0.86)).current;
+  const taglineOpacity = useRef(new Animated.Value(0)).current;
+  const taglineTranslateY = useRef(new Animated.Value(20)).current;
+  const chipsOpacity = useRef(new Animated.Value(0)).current;
+  const chipsTranslateY = useRef(new Animated.Value(18)).current;
+  const actionsOpacity = useRef(new Animated.Value(0)).current;
+  const actionsTranslateY = useRef(new Animated.Value(32)).current;
+  const oPulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(heroOpacity, {
+        toValue: 1,
+        duration: 500,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(heroScale, {
+        toValue: 1,
+        duration: 1100,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.stagger(110, [
+        Animated.parallel([
+          Animated.timing(logoOpacity, {
+            toValue: 1,
+            duration: 420,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.spring(logoTranslateY, {
+            toValue: 0,
+            friction: 7,
+            tension: 65,
+            useNativeDriver: true,
+          }),
+          Animated.spring(logoScale, {
+            toValue: 1,
+            friction: 6,
+            tension: 65,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(taglineOpacity, {
+            toValue: 1,
+            duration: 380,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.spring(taglineTranslateY, {
+            toValue: 0,
+            friction: 7,
+            tension: 65,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(chipsOpacity, {
+            toValue: 1,
+            duration: 380,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.spring(chipsTranslateY, {
+            toValue: 0,
+            friction: 7,
+            tension: 65,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(actionsOpacity, {
+            toValue: 1,
+            duration: 400,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.spring(actionsTranslateY, {
+            toValue: 0,
+            friction: 7,
+            tension: 60,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    ]).start();
+
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(oPulse, {
+          toValue: 1.08,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(oPulse, {
+          toValue: 1,
+          duration: 1200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulseLoop.start();
+
+    return () => pulseLoop.stop();
+  }, [
+    actionsOpacity,
+    actionsTranslateY,
+    chipsOpacity,
+    chipsTranslateY,
+    heroOpacity,
+    heroScale,
+    logoOpacity,
+    logoScale,
+    logoTranslateY,
+    oPulse,
+    taglineOpacity,
+    taglineTranslateY,
+  ]);
 
   const handleGetStarted = () => {
     hapticMedium();
@@ -53,6 +185,11 @@ export default function Welcome() {
     }
   };
 
+  const toggleTheme = () => {
+    hapticLight();
+    updateProfile({ theme: profile.theme === 'light' ? 'dark' : 'light' });
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar
@@ -60,8 +197,16 @@ export default function Welcome() {
         {...({ translucent: true, backgroundColor: 'transparent' } as any)}
       />
 
-      {/* 1. Hero Athlete Background Photo */}
-      <View style={styles.imageContainer}>
+      {/* 1. Hero Athlete Background Photo with Zoom-Out Animation */}
+      <Animated.View
+        style={[
+          styles.imageContainer,
+          {
+            opacity: heroOpacity,
+            transform: [{ scale: heroScale }],
+          },
+        ]}
+      >
         <Image
           source={require('@/assets/welcome_hero.jpg')}
           style={styles.heroImage}
@@ -88,61 +233,120 @@ export default function Welcome() {
           locations={[0, 0.35, 0.65, 0.88, 1.0]}
           style={styles.gradientOverlay}
         />
-      </View>
+      </Animated.View>
 
-      {/* 2. Top Language Selector (EN / UA) */}
+      {/* 2. Top Controls: Theme Toggle + Language Selector (EN / UA) */}
       <SafeAreaView style={styles.safeTop}>
-        <View style={styles.langRow}>
+        <View style={styles.topControlsRow}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Switch to English"
-            onPress={() => setLang('en')}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 6 }}
+            accessibilityLabel="Toggle theme"
+            onPress={toggleTheme}
+            style={({ pressed }) => [
+              styles.themeToggleBtn,
+              pressed && { opacity: 0.75, transform: [{ scale: 0.95 }] },
+            ]}
           >
-            <Text style={[styles.langText, language === 'en' && styles.langTextActive]}>
-              EN
-            </Text>
+            <Ionicons
+              name={colors.isDark ? 'sunny-outline' : 'moon-outline'}
+              size={16}
+              color={colors.text}
+            />
           </Pressable>
-          <Text style={styles.langDivider}>/</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Перемкнути на українську"
-            onPress={() => setLang('uk')}
-            hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
-          >
-            <Text style={[styles.langText, language === 'uk' && styles.langTextActive]}>
-              UA
-            </Text>
-          </Pressable>
+
+          <View style={styles.langRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Switch to English"
+              onPress={() => setLang('en')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 6 }}
+            >
+              <Text style={[styles.langText, language === 'en' && styles.langTextActive]}>
+                EN
+              </Text>
+            </Pressable>
+            <Text style={styles.langDivider}>/</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Перемкнути на українську"
+              onPress={() => setLang('uk')}
+              hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
+            >
+              <Text style={[styles.langText, language === 'uk' && styles.langTextActive]}>
+                UA
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </SafeAreaView>
 
-      {/* 3. Content & Actions */}
+      {/* 3. Staggered Animated Content & Actions */}
       <SafeAreaView style={styles.safeContent}>
         <View style={styles.centerBlock}>
-          <View style={styles.logoRow}>
+          <Animated.View
+            style={[
+              styles.logoRow,
+              {
+                opacity: logoOpacity,
+                transform: [{ translateY: logoTranslateY }, { scale: logoScale }],
+              },
+            ]}
+          >
             <Text style={styles.logoPrimaryText}>SP</Text>
-            <Text style={styles.logoLime}>O</Text>
+            <Animated.Text
+              style={[
+                styles.logoLime,
+                { transform: [{ scale: oPulse }] },
+              ]}
+            >
+              O
+            </Animated.Text>
             <Text style={styles.logoPrimaryText}>T</Text>
-          </View>
+          </Animated.View>
 
-          <Text style={styles.tagline}>{t('welcomeTagline')}</Text>
+          <Animated.Text
+            style={[
+              styles.tagline,
+              {
+                opacity: taglineOpacity,
+                transform: [{ translateY: taglineTranslateY }],
+              },
+            ]}
+          >
+            {t('welcomeTagline')}
+          </Animated.Text>
 
-          <View style={styles.pillarsRow}>
+          <Animated.View
+            style={[
+              styles.pillarsRow,
+              {
+                opacity: chipsOpacity,
+                transform: [{ translateY: chipsTranslateY }],
+              },
+            ]}
+          >
             {(language === 'uk'
-              ? ['Автопідбір ваг', 'Суперсети та RIR', 'Аналітика 1RM']
-              : ['Smart Loads', 'Supersets & RIR', '1RM Analytics']
+              ? ['Автопідбір ваг', 'Живий таймер у шторці', 'Аналітика 1RM']
+              : ['Smart Loads', 'Live Shade Timer', '1RM Analytics']
             ).map((pillar) => (
               <View key={pillar} style={styles.pillarChip}>
                 <View style={styles.pillarDot} />
                 <Text style={styles.pillarText}>{pillar}</Text>
               </View>
             ))}
-          </View>
+          </Animated.View>
         </View>
 
         {/* 4. Bottom Actions */}
-        <View style={styles.actions}>
+        <Animated.View
+          style={[
+            styles.actions,
+            {
+              opacity: actionsOpacity,
+              transform: [{ translateY: actionsTranslateY }],
+            },
+          ]}
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Get started"
@@ -166,7 +370,7 @@ export default function Welcome() {
           >
             <Text style={styles.loginBtnText}>{t('logIn')}</Text>
           </Pressable>
-        </View>
+        </Animated.View>
       </SafeAreaView>
 
       {/* Cloud Auth / Sign In Modal */}
@@ -211,6 +415,21 @@ const createStyles = (colors: ThemeColors) =>
       paddingHorizontal: 20,
       paddingTop: Platform.OS === 'android' ? 36 : 12,
     },
+    topControlsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    themeToggleBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.isDark ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.75)',
+      borderWidth: 1,
+      borderColor: colors.isDark ? 'rgba(255,255,255,0.12)' : colors.border,
+    },
     langRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -219,6 +438,8 @@ const createStyles = (colors: ThemeColors) =>
       paddingVertical: 5,
       borderRadius: 999,
       backgroundColor: colors.isDark ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.75)',
+      borderWidth: 1,
+      borderColor: colors.isDark ? 'rgba(255,255,255,0.12)' : colors.border,
     },
     langText: {
       fontSize: 13,

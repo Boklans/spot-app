@@ -107,3 +107,4 @@ export function useThemeColors(): ThemeColors {
   const theme = useUserProfileStore((s) => s.profile?.theme);
   return theme === 'light' ? (lightColors as unknown as ThemeColors) : (darkColors as unknown as ThemeColors);
 }
+

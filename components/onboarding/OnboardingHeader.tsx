@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { type ThemeColors, useThemeColors } from '@/constants/colors';
@@ -9,7 +9,7 @@ import { useI18n } from '@/lib/i18n';
 type OnboardingHeaderProps = {
   step: number;
   totalSteps?: number;
-  onBack?: () => void;
+  onBack?: void | (() => void);
 };
 
 export function OnboardingHeader({
@@ -22,6 +22,36 @@ export function OnboardingHeader({
   const { language } = useI18n();
   const isUk = language === 'uk';
 
+  const activeScale = useRef(new Animated.Value(0.6)).current;
+  const labelOpacity = useRef(new Animated.Value(0)).current;
+  const labelTranslateY = useRef(new Animated.Value(6)).current;
+
+  useEffect(() => {
+    activeScale.setValue(0.6);
+    labelOpacity.setValue(0);
+    labelTranslateY.setValue(6);
+
+    Animated.parallel([
+      Animated.spring(activeScale, {
+        toValue: 1,
+        friction: 5,
+        tension: 90,
+        useNativeDriver: true,
+      }),
+      Animated.timing(labelOpacity, {
+        toValue: 1,
+        duration: 240,
+        useNativeDriver: true,
+      }),
+      Animated.spring(labelTranslateY, {
+        toValue: 0,
+        friction: 7,
+        tension: 80,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [step, activeScale, labelOpacity, labelTranslateY]);
+
   const segments = Array.from({ length: totalSteps }, (_, idx) => idx + 1);
 
   return (
@@ -32,7 +62,7 @@ export function OnboardingHeader({
         hitSlop={12}
         onPress={() => {
           hapticLight();
-          if (onBack) {
+          if (typeof onBack === 'function') {
             onBack();
           } else {
             router.back();
@@ -40,7 +70,7 @@ export function OnboardingHeader({
         }}
         style={({ pressed }) => [
           styles.backBtn,
-          pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] },
+          pressed && { opacity: 0.75, transform: [{ scale: 0.94 }] },
         ]}
       >
         <Ionicons name="arrow-back" size={20} color={colors.text} />
@@ -52,20 +82,31 @@ export function OnboardingHeader({
             const isCompleted = seg < step;
             const isCurrent = seg === step;
             return (
-              <View
+              <Animated.View
                 key={seg}
                 style={[
                   styles.segmentTrack,
                   isCompleted && styles.segmentCompleted,
                   isCurrent && styles.segmentCurrent,
+                  isCurrent && {
+                    transform: [{ scaleX: activeScale }, { scaleY: 1.35 }],
+                  },
                 ]}
               />
             );
           })}
         </View>
-        <Text style={styles.stepLabel}>
+        <Animated.Text
+          style={[
+            styles.stepLabel,
+            {
+              opacity: labelOpacity,
+              transform: [{ translateY: labelTranslateY }],
+            },
+          ]}
+        >
           {isUk ? `КРОК ${step} З ${totalSteps}` : `STEP ${step} OF ${totalSteps}`}
-        </Text>
+        </Animated.Text>
       </View>
 
       <View style={styles.topBarPlaceholder} />

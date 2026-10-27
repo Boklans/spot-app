@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
@@ -36,6 +36,70 @@ export function FloatingWorkoutBar() {
   const completeCurrentSet = useWorkoutSessionStore((s) => s.completeCurrentSet);
 
   const [now, setNow] = useState(Date.now());
+
+  const slideAnim = useRef(new Animated.Value(40)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const modeScaleAnim = useRef(new Animated.Value(1)).current;
+  const dotPulseAnim = useRef(new Animated.Value(1)).current;
+
+  const isSessionActive = Boolean(session && !session.completed);
+  const restRemainingSeconds =
+    restEndsAt && restEndsAt > now ? Math.max(0, Math.ceil((restEndsAt - now) / 1000)) : 0;
+  const isResting = restRemainingSeconds > 0;
+
+  useEffect(() => {
+    if (!isSessionActive) {
+      slideAnim.setValue(40);
+      opacityAnim.setValue(0);
+      return;
+    }
+
+    Animated.parallel([
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        friction: 7,
+        tension: 70,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(dotPulseAnim, {
+          toValue: 1.4,
+          duration: 750,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(dotPulseAnim, {
+          toValue: 1,
+          duration: 750,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulseLoop.start();
+
+    return () => pulseLoop.stop();
+  }, [isSessionActive, dotPulseAnim, opacityAnim, slideAnim]);
+
+  useEffect(() => {
+    if (!isSessionActive) return;
+    modeScaleAnim.setValue(0.96);
+    Animated.spring(modeScaleAnim, {
+      toValue: 1,
+      friction: 5,
+      tension: 110,
+      useNativeDriver: true,
+    }).start();
+  }, [isResting, isSessionActive, modeScaleAnim]);
 
   useEffect(() => {
     if (!session || session.completed) return;
@@ -76,10 +140,6 @@ export function FloatingWorkoutBar() {
     ? Math.max(0, Math.floor((now - startedMs) / 1000))
     : 0;
 
-  const restRemainingSeconds =
-    restEndsAt && restEndsAt > now ? Math.max(0, Math.ceil((restEndsAt - now) / 1000)) : 0;
-  const isResting = restRemainingSeconds > 0;
-
   const weightDisplay =
     currentSet && currentSet.weight > 0
       ? `${format(currentSet.weight)} ${unitLabel}`
@@ -105,7 +165,15 @@ export function FloatingWorkoutBar() {
   };
 
   return (
-    <View style={styles.outerWrap}>
+    <Animated.View
+      style={[
+        styles.outerWrap,
+        {
+          opacity: opacityAnim,
+          transform: [{ translateY: slideAnim }, { scale: modeScaleAnim }],
+        },
+      ]}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={language === 'uk' ? 'Повернутися до активного тренування' : 'Return to active workout'}
@@ -113,7 +181,7 @@ export function FloatingWorkoutBar() {
         style={({ pressed }) => [
           styles.container,
           isResting && styles.containerResting,
-          pressed && { opacity: 0.94 },
+          pressed && { opacity: 0.94, transform: [{ scale: 0.985 }] },
         ]}
       >
         {/* Top Progress Line */}
@@ -130,7 +198,12 @@ export function FloatingWorkoutBar() {
             </View>
           ) : (
             <View style={styles.liveBadge}>
-              <View style={styles.liveDot} />
+              <Animated.View
+                style={[
+                  styles.liveDot,
+                  { transform: [{ scale: dotPulseAnim }] },
+                ]}
+              />
               <Text style={styles.liveClockText}>{formatClock(elapsedSeconds)}</Text>
             </View>
           )}
@@ -214,7 +287,7 @@ export function FloatingWorkoutBar() {
           )}
         </View>
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -253,51 +326,51 @@ const createStyles = (colors: ThemeColors) =>
       paddingVertical: 10,
       gap: 10,
     },
-    restBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      backgroundColor: colors.primary,
-      paddingHorizontal: 9,
-      paddingVertical: 5,
-      borderRadius: 9,
-    },
-    restBadgeText: {
-      color: '#0B0D0F',
-      fontSize: 12.5,
-      fontWeight: '900',
-      fontVariant: ['tabular-nums'],
-    },
     liveBadge: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+      borderRadius: 10,
       backgroundColor: colors.primaryMuted,
       borderWidth: 1,
       borderColor: colors.accentLine,
-      paddingHorizontal: 8,
-      paddingVertical: 5,
-      borderRadius: 9,
     },
     liveDot: {
-      width: 7,
-      height: 7,
-      borderRadius: 3.5,
+      width: 6,
+      height: 6,
+      borderRadius: 3,
       backgroundColor: colors.primaryText,
     },
     liveClockText: {
       color: colors.primaryText,
       fontSize: 12,
-      fontWeight: '800',
+      fontWeight: '900',
+      fontVariant: ['tabular-nums'],
+    },
+    restBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+      borderRadius: 10,
+      backgroundColor: colors.primary,
+    },
+    restBadgeText: {
+      color: '#0B0D0F',
+      fontSize: 12,
+      fontWeight: '900',
       fontVariant: ['tabular-nums'],
     },
     infoCol: {
       flex: 1,
-      minWidth: 0,
+      justifyContent: 'center',
     },
     titleText: {
       color: colors.text,
-      fontSize: 13,
+      fontSize: 13.5,
       fontWeight: '800',
       letterSpacing: -0.2,
     },
@@ -306,6 +379,7 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: 11.5,
       fontWeight: '600',
       marginTop: 1,
+      fontVariant: ['tabular-nums'],
     },
     actionsRow: {
       flexDirection: 'row',
@@ -313,21 +387,28 @@ const createStyles = (colors: ThemeColors) =>
       gap: 5,
     },
     miniActionBtn: {
-      backgroundColor: colors.isDark ? 'rgba(255,255,255,0.09)' : 'rgba(15,23,42,0.07)',
+      height: 30,
       paddingHorizontal: 8,
-      paddingVertical: 6,
       borderRadius: 8,
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     miniActionText: {
       color: colors.text,
-      fontSize: 11.5,
+      fontSize: 11,
       fontWeight: '800',
+      fontVariant: ['tabular-nums'],
     },
     skipMiniBtn: {
-      backgroundColor: colors.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.1)',
-      paddingHorizontal: 8,
-      paddingVertical: 6,
+      width: 30,
+      height: 30,
       borderRadius: 8,
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -335,19 +416,19 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      backgroundColor: colors.primary,
+      height: 30,
       paddingHorizontal: 10,
-      paddingVertical: 6,
       borderRadius: 9,
+      backgroundColor: colors.primary,
     },
     completeSetMiniText: {
       color: '#0B0D0F',
-      fontSize: 12,
+      fontSize: 11.5,
       fontWeight: '900',
     },
     chevronWrap: {
-      width: 24,
-      height: 24,
+      width: 26,
+      height: 30,
       alignItems: 'center',
       justifyContent: 'center',
     },
