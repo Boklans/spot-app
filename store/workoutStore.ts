@@ -38,6 +38,12 @@ export type OnboardingPatch = Partial<OnboardingData>;
 
 const KEY = 'spot-onboarding';
 
+let cachedOnboarding: OnboardingData | null = null;
+
+export function getCachedOnboarding(): OnboardingData | null {
+  return cachedOnboarding;
+}
+
 export const defaultOnboarding: OnboardingData = {
   name: '',
   avatar: 'gorilla',
@@ -170,6 +176,7 @@ export async function saveOnboarding(data: OnboardingPatch) {
   const existing = await loadOnboarding();
   const next: OnboardingData = { ...defaultOnboarding, ...existing, ...data };
   next.equipment = normalizeEquipment(next.equipment);
+  cachedOnboarding = next;
   await AsyncStorage.setItem(KEY, JSON.stringify(next));
 
   try {
@@ -212,11 +219,14 @@ export async function saveOnboarding(data: OnboardingPatch) {
 }
 
 export async function loadOnboarding(): Promise<OnboardingData | null> {
+  if (cachedOnboarding) return cachedOnboarding;
   const value = await AsyncStorage.getItem(KEY);
   if (!value) return null;
 
   try {
-    return normalizeOnboarding(JSON.parse(value) as Record<string, unknown>);
+    const loaded = normalizeOnboarding(JSON.parse(value) as Record<string, unknown>);
+    cachedOnboarding = loaded;
+    return loaded;
   } catch {
     return null;
   }

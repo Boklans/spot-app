@@ -27,8 +27,10 @@ import {
 import { useProgramStore } from '@/store/programStore';
 import { useUserProfileStore } from '@/store/userProfileStore';
 import { useBodyWeightStore } from '@/store/bodyWeightStore';
+import { useProgramProgressStore } from '@/store/programProgressStore';
 import {
   defaultOnboarding,
+  getCachedOnboarding,
   loadOnboarding,
   saveOnboarding,
   type OnboardingData,
@@ -78,9 +80,10 @@ export default function ProgramReady() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { tm, td, te, tw, language } = useI18n();
   const { formatWithUnit } = useWeightUnit();
-  const [onboarding, setOnboarding] = useState<OnboardingData>(defaultOnboarding);
+  const initialOnboarding = getCachedOnboarding() ?? defaultOnboarding;
+  const [onboarding, setOnboarding] = useState<OnboardingData>(initialOnboarding);
   const [program, setProgram] = useState<GeneratedProgram>(() =>
-    generateProgram(defaultOnboarding)
+    generateProgram(initialOnboarding)
   );
   const [editingWorkout, setEditingWorkout] = useState<UserWorkout | null>(null);
   const [expandedWorkouts, setExpandedWorkouts] = useState<Record<string, boolean>>({});
@@ -115,7 +118,8 @@ export default function ProgramReady() {
     setOnboarding(mergedData);
 
     const storeProg = await useProgramStore.getState().getOrLoadProgram();
-    if (mergedData.splitPreference === 'custom' && storeProg && storeProg.splitType === 'custom') {
+    const durationMatches = storeProg?.estimatedWorkoutMinutes === mergedData.sessionDurationMinutes;
+    if (mergedData.splitPreference === 'custom' && storeProg && storeProg.splitType === 'custom' && durationMatches) {
       setProgram(storeProg as unknown as GeneratedProgram);
       setHasEdits(false);
     } else {
@@ -143,7 +147,8 @@ export default function ProgramReady() {
     setOnboarding(updated);
     if (splitId === 'custom') {
       const storeProg = useProgramStore.getState().program;
-      if (storeProg && storeProg.splitType === 'custom') {
+      const durationMatches = storeProg?.estimatedWorkoutMinutes === updated.sessionDurationMinutes;
+      if (storeProg && storeProg.splitType === 'custom' && durationMatches) {
         setProgram(storeProg as unknown as GeneratedProgram);
         setHasEdits(true);
       } else {
@@ -166,7 +171,7 @@ export default function ProgramReady() {
       name: language === 'uk' ? `Тренування ${letter}` : `Workout ${letter}`,
       dayLabel: nextWeekday,
       muscleGroups: [],
-      estimatedMinutes: 45,
+      estimatedMinutes: onboarding.sessionDurationMinutes ?? 45,
       exercises: [],
     };
 
