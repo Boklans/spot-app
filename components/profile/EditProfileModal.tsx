@@ -178,7 +178,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
 
     const finalWeightKg = Math.max(35, Math.min(250, currentWeightKg));
     const finalHeightCm = Math.max(100, Math.min(240, Math.round(currentHeightCm)));
-    const finalName = name.trim().length > 0 ? name.trim() : profile.name;
+    const finalName = name.trim().length > 0 ? name.trim().slice(0, 20) : profile.name.slice(0, 20);
 
     await updateProfile({
       name: finalName,
@@ -384,7 +384,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                     placeholderTextColor={colors.muted}
                     style={styles.textInput}
                     autoCapitalize="words"
-                    maxLength={30}
+                    maxLength={20}
                   />
                 </View>
               </View>

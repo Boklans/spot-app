@@ -104,7 +104,7 @@ export default function ParamsSetup() {
     hapticMedium();
     setNameError(false);
 
-    const effectiveName = name.trim();
+    const effectiveName = name.trim().slice(0, 20);
 
     const parsedAge = parseInt(age.trim(), 10);
     const effectiveAge = !isNaN(parsedAge) && parsedAge >= 14 && parsedAge <= 95
@@ -193,6 +193,7 @@ export default function ParamsSetup() {
                   style={styles.textInput}
                   placeholder={isUk ? 'Як до вас звертатися?' : 'Enter your name'}
                   placeholderTextColor={colors.muted}
+                  maxLength={20}
                   value={name}
                   onChangeText={(val) => {
                     setName(val);

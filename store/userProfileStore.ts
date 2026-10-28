@@ -130,7 +130,7 @@ function normalizeLoadedProfile(parsed: unknown): UserProfile {
       : undefined;
 
   return {
-    name: typeof p.name === 'string' && p.name.trim().length > 0 ? p.name.trim() : DEFAULT_USER_PROFILE.name,
+    name: typeof p.name === 'string' && p.name.trim().length > 0 ? p.name.trim().slice(0, 20) : DEFAULT_USER_PROFILE.name,
     avatar: validAvatars.includes(p.avatar as BeastAvatarId) ? (p.avatar as BeastAvatarId) : DEFAULT_USER_PROFILE.avatar,
     customAvatarUri:
       typeof p.customAvatarUri === 'string' && p.customAvatarUri.trim().length > 0
@@ -257,7 +257,11 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
     return normalized;
   },
 
-  updateProfile: async (updates: Partial<UserProfile>) => {
+  updateProfile: async (rawUpdates: Partial<UserProfile>) => {
+    const updates = { ...rawUpdates };
+    if (typeof updates.name === 'string') {
+      updates.name = updates.name.trim().slice(0, 20);
+    }
     const current = get().profile;
     const updated: UserProfile = {
       ...current,

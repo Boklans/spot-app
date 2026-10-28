@@ -140,7 +140,7 @@ function normalizeOnboarding(value: Record<string, unknown>): OnboardingData {
   const legacyFrequency = typeof value.frequency === 'number' ? value.frequency : undefined;
   const storedFrequency = typeof value.trainingFrequency === 'number' ? value.trainingFrequency : legacyFrequency;
   return {
-    name: typeof value.name === 'string' && value.name.length > 0 ? value.name : defaultOnboarding.name,
+    name: typeof value.name === 'string' && value.name.length > 0 ? value.name.trim().slice(0, 20) : defaultOnboarding.name,
     avatar: typeof value.avatar === 'string' ? value.avatar : defaultOnboarding.avatar,
     age: typeof value.age === 'number' && value.age >= 12 && value.age <= 100 ? Math.round(value.age) : defaultOnboarding.age,
     sex: normalizeSex(value.sex),
@@ -175,7 +175,7 @@ export async function saveOnboarding(data: OnboardingPatch) {
   try {
     const { useUserProfileStore } = await import('./userProfileStore');
     const profileUpdates: Record<string, unknown> = {};
-    if (data.name) profileUpdates.name = data.name;
+    if (data.name) profileUpdates.name = data.name.trim().slice(0, 20);
     if (typeof data.age === 'number' && data.age >= 12) profileUpdates.age = data.age;
     if (data.sex) profileUpdates.sex = data.sex;
     if (typeof data.weightKg === 'number' && data.weightKg >= 20) profileUpdates.weightKg = data.weightKg;

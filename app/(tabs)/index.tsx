@@ -244,7 +244,8 @@ export default function Home() {
     return language === 'uk' ? 'Все тіло' : 'Full Body';
   }, [nextWorkout, tm, language]);
 
-  const userGreetingName = (profile?.name && profile.name.trim().length > 0 ? profile.name.trim() : name) || '';
+  const rawGreetingName = (profile?.name && profile.name.trim().length > 0 ? profile.name.trim() : name) || '';
+  const userGreetingName = rawGreetingName.slice(0, 20);
   const greetingText = userGreetingName
     ? `${greetingPrefix}, ${userGreetingName}`
     : greetingPrefix;
