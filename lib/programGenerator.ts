@@ -1272,7 +1272,8 @@ export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
         : splitType === 'full_body'
         ? fullBodyTemplates(equipment, true, priorities, limitations)
         : upperLowerTemplates(equipment, true, priorities, limitations);
-    templates = strengthBase.map((template) => ({ ...template, exercises: template.exercises.slice(0, 5) }));
+    const strengthMaxEx = (onboarding.sessionDurationMinutes ?? 45) <= 35 ? 4 : (onboarding.sessionDurationMinutes ?? 45) <= 50 ? 5 : 6;
+    templates = strengthBase.map((template) => ({ ...template, exercises: template.exercises.slice(0, strengthMaxEx) }));
     name = 'Strength Foundation';
     description = 'Compound-focused training with steady, measurable progress.';
   } else if (onboarding.goal === 'lose_fat') {
@@ -1311,7 +1312,7 @@ export function generateProgram(onboarding: OnboardingData): GeneratedProgram {
   const defaultRestSeconds = 150;
 
   return {
-    id: `program-${onboarding.goal}-${onboarding.experience}-${frequency}`,
+    id: `program-${onboarding.goal}-${onboarding.experience}-${frequency}-${onboarding.sessionDurationMinutes ?? 45}`,
     name,
     description,
     daysPerWeek: frequency,

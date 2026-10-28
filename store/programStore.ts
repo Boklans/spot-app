@@ -128,7 +128,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     const data = onboarding ?? (await loadOnboarding()) ?? defaultOnboarding;
 
     // Only load saved custom routine if splitPreference is explicitly 'custom'
-    if (data.splitPreference === 'custom') {
+    if (data.splitPreference === 'custom' && !onboarding) {
       try {
         const savedCustom = await AsyncStorage.getItem(CUSTOM_PROGRAM_STORAGE_KEY);
         const parsedCustom = parseStoredUserProgram(savedCustom);

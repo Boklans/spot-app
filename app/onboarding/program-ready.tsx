@@ -314,20 +314,12 @@ export default function ProgramReady() {
     });
     await useBodyWeightStore.getState().syncBaselineWeight(finalWeightKg);
 
-    if (isCustom) {
-      if (hasEdits) {
-        await useProgramStore.getState().setCustomProgram(buildUserProgramFromLocal() as unknown as UserProgram);
-      } else {
-        const storeProg = useProgramStore.getState().program;
-        if (storeProg?.splitType === 'custom') {
-          // Keep current custom program in store
-        } else {
-          await useProgramStore.getState().setCustomProgram(buildUserProgramFromLocal() as unknown as UserProgram);
-        }
-      }
-    } else {
-      await useProgramStore.getState().refreshProgram(updated);
-    }
+    const userProgram = buildUserProgramFromLocal() as unknown as UserProgram;
+    await useProgramStore.getState().setCustomProgram(userProgram);
+    await useProgramProgressStore
+      .getState()
+      .resetProgress(userProgram.id, userProgram.workouts[0]?.id);
+    
     await useUserProfileStore.getState().loadProfile();
     router.replace('/(tabs)');
   };
