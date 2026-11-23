@@ -12,7 +12,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
+import { radii } from '@/constants/radii';
+import { fonts } from '@/constants/typography';
+import { AnatomyPreview } from '@/components/progress/AnatomyPreview';
 import { WorkoutEditorModal } from '@/components/program/WorkoutEditorModal';
+import { useUserProfileStore } from '@/store/userProfileStore';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -37,6 +41,7 @@ export default function Program() {
   const { formatWithUnit } = useWeightUnit();
   const program = useProgramStore((state) => state.program);
   const progress = useProgramProgressStore((state) => state.progress);
+  const profileSex = useUserProfileStore((state) => state.profile.sex);
   const [editingWorkout, setEditingWorkout] = useState<UserWorkout | null>(null);
   const [onboarding, setOnboarding] = useState<OnboardingData | null>(null);
 
@@ -228,11 +233,17 @@ export default function Program() {
         {program.workouts.map((workout, index) => {
           const isUpNext = workout.id === scheduledWorkout?.id;
           const musclesLine = workout.muscleGroups.map((m) => tm(m)).join(' · ');
+          const workoutAnatomyMuscles = Array.from(
+            new Set([
+              ...(workout.muscleGroups ?? []),
+              ...workout.exercises.map((e) => e.muscleGroup).filter(Boolean),
+            ])
+          );
 
           return (
             <View
               key={workout.id}
-              style={styles.workoutCard}
+              style={[styles.workoutCard, isUpNext && styles.workoutCardUpNext]}
             >
               <View style={styles.workoutCardHead}>
                 <Pressable
@@ -264,10 +275,20 @@ export default function Program() {
                     </Text>
                   ) : null}
                   <Text style={styles.workoutMusclesText}>
-                    {workout.exercises.length} {t('exercises').toLowerCase()}
+                    {workout.exercises.length} {t('exercises').toLowerCase()} · ~{workout.estimatedMinutes} {t('min')}
                   </Text>
                 </Pressable>
                 <View style={styles.cardActionsRight}>
+                  {isUpNext && workoutAnatomyMuscles.length > 0 ? (
+                    <View style={styles.miniAnatomyChip}>
+                      <AnatomyPreview
+                        muscles={workoutAnatomyMuscles}
+                        sex={profileSex}
+                        height={60}
+                        showBack={false}
+                      />
+                    </View>
+                  ) : null}
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Customize workout"
@@ -416,24 +437,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 6,
-    paddingBottom: 10,
+    paddingBottom: 12,
   },
   title: {
+    fontFamily: fonts.bold,
     color: colors.text,
-    fontSize: 28,
+    fontSize: 27,
     fontWeight: '700',
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
   },
   subtitle: {
+    fontFamily: fonts.medium,
     color: colors.secondary,
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '500',
     marginTop: 4,
+    fontVariant: ['tabular-nums'],
   },
   routineScroll: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 32,
     gap: 14,
   },
@@ -446,9 +470,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   splitChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderRadius: radii.pill,
     backgroundColor: colors.surface,
-    borderWidth: colors.isDark ? 0 : 1,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   splitChipActive: {
@@ -456,11 +480,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.activeChipBg,
   },
   splitChipText: {
+    fontFamily: fonts.semiBold,
     color: colors.secondary,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
   },
   splitChipTextActive: {
+    fontFamily: fonts.bold,
     color: colors.activeChipText,
     fontWeight: '700',
   },
@@ -469,7 +495,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: radii.md,
     padding: 14,
     marginTop: 12,
     gap: 12,
@@ -481,11 +507,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
   },
   customProgramTitle: {
+    fontFamily: fonts.bold,
     fontSize: 14,
     fontWeight: '700',
     color: colors.text,
   },
   customProgramSubtitle: {
+    fontFamily: fonts.regular,
     fontSize: 12,
     fontWeight: '400',
     color: colors.secondary,
@@ -495,33 +523,48 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.elevated,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: radii.xs + 2,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   openBuilderBtnText: {
+    fontFamily: fonts.semiBold,
     fontSize: 12,
     fontWeight: '600',
     color: colors.text,
   },
   workoutCard: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: radii.lg,
     padding: 18,
     ...cardElevation(colors),
+  },
+  workoutCardUpNext: {
+    borderColor: colors.isDark ? 'rgba(200, 255, 61, 0.25)' : 'rgba(21, 128, 61, 0.28)',
   },
   workoutCardHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: 8,
   },
   cardActionsRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
+  miniAnatomyChip: {
+    paddingHorizontal: 5,
+    paddingVertical: 3,
+    borderRadius: radii.xs + 2,
+    backgroundColor: colors.elevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   routineEditBtn: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: radii.xs + 2,
     backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
@@ -532,38 +575,49 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 8,
   },
   workoutNumber: {
-    color: colors.secondary,
-    fontSize: 12,
-    fontWeight: '600',
+    fontFamily: fonts.bold,
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
   },
   upNextBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    backgroundColor: colors.primaryMuted,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: radii.pill,
   },
   upNextDot: {
-    width: 6,
-    height: 6,
+    width: 5.5,
+    height: 5.5,
     borderRadius: 3,
     backgroundColor: colors.accentLine,
   },
   upNextBadgeText: {
+    fontFamily: fonts.bold,
     color: colors.primaryText,
-    fontSize: 12,
+    fontSize: 10.5,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
   workoutName: {
+    fontFamily: fonts.bold,
     color: colors.text,
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '700',
-    marginTop: 4,
-    letterSpacing: -0.3,
+    marginTop: 5,
+    letterSpacing: -0.35,
   },
   workoutMusclesText: {
+    fontFamily: fonts.medium,
     color: colors.secondary,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '500',
-    marginTop: 4,
+    marginTop: 3,
     fontVariant: ['tabular-nums'],
   },
   exerciseList: {
@@ -588,7 +642,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   exerciseThumbMini: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: radii.xs,
     backgroundColor: colors.elevated,
     overflow: 'hidden',
     alignItems: 'center',
@@ -599,12 +653,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: '100%',
   },
   exerciseNameText: {
+    fontFamily: fonts.medium,
     color: colors.text,
     fontSize: 13.5,
     fontWeight: '500',
     flex: 1,
   },
   exerciseMetaText: {
+    fontFamily: fonts.semiBold,
     color: colors.secondary,
     fontSize: 12.5,
     fontWeight: '600',
@@ -617,13 +673,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 6,
     backgroundColor: colors.surface,
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: radii.md,
     marginTop: 4,
     marginBottom: 20,
-    borderWidth: colors.isDark ? 0 : 1,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   addCustomWorkoutBtnText: {
+    fontFamily: fonts.semiBold,
     fontSize: 14,
     fontWeight: '600',
     color: colors.secondary,

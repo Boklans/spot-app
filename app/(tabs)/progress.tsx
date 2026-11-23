@@ -23,6 +23,8 @@ import { LogWeightModal } from '@/components/progress/LogWeightModal';
 import { MuscleHeatmap } from '@/components/progress/MuscleHeatmap';
 import { AnalyticsSkeleton } from '@/components/ui/Skeleton';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
+import { radii } from '@/constants/radii';
+import { fonts } from '@/constants/typography';
 import { analyzeBodyAndStrength } from '@/lib/bodyCompositionAI';
 import { hapticLight } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -1451,9 +1453,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 6,
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   headerActionsRow: {
     flexDirection: 'row',
@@ -1466,21 +1468,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 5,
     paddingHorizontal: 11,
     paddingVertical: 7,
-    borderRadius: 12,
+    borderRadius: radii.sm,
     backgroundColor: colors.surface,
-    borderWidth: colors.isDark ? 0 : 1,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   historyHeaderBtnText: {
+    fontFamily: fonts.semiBold,
     color: colors.text,
     fontSize: 12,
     fontWeight: '600',
   },
   title: {
+    fontFamily: fonts.bold,
     color: colors.text,
-    fontSize: 28,
+    fontSize: 27,
     fontWeight: '700',
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
   },
   dropdownBtn: {
     flexDirection: 'row',
@@ -1488,12 +1492,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 12,
+    borderRadius: radii.sm,
     backgroundColor: colors.surface,
-    borderWidth: colors.isDark ? 0 : 1,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   dropdownBtnText: {
+    fontFamily: fonts.semiBold,
     color: colors.secondary,
     fontSize: 12,
     fontWeight: '600',
@@ -1501,10 +1506,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   dropdownMenu: {
     position: 'absolute',
     top: 56,
-    right: 24,
+    right: 20,
     zIndex: 100,
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: radii.sm + 2,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
@@ -1517,34 +1522,39 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.elevated,
   },
   dropdownItemText: {
+    fontFamily: fonts.medium,
     color: colors.secondary,
     fontSize: 13,
     fontWeight: '500',
   },
   dropdownItemTextActive: {
+    fontFamily: fonts.bold,
     color: colors.text,
     fontWeight: '700',
   },
   segmentBar: {
     flexDirection: 'row',
     backgroundColor: colors.isDark ? colors.surface : colors.elevated,
-    borderRadius: 14,
-    marginHorizontal: 24,
-    marginTop: 6,
-    marginBottom: 16,
+    borderRadius: radii.sm + 2,
+    marginHorizontal: 20,
+    marginTop: 4,
+    marginBottom: 14,
     padding: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   segmentBtn: {
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
+    borderRadius: radii.xs + 3,
   },
   segmentBtnActive: {
-    backgroundColor: colors.isDark ? '#202630' : colors.surface,
+    backgroundColor: colors.isDark ? colors.elevated : colors.surface,
   },
   segmentBtnText: {
+    fontFamily: fonts.semiBold,
     color: colors.secondary,
     fontSize: 12.5,
     fontWeight: '600',
@@ -1552,11 +1562,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     includeFontPadding: false,
   },
   segmentBtnTextActive: {
+    fontFamily: fonts.bold,
     color: colors.text,
     fontWeight: '700',
   },
   scrollContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 32,
   },
   tabContainer: {
@@ -1566,7 +1577,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 18,
+    borderRadius: radii.lg,
     paddingVertical: 16,
     paddingHorizontal: 12,
     marginBottom: 14,
@@ -1590,7 +1601,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 18,
+    borderRadius: radii.lg,
     minHeight: 78,
     paddingVertical: 14,
     paddingHorizontal: 12,
@@ -1599,13 +1610,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     ...cardElevation(colors),
   },
   statNumber: {
+    fontFamily: fonts.bold,
     color: colors.text,
     fontSize: 21,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
-    letterSpacing: -0.3,
+    letterSpacing: -0.35,
   },
   statLabel: {
+    fontFamily: fonts.medium,
     color: colors.secondary,
     fontSize: 12,
     fontWeight: '500',
@@ -1621,9 +1634,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   exercisePill: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderRadius: radii.pill,
     backgroundColor: colors.surface,
-    borderWidth: colors.isDark ? 0 : 1,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   exercisePillActive: {
@@ -1631,17 +1644,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.activeChipBg,
   },
   exercisePillText: {
+    fontFamily: fonts.semiBold,
     color: colors.secondary,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
   },
   exercisePillTextActive: {
+    fontFamily: fonts.bold,
     color: colors.activeChipText,
     fontWeight: '700',
   },
   strengthCard: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: radii.lg,
     padding: 18,
     marginBottom: 14,
     ...cardElevation(colors),
@@ -1653,25 +1668,31 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 12,
   },
   strengthKicker: {
-    color: colors.secondary,
-    fontSize: 11,
-    fontWeight: '600',
+    fontFamily: fonts.bold,
+    color: colors.muted,
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
     marginBottom: 4,
   },
   strengthExerciseName: {
+    fontFamily: fonts.bold,
     color: colors.text,
     fontSize: 17,
     fontWeight: '700',
-    letterSpacing: -0.2,
+    letterSpacing: -0.25,
   },
   strengthBigWeight: {
+    fontFamily: fonts.extraBold,
     color: colors.text,
     fontSize: 26,
     fontWeight: '700',
-    letterSpacing: -0.4,
+    letterSpacing: -0.45,
     fontVariant: ['tabular-nums'],
   },
   strengthSubBest: {
+    fontFamily: fonts.medium,
     color: colors.secondary,
     fontSize: 12.5,
     fontWeight: '500',
@@ -1679,6 +1700,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   strengthEst1RM: {
+    fontFamily: fonts.medium,
     color: colors.secondary,
     fontSize: 11.5,
     fontWeight: '500',

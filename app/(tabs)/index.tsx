@@ -4,9 +4,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { SpotCoachCard } from '@/components/home/SpotCoachCard';
+import { AnatomyPreview } from '@/components/progress/AnatomyPreview';
 import { Screen } from '@/components/ui/Screen';
 import { HomeSkeleton } from '@/components/ui/Skeleton';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
+import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
 import { generateCoachInsight } from '@/lib/coachEngine';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
@@ -242,6 +244,29 @@ export default function Home() {
     return language === 'uk' ? 'Все тіло' : 'Full Body';
   }, [nextWorkout, tm, language]);
 
+  const targetAnatomyMuscles = useMemo(() => {
+    if (!nextWorkout) return [];
+    const list: string[] = [];
+    if (nextWorkout.muscleGroups?.length) list.push(...nextWorkout.muscleGroups);
+    if (nextWorkout.exercises?.length) {
+      for (const ex of nextWorkout.exercises) {
+        if (ex.muscleGroup) list.push(ex.muscleGroup);
+      }
+    }
+    return Array.from(new Set(list));
+  }, [nextWorkout]);
+
+  const todayDateKicker = useMemo(() => {
+    const now = new Date();
+    return now
+      .toLocaleDateString(language === 'uk' ? 'uk-UA' : 'en-US', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+      })
+      .toUpperCase();
+  }, [language]);
+
   const rawGreetingName = (profile?.name && profile.name.trim().length > 0 ? profile.name.trim() : name) || '';
   const userGreetingName = rawGreetingName.slice(0, 20);
   const coachInsight = useMemo(
@@ -353,20 +378,37 @@ export default function Home() {
 
   return (
     <Screen style={styles.screenContent}>
-      {/* 1. Header */}
+      {/* 1. Athletic Cockpit Header */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
+          <Text style={styles.dateKicker}>{todayDateKicker}</Text>
           <Text numberOfLines={1} ellipsizeMode="tail" style={styles.greetingTitle}>
             {greetingText}
           </Text>
-          <Text style={styles.headerSubtitle}>
-            {homeState === 'IN_PROGRESS'
-              ? (language === 'uk' ? 'Активна сесія триває' : 'Active session in progress')
-              : homeState === 'COMPLETED_TODAY'
-              ? (language === 'uk' ? 'Тренування за сьогодні виконано' : 'Today’s workout completed')
-              : (language === 'uk' ? `Сьогодні за планом — ${tw(nextWorkout.name)}` : `Scheduled today — ${tw(nextWorkout.name)}`)}
-          </Text>
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Weekly progress"
+          onPress={() => {
+            hapticLight();
+            router.push('/(tabs)/progress');
+          }}
+          style={({ pressed }) => [styles.weeklyGoalPill, pressed && { opacity: 0.75 }]}
+        >
+          <View
+            style={[
+              styles.weeklyGoalDot,
+              {
+                backgroundColor:
+                  completedWorkoutsThisWeek >= targetWorkouts ? colors.primary : colors.accentLine,
+              },
+            ]}
+          />
+          <Text style={styles.weeklyGoalText}>
+            {completedWorkoutsThisWeek}/{targetWorkouts}
+          </Text>
+          <Text style={styles.weeklyGoalSub}>{language === 'uk' ? 'тижд.' : 'wk'}</Text>
+        </Pressable>
       </View>
 
       {/* STATE A: Ready to Train */}
@@ -383,22 +425,25 @@ export default function Home() {
               }
               style={styles.partialSavedBanner}
             >
-              <Ionicons name="bookmark-outline" size={16} color="#F59E0B" />
+              <Ionicons name="bookmark-outline" size={16} color={colors.warning} />
               <Text style={styles.partialSavedBannerText} numberOfLines={1}>
                 {language === 'uk'
                   ? `Сьогодні збережено частково: ${todayPartialHistoryWorkout.totalSets}/${todayPartialHistoryWorkout.plannedSets || todayPartialHistoryWorkout.totalSets} підх.`
                   : `Partial workout saved today: ${todayPartialHistoryWorkout.totalSets}/${todayPartialHistoryWorkout.plannedSets || todayPartialHistoryWorkout.totalSets} sets`}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color="#8E959F" />
+              <Ionicons name="chevron-forward" size={16} color={colors.muted} />
             </Pressable>
           )}
 
-          {/* 2. Today's Workout Card */}
+          {/* 2. Hero Today's Workout Card with Mini Target Anatomy */}
           <View style={styles.workoutCard}>
             <View style={styles.workoutCardHeaderRow}>
-              <Text style={styles.workoutCardLabel}>
-                {language === 'uk' ? 'За розкладом' : 'Up next'}
-              </Text>
+              <View style={styles.upNextPill}>
+                <View style={styles.upNextPillDot} />
+                <Text style={styles.workoutCardLabel}>
+                  {language === 'uk' ? 'СЬОГОДНІ ЗА ПЛАНОМ' : 'UP NEXT'}
+                </Text>
+              </View>
               {program.workouts && program.workouts.length > 1 && (
                 <Pressable
                   accessibilityRole="button"
@@ -411,7 +456,7 @@ export default function Home() {
                   hitSlop={8}
                   style={({ pressed }) => [styles.switchWorkoutBtn, pressed && { opacity: 0.7 }]}
                 >
-                  <Ionicons name="swap-horizontal" size={13} color="#A0A8B4" />
+                  <Ionicons name="swap-horizontal" size={13} color={colors.secondary} />
                   <Text style={styles.switchWorkoutBtnText}>
                     {language === 'uk' ? 'Змінити день' : 'Change day'}
                   </Text>
@@ -424,15 +469,40 @@ export default function Home() {
               onPress={() =>
                 router.push({ pathname: '/workout/preview', params: { workoutId: nextWorkout.id } })
               }
-              style={styles.workoutMainRow}
+              style={styles.heroSplitRow}
             >
-              <Text style={styles.workoutName}>{tw(nextWorkout.name)}</Text>
-              <Ionicons name="chevron-forward" size={20} color="#6C7685" />
-            </Pressable>
+              <View style={styles.heroTextCol}>
+                <Text style={styles.workoutName} numberOfLines={2}>
+                  {tw(nextWorkout.name)}
+                </Text>
+                <Text style={styles.workoutMuscles} numberOfLines={2}>
+                  {displayMuscles}
+                </Text>
+                <View style={styles.heroMetaPills}>
+                  <View style={styles.heroMetaBadge}>
+                    <Ionicons name="barbell-outline" size={12} color={colors.secondary} />
+                    <Text style={styles.heroMetaText}>
+                      {nextWorkout.exercises.length} {t('exercises').toLowerCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.heroMetaBadge}>
+                    <Ionicons name="time-outline" size={12} color={colors.secondary} />
+                    <Text style={styles.heroMetaText}>
+                      ~{nextWorkout.estimatedMinutes} {t('min')}
+                    </Text>
+                  </View>
+                </View>
+              </View>
 
-            <Text style={styles.workoutMuscles}>
-              {displayMuscles}  ·  {nextWorkout.exercises.length} {t('exercises').toLowerCase()}  ·  ~{nextWorkout.estimatedMinutes} {t('min')}
-            </Text>
+              <View style={styles.heroAnatomyWrap}>
+                <AnatomyPreview
+                  muscles={targetAnatomyMuscles}
+                  sex={profile.sex}
+                  height={98}
+                  showBack
+                />
+              </View>
+            </Pressable>
 
             {/* Clean Exercise List directly on card surface (no nested box) */}
             {nextWorkout.exercises && nextWorkout.exercises.length > 0 && (
@@ -660,7 +730,7 @@ export default function Home() {
             </View>
           </Button>
 
-          {/* NEXT UP Card */}
+          {/* NEXT UP Card with Mini Target Anatomy */}
           {nextWorkout && (
             <Pressable
               accessibilityRole="button"
@@ -673,23 +743,36 @@ export default function Home() {
             >
               <View style={styles.nextUpHeaderRow}>
                 <Text style={styles.nextUpKickerText}>
-                  {language === 'uk' ? 'Далі за планом' : 'Next up'}
+                  {language === 'uk' ? 'ДАЛІ ЗА ПЛАНОМ' : 'NEXT UP'}
                 </Text>
                 <Text style={styles.nextUpDayText}>
                   {nextWorkout.dayLabel || (language === 'uk' ? 'За розкладом' : 'Scheduled')}
                 </Text>
               </View>
 
-              <View style={styles.nextUpTitleRow}>
-                <Text numberOfLines={1} style={styles.nextUpWorkoutName}>
-                  {tw(nextWorkout.name)}
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color="#6C7685" />
-              </View>
+              <View style={styles.heroSplitRow}>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <View style={styles.nextUpTitleRow}>
+                    <Text numberOfLines={1} style={styles.nextUpWorkoutName}>
+                      {tw(nextWorkout.name)}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+                  </View>
 
-              <Text numberOfLines={1} style={styles.nextUpMuscles}>
-                {displayMuscles}  ·  {nextWorkout.exercises.length} {t('exercises').toLowerCase()}  ·  ~{nextWorkout.estimatedMinutes} {t('min')}
-              </Text>
+                  <Text numberOfLines={2} style={styles.nextUpMuscles}>
+                    {displayMuscles}  ·  {nextWorkout.exercises.length} {t('exercises').toLowerCase()}  ·  ~{nextWorkout.estimatedMinutes} {t('min')}
+                  </Text>
+                </View>
+
+                <View style={styles.heroAnatomyWrap}>
+                  <AnatomyPreview
+                    muscles={targetAnatomyMuscles}
+                    sex={profile.sex}
+                    height={72}
+                    showBack
+                  />
+                </View>
+              </View>
             </Pressable>
           )}
         </>
@@ -832,29 +915,68 @@ export default function Home() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screenContent: {
     paddingTop: 6,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-    marginTop: 0,
+    marginTop: 2,
     gap: 12,
   },
+  dateKicker: {
+    fontFamily: fonts.bold,
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '700',
+    color: colors.muted,
+    letterSpacing: 1.1,
+    marginBottom: 2,
+  },
   greetingTitle: {
-    fontSize: 22,
+    fontFamily: fonts.bold,
+    fontSize: 23,
     lineHeight: 28,
     fontWeight: '700',
     color: colors.text,
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
+    fontFamily: fonts.medium,
     fontSize: 13,
     lineHeight: 18,
     color: colors.secondary,
     marginTop: 2,
     fontWeight: '500',
+  },
+  weeklyGoalPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    ...cardElevation(colors),
+  },
+  weeklyGoalDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  weeklyGoalText: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+    fontVariant: ['tabular-nums'],
+  },
+  weeklyGoalSub: {
+    fontFamily: fonts.medium,
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: colors.muted,
   },
   partialSavedBanner: {
     flexDirection: 'row',
@@ -863,12 +985,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(217, 119, 6, 0.10)',
     borderWidth: 1,
     borderColor: 'rgba(245, 158, 11, 0.3)',
-    borderRadius: 14,
+    borderRadius: radii.sm + 2,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 14,
   },
   partialSavedBannerText: {
+    fontFamily: fonts.semiBold,
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
@@ -876,21 +999,34 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   workoutCard: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: radii.lg,
+    padding: 18,
     marginBottom: 14,
     ...cardElevation(colors),
   },
+  upNextPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  upNextPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accentLine,
+  },
   workoutCardLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.secondary,
+    fontFamily: fonts.bold,
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 1.0,
+    color: colors.primaryText,
   },
   workoutCardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   switchWorkoutBtn: {
     flexDirection: 'row',
@@ -899,12 +1035,57 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.elevated,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 8,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   switchWorkoutBtnText: {
-    fontSize: 12,
+    fontFamily: fonts.semiBold,
+    fontSize: 11.5,
     fontWeight: '600',
     color: colors.secondary,
+  },
+  heroSplitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  heroTextCol: {
+    flex: 1,
+    gap: 6,
+  },
+  heroMetaPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  heroMetaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radii.xs,
+    backgroundColor: colors.elevated,
+  },
+  heroMetaText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: colors.secondary,
+    fontVariant: ['tabular-nums'],
+  },
+  heroAnatomyWrap: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: radii.sm + 2,
+    backgroundColor: colors.elevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   exercisePreviewWrap: {
     marginTop: 14,
@@ -923,25 +1104,29 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderTopColor: colors.divider,
   },
   previewExIndex: {
+    fontFamily: fonts.semiBold,
     width: 20,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '600',
     color: colors.muted,
     fontVariant: ['tabular-nums'],
   },
   previewExName: {
+    fontFamily: fonts.medium,
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
     color: colors.text,
   },
   previewExSets: {
+    fontFamily: fonts.semiBold,
     fontSize: 13,
     fontWeight: '600',
     color: colors.secondary,
     fontVariant: ['tabular-nums'],
   },
   previewMoreText: {
+    fontFamily: fonts.semiBold,
     fontSize: 12,
     fontWeight: '600',
     color: colors.secondary,
@@ -954,32 +1139,35 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
   },
   workoutName: {
-    fontSize: 23,
+    fontFamily: fonts.bold,
+    fontSize: 22,
+    lineHeight: 27,
     fontWeight: '700',
     color: colors.text,
     letterSpacing: -0.4,
   },
   workoutMuscles: {
+    fontFamily: fonts.medium,
     fontSize: 13,
+    lineHeight: 18,
     color: colors.secondary,
-    marginTop: 4,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
   },
   ctaButton: {
     width: '100%',
     minHeight: 54,
-    borderRadius: 16,
+    borderRadius: radii.md,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   weekSection: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: radii.lg,
     padding: 18,
-    marginBottom: 24,
+    marginBottom: 4,
     ...cardElevation(colors),
   },
   weekHeader: {
@@ -989,13 +1177,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 14,
   },
   weekLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.secondary,
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    color: colors.muted,
   },
   weekCounter: {
+    fontFamily: fonts.bold,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.text,
     fontVariant: ['tabular-nums'],
   },

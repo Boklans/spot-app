@@ -64,15 +64,18 @@ let passed = 0;
   passed++;
 }
 
-// TEST 4: Profile Theme Switcher Segmented Control
+// TEST 4: Profile Theme Switcher Segmented Control (modular ProfileSettingsModal)
 {
-  const profileSource = fs.readFileSync(path.join(__dirname, '..', 'app', '(tabs)', 'profile.tsx'), 'utf8');
+  const settingsSource = fs.readFileSync(
+    path.join(__dirname, '..', 'components', 'profile', 'ProfileSettingsModal.tsx'),
+    'utf8'
+  );
 
-  assert.ok(profileSource.includes("updateProfile({ theme: 'dark' })"), 'profile.tsx must allow selecting dark theme');
-  assert.ok(profileSource.includes("updateProfile({ theme: 'light' })"), 'profile.tsx must allow selecting light theme');
-  assert.ok(profileSource.includes("t('theme')"), 'profile.tsx must render theme label');
-  assert.ok(profileSource.includes("t('themeDark')"), 'profile.tsx must render themeDark label');
-  assert.ok(profileSource.includes("t('themeLight')"), 'profile.tsx must render themeLight label');
+  assert.ok(settingsSource.includes("onUpdateProfile({ theme: 'dark' })"), 'ProfileSettingsModal must allow selecting dark theme');
+  assert.ok(settingsSource.includes("onUpdateProfile({ theme: 'light' })"), 'ProfileSettingsModal must allow selecting light theme');
+  assert.ok(settingsSource.includes("t('theme')"), 'ProfileSettingsModal must render theme label');
+  assert.ok(settingsSource.includes("t('themeDark')"), 'ProfileSettingsModal must render themeDark label');
+  assert.ok(settingsSource.includes("t('themeLight')"), 'ProfileSettingsModal must render themeLight label');
 
   console.log('✅ TEST 4 PASSED: Profile App Settings includes reactive Dark / Light theme switcher');
   passed++;

@@ -1,7 +1,9 @@
 import { PropsWithChildren, useRef } from 'react';
 import { Animated, Pressable, StyleProp, StyleSheet, Text, TextStyle, ViewStyle } from 'react-native';
 import { useThemeColors } from '@/constants/colors';
+import { radii } from '@/constants/radii';
 import { spacing } from '@/constants/spacing';
+import { fonts } from '@/constants/typography';
 
 export function Button({
   children,
@@ -76,16 +78,17 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 56,
-    borderRadius: 14,
+    minHeight: 54,
+    borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
   },
   disabled: { opacity: 0.5 },
-  pressed: { opacity: 0.72 },
+  pressed: { opacity: 0.78 },
   text: {
-    fontSize: 16,
+    fontFamily: fonts.bold,
+    fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.2,
     textAlign: 'center',

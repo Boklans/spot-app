@@ -16,7 +16,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
-import { useThemeColors, type ThemeColors } from '@/constants/colors';
+import { AnatomyPreview } from '@/components/progress/AnatomyPreview';
+import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
+import { radii } from '@/constants/radii';
+import { fonts } from '@/constants/typography';
+import { useUserProfileStore } from '@/store/userProfileStore';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticImpact, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -61,6 +65,7 @@ export default function WorkoutPreview() {
   const progress = useProgramProgressStore((state) => state.progress);
   const program = useProgramStore((state) => state.program);
   const history = useWorkoutHistoryStore((state) => state.workouts);
+  const profileSex = useUserProfileStore((state) => state.profile.sex);
 
   const updateUserProgram = useProgramStore((state) => state.updateUserProgram);
   const [onboarding, setOnboarding] = useState<OnboardingData | null>(null);
@@ -370,16 +375,45 @@ export default function WorkoutPreview() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Workout Title Header */}
+        {/* Workout Hero Card with Target Anatomy */}
         <View style={styles.titleSection}>
-          <Text style={styles.workoutTitle}>{tw(workout.name)}</Text>
-          <Text style={styles.workoutMuscles}>{displayMuscles}</Text>
+          <View style={styles.heroSplit}>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={styles.workoutTitle}>{tw(workout.name)}</Text>
+              <Text style={styles.workoutMuscles}>{displayMuscles}</Text>
 
-          {/* Factual Workout Summary */}
-          <View style={styles.readinessRow}>
-            <Text style={styles.readinessPercentText}>
-              {workout.exercises.length} {t('exercises').toLowerCase()} · {totalSets} {t('sets').toLowerCase()} · ~{workout.estimatedMinutes} {t('min')}
-            </Text>
+              <View style={styles.readinessRow}>
+                <View style={styles.metaChip}>
+                  <Text style={styles.readinessPercentText}>
+                    {workout.exercises.length} {t('exercises').toLowerCase()}
+                  </Text>
+                </View>
+                <View style={styles.metaChip}>
+                  <Text style={styles.readinessPercentText}>
+                    {totalSets} {t('sets').toLowerCase()}
+                  </Text>
+                </View>
+                <View style={styles.metaChip}>
+                  <Text style={styles.readinessPercentText}>
+                    ~{workout.estimatedMinutes} {t('min')}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.previewAnatomyBox}>
+              <AnatomyPreview
+                muscles={Array.from(
+                  new Set([
+                    ...(workout.muscleGroups ?? []),
+                    ...workout.exercises.map((e) => e.muscleGroup).filter(Boolean),
+                  ])
+                )}
+                sex={profileSex}
+                height={96}
+                showBack
+              />
+            </View>
           </View>
         </View>
 
@@ -425,67 +459,72 @@ export default function WorkoutPreview() {
             );
 
             return (
-              <Pressable
+              <View
                 key={exercise.id || `${exercise.name}-${index}`}
-                accessibilityRole="button"
-                accessibilityLabel={`Exercise details for ${exercise.name}`}
-                onPress={() => {
-                  hapticLight();
-                  setDetailExercise(exercise);
-                }}
-                style={({ pressed }) => [
+                style={[
                   styles.exerciseCard,
                   (isSupersetA1 || isSupersetA2) && {
                     borderColor: 'rgba(168, 85, 247, 0.45)',
                     borderWidth: 1,
                   },
-                  pressed && styles.exerciseCardPressed,
                 ]}
               >
-                <View style={styles.exerciseThumbWrap}>
-                  <Image
-                    source={getExerciseImage(exercise.name, exercise.customImageUri)}
-                    style={styles.exerciseThumb}
-                    resizeMode="cover"
-                  />
-                </View>
-                <View style={styles.exerciseInfoCol}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    {(isSupersetA1 || isSupersetA2) && (
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 3,
-                          backgroundColor: 'rgba(168, 85, 247, 0.16)',
-                          borderWidth: 1,
-                          borderColor: 'rgba(168, 85, 247, 0.38)',
-                          borderRadius: 6,
-                          paddingHorizontal: 5,
-                          paddingVertical: 1.5,
-                        }}
-                      >
-                        <Ionicons name="link" size={9} color="#A855F7" />
-                        <Text style={{ color: '#A855F7', fontSize: 9.5, fontWeight: '800' }}>
-                          {isSupersetA1 ? 'A1' : 'A2'}
-                        </Text>
-                      </View>
-                    )}
-                    <Text numberOfLines={1} style={[styles.exerciseName, { flex: 1 }]}>
-                      {te(exercise.name)}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Exercise details for ${exercise.name}`}
+                  onPress={() => {
+                    hapticLight();
+                    setDetailExercise(exercise);
+                  }}
+                  style={({ pressed }) => [
+                    { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14 },
+                    pressed && { opacity: 0.72 },
+                  ]}
+                >
+                  <View style={styles.exerciseThumbWrap}>
+                    <Image
+                      source={getExerciseImage(exercise.name, exercise.customImageUri)}
+                      style={styles.exerciseThumb}
+                      resizeMode="cover"
+                    />
+                  </View>
+                  <View style={styles.exerciseInfoCol}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {(isSupersetA1 || isSupersetA2) && (
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 3,
+                            backgroundColor: 'rgba(168, 85, 247, 0.16)',
+                            borderWidth: 1,
+                            borderColor: 'rgba(168, 85, 247, 0.38)',
+                            borderRadius: 6,
+                            paddingHorizontal: 5,
+                            paddingVertical: 1.5,
+                          }}
+                        >
+                          <Ionicons name="link" size={9} color="#A855F7" />
+                          <Text style={{ color: '#A855F7', fontSize: 9.5, fontWeight: '800' }}>
+                            {isSupersetA1 ? 'A1' : 'A2'}
+                          </Text>
+                        </View>
+                      )}
+                      <Text numberOfLines={1} style={[styles.exerciseName, { flex: 1 }]}>
+                        {te(exercise.name)}
+                      </Text>
+                    </View>
+                    <Text style={styles.exerciseMeta}>
+                      {exercise.sets} {t('sets').toLowerCase()} · {weightLabel} · {targetRepsDisplay}
                     </Text>
                   </View>
-                  <Text style={styles.exerciseMeta}>
-                    {exercise.sets} {t('sets').toLowerCase()} · {weightLabel} · {targetRepsDisplay}
-                  </Text>
-                </View>
+                </Pressable>
                 <View style={styles.cardActionsRight}>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={language === 'uk' ? 'Налаштувати підходи' : 'Configure sets'}
                     hitSlop={8}
-                    onPress={(e) => {
-                      e.stopPropagation();
+                    onPress={() => {
                       handleOpenExerciseConfig(exercise);
                     }}
                     style={({ pressed }) => [styles.quickConfigBtn, pressed && { opacity: 0.6 }]}
@@ -496,8 +535,7 @@ export default function WorkoutPreview() {
                     accessibilityRole="button"
                     accessibilityLabel={language === 'uk' ? 'Замінити вправу' : 'Swap exercise'}
                     hitSlop={8}
-                    onPress={(e) => {
-                      e.stopPropagation();
+                    onPress={() => {
                       handleOpenSwapModal(exercise);
                     }}
                     style={({ pressed }) => [styles.swapBtn, pressed && { opacity: 0.6 }]}
@@ -505,7 +543,7 @@ export default function WorkoutPreview() {
                     <Ionicons name="swap-horizontal" size={16} color="#8E959F" />
                   </Pressable>
                 </View>
-              </Pressable>
+              </View>
             );
           })}
 
@@ -1046,30 +1084,57 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingTop: 10,
     paddingBottom: 100,
   },
   titleSection: {
-    marginBottom: 24,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: 18,
+    marginBottom: 20,
+    ...cardElevation(colors),
+  },
+  heroSplit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  previewAnatomyBox: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: radii.sm + 2,
+    backgroundColor: colors.elevated,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   workoutTitle: {
-    fontSize: 28,
+    fontFamily: fonts.bold,
+    fontSize: 23,
+    lineHeight: 28,
     fontWeight: '700',
     color: colors.text,
-    letterSpacing: -0.4,
+    letterSpacing: -0.45,
   },
   workoutMuscles: {
-    fontSize: 14,
+    fontFamily: fonts.medium,
+    fontSize: 13,
     color: colors.secondary,
-    marginTop: 4,
-    marginBottom: 16,
-    fontWeight: '400',
+    fontWeight: '500',
   },
   readinessRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 12,
+    gap: 6,
+    marginTop: 4,
+  },
+  metaChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radii.xs,
+    backgroundColor: colors.elevated,
   },
   progressBarTrack: {
     flex: 1,
@@ -1080,12 +1145,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#C8FF3D',
+    backgroundColor: colors.accentLine,
     borderRadius: 3,
   },
   readinessPercentText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontFamily: fonts.semiBold,
+    fontSize: 11.5,
+    fontWeight: '600',
     color: colors.secondary,
     fontVariant: ['tabular-nums'],
   },
@@ -1093,12 +1159,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
     paddingHorizontal: 2,
   },
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontFamily: fonts.bold,
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.text,
     letterSpacing: -0.2,
   },

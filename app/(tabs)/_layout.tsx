@@ -5,6 +5,7 @@ import { Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FloatingWorkoutBar } from '@/components/workout/FloatingWorkoutBar';
 import { useThemeColors } from '@/constants/colors';
+import { fonts } from '@/constants/typography';
 import { useI18n } from '@/lib/i18n';
 
 export default function TabsLayout() {
@@ -45,8 +46,9 @@ export default function TabsLayout() {
           },
           tabBarIconStyle: Platform.OS === 'web' ? { height: 22 } : undefined,
           tabBarLabelStyle: {
+            fontFamily: fonts.semiBold,
             fontSize: 11,
-            fontWeight: '700',
+            fontWeight: '600',
             lineHeight: 14,
             marginTop: 2,
           },
