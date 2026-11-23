@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FloatingWorkoutBar } from '@/components/workout/FloatingWorkoutBar';
 import { useThemeColors } from '@/constants/colors';
@@ -11,8 +11,18 @@ export default function TabsLayout() {
   const colors = useThemeColors();
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
-  const bottomPad = Math.max(insets.bottom, 8);
-  const tabBarHeight = 62 + bottomPad;
+  const bottomPad =
+    Platform.OS === 'ios'
+      ? Math.max(insets.bottom - 6, 22)
+      : Platform.OS === 'android'
+        ? Math.max(insets.bottom, 10)
+        : 8;
+  const tabBarHeight =
+    Platform.OS === 'ios'
+      ? 58 + bottomPad
+      : Platform.OS === 'android'
+        ? 56 + bottomPad
+        : 66;
 
   return (
     <View style={{ flex: 1, position: 'relative' }}>
@@ -27,15 +37,13 @@ export default function TabsLayout() {
             borderTopColor: colors.border,
             elevation: 0,
             height: tabBarHeight,
-            paddingTop: 4,
+            paddingTop: Platform.OS === 'web' ? 4 : 8,
             paddingBottom: bottomPad,
           },
           tabBarItemStyle: {
-            paddingVertical: 2,
+            paddingVertical: Platform.OS === 'web' ? 2 : 0,
           },
-          tabBarIconStyle: {
-            height: 22,
-          },
+          tabBarIconStyle: Platform.OS === 'web' ? { height: 22 } : undefined,
           tabBarLabelStyle: {
             fontSize: 11,
             fontWeight: '700',
