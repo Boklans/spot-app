@@ -9,11 +9,13 @@ import type { UserProgram } from '@/types/userProgram';
 export const USER_PROGRAM_STORAGE_KEY = 'spot-user-program';
 export const CUSTOM_PROGRAM_STORAGE_KEY = 'spot-custom-program';
 export const LEGACY_PROGRAM_STORAGE_KEY = 'spot-active-program';
+export const DELOAD_BACKUP_STORAGE_KEY = 'spot-deload-backup';
 export const ACTIVE_PROGRAM_STORAGE_KEY = USER_PROGRAM_STORAGE_KEY;
 
 type ProgramState = {
   program: UserProgram;
   hydrated: boolean;
+  deloadActive: boolean;
   loadProgram: () => Promise<UserProgram>;
   refreshProgram: (onboarding?: OnboardingData) => Promise<UserProgram>;
   updateUserProgram: (updatedProgram: UserProgram) => Promise<void>;
@@ -21,6 +23,8 @@ type ProgramState = {
   saveRoutine: (routine: UserProgram) => Promise<void>;
   resetProgram: () => Promise<UserProgram>;
   getOrLoadProgram: () => Promise<UserProgram>;
+  applyDeloadWeek: () => Promise<void>;
+  restoreFromDeload: () => Promise<void>;
 };
 
 function parseStoredUserProgram(value: string | null): UserProgram | null {
@@ -72,8 +76,13 @@ const defaultProgram = migrateGeneratedToUserProgram(generateProgram(defaultOnbo
 export const useProgramStore = create<ProgramState>((set, get) => ({
   program: defaultProgram,
   hydrated: false,
+  deloadActive: false,
 
   loadProgram: async () => {
+    const deloadBackup = await AsyncStorage.getItem(DELOAD_BACKUP_STORAGE_KEY).catch(() => null);
+    if (deloadBackup) {
+      set({ deloadActive: true });
+    }
     if (get().hydrated) return get().program;
 
     try {
@@ -304,5 +313,83 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       return get().program;
     }
     return get().loadProgram();
+  },
+
+  applyDeloadWeek: async () => {
+    const current = get().program;
+    if (!current || get().deloadActive) return;
+
+    // Save exact pre-deload exercise weights so restore is 100% lossless
+    const backupWeights: Record<string, number> = {};
+    const deloadedWorkouts = current.workouts.map((w) => ({
+      ...w,
+      exercises: w.exercises.map((ex) => {
+        backupWeights[`${w.id}:${ex.id}`] = ex.recommendedWeight;
+        if (ex.recommendedWeight <= 0) return ex;
+        const step = ex.weightIncrement || 2.5;
+        const reduced = Math.max(step, Math.round((ex.recommendedWeight * 0.85) / step) * step);
+        return { ...ex, recommendedWeight: Math.round(reduced * 10) / 10 };
+      }),
+    }));
+
+    const nextProgram: UserProgram = {
+      ...current,
+      workouts: deloadedWorkouts,
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      await AsyncStorage.setItem(DELOAD_BACKUP_STORAGE_KEY, JSON.stringify(backupWeights));
+      await AsyncStorage.setItem(USER_PROGRAM_STORAGE_KEY, JSON.stringify(nextProgram));
+      if (nextProgram.splitType === 'custom') {
+        await AsyncStorage.setItem(CUSTOM_PROGRAM_STORAGE_KEY, JSON.stringify(nextProgram));
+      }
+    } catch {
+      // Continue
+    }
+
+    set({ program: nextProgram, deloadActive: true });
+  },
+
+  restoreFromDeload: async () => {
+    const current = get().program;
+    if (!current) return;
+
+    let backupWeights: Record<string, number> = {};
+    try {
+      const raw = await AsyncStorage.getItem(DELOAD_BACKUP_STORAGE_KEY);
+      if (raw) backupWeights = JSON.parse(raw) as Record<string, number>;
+    } catch {
+      // Continue
+    }
+
+    const restoredWorkouts = current.workouts.map((w) => ({
+      ...w,
+      exercises: w.exercises.map((ex) => {
+        const key = `${w.id}:${ex.id}`;
+        if (typeof backupWeights[key] === 'number') {
+          return { ...ex, recommendedWeight: backupWeights[key] };
+        }
+        return ex;
+      }),
+    }));
+
+    const nextProgram: UserProgram = {
+      ...current,
+      workouts: restoredWorkouts,
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      await AsyncStorage.removeItem(DELOAD_BACKUP_STORAGE_KEY);
+      await AsyncStorage.setItem(USER_PROGRAM_STORAGE_KEY, JSON.stringify(nextProgram));
+      if (nextProgram.splitType === 'custom') {
+        await AsyncStorage.setItem(CUSTOM_PROGRAM_STORAGE_KEY, JSON.stringify(nextProgram));
+      }
+    } catch {
+      // Continue
+    }
+
+    set({ program: nextProgram, deloadActive: false });
   },
 }));

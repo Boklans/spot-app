@@ -3,9 +3,12 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
+import { SpotCoachCard } from '@/components/home/SpotCoachCard';
 import { Screen } from '@/components/ui/Screen';
 import { HomeSkeleton } from '@/components/ui/Skeleton';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
+import { fonts } from '@/constants/typography';
+import { generateCoachInsight } from '@/lib/coachEngine';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { countWorkoutsThisWeek, getStartOfWeek } from '@/lib/progressCalculator';
 import { findLatestExerciseSets, inferEquipmentFromName, recommendWeight } from '@/lib/adaptiveProgression';
@@ -28,6 +31,9 @@ export default function Home() {
 
   const profile = useUserProfileStore((state) => state.profile);
   const program = useProgramStore((state) => state.program);
+  const deloadActive = useProgramStore((state) => state.deloadActive);
+  const applyDeloadWeek = useProgramStore((state) => state.applyDeloadWeek);
+  const restoreFromDeload = useProgramStore((state) => state.restoreFromDeload);
   const programHydrated = useProgramStore((state) => state.hydrated);
   const activeSession = useWorkoutSessionStore((state) => state.session);
   const progress = useProgramProgressStore((state) => state.progress);
@@ -238,6 +244,29 @@ export default function Home() {
 
   const rawGreetingName = (profile?.name && profile.name.trim().length > 0 ? profile.name.trim() : name) || '';
   const userGreetingName = rawGreetingName.slice(0, 20);
+  const coachInsight = useMemo(
+    () =>
+      generateCoachInsight({
+        history,
+        deloadActive,
+        language,
+        translateExercise: te,
+        translateMuscle: tm,
+        formatWeightDiff: (kgDiff) => formatWithUnit(kgDiff),
+      }),
+    [history, deloadActive, language, te, tm, formatWithUnit]
+  );
+
+  const handleCoachAction = async (actionType: 'apply_deload' | 'restore_deload' | 'open_muscles') => {
+    if (actionType === 'apply_deload') {
+      await applyDeloadWeek();
+    } else if (actionType === 'restore_deload') {
+      await restoreFromDeload();
+    } else if (actionType === 'open_muscles') {
+      router.push({ pathname: '/(tabs)/progress', params: { tab: 'muscles' } });
+    }
+  };
+
   const greetingText = userGreetingName
     ? `${greetingPrefix}, ${userGreetingName}`
     : greetingPrefix;
@@ -705,6 +734,11 @@ export default function Home() {
           </View>
         </View>
       )}
+
+      {/* SPOT Coach: Weekly Insights & 1-Tap Deload */}
+      {!isSessionInProgress && coachInsight ? (
+        <SpotCoachCard insight={coachInsight} onAction={handleCoachAction} />
+      ) : null}
 
       {/* Workout Switch Modal */}
       <Modal

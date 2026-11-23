@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -20,6 +20,7 @@ import {
 } from '@/components/progress/RealStrengthGraph';
 import { BodyWeightGraph } from '@/components/progress/BodyWeightGraph';
 import { LogWeightModal } from '@/components/progress/LogWeightModal';
+import { MuscleHeatmap } from '@/components/progress/MuscleHeatmap';
 import { AnalyticsSkeleton } from '@/components/ui/Skeleton';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
 import { analyzeBodyAndStrength } from '@/lib/bodyCompositionAI';
@@ -58,8 +59,17 @@ export default function Progress() {
   const deleteBodyWeightEntry = useBodyWeightStore((state) => state.deleteEntry);
   const getBodyWeightStats = useBodyWeightStore((state) => state.getStats);
 
+  const params = useLocalSearchParams<{ tab?: string }>();
   const [period, setPeriod] = useState<ProgressPeriod>('30D');
-  const [activeTab, setActiveTab] = useState<ActiveViewTab>('overview');
+  const [activeTab, setActiveTab] = useState<ActiveViewTab>(
+    params.tab === 'muscles' || params.tab === 'weight' || params.tab === 'prs' ? params.tab : 'overview'
+  );
+
+  useEffect(() => {
+    if (params.tab === 'muscles' || params.tab === 'weight' || params.tab === 'prs' || params.tab === 'overview') {
+      setActiveTab(params.tab);
+    }
+  }, [params.tab]);
   const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | 'ALL'>('1M');
   const [chartMetric, setChartMetric] = useState<StrengthChartMetric>('weight');
   const [selectedMuscle, setSelectedMuscle] = useState('Chest');
@@ -982,6 +992,14 @@ export default function Progress() {
         {/* ========================================================================= */}
         {activeTab === 'muscles' && (
           <View style={styles.tabContainer}>
+            <MuscleHeatmap
+              stats={muscleRecoveryStats}
+              volumes={Object.fromEntries(displayMuscles.map((m) => [m.name, m.volume]))}
+              selectedMuscle={selectedMuscle}
+              onSelectMuscle={(m) => setSelectedMuscle(m)}
+              sex={profile.sex}
+              formatVolume={formatVolume}
+            />
             {hasHistory ? (
               <>
                 <View style={styles.muscleListCard}>

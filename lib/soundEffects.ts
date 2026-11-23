@@ -2,13 +2,16 @@ import { Platform } from 'react-native';
 import { useUserProfileStore } from '@/store/userProfileStore';
 
 /**
- * High-performance, cross-platform audio chime player for SPOT rest timer.
- * Synthesizes a bright, triumphant 3-tone chime (C5 -> E5 -> G5) via Web Audio API on web.
- * On native mobile (Expo Go / iOS / Android), timer completion is paired with rich haptics (hapticSuccess)
- * without relying on legacy/removed native audio modules like expo-av.
+ * Cross-platform audio chime player for SPOT rest timer.
+ * - Web: Synthesizes a 3-tone bell chime (C5 -> E5 -> G5) via Web Audio API.
+ * - iOS / Android: Plays assets/sounds/rest-complete.wav via expo-audio,
+ *   configured with `interruptionMode: 'mixWithOthers'` so gym music (Spotify/Apple Music)
+ *   is never paused or interrupted.
  */
 
 let webAudioCtx: any = null;
+let nativeAudioPlayer: any = null;
+let nativeAudioConfigured = false;
 
 function getWebAudioContext() {
   if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
@@ -23,9 +26,6 @@ function getWebAudioContext() {
   return webAudioCtx;
 }
 
-/**
- * Synthesizes a beautiful bell chime using oscillators (Web Audio API)
- */
 function playWebChime() {
   try {
     const ctx = getWebAudioContext();
@@ -56,6 +56,39 @@ function playWebChime() {
   }
 }
 
+async function playNativeChime() {
+  try {
+    const expoAudio = await import('expo-audio');
+    if (!nativeAudioConfigured && typeof expoAudio.setAudioModeAsync === 'function') {
+      await expoAudio
+        .setAudioModeAsync({
+          playsInSilentMode: true,
+          shouldPlayInBackground: false,
+          interruptionMode: 'mixWithOthers',
+        })
+        .catch(() => undefined);
+      nativeAudioConfigured = true;
+    }
+
+    if (!nativeAudioPlayer && typeof expoAudio.createAudioPlayer === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const chimeAsset = require('@/assets/sounds/rest-complete.wav');
+      nativeAudioPlayer = expoAudio.createAudioPlayer(chimeAsset);
+    }
+
+    if (nativeAudioPlayer) {
+      if (typeof nativeAudioPlayer.seekTo === 'function') {
+        await nativeAudioPlayer.seekTo(0).catch(() => undefined);
+      }
+      if (typeof nativeAudioPlayer.play === 'function') {
+        nativeAudioPlayer.play();
+      }
+    }
+  } catch {
+    // Graceful fallback: haptics still fire even if native audio module isn't linked (e.g. older dev client)
+  }
+}
+
 export async function playRestCompleteSound(): Promise<void> {
   const soundEnabled = useUserProfileStore.getState().profile.soundEnabled ?? true;
   if (!soundEnabled) return;
@@ -65,7 +98,5 @@ export async function playRestCompleteSound(): Promise<void> {
     return;
   }
 
-  // On native mobile platforms (Expo Go / iOS / Android),
-  // timer completion is handled gracefully by hapticSuccess()
-  // without importing ExponentAV native modules.
+  await playNativeChime();
 }

@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useMemo,  useCallback, useEffect, useRef } from 'react';
 import {
   Animated,
   FlatList,
@@ -10,7 +10,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 
 export const ITEM_HEIGHT = 44;
 const VISIBLE_ITEMS = 5;
@@ -34,6 +34,8 @@ const WheelItem = React.memo(function WheelItem<T>({
   unit,
   onPress,
 }: WheelItemProps<T>) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const itemOffset = index * ITEM_HEIGHT;
 
   // Scale: 1.06 at center, down to 0.85 when 2 items away (native driver)
@@ -132,6 +134,8 @@ export function WheelPicker<T extends number | string>({
   unit,
   onActivePress,
 }: WheelPickerProps<T>) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const listRef = useRef<FlatList<T>>(null);
   const initialIndex = Math.max(0, data.findIndex((item) => item === selectedValue));
 
@@ -301,7 +305,7 @@ export function WheelPicker<T extends number | string>({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     height: PICKER_HEIGHT,
     width: '100%',
