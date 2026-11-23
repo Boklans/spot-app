@@ -1121,8 +1121,8 @@ export default function Progress() {
                 <Text style={styles.statNumber}>
                   {formatWeight(fromKg(profile.weightKg || bodyStats.currentWeight))}
                 </Text>
-                <Text style={styles.statLabel}>
-                  {language === 'uk' ? 'Поточна вага' : 'Current Weight'} ({unitLabel})
+                <Text numberOfLines={1} style={styles.statLabel}>
+                  {language === 'uk' ? 'Вага' : 'Weight'} ({unitLabel})
                 </Text>
               </View>
 

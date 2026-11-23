@@ -298,22 +298,66 @@ export default function Profile() {
       if (hasProgram) {
         await useProgramStore.getState().updateUserProgram(parsed.program);
       }
-      if (hasNotes) {
+      if (hasNotes && parsed.notes && typeof parsed.notes === 'object' && !Array.isArray(parsed.notes)) {
+        const sanitizedNotes: Record<string, string> = {};
+        for (const [k, v] of Object.entries(parsed.notes)) {
+          if (typeof k === 'string' && typeof v === 'string') {
+            sanitizedNotes[k] = v.slice(0, 1000);
+          }
+        }
         await AsyncStorage.setItem(
           EXERCISE_NOTES_STORAGE_KEY,
-          JSON.stringify(parsed.notes)
+          JSON.stringify(sanitizedNotes)
         );
         await useExerciseNotesStore.getState().loadNotes();
       }
       if (Array.isArray(parsed.bodyWeight) && parsed.bodyWeight.length > 0) {
-        await AsyncStorage.setItem(
-          BODY_WEIGHT_STORAGE_KEY,
-          JSON.stringify(parsed.bodyWeight)
-        );
-        await useBodyWeightStore.getState().loadHistory();
+        const sanitizedWeight = parsed.bodyWeight
+          .filter(
+            (e: any) =>
+              e &&
+              typeof e === 'object' &&
+              typeof e.weightKg === 'number' &&
+              Number.isFinite(e.weightKg) &&
+              e.weightKg >= 20 &&
+              e.weightKg <= 350 &&
+              typeof e.date === 'string'
+          )
+          .map((e: any, idx: number) => ({
+            id: typeof e.id === 'string' && e.id ? e.id : `bw-import-${Date.now()}-${idx}`,
+            weightKg: Math.round(e.weightKg * 10) / 10,
+            date: e.date,
+            timestamp: typeof e.timestamp === 'number' && Number.isFinite(e.timestamp) ? e.timestamp : Date.now(),
+          }));
+        if (sanitizedWeight.length > 0) {
+          await AsyncStorage.setItem(
+            BODY_WEIGHT_STORAGE_KEY,
+            JSON.stringify(sanitizedWeight)
+          );
+          await useBodyWeightStore.getState().loadHistory();
+        }
       }
-      if (parsed.profile && typeof parsed.profile === 'object') {
-        await useUserProfileStore.getState().updateProfile(parsed.profile);
+      if (parsed.profile && typeof parsed.profile === 'object' && !Array.isArray(parsed.profile)) {
+        const p = parsed.profile as Record<string, unknown>;
+        const safeProfileUpdates: Partial<typeof profile> = {};
+        if (typeof p.name === 'string') safeProfileUpdates.name = p.name.trim().slice(0, 20);
+        if (typeof p.age === 'number' && p.age >= 12 && p.age <= 100) safeProfileUpdates.age = Math.round(p.age);
+        if (p.sex === 'male' || p.sex === 'female') safeProfileUpdates.sex = p.sex;
+        if (typeof p.weightKg === 'number' && p.weightKg >= 20 && p.weightKg <= 350) safeProfileUpdates.weightKg = p.weightKg;
+        if (typeof p.heightCm === 'number' && p.heightCm >= 80 && p.heightCm <= 250) safeProfileUpdates.heightCm = p.heightCm;
+        if (p.weightUnit === 'kg' || p.weightUnit === 'lbs') safeProfileUpdates.weightUnit = p.weightUnit;
+        if (p.heightUnit === 'cm' || p.heightUnit === 'ft') safeProfileUpdates.heightUnit = p.heightUnit;
+        if (p.language === 'en' || p.language === 'uk') safeProfileUpdates.language = p.language;
+        if (p.theme === 'dark' || p.theme === 'light') safeProfileUpdates.theme = p.theme;
+        if (typeof p.defaultRestSeconds === 'number' && p.defaultRestSeconds >= 15 && p.defaultRestSeconds <= 600) {
+          safeProfileUpdates.defaultRestSeconds = p.defaultRestSeconds;
+        }
+        if (typeof p.workoutsPerWeek === 'number' && p.workoutsPerWeek >= 1 && p.workoutsPerWeek <= 7) {
+          safeProfileUpdates.workoutsPerWeek = p.workoutsPerWeek;
+        }
+        if (Object.keys(safeProfileUpdates).length > 0) {
+          await useUserProfileStore.getState().updateProfile(safeProfileUpdates);
+        }
       }
 
       hapticSuccess();

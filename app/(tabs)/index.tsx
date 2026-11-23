@@ -24,7 +24,7 @@ export default function Home() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { formatVolume, formatWithUnit } = useWeightUnit();
   const [name, setName] = useState('');
-  const [focusKey] = useState(0);
+  const [focusKey, setFocusKey] = useState(0);
 
   const profile = useUserProfileStore((state) => state.profile);
   const program = useProgramStore((state) => state.program);
@@ -42,9 +42,10 @@ export default function Home() {
   const entryFadeAnim = useRef(new Animated.Value(0)).current;
   const entrySlideAnim = useRef(new Animated.Value(8)).current;
 
-  // Focus synchronization
+  // Focus synchronization (also runs on initial mount)
   useFocusEffect(
     useCallback(() => {
+      setFocusKey((k) => k + 1);
       loadOnboarding().then((data) => {
         if (data?.name) setName(data.name);
       });
@@ -54,16 +55,6 @@ export default function Home() {
       useWorkoutHistoryStore.getState().loadHistory();
     }, [])
   );
-
-  useEffect(() => {
-    loadOnboarding().then((data) => {
-      if (data?.name) setName(data.name);
-    });
-    useWorkoutSessionStore.getState().hydrateSession();
-    useUserProfileStore.getState().loadProfile();
-    useProgramStore.getState().loadProgram();
-    useWorkoutHistoryStore.getState().loadHistory();
-  }, []);
 
   const nextWorkout = program && program.workouts?.length ? getScheduledWorkout(program, progress) : null;
 

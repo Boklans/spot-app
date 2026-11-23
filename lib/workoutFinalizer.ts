@@ -8,7 +8,6 @@ import { useUserProfileStore } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { clearPersistedActiveWorkout } from '@/store/workoutSessionStore';
 import { useWorkoutSessionStore, type WorkoutSession } from '@/store/workoutSessionStore';
-import { scheduleWorkoutDayReminders } from '@/lib/notificationService';
 import type { CompletedWorkout } from '@/types/workout';
 
 let activeFinalizePromise: Promise<CompletedWorkout> | null = null;
@@ -75,7 +74,9 @@ export async function finalizeWorkoutSession(session: WorkoutSession): Promise<C
       syncCompletedWorkout(snapshot).catch(() => undefined);
 
       try {
-        scheduleWorkoutDayReminders().catch(() => undefined);
+        import('@/lib/notificationService')
+          .then(({ scheduleWorkoutDayReminders }) => scheduleWorkoutDayReminders())
+          .catch(() => undefined);
       } catch {}
 
       return snapshot;
