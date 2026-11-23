@@ -46,7 +46,7 @@ export function SpotCoachCard({ insight, onAction }: SpotCoachCardProps) {
         ? 'trending-up'
         : insight.type === 'lagging_muscle'
           ? 'body-outline'
-          : 'sparkles-outline';
+          : 'pulse-outline';
 
   return (
     <View style={styles.card}>

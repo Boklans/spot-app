@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { Stack, ThemeProvider, DarkTheme, DefaultTheme, type ErrorBoundaryProps } from 'expo-router';
-import { Pressable, StatusBar, LogBox, Text, View } from 'react-native';
+import { Platform, Pressable, StatusBar, LogBox, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/constants/colors';
 import { useUserProfileStore } from '@/store/userProfileStore';
@@ -97,7 +97,13 @@ export default function SpotAppRoot() {
       Inter_600SemiBold,
       Inter_700Bold,
       Inter_800ExtraBold,
-    }).catch(() => undefined);
+    })
+      .then(() => {
+        if (Platform.OS === 'web' && typeof document !== 'undefined') {
+          document.documentElement.style.fontFamily = "'Inter_400Regular', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+        }
+      })
+      .catch(() => undefined);
 
     // Deterministic order: initialize Purchases before Auth syncUser to avoid race condition
     useSubscriptionStore

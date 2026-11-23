@@ -402,7 +402,7 @@ export default function HistoryDetail() {
           >
             <View style={styles.storyBannerLeft}>
               <View style={styles.storyIconWrap}>
-                <Ionicons name="sparkles" size={20} color="#0B0D0F" />
+                <Ionicons name="trophy" size={20} color="#0B0D0F" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.storyBannerTitle}>
