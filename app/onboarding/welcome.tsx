@@ -129,25 +129,7 @@ export default function Welcome() {
       ]),
     ]).start();
 
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(oPulse, {
-          toValue: 1.08,
-          duration: 1200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(oPulse, {
-          toValue: 1,
-          duration: 1200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    pulseLoop.start();
-
-    return () => pulseLoop.stop();
+    return undefined;
   }, [
     actionsOpacity,
     actionsTranslateY,

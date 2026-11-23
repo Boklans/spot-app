@@ -231,7 +231,7 @@ export default function Complete() {
         : '';
 
       const message = language === 'uk'
-        ? `Завершив тренування "${tw(session.workoutName)}" у SPOT\n\n` +
+        ? `Тренування «${tw(session.workoutName)}» завершено в SPOT\n\n` +
           `⏱️ Тривалість: ${summary.durationMinutes} хв\n` +
           `🏋️ Тоннаж: ${formatVolume(summary.volume)}${surgeShareText}\n` +
           `📊 Підходів: ${summary.completedSets}${prsText}`
@@ -964,7 +964,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#12161D',
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: 'rgba(200, 255, 61, 0.35)',
     borderRadius: 20,
@@ -1011,7 +1011,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   storiesModalOverlay: {
     flex: 1,
-    backgroundColor: '#07090C',
+    backgroundColor: colors.background,
   },
   storiesModalHeader: {
     flexDirection: 'row',
@@ -1033,7 +1033,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#161C26',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1046,7 +1046,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   storyCard: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: '#0F131A',
+    backgroundColor: colors.surface,
     borderRadius: 28,
     padding: 22,
     borderWidth: 1.5,
@@ -1129,7 +1129,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#161C26',
+    backgroundColor: colors.elevated,
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 12,
@@ -1161,7 +1161,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingBottom: 24,
     borderTopWidth: 1,
     borderTopColor: '#161C26',
-    backgroundColor: '#07090C',
+    backgroundColor: colors.background,
   },
   storyShareBtn: {
     flexDirection: 'row',

@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
@@ -470,12 +470,27 @@ export default function History() {
                             onPress={(e) => {
                               e.stopPropagation?.();
                               hapticLight();
-                              void useWorkoutHistoryStore.getState().deleteWorkout(workout.id);
+                              Alert.alert(
+                                isUk ? 'Видалити тренування?' : 'Delete workout?',
+                                isUk
+                                  ? 'Це тренування буде назавжди видалено з історії.'
+                                  : 'This session will be permanently removed from your history.',
+                                [
+                                  { text: isUk ? 'Скасувати' : 'Cancel', style: 'cancel' },
+                                  {
+                                    text: isUk ? 'Видалити' : 'Delete',
+                                    style: 'destructive',
+                                    onPress: () => {
+                                      void useWorkoutHistoryStore.getState().deleteWorkout(workout.id);
+                                    },
+                                  },
+                                ]
+                              );
                             }}
                             style={{
-                              width: 30,
-                              height: 30,
-                              borderRadius: 8,
+                              width: 36,
+                              height: 36,
+                              borderRadius: 10,
                               backgroundColor: colors.elevated,
                               alignItems: 'center',
                               justifyContent: 'center',

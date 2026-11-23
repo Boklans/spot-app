@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { cancelRestTimerNotification, dismissActiveWorkoutNotification } from '@/lib/notificationService';
@@ -30,6 +31,7 @@ function formatClock(totalSec: number): string {
 export function FloatingWorkoutBar() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const reducedMotion = useReducedMotion();
   const { te, tw, language } = useI18n();
   const { format, unitLabel } = useWeightUnit();
 
@@ -55,6 +57,13 @@ export function FloatingWorkoutBar() {
     if (!isSessionActive) {
       slideAnim.setValue(40);
       opacityAnim.setValue(0);
+      return;
+    }
+
+    if (reducedMotion) {
+      slideAnim.setValue(0);
+      opacityAnim.setValue(1);
+      dotPulseAnim.setValue(1);
       return;
     }
 
@@ -391,9 +400,10 @@ const createStyles = (colors: ThemeColors) =>
       gap: 5,
     },
     miniActionBtn: {
-      height: 30,
-      paddingHorizontal: 8,
-      borderRadius: 8,
+      minHeight: 38,
+      minWidth: 38,
+      paddingHorizontal: 10,
+      borderRadius: 10,
       backgroundColor: colors.elevated,
       borderWidth: 1,
       borderColor: colors.border,
@@ -402,14 +412,14 @@ const createStyles = (colors: ThemeColors) =>
     },
     miniActionText: {
       color: colors.text,
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: '800',
       fontVariant: ['tabular-nums'],
     },
     skipMiniBtn: {
-      width: 30,
-      height: 30,
-      borderRadius: 8,
+      width: 38,
+      height: 38,
+      borderRadius: 10,
       backgroundColor: colors.elevated,
       borderWidth: 1,
       borderColor: colors.border,
@@ -420,9 +430,9 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      height: 30,
-      paddingHorizontal: 10,
-      borderRadius: 9,
+      minHeight: 38,
+      paddingHorizontal: 12,
+      borderRadius: 10,
       backgroundColor: colors.primary,
     },
     completeSetMiniText: {
