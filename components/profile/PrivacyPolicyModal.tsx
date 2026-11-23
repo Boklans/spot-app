@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   ScrollView,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { useI18n } from '@/lib/i18n';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 
@@ -21,6 +21,8 @@ interface PrivacyPolicyModalProps {
 }
 
 export function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { language } = useI18n();
   const isUk = language === 'uk';
 
@@ -153,10 +155,10 @@ export function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',

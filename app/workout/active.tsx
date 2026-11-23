@@ -170,12 +170,13 @@ export default function Active() {
   useEffect(() => {
     if (!restEndsAt || restEndsAt <= Date.now()) {
       restAnim.setValue(0);
+      setTotalRestSeconds(0);
       return;
     }
 
     const durationMs = restEndsAt - Date.now();
     const remainingSec = Math.ceil(durationMs / 1000);
-    const newTotal = Math.max(totalRestSeconds, remainingSec);
+    const newTotal = totalRestSeconds > 0 ? Math.max(totalRestSeconds, remainingSec) : remainingSec;
     setTotalRestSeconds(newTotal);
 
     const initialFraction = Math.max(0, Math.min(1, durationMs / (newTotal * 1000)));
@@ -508,7 +509,7 @@ export default function Active() {
                 }}
                 style={styles.restAdjustBtn}
               >
-                <Text style={styles.restAdjustText}>-15с</Text>
+                <Text style={styles.restAdjustText}>{language === 'uk' ? '-15с' : '-15s'}</Text>
               </Pressable>
 
               <Text style={styles.restDigitsText}>
@@ -525,7 +526,7 @@ export default function Active() {
                 }}
                 style={styles.restAdjustBtn}
               >
-                <Text style={styles.restAdjustText}>+15с</Text>
+                <Text style={styles.restAdjustText}>{language === 'uk' ? '+15с' : '+15s'}</Text>
               </Pressable>
             </View>
 

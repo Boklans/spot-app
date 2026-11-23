@@ -1,7 +1,8 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FloatingWorkoutBar } from '@/components/workout/FloatingWorkoutBar';
 import { useThemeColors } from '@/constants/colors';
 import { useI18n } from '@/lib/i18n';
@@ -9,7 +10,9 @@ import { useI18n } from '@/lib/i18n';
 export default function TabsLayout() {
   const colors = useThemeColors();
   const { t } = useI18n();
-  const tabBarHeight = Platform.OS === 'ios' ? 88 : 68;
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, 8);
+  const tabBarHeight = 62 + bottomPad;
 
   return (
     <View style={{ flex: 1, position: 'relative' }}>
@@ -24,12 +27,19 @@ export default function TabsLayout() {
             borderTopColor: colors.border,
             elevation: 0,
             height: tabBarHeight,
-            paddingTop: 8,
-            paddingBottom: Platform.OS === 'ios' ? 28 : 10,
+            paddingTop: 4,
+            paddingBottom: bottomPad,
+          },
+          tabBarItemStyle: {
+            paddingVertical: 2,
+          },
+          tabBarIconStyle: {
+            height: 22,
           },
           tabBarLabelStyle: {
             fontSize: 11,
             fontWeight: '700',
+            lineHeight: 14,
             marginTop: 2,
           },
         }}

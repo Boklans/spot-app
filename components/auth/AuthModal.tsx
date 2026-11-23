@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useMemo,  useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { syncDown, syncUp } from '@/lib/cloudSync';
 import { hapticImpact, hapticLight, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -30,6 +30,8 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess }: AuthModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { language } = useI18n();
   const isUk = language === 'uk';
 
@@ -289,7 +291,7 @@ export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess 
                 onPress={handleClose}
                 style={styles.closeBtn}
               >
-                <Ionicons name="close" size={22} color="#FFFFFF" />
+                <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
 
@@ -323,7 +325,7 @@ export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess 
                 </Text>
 
                 <View style={styles.accountBadge}>
-                  <Ionicons name="cloud" size={16} color={colors.primary} />
+                  <Ionicons name="cloud" size={16} color={colors.primaryText} />
                   <Text style={styles.accountBadgeEmail} numberOfLines={1}>
                     {email.trim().toLowerCase()}
                   </Text>
@@ -382,7 +384,7 @@ export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess 
                   {/* Resend Success Banner */}
                   {resendSuccessMsg && (
                     <View style={styles.infoBox}>
-                      <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                      <Ionicons name="checkmark-circle" size={18} color={colors.primaryText} />
                       <Text style={styles.infoText}>{resendSuccessMsg}</Text>
                     </View>
                   )}
@@ -401,10 +403,10 @@ export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess 
                             style={styles.resendBtn}
                           >
                             {resendingEmail ? (
-                              <ActivityIndicator size="small" color={colors.primary} />
+                              <ActivityIndicator size="small" color={colors.primaryText} />
                             ) : (
                               <>
-                                <Ionicons name="mail-unread-outline" size={15} color={colors.primary} />
+                                <Ionicons name="mail-unread-outline" size={15} color={colors.primaryText} />
                                 <Text style={styles.resendBtnText}>
                                   {isUk ? 'Надіслати лист для активації ще раз' : 'Resend confirmation email'}
                                 </Text>
@@ -536,7 +538,7 @@ export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   keyboardAvoidContainer: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -546,11 +548,11 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
   },
   sheetContainer: {
-    backgroundColor: '#12161D',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
     maxHeight: '85%',
     width: '100%',
     overflow: 'hidden',
@@ -566,38 +568,38 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#1A212B',
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#8E9BAE',
+    color: colors.secondary,
     marginTop: 2,
   },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1C232E',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.elevated,
     marginHorizontal: 20,
     marginTop: 16,
     marginBottom: 16,
     borderRadius: 12,
     padding: 4,
     borderWidth: 1,
-    borderColor: '#1E2633',
+    borderColor: colors.border,
   },
   tabBtn: {
     flex: 1,
@@ -607,15 +609,15 @@ const styles = StyleSheet.create({
     borderRadius: 9,
   },
   tabBtnActive: {
-    backgroundColor: '#1E2633',
+    backgroundColor: colors.surface,
   },
   tabBtnText: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 14,
     fontWeight: '700',
   },
   tabBtnTextActive: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontWeight: '900',
   },
   scrollContent: {
@@ -646,17 +648,17 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#8E9BAE',
+    color: colors.secondary,
     letterSpacing: 1,
     marginBottom: 8,
   },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161B22',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     height: 52,
   },
@@ -665,7 +667,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -679,7 +681,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   forgotText: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -700,7 +702,7 @@ const styles = StyleSheet.create({
   },
   offlineNote: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.secondary,
     textAlign: 'center',
     lineHeight: 16,
   },
@@ -713,7 +715,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   resendBtnText: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 13,
     fontWeight: '700',
     textDecorationLine: 'underline',
@@ -730,7 +732,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   infoText: {
-    color: '#E0E7FF',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '600',
     flex: 1,
@@ -761,14 +763,14 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.4,
     textAlign: 'center',
     marginBottom: 8,
   },
   successDesc: {
     fontSize: 14,
-    color: '#94A3B8',
+    color: colors.secondary,
     textAlign: 'center',
     lineHeight: 21,
     marginBottom: 20,
@@ -777,9 +779,9 @@ const styles = StyleSheet.create({
   accountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161B22',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 14,
@@ -788,7 +790,7 @@ const styles = StyleSheet.create({
     maxWidth: '92%',
   },
   accountBadgeEmail: {
-    color: '#E2E8F0',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '600',
     flexShrink: 1,

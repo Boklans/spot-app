@@ -482,7 +482,7 @@ export default function WorkoutPreview() {
                 <View style={styles.cardActionsRight}>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Налаштувати підходи"
+                    accessibilityLabel={language === 'uk' ? 'Налаштувати підходи' : 'Configure sets'}
                     hitSlop={8}
                     onPress={(e) => {
                       e.stopPropagation();
@@ -494,7 +494,7 @@ export default function WorkoutPreview() {
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Замінити вправу"
+                    accessibilityLabel={language === 'uk' ? 'Замінити вправу' : 'Swap exercise'}
                     hitSlop={8}
                     onPress={(e) => {
                       e.stopPropagation();

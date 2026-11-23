@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo,  useState } from 'react';
 import {
   Alert,
   Image,
@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import type { EquipmentId } from '@/lib/programGenerator';
@@ -50,6 +50,8 @@ export function CreateExerciseModal({
   onClose,
   onCreated,
 }: CreateExerciseModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, Platform.OS === 'ios' ? 52 : 24);
   const { tm, language } = useI18n();
@@ -428,10 +430,10 @@ export function CreateExerciseModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: colors.background,
   },
   keyboardContainer: {
     flex: 1,
@@ -540,7 +542,7 @@ const styles = StyleSheet.create({
   },
   imagePlaceholderSub: {
     fontSize: 12,
-    color: '#8E959F',
+    color: colors.secondary,
   },
   section: {
     marginBottom: 20,
@@ -548,7 +550,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#8E959F',
+    color: colors.secondary,
     letterSpacing: 0.8,
     marginBottom: 8,
   },
@@ -583,7 +585,7 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#8E959F',
+    color: colors.secondary,
   },
   pillTextActive: {
     color: colors.primary,
@@ -601,7 +603,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#1A212D',
+    backgroundColor: colors.elevated,
     borderWidth: 1,
     borderColor: '#242B35',
     alignItems: 'center',

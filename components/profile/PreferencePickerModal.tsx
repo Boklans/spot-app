@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   Pressable,
@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { hapticSelection } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -30,6 +30,8 @@ export function PreferencePickerModal<T extends string | number>({
   onClose,
   getLabel,
 }: PreferencePickerModalProps<T>) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { language } = useI18n();
   const isUk = language === 'uk';
 
@@ -129,7 +131,7 @@ export function PreferencePickerModal<T extends string | number>({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',

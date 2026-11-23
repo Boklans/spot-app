@@ -4,13 +4,13 @@ import {
   Image,
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { EXERCISE_CATALOG, type CatalogExercise } from '@/lib/exerciseCatalog';
 import { getExerciseImage } from '@/lib/exerciseImages';

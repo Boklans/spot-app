@@ -216,9 +216,10 @@ export default function Home() {
       };
     }
     if (todayCompletedHistoryWorkout) {
+      const rawMins = Math.max(1, Math.round(todayCompletedHistoryWorkout.durationSeconds / 60));
       return {
         workoutName: todayCompletedHistoryWorkout.workoutName,
-        durationMinutes: Math.max(1, Math.round(todayCompletedHistoryWorkout.durationSeconds / 60)),
+        durationMinutes: Math.min(rawMins, 360),
         volume: todayCompletedHistoryWorkout.totalVolume,
         exerciseCount: todayCompletedHistoryWorkout.exercises.length,
         completedSets: todayCompletedHistoryWorkout.totalSets,
@@ -560,9 +561,7 @@ export default function Home() {
             }}
           >
             <Text style={styles.ctaButtonText}>
-              {inProgressData.completedSets > 0 || inProgressData.completedExercises > 0
-                ? (language === 'uk' ? 'ПРОДОВЖИТИ ТРЕНУВАННЯ' : 'RESUME WORKOUT')
-                : (language === 'uk' ? 'ПОЧАТИ ТРЕНУВАННЯ' : 'START WORKOUT')}
+              {language === 'uk' ? 'ПРОДОВЖИТИ ТРЕНУВАННЯ' : 'RESUME WORKOUT'}
             </Text>
           </Button>
 

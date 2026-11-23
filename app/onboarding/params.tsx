@@ -112,8 +112,9 @@ export default function ParamsSetup() {
       : (initialProfile.age || 28);
 
     const parsedWeight = parseFloat(weight.replace(',', '.'));
-    const effectiveWeightKg = !isNaN(parsedWeight) && parsedWeight >= 20 && parsedWeight <= 300
-      ? Math.round(toKg(parsedWeight) * 10) / 10
+    const convertedWeightKg = !isNaN(parsedWeight) ? Math.round(toKg(parsedWeight) * 10) / 10 : NaN;
+    const effectiveWeightKg = !isNaN(convertedWeightKg) && convertedWeightKg >= 20 && convertedWeightKg <= 250
+      ? convertedWeightKg
       : (initialProfile.weightKg || 70);
 
     const parsedHeight = parseFloat(height.replace(',', '.'));

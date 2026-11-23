@@ -852,7 +852,7 @@ export default function Profile() {
               <Text style={styles.quickHubSub}>
                 {language === 'uk'
                   ? `${workouts.length} сесій · Тоді vs Зараз`
-                  : `${workouts.length} sessions · Compare`}
+                  : `${workouts.length} ${workouts.length === 1 ? 'session' : 'sessions'} · Compare`}
               </Text>
             </View>
           </Pressable>

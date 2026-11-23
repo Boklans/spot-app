@@ -55,7 +55,7 @@ export default function Program() {
     }, [syncProgramAndOnboarding])
   );
 
-  const handleSwitchSplit = async (splitId: WorkoutSplitPreference) => {
+  const applySplitSwitch = async (splitId: WorkoutSplitPreference) => {
     hapticMedium();
     const currentOnboarding = (await loadOnboarding()) ?? defaultOnboarding;
     const updated = { ...currentOnboarding, splitPreference: splitId };
@@ -66,6 +66,30 @@ export default function Program() {
     await useProgramProgressStore
       .getState()
       .resetProgress(newProgram.id, newProgram.workouts[0]?.id);
+  };
+
+  const handleSwitchSplit = (splitId: WorkoutSplitPreference) => {
+    const activeSplit = onboarding?.splitPreference ?? program.splitType;
+    if (activeSplit === splitId) return;
+    if (program.splitType === 'custom' && splitId !== 'custom') {
+      Alert.alert(
+        language === 'uk' ? 'Змінити програму?' : 'Switch program split?',
+        language === 'uk'
+          ? 'Поточну чергу тренувань буде скинуто до першого дня нового спліту. Ваша кастомна програма залишиться збереженою у вкладці Custom.'
+          : 'Your current workout rotation will reset to Day 1 of the new split. Your custom routine remains saved under Custom.',
+        [
+          { text: language === 'uk' ? 'Скасувати' : 'Cancel', style: 'cancel' },
+          {
+            text: language === 'uk' ? 'Змінити' : 'Switch',
+            onPress: () => {
+              void applySplitSwitch(splitId);
+            },
+          },
+        ]
+      );
+      return;
+    }
+    void applySplitSwitch(splitId);
   };
 
   const handleSaveWorkout = async (updatedWorkout: UserWorkout) => {
@@ -206,19 +230,22 @@ export default function Program() {
           const musclesLine = workout.muscleGroups.map((m) => tm(m)).join(' · ');
 
           return (
-            <Pressable
-              accessibilityRole="button"
+            <View
               key={workout.id}
-              onPress={() =>
-                router.push({
-                  pathname: '/workout/preview',
-                  params: { workoutId: workout.id },
-                })
-              }
               style={styles.workoutCard}
             >
               <View style={styles.workoutCardHead}>
-                <View style={{ flex: 1 }}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={tw(workout.name)}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/workout/preview',
+                      params: { workoutId: workout.id },
+                    })
+                  }
+                  style={{ flex: 1 }}
+                >
                   <View style={styles.workoutLabelRow}>
                     <Text style={styles.workoutNumber}>
                       {td(getWorkoutDayLabel(workout.dayLabel, index, onboarding?.trainingDays, program.workouts.length))}
@@ -233,29 +260,53 @@ export default function Program() {
                   <Text style={styles.workoutName}>{tw(workout.name)}</Text>
                   {musclesLine ? (
                     <Text style={styles.workoutMusclesText}>
-                      {musclesLine}  ·  {workout.exercises.length} {t('exercises').toLowerCase()}
+                      {musclesLine}
                     </Text>
                   ) : null}
-                </View>
+                  <Text style={styles.workoutMusclesText}>
+                    {workout.exercises.length} {t('exercises').toLowerCase()}
+                  </Text>
+                </Pressable>
                 <View style={styles.cardActionsRight}>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Customize workout"
                     hitSlop={8}
-                    onPress={(e) => {
-                      e.stopPropagation();
+                    onPress={() => {
                       hapticLight();
                       setEditingWorkout(workout);
                     }}
                     style={({ pressed }) => [styles.routineEditBtn, pressed && { opacity: 0.7 }]}
                   >
-                    <Ionicons name="options-outline" size={16} color="#8E959F" />
+                    <Ionicons name="options-outline" size={16} color={colors.secondary} />
                   </Pressable>
-                  <Ionicons name="chevron-forward" size={18} color="#6C7685" />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Open workout preview"
+                    hitSlop={8}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/workout/preview',
+                        params: { workoutId: workout.id },
+                      })
+                    }
+                  >
+                    <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+                  </Pressable>
                 </View>
               </View>
 
-              <View style={styles.exerciseList}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${tw(workout.name)}`}
+                onPress={() =>
+                  router.push({
+                    pathname: '/workout/preview',
+                    params: { workoutId: workout.id },
+                  })
+                }
+                style={styles.exerciseList}
+              >
                 {workout.exercises.map((exercise, exIndex) => {
                   const isSupersetA1 = Boolean(
                     exercise.supersetWithNext && exIndex < workout.exercises.length - 1
@@ -269,7 +320,7 @@ export default function Program() {
                       <View style={styles.exerciseRowLeft}>
                         <View style={styles.exerciseThumbMini}>
                           <Image
-                            source={getExerciseImage(exercise.name)}
+                            source={getExerciseImage(exercise.name, (exercise as any).customImageUri)}
                             style={styles.exerciseThumb}
                             resizeMode="cover"
                           />
@@ -304,8 +355,8 @@ export default function Program() {
                     </View>
                   );
                 })}
-              </View>
-            </Pressable>
+              </Pressable>
+            </View>
           );
         })}
 
@@ -323,7 +374,7 @@ export default function Program() {
                 name: language === 'uk' ? `Тренування ${letter}` : `Workout ${letter}`,
                 dayLabel: nextWeekday,
                 muscleGroups: [],
-                estimatedMinutes: 45,
+                estimatedMinutes: onboarding?.sessionDurationMinutes ?? 45,
                 defaultRestSeconds: 90,
                 exercises: [],
               };

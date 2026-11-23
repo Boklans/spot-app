@@ -1,14 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { colors } from '@/constants/colors';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticImpact } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import type { AppLanguage } from '@/store/userProfileStore';
@@ -38,6 +38,8 @@ export function LanguagePickerModal({
   onSelect,
   onClose,
 }: LanguagePickerModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t } = useI18n();
 
   return (
@@ -102,14 +104,14 @@ export function LanguagePickerModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#0F1318',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
@@ -132,7 +134,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   headerSubtitle: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 12,
     marginTop: 2,
   },
@@ -179,7 +181,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   optionSub: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 12,
     marginTop: 3,
   },

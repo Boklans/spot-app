@@ -183,12 +183,14 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
   hydrated: false,
 
   loadProfile: async () => {
-    let normalized = DEFAULT_USER_PROFILE;
+    let normalized = { ...DEFAULT_USER_PROFILE };
+    let hasStoredProfile = false;
 
     try {
       const stored = await AsyncStorage.getItem(USER_PROFILE_STORAGE_KEY);
       if (stored) {
         normalized = normalizeLoadedProfile(JSON.parse(stored));
+        hasStoredProfile = true;
       }
     } catch {
       // Fall through
@@ -215,7 +217,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         if (typeof ob.age === 'number' && ob.age >= 10 && normalized.age === DEFAULT_USER_PROFILE.age) {
           normalized.age = ob.age;
         }
-        if ((ob.sex === 'female' || ob.sex === 'male') && (!normalized.sex || normalized.sex === 'unspecified')) {
+        if ((ob.sex === 'female' || ob.sex === 'male') && (!hasStoredProfile || !normalized.sex || normalized.sex === 'unspecified')) {
           normalized.sex = ob.sex;
         }
         if (ob.baselineLifts && typeof ob.baselineLifts === 'object' && !normalized.baselineLifts) {
@@ -319,7 +321,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         .catch(() => undefined);
 
       import('./programStore')
-        .then(({ useProgramStore }) => {
+        .then(async ({ useProgramStore, USER_PROGRAM_STORAGE_KEY, CUSTOM_PROGRAM_STORAGE_KEY }) => {
           const progStore = useProgramStore.getState();
           if (progStore.program) {
             const nextSec = updates.defaultRestSeconds!;
@@ -330,9 +332,12 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
                 (ex as any).isCustomRest ? ex : { ...ex, restSeconds: nextSec }
               ),
             }));
-            useProgramStore.setState({
-              program: { ...progStore.program, defaultRestSeconds: nextSec, workouts: updatedWorkouts },
-            });
+            const nextProgram = { ...progStore.program, defaultRestSeconds: nextSec, workouts: updatedWorkouts };
+            useProgramStore.setState({ program: nextProgram });
+            await AsyncStorage.setItem(USER_PROGRAM_STORAGE_KEY, JSON.stringify(nextProgram)).catch(() => undefined);
+            if (nextProgram.splitType === 'custom') {
+              await AsyncStorage.setItem(CUSTOM_PROGRAM_STORAGE_KEY, JSON.stringify(nextProgram)).catch(() => undefined);
+            }
           }
         })
         .catch(() => undefined);

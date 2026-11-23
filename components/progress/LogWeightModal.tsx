@@ -5,12 +5,12 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, ThemeColors } from '@/constants/colors';
 import { hapticImpact, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';

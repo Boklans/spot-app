@@ -541,7 +541,7 @@ export default function Progress() {
               activeTab === 'muscles' && styles.segmentBtnTextActive,
             ]}
           >
-            {t('muscleGroups')}
+            {language === 'uk' ? 'Мʼязи' : 'Muscles'}
           </Text>
         </Pressable>
 
@@ -1173,10 +1173,10 @@ export default function Progress() {
                   <Text style={styles.strengthSubBest}>
                     {language === 'uk' ? 'Орієнтир темпу' : 'Target Pace'}:{' '}
                     {profile.goal === 'Lose Fat'
-                      ? '↓ -0.5 kg/тиждень'
+                      ? (language === 'uk' ? '↓ -0.5 kg/тиждень' : '↓ -0.5 kg/week')
                       : profile.goal === 'Build Muscle'
-                        ? '↑ +0.25 kg/тиждень'
-                        : '↔ Стабільна вага'}
+                        ? (language === 'uk' ? '↑ +0.25 kg/тиждень' : '↑ +0.25 kg/week')
+                        : (language === 'uk' ? '↔ Стабільна вага' : '↔ Maintain weight')}
                   </Text>
                 </View>
 

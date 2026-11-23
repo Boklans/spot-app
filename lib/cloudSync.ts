@@ -39,6 +39,11 @@ export function getSyncStatus(): SyncStatus {
   return currentStatus;
 }
 
+function scopedCloudId(userId: string, rawId: string): string {
+  const clean = rawId || 'default';
+  return clean.startsWith(`${userId}:`) ? clean : `${userId}:${clean}`;
+}
+
 /**
  * Uploads local app state to Supabase for the authenticated user.
  */
@@ -57,9 +62,10 @@ export async function syncUp(): Promise<{ success: boolean; error?: string }> {
     const progress = useProgramProgressStore.getState().progress;
     const workouts = useWorkoutHistoryStore.getState().workouts;
     const weightEntries = useBodyWeightStore.getState().entries;
+    const onboarding = await loadOnboarding();
 
     // 1. Sync Profile
-    await supabase.from('profiles').upsert({
+    const { error: profileErr } = await supabase.from('profiles').upsert({
       id: user.id,
       name: profile.name,
       avatar: profile.avatar,
@@ -74,12 +80,13 @@ export async function syncUp(): Promise<{ success: boolean; error?: string }> {
       language: profile.language,
       updated_at: new Date().toISOString(),
     });
+    if (profileErr) throw profileErr;
 
-    // 2. Sync Program & Exercise Notes
+    // 2. Sync Program, Exercise Notes & Extended Profile Meta (sex/age/theme/baselineLifts/duration)
     if (program) {
       const exerciseNotes = await useExerciseNotesStore.getState().loadNotes();
-      await supabase.from('user_programs').upsert({
-        id: program.id || `prog-${user.id}`,
+      const { error: progErr } = await supabase.from('user_programs').upsert({
+        id: scopedCloudId(user.id, program.id || 'main'),
         user_id: user.id,
         name: program.name,
         days_per_week: program.daysPerWeek,
@@ -87,28 +94,37 @@ export async function syncUp(): Promise<{ success: boolean; error?: string }> {
         progress_data: {
           ...progress,
           exerciseNotes,
+          profileMeta: {
+            sex: profile.sex,
+            age: profile.age,
+            theme: profile.theme,
+            baselineLifts: profile.baselineLifts,
+            sessionDurationMinutes: onboarding?.sessionDurationMinutes ?? 45,
+          },
         },
         updated_at: new Date().toISOString(),
       });
+      if (progErr) throw progErr;
     }
 
     // 3. Sync Workout History
     if (workouts && workouts.length > 0) {
       const workoutRows = workouts.map((w) => ({
-        id: w.id,
+        id: scopedCloudId(user.id, w.id),
         user_id: user.id,
         workout_name: w.workoutName || 'Workout',
         workout_data: w,
         completed_at: w.completedAt || new Date().toISOString(),
       }));
 
-      await supabase.from('workout_history').upsert(workoutRows);
+      const { error: histErr } = await supabase.from('workout_history').upsert(workoutRows);
+      if (histErr) throw histErr;
     }
 
     // 4. Sync Body Weight Entries
     if (weightEntries && weightEntries.length > 0) {
       const weightRows = weightEntries.map((e) => ({
-        id: e.id,
+        id: scopedCloudId(user.id, e.id),
         user_id: user.id,
         weight_kg: e.weightKg,
         date: e.date,
@@ -116,7 +132,8 @@ export async function syncUp(): Promise<{ success: boolean; error?: string }> {
         created_at: new Date(e.timestamp).toISOString(),
       }));
 
-      await supabase.from('body_weight_logs').upsert(weightRows);
+      const { error: weightErr } = await supabase.from('body_weight_logs').upsert(weightRows);
+      if (weightErr) throw weightErr;
     }
 
     currentStatus = {
@@ -148,22 +165,41 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
 
   try {
     // 1. Fetch Profile
-    const { data: profileRow } = await supabase
+    const { data: profileRow, error: profileFetchErr } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .maybeSingle();
+    if (profileFetchErr) throw profileFetchErr;
+
+    // 2. Fetch User Program (also carries extended profileMeta & exerciseNotes)
+    const { data: programRow, error: programFetchErr } = await supabase
+      .from('user_programs')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (programFetchErr) throw programFetchErr;
+
+    const profileMeta = programRow?.progress_data?.profileMeta as
+      | { sex?: 'male' | 'female'; age?: number; theme?: 'dark' | 'light'; baselineLifts?: any; sessionDurationMinutes?: number }
+      | undefined;
 
     if (profileRow && (profileRow.goal || profileRow.weight_kg)) {
       const existingProfile = useUserProfileStore.getState().profile;
       const isDummy = (n?: string | null) => !n || ['IHOR', 'ATHLETE', 'АТЛЕТ'].includes(n.trim().toUpperCase());
       const cleanName = !isDummy(profileRow.name)
-        ? profileRow.name.trim()
+        ? profileRow.name.trim().slice(0, 20)
         : (!isDummy(existingProfile?.name) ? existingProfile.name : 'Athlete');
       const mergedProfile = {
         ...existingProfile,
         name: cleanName,
         avatar: profileRow.avatar || existingProfile?.avatar || 'gorilla',
+        sex: profileMeta?.sex || existingProfile?.sex || 'male',
+        age: typeof profileMeta?.age === 'number' ? profileMeta.age : existingProfile?.age,
+        theme: profileMeta?.theme || existingProfile?.theme || 'dark',
+        baselineLifts: profileMeta?.baselineLifts || existingProfile?.baselineLifts,
         weightKg: Number(profileRow.weight_kg) || existingProfile?.weightKg || 78,
         heightCm: Number(profileRow.height_cm) || existingProfile?.heightCm || 180,
         goal: profileRow.goal || existingProfile?.goal || 'Build Muscle',
@@ -196,31 +232,25 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
       await saveOnboarding({
         ...existingOnboarding,
         name: mergedProfile.name,
+        sex: mergedProfile.sex,
+        age: mergedProfile.age,
         goal: mappedGoal,
         experience: mappedExperience,
         trainingFrequency: mergedProfile.workoutsPerWeek,
+        sessionDurationMinutes: profileMeta?.sessionDurationMinutes ?? existingOnboarding?.sessionDurationMinutes ?? 45,
         equipment: existingOnboarding?.equipment?.length ? existingOnboarding.equipment : ['full_gym'],
         completed: true,
       });
     }
 
-    // 2. Fetch User Program
-    const { data: programRow } = await supabase
-      .from('user_programs')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
     if (programRow && programRow.program_data) {
-      useProgramStore.setState({ program: programRow.program_data });
+      useProgramStore.setState({ program: programRow.program_data, hydrated: true });
       await AsyncStorage.setItem(USER_PROGRAM_STORAGE_KEY, JSON.stringify(programRow.program_data));
       await AsyncStorage.setItem('spot-program', JSON.stringify(programRow.program_data));
 
       if (programRow.progress_data) {
-        const { exerciseNotes, ...cleanProgress } = programRow.progress_data;
-        useProgramProgressStore.setState({ progress: cleanProgress });
+        const { exerciseNotes, profileMeta: _pm, ...cleanProgress } = programRow.progress_data;
+        useProgramProgressStore.setState({ progress: cleanProgress, hydrated: true });
         await AsyncStorage.setItem('spot-program-progress', JSON.stringify(cleanProgress));
         if (exerciseNotes && typeof exerciseNotes === 'object') {
           const currentNotes = await useExerciseNotesStore.getState().loadNotes();
@@ -231,39 +261,61 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
       }
     }
 
-    // 3. Fetch Workout History
-    const { data: historyRows } = await supabase
+    // 3. Fetch & MERGE Workout History (preserve offline workouts!)
+    const { data: historyRows, error: histFetchErr } = await supabase
       .from('workout_history')
       .select('workout_data')
       .eq('user_id', user.id)
       .order('completed_at', { ascending: false });
+    if (histFetchErr) throw histFetchErr;
 
     if (historyRows && historyRows.length > 0) {
       const cloudWorkouts: CompletedWorkout[] = historyRows
         .map((r: any) => r.workout_data)
         .filter(Boolean);
+      const localWorkouts = await useWorkoutHistoryStore.getState().loadHistory();
+      const byId = new Map<string, CompletedWorkout>();
+      for (const lw of localWorkouts) {
+        if (lw?.id) byId.set(lw.id, lw);
+      }
+      for (const cw of cloudWorkouts) {
+        if (cw?.id) byId.set(cw.id, cw);
+      }
+      const mergedWorkouts = Array.from(byId.values()).sort(
+        (a, b) => new Date(b.completedAt || b.startedAt).getTime() - new Date(a.completedAt || a.startedAt).getTime()
+      );
 
-      useWorkoutHistoryStore.setState({ workouts: cloudWorkouts, hydrated: true });
-      await AsyncStorage.setItem(WORKOUT_HISTORY_STORAGE_KEY, JSON.stringify(cloudWorkouts));
+      useWorkoutHistoryStore.setState({ workouts: mergedWorkouts, hydrated: true });
+      await AsyncStorage.setItem(WORKOUT_HISTORY_STORAGE_KEY, JSON.stringify(mergedWorkouts));
     }
 
-    // 4. Fetch Body Weight Logs
-    const { data: weightRows } = await supabase
+    // 4. Fetch & MERGE Body Weight Logs (preserve offline logs!)
+    const { data: weightRows, error: weightFetchErr } = await supabase
       .from('body_weight_logs')
       .select('*')
       .eq('user_id', user.id)
       .order('timestamp', { ascending: true });
+    if (weightFetchErr) throw weightFetchErr;
 
     if (weightRows && weightRows.length > 0) {
-      const entries = weightRows.map((r: any) => ({
-        id: r.id,
+      const cloudEntries = weightRows.map((r: any) => ({
+        id: String(r.id).startsWith(`${user.id}:`) ? String(r.id).slice(user.id.length + 1) : r.id,
         weightKg: Number(r.weight_kg),
         date: r.date,
         timestamp: Number(r.timestamp),
       }));
+      const localEntries = await useBodyWeightStore.getState().loadHistory();
+      const weightById = new Map<string, { id: string; weightKg: number; date: string; timestamp: number }>();
+      for (const le of localEntries) {
+        if (le?.id) weightById.set(le.id, le);
+      }
+      for (const ce of cloudEntries) {
+        if (ce?.id) weightById.set(ce.id, ce);
+      }
+      const mergedEntries = Array.from(weightById.values()).sort((a, b) => a.timestamp - b.timestamp);
 
-      useBodyWeightStore.setState({ entries });
-      await AsyncStorage.setItem('spot-body-weight-history', JSON.stringify(entries));
+      useBodyWeightStore.setState({ entries: mergedEntries });
+      await AsyncStorage.setItem('spot-body-weight-history', JSON.stringify(mergedEntries));
     }
 
     currentStatus = {
@@ -290,27 +342,42 @@ export async function syncCompletedWorkout(session: CompletedWorkout): Promise<v
   if (!user) return;
 
   try {
-    await supabase.from('workout_history').upsert({
-      id: session.id,
+    const { error: wErr } = await supabase.from('workout_history').upsert({
+      id: scopedCloudId(user.id, session.id),
       user_id: user.id,
       workout_name: session.workoutName || 'Workout',
       workout_data: session,
       completed_at: session.completedAt || new Date().toISOString(),
     });
+    if (wErr) throw wErr;
 
-    // Also sync latest program progress
+    // Also sync latest program progress WITHOUT overwriting exerciseNotes or profileMeta
     const program = useProgramStore.getState().program;
     const progress = useProgramProgressStore.getState().progress;
+    const profile = useUserProfileStore.getState().profile;
+    const onboarding = await loadOnboarding();
     if (program) {
-      await supabase.from('user_programs').upsert({
-        id: program.id || `prog-${user.id}`,
+      const exerciseNotes = await useExerciseNotesStore.getState().loadNotes();
+      const { error: pErr } = await supabase.from('user_programs').upsert({
+        id: scopedCloudId(user.id, program.id || 'main'),
         user_id: user.id,
         name: program.name,
         days_per_week: program.daysPerWeek,
         program_data: program,
-        progress_data: progress,
+        progress_data: {
+          ...progress,
+          exerciseNotes,
+          profileMeta: {
+            sex: profile.sex,
+            age: profile.age,
+            theme: profile.theme,
+            baselineLifts: profile.baselineLifts,
+            sessionDurationMinutes: onboarding?.sessionDurationMinutes ?? 45,
+          },
+        },
         updated_at: new Date().toISOString(),
       });
+      if (pErr) throw pErr;
     }
 
     currentStatus = { ...currentStatus, lastSyncedAt: Date.now() };

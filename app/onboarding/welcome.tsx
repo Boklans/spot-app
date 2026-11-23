@@ -9,12 +9,12 @@ import {
   Image,
   Platform,
   Pressable,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { darkColors, type ThemeColors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -166,7 +166,6 @@ export default function Welcome() {
   const handleGetStarted = () => {
     hapticMedium();
     useWorkoutSessionStore.getState().clearSession();
-    void useWorkoutHistoryStore.getState().clearHistory();
     router.push('/onboarding/params');
   };
 

@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { AppState, Platform } from 'react-native';
 import { router } from 'expo-router';
@@ -191,9 +192,15 @@ function setupNotificationResponseListener(): void {
   });
 
   Notifications.getLastNotificationResponseAsync()
-    .then((response) => {
+    .then(async (response) => {
       if (!response) return;
       const actionIdentifier = response.actionIdentifier;
+      const notifId = response?.notification?.request?.identifier ?? '';
+      const notifDate = String(response?.notification?.date ?? '');
+      const dedupeKey = `${notifId}:${notifDate}:${actionIdentifier}`;
+      const lastHandled = await AsyncStorage.getItem('spot-last-handled-notif').catch(() => null);
+      if (lastHandled === dedupeKey) return;
+      await AsyncStorage.setItem('spot-last-handled-notif', dedupeKey).catch(() => undefined);
       const data = response?.notification?.request?.content?.data as Record<string, any> | undefined;
       void handleNotificationAction(actionIdentifier, data);
     })
@@ -211,8 +218,25 @@ export async function initNotifications(): Promise<void> {
   if (!isHandlerConfigured) {
     Notifications.setNotificationHandler({
       handleNotification: async (notification) => {
-        // While user is actively in the app, NEVER pop up any banner or alert over the screen!
-        if (AppState.currentState === 'active') {
+        const id = notification.request.identifier;
+        const isSilentShadeUpdate =
+          id === ACTIVE_SESSION_NOTIFICATION_ID || id === ACTIVE_REST_NOTIFICATION_ID;
+        const isRestFinishedAlert = id === REST_TIMER_NOTIFICATION_ID;
+        const isAppInForeground = AppState.currentState === 'active';
+
+        // 1. Live ongoing shade card: NEVER pop up a banner or play sound; sit quietly in the shade list
+        if (isSilentShadeUpdate) {
+          return {
+            shouldShowAlert: false,
+            shouldPlaySound: false,
+            shouldSetBadge: false,
+            shouldShowBanner: false,
+            shouldShowList: Platform.OS === 'android' || !isAppInForeground,
+          };
+        }
+
+        // 2. While user is actively in the app, NEVER pop up any banner or alert over the screen
+        if (isAppInForeground) {
           return {
             shouldShowAlert: false,
             shouldPlaySound: false,
@@ -221,25 +245,8 @@ export async function initNotifications(): Promise<void> {
             shouldShowList: false,
           };
         }
-        const id = notification.request.identifier;
-        const isSilentShadeUpdate =
-          id === ACTIVE_SESSION_NOTIFICATION_ID || id === ACTIVE_REST_NOTIFICATION_ID;
-        const isRestFinishedAlert = id === REST_TIMER_NOTIFICATION_ID;
-        const isAppInForeground = AppState.currentState === 'active';
 
-        // 1. Live ongoing shade card: NEVER pop up a banner or play sound; only sit quietly in the shade list
-        if (isSilentShadeUpdate) {
-          return {
-            shouldShowAlert: false,
-            shouldPlaySound: false,
-            shouldSetBadge: false,
-            shouldShowBanner: false,
-            shouldShowList: true,
-          };
-        }
-
-        // 2. Rest timer completion alert: if user is already looking at the app in foreground,
-        // the in-app timer already plays the sound & haptic, so don't double-popup a banner over the screen
+        // 3. Rest timer completion alert in background
         if (isRestFinishedAlert && isAppInForeground) {
           return {
             shouldShowAlert: false,
@@ -845,6 +852,11 @@ export async function syncActiveWorkoutNotification(forceRescheduleAlert: boolea
       snapshot.lang,
     ].join('|');
 
+    // Never schedule immediate active session alert on iOS while in foreground (check BEFORE caching signature)
+    if (Platform.OS === 'ios' && AppState.currentState === 'active') {
+      return;
+    }
+
     if (!forceRescheduleAlert && lastSyncedShadeSignature === signature) {
       return;
     }
@@ -862,11 +874,6 @@ export async function syncActiveWorkoutNotification(forceRescheduleAlert: boolea
         snapshot.lang === 'uk'
           ? `⏱️ Відпочинок (${durClock})${endClock ? ` • до ${endClock}` : ''}`
           : `⏱️ Rest (${durClock})${endClock ? ` • until ${endClock}` : ''}`;
-    }
-
-    // Never schedule immediate active session alert on iOS while in foreground
-    if (Platform.OS === 'ios' && AppState.currentState === 'active') {
-      return;
     }
 
     await Notifications.scheduleNotificationAsync({
@@ -934,7 +941,11 @@ export function startLiveWorkoutNotificationSync(): void {
   });
 
   AppState.addEventListener('change', (nextState) => {
-    if (nextState === 'background' || nextState === 'inactive' || nextState === 'active') {
+    if (nextState === 'background' || nextState === 'inactive') {
+      lastSyncedShadeSignature = null;
+      scheduleRestEndShadeTransition();
+      void syncActiveWorkoutNotification(false);
+    } else if (nextState === 'active') {
       scheduleRestEndShadeTransition();
       void syncActiveWorkoutNotification(false);
     }

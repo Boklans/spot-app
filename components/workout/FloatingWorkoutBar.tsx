@@ -13,6 +13,10 @@ import { getSessionProgress, useWorkoutSessionStore } from '@/store/workoutSessi
 
 function formatClock(totalSec: number): string {
   const safe = Math.max(0, Math.floor(totalSec));
+  // Cap stale sessions (> 6h) so the mini-player pill stays compact and readable
+  if (safe >= 6 * 3600) {
+    return '6h+';
+  }
   const hrs = Math.floor(safe / 3600);
   const mins = Math.floor((safe % 3600) / 60);
   const secs = safe % 60;

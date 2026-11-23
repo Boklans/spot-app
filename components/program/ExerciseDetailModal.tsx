@@ -4,12 +4,12 @@ import {
   Image,
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { getExerciseDetails } from '@/lib/exerciseDetails';
 import { getExerciseImage } from '@/lib/exerciseImages';

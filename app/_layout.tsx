@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
-import { Stack, ThemeProvider, DarkTheme, DefaultTheme } from 'expo-router';
-import { StatusBar, LogBox } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { Stack, ThemeProvider, DarkTheme, DefaultTheme, type ErrorBoundaryProps } from 'expo-router';
+import { Pressable, StatusBar, LogBox, Text, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/constants/colors';
 import { useUserProfileStore } from '@/store/userProfileStore';
 import { loadAsync } from 'expo-font';
@@ -17,27 +18,94 @@ import {
 
 LogBox.ignoreLogs(['Error configuring Purchases', 'Invalid API key']);
 
-// Initialize non-UI services once at module load time so the root layout stays 100% hook-free
-loadAsync({
-  ...Ionicons.font,
-  ...MaterialCommunityIcons.font,
-}).catch(() => undefined);
+let bootstrapped = false;
 
-useAuthStore.getState().init();
-useSubscriptionStore.getState().init();
-useUserProfileStore.getState().loadProfile().catch(() => undefined);
-useWorkoutSessionStore.getState().hydrateSession().catch(() => undefined);
-
-initNotifications()
-  .then(() => {
-    startLiveWorkoutNotificationSync();
-    return scheduleWorkoutDayReminders().catch(() => undefined);
-  })
-  .catch(() => undefined);
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#0B0D0F',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+      }}
+    >
+      <Text style={{ color: '#C8FF3D', fontSize: 22, fontWeight: '800', marginBottom: 8 }}>
+        SPOT
+      </Text>
+      <Text
+        style={{
+          color: '#F5F5F5',
+          fontSize: 16,
+          fontWeight: '700',
+          textAlign: 'center',
+          marginBottom: 8,
+        }}
+      >
+        Щось пішло не так / Something went wrong
+      </Text>
+      <Text
+        style={{
+          color: '#8E959F',
+          fontSize: 13,
+          textAlign: 'center',
+          marginBottom: 24,
+        }}
+      >
+        {error?.message || 'Unexpected application error'}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Retry"
+        onPress={retry}
+        style={{
+          backgroundColor: '#C8FF3D',
+          paddingHorizontal: 24,
+          paddingVertical: 14,
+          borderRadius: 14,
+        }}
+      >
+        <Text style={{ color: '#0B0D0F', fontSize: 15, fontWeight: '800' }}>
+          Спробувати знову / Try Again
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
 
 export default function SpotAppRoot() {
   const theme = useUserProfileStore((s) => s.profile.theme) ?? 'dark';
   const colors = useThemeColors();
+
+  useEffect(() => {
+    if (bootstrapped) return;
+    bootstrapped = true;
+
+    loadAsync({
+      ...Ionicons.font,
+      ...MaterialCommunityIcons.font,
+    }).catch(() => undefined);
+
+    // Deterministic order: initialize Purchases before Auth syncUser to avoid race condition
+    useSubscriptionStore
+      .getState()
+      .init()
+      .catch(() => undefined)
+      .finally(() => {
+        useAuthStore.getState().init().catch(() => undefined);
+      });
+
+    useUserProfileStore.getState().loadProfile().catch(() => undefined);
+    useWorkoutSessionStore.getState().hydrateSession().catch(() => undefined);
+
+    initNotifications()
+      .then(() => {
+        startLiveWorkoutNotificationSync();
+        return scheduleWorkoutDayReminders().catch(() => undefined);
+      })
+      .catch(() => undefined);
+  }, []);
 
   const navigationTheme = useMemo(() => {
     const baseTheme = theme === 'light' ? DefaultTheme : DarkTheme;
@@ -55,14 +123,16 @@ export default function SpotAppRoot() {
   }, [theme, colors]);
 
   return (
-    <ThemeProvider value={navigationTheme}>
-      <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
-        }}
-      />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider value={navigationTheme}>
+        <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

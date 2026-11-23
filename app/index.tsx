@@ -73,13 +73,10 @@ export default function Index() {
 		);
 		pulseLoop.start();
 
-		const minSplashDelay = new Promise((resolve) => setTimeout(resolve, 750));
-
 		Promise.all([
 			loadOnboarding(),
 			useWorkoutSessionStore.getState().hydrateSession(),
 			useProgramStore.getState().loadProgram(),
-			minSplashDelay,
 		]).then(([data]) => {
 			if (!mounted) return;
 			router.replace(data?.completed ? '/(tabs)' : '/onboarding/welcome');

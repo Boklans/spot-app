@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { colors } from '@/constants/colors';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticImpact } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 
@@ -90,6 +90,8 @@ export function ReminderTimePickerModal({
   onSelect,
   onClose,
 }: ReminderTimePickerModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, language } = useI18n();
 
   return (
@@ -157,7 +159,7 @@ export function ReminderTimePickerModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
@@ -186,7 +188,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   headerSubtitle: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 13,
     marginTop: 2,
   },
@@ -233,7 +235,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   optionSub: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 13,
     lineHeight: 18,
   },

@@ -7,13 +7,13 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExerciseLibraryModal } from './ExerciseLibraryModal';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { type CatalogExercise } from '@/lib/exerciseCatalog';

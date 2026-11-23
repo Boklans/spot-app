@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Linking,
   Modal,
@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 
@@ -20,6 +20,8 @@ interface BetaAccessModalProps {
 }
 
 export function BetaAccessModal({ visible, onClose }: BetaAccessModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { language } = useI18n();
   const isUk = language === 'uk';
   const insets = useSafeAreaInsets();
@@ -163,10 +165,10 @@ export function BetaAccessModal({ visible, onClose }: BetaAccessModalProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0B0D0F',
+    backgroundColor: colors.background,
   },
   header: {
     paddingHorizontal: 20,
@@ -176,7 +178,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#161B22',
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -188,7 +190,7 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     width: '100%',
-    backgroundColor: '#12161D',
+    backgroundColor: colors.surface,
     borderRadius: 24,
     paddingVertical: 26,
     paddingHorizontal: 20,
@@ -240,7 +242,7 @@ const styles = StyleSheet.create({
   },
   perksCard: {
     width: '100%',
-    backgroundColor: '#12161D',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 18,
     borderWidth: 1,
@@ -249,7 +251,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   perksHeader: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1,
@@ -278,7 +280,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   perkDesc: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 12,
     fontWeight: '400',
     marginTop: 2,
@@ -329,7 +331,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   continueBtnText: {
-    color: '#8E9BAE',
+    color: colors.secondary,
     fontSize: 14,
     fontWeight: '600',
     textDecorationLine: 'underline',

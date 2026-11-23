@@ -223,6 +223,10 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
               equipment: exercise.equipment || 'barbell',
               weightIncrement: typeof exercise.weightIncrement === 'number' ? exercise.weightIncrement : 2.5,
               ...(typeof exercise.restSeconds === 'number' ? { restSeconds: exercise.restSeconds } : {}),
+              ...(exercise.supersetWithNext ? { supersetWithNext: true } : {}),
+              ...((exercise as any).customImageUri ? { customImageUri: (exercise as any).customImageUri } : {}),
+              ...((exercise as any).isCustom ? { isCustom: true } : {}),
+              ...((exercise as any).isCustomRest ? { isCustomRest: true } : {}),
             }))
           : [];
 
@@ -265,9 +269,25 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       // Storage write error ignored
     }
 
-    // Reset progress to the first workout of the updated custom program
+    // Preserve current workout rotation if the scheduled workout still exists in the updated program
     if (cloned.workouts.length > 0) {
-      await useProgramProgressStore.getState().resetProgress(cloned.id, cloned.workouts[0].id);
+      const progressStore = useProgramProgressStore.getState();
+      const existingProgress = progressStore.progress;
+      const keepsCurrentWorkout =
+        existingProgress?.nextWorkoutId &&
+        cloned.workouts.some((w) => w.id === existingProgress.nextWorkoutId);
+
+      if (keepsCurrentWorkout && existingProgress) {
+        const preservedProgress = {
+          ...existingProgress,
+          programId: cloned.id,
+          updatedAt: new Date().toISOString(),
+        };
+        useProgramProgressStore.setState({ progress: preservedProgress, hydrated: true });
+        await AsyncStorage.setItem('spot-program-progress', JSON.stringify(preservedProgress)).catch(() => undefined);
+      } else {
+        await progressStore.resetProgress(cloned.id, cloned.workouts[0].id);
+      }
     } else {
       await useProgramProgressStore.getState().loadProgress(cloned);
     }
