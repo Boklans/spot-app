@@ -3,7 +3,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import React, { useMemo, useState } from 'react';
 import {
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -13,7 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
@@ -260,10 +259,8 @@ export function ProfileBackupModal({ visible, onClose }: ProfileBackupModalProps
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <SafeAreaView style={styles.sheet}>
-          <View style={styles.header}>
+    <BottomSheet visible={visible} onClose={onClose} maxHeight="88%">
+      <View style={styles.header}>
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={styles.title}>{isUk ? 'Резервна копія (JSON)' : 'JSON Data Backup'}</Text>
               <Text style={styles.subtitle}>
@@ -371,9 +368,7 @@ export function ProfileBackupModal({ visible, onClose }: ProfileBackupModalProps
               </Pressable>
             </View>
           </ScrollView>
-        </SafeAreaView>
-      </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 

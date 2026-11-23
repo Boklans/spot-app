@@ -1,12 +1,50 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, View } from 'react-native';
+import { Animated, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FloatingWorkoutBar } from '@/components/workout/FloatingWorkoutBar';
 import { useThemeColors } from '@/constants/colors';
 import { fonts } from '@/constants/typography';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { hapticLight } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+
+function AnimatedTabIcon({
+  name,
+  size,
+  color,
+  focused,
+}: {
+  name: keyof typeof Ionicons.glyphMap;
+  size: number;
+  color: string;
+  focused: boolean;
+}) {
+  const reducedMotion = useReducedMotion();
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const prevFocusedRef = useRef(focused);
+
+  useEffect(() => {
+    if (focused && !prevFocusedRef.current && !reducedMotion) {
+      scaleAnim.setValue(0.84);
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        stiffness: 380,
+        damping: 18,
+        mass: 0.7,
+        useNativeDriver: true,
+      }).start();
+    }
+    prevFocusedRef.current = focused;
+  }, [focused, reducedMotion, scaleAnim]);
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <Ionicons name={name} size={size} color={color} />
+    </Animated.View>
+  );
+}
 
 export default function TabsLayout() {
   const colors = useThemeColors();
@@ -28,6 +66,11 @@ export default function TabsLayout() {
   return (
     <View style={{ flex: 1, position: 'relative' }}>
       <Tabs
+        screenListeners={{
+          tabPress: () => {
+            hapticLight();
+          },
+        }}
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: colors.isDark ? colors.primary : colors.text,
@@ -59,7 +102,12 @@ export default function TabsLayout() {
           options={{
             title: t('tabHome'),
             tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons name={focused ? 'flash' : 'flash-outline'} size={size} color={color as string} />
+              <AnimatedTabIcon
+                name={focused ? 'flash' : 'flash-outline'}
+                size={size}
+                color={color as string}
+                focused={focused}
+              />
             ),
           }}
         />
@@ -68,7 +116,12 @@ export default function TabsLayout() {
           options={{
             title: t('tabProgram'),
             tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={size} color={color as string} />
+              <AnimatedTabIcon
+                name={focused ? 'calendar' : 'calendar-outline'}
+                size={size}
+                color={color as string}
+                focused={focused}
+              />
             ),
           }}
         />
@@ -77,7 +130,12 @@ export default function TabsLayout() {
           options={{
             title: t('tabAnalytics'),
             tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons name={focused ? 'stats-chart' : 'stats-chart-outline'} size={size} color={color as string} />
+              <AnimatedTabIcon
+                name={focused ? 'stats-chart' : 'stats-chart-outline'}
+                size={size}
+                color={color as string}
+                focused={focused}
+              />
             ),
           }}
         />
@@ -86,7 +144,12 @@ export default function TabsLayout() {
           options={{
             title: t('tabProfile'),
             tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color as string} />
+              <AnimatedTabIcon
+                name={focused ? 'person' : 'person-outline'}
+                size={size}
+                color={color as string}
+                focused={focused}
+              />
             ),
           }}
         />

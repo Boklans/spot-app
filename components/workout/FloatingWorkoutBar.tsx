@@ -101,10 +101,13 @@ export function FloatingWorkoutBar() {
     pulseLoop.start();
 
     return () => pulseLoop.stop();
-  }, [isSessionActive, dotPulseAnim, opacityAnim, slideAnim]);
+  }, [isSessionActive, reducedMotion, dotPulseAnim, opacityAnim, slideAnim]);
 
   useEffect(() => {
-    if (!isSessionActive) return;
+    if (!isSessionActive || reducedMotion) {
+      modeScaleAnim.setValue(1);
+      return;
+    }
     modeScaleAnim.setValue(0.96);
     Animated.spring(modeScaleAnim, {
       toValue: 1,
@@ -112,7 +115,7 @@ export function FloatingWorkoutBar() {
       tension: 110,
       useNativeDriver: true,
     }).start();
-  }, [isResting, isSessionActive, modeScaleAnim]);
+  }, [isResting, isSessionActive, reducedMotion, modeScaleAnim]);
 
   useEffect(() => {
     if (!session || session.completed) return;

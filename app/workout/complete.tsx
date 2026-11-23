@@ -14,7 +14,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { inferEquipmentFromName, isAssistedExercise, recommendWeight } from '@/lib/adaptiveProgression';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
@@ -30,6 +32,7 @@ const SHOW_INSTAGRAM_STORIES = false;
 export default function Complete() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const reducedMotion = useReducedMotion();
   const { t, te, tw, language } = useI18n();
   const { formatVolume, formatWithUnit } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
@@ -49,6 +52,14 @@ export default function Complete() {
       if (data?.name) setName(data.name);
     });
     loadHistory();
+
+    if (reducedMotion) {
+      badgeScale.setValue(1);
+      badgeOpacity.setValue(1);
+      bodyOpacity.setValue(1);
+      bodyTranslateY.setValue(0);
+      return;
+    }
 
     Animated.sequence([
       Animated.parallel([
@@ -79,7 +90,7 @@ export default function Complete() {
         }),
       ]),
     ]).start();
-  }, [badgeOpacity, badgeScale, bodyOpacity, bodyTranslateY, loadHistory]);
+  }, [badgeOpacity, badgeScale, bodyOpacity, bodyTranslateY, loadHistory, reducedMotion]);
 
   if (!session) {
     return (
@@ -327,22 +338,38 @@ export default function Complete() {
             transform: [{ translateY: bodyTranslateY }],
           }}
         >
-        {/* 3. Unified Stats Summary Strip */}
+        {/* 3. Unified Stats Summary Strip (with celebratory count-up) */}
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>{summary.durationMinutes} {t('min')}</Text>
+            <AnimatedNumber
+              value={summary.durationMinutes}
+              duration={520}
+              delay={200}
+              format={(v) => `${v} ${t('min')}`}
+              style={styles.statValue}
+            />
             <Text style={styles.statLabel}>{t('duration')}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>{formatVolume(summary.volume)}</Text>
+            <AnimatedNumber
+              value={Math.round(summary.volume)}
+              duration={740}
+              delay={240}
+              format={(v) => formatVolume(v)}
+              style={styles.statValue}
+            />
             <Text style={styles.statLabel}>{language === 'uk' ? 'Об’єм' : 'Volume'}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>
-              {isPartial ? `${summary.completedSets}/${summary.plannedSets}` : summary.completedSets}
-            </Text>
+            <AnimatedNumber
+              value={summary.completedSets}
+              duration={560}
+              delay={280}
+              format={(v) => (isPartial ? `${v}/${summary.plannedSets}` : String(v))}
+              style={styles.statValue}
+            />
             <Text style={styles.statLabel}>{t('sets')}</Text>
           </View>
         </View>

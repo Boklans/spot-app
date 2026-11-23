@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { darkColors, type ThemeColors } from '@/constants/colors';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { useUserProfileStore } from '@/store/userProfileStore';
@@ -30,6 +31,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 export default function Welcome() {
   const colors = darkColors;
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const reducedMotion = useReducedMotion();
   const { t, language } = useI18n();
   const profile = useUserProfileStore((state) => state.profile);
   const updateProfile = useUserProfileStore((state) => state.updateProfile);
@@ -47,9 +49,23 @@ export default function Welcome() {
   const chipsTranslateY = useRef(new Animated.Value(18)).current;
   const actionsOpacity = useRef(new Animated.Value(0)).current;
   const actionsTranslateY = useRef(new Animated.Value(32)).current;
-  const oPulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    if (reducedMotion) {
+      heroOpacity.setValue(1);
+      heroScale.setValue(1);
+      logoOpacity.setValue(1);
+      logoTranslateY.setValue(0);
+      logoScale.setValue(1);
+      taglineOpacity.setValue(1);
+      taglineTranslateY.setValue(0);
+      chipsOpacity.setValue(1);
+      chipsTranslateY.setValue(0);
+      actionsOpacity.setValue(1);
+      actionsTranslateY.setValue(0);
+      return undefined;
+    }
+
     Animated.parallel([
       Animated.timing(heroOpacity, {
         toValue: 1,
@@ -140,7 +156,7 @@ export default function Welcome() {
     logoOpacity,
     logoScale,
     logoTranslateY,
-    oPulse,
+    reducedMotion,
     taglineOpacity,
     taglineTranslateY,
   ]);
@@ -275,14 +291,7 @@ export default function Welcome() {
             ]}
           >
             <Text style={styles.logoPrimaryText}>SP</Text>
-            <Animated.Text
-              style={[
-                styles.logoLime,
-                { transform: [{ scale: oPulse }] },
-              ]}
-            >
-              O
-            </Animated.Text>
+            <Text style={styles.logoLime}>O</Text>
             <Text style={styles.logoPrimaryText}>T</Text>
           </Animated.View>
 

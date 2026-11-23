@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ExerciseNoteModal } from '@/components/workout/ExerciseNoteModal';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
@@ -29,10 +29,8 @@ export function ProfileNotesModal({ visible, onClose }: ProfileNotesModalProps) 
 
   return (
     <>
-      <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-        <View style={styles.overlay}>
-          <SafeAreaView style={styles.sheet}>
-            <View style={styles.header}>
+      <BottomSheet visible={visible} onClose={onClose} maxHeight="82%">
+        <View style={styles.header}>
               <View style={{ flex: 1, paddingRight: 12 }}>
                 <Text style={styles.title}>
                   {isUk ? 'Мої нотатки до вправ' : 'My Exercise Notes'}
@@ -80,9 +78,7 @@ export function ProfileNotesModal({ visible, onClose }: ProfileNotesModalProps) 
                 ))
               )}
             </ScrollView>
-          </SafeAreaView>
-        </View>
-      </Modal>
+      </BottomSheet>
 
       {editingNoteExercise && (
         <ExerciseNoteModal

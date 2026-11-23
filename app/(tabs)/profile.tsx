@@ -1,12 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { router } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Animated,
   Image,
   Linking,
   Pressable,
@@ -100,20 +99,6 @@ export default function Profile() {
   const [notesModalVisible, setNotesModalVisible] = useState(false);
   const [backupModalVisible, setBackupModalVisible] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(getSyncStatus());
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(12)).current;
-
-  useFocusEffect(
-    useCallback(() => {
-      fadeAnim.setValue(0.4);
-      slideAnim.setValue(10);
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 90, useNativeDriver: true }),
-      ]).start();
-    }, [fadeAnim, slideAnim])
-  );
 
   useEffect(() => {
     useUserProfileStore.getState().loadProfile();
@@ -420,7 +405,7 @@ export default function Profile() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+        <View>
           {/* 1. Athlete Identity Hero Card + Key Telemetry Strip */}
           <View style={styles.heroCard}>
             <Pressable
@@ -701,7 +686,7 @@ export default function Profile() {
           </View>
 
           <Text style={styles.versionText}>SPOT v{APP_VERSION} · VanzaLabs</Text>
-        </Animated.View>
+        </View>
       </ScrollView>
 
       {/* Modular Modals */}

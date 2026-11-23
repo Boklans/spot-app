@@ -22,9 +22,11 @@ import { BodyWeightGraph } from '@/components/progress/BodyWeightGraph';
 import { LogWeightModal } from '@/components/progress/LogWeightModal';
 import { MuscleHeatmap } from '@/components/progress/MuscleHeatmap';
 import { AnalyticsSkeleton } from '@/components/ui/Skeleton';
+import { SlidingSegmentedControl } from '@/components/ui/SlidingSegmentedControl';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { analyzeBodyAndStrength } from '@/lib/bodyCompositionAI';
 import { hapticLight } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -51,6 +53,7 @@ export default function Progress() {
   const { t, tm, te, language } = useI18n();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const reducedMotion = useReducedMotion();
   const { unit, unitLabel, formatVolume, fromKg } = useWeightUnit();
   const profile = useUserProfileStore((state) => state.profile);
   const history = useWorkoutHistoryStore((state) => state.workouts);
@@ -85,23 +88,28 @@ export default function Progress() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
+    if (reducedMotion) {
+      tabFadeAnim.setValue(1);
+      tabSlideAnim.setValue(0);
+      return;
+    }
     tabFadeAnim.setValue(0.35);
     tabSlideAnim.setValue(6);
     Animated.parallel([
       Animated.timing(tabFadeAnim, {
         toValue: 1,
-        duration: 220,
+        duration: 210,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(tabSlideAnim, {
         toValue: 0,
-        duration: 220,
+        duration: 210,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
     ]).start();
-  }, [activeTab, period, tabFadeAnim, tabSlideAnim]);
+  }, [activeTab, period, reducedMotion, tabFadeAnim, tabSlideAnim]);
 
   // Reload history and bodyweight entries whenever Analytics tab gains focus
   useFocusEffect(
@@ -501,80 +509,19 @@ export default function Progress() {
         </View>
       )}
 
-      {/* 2. Top Segment Switcher (Overview / Weight / Muscles / PRs) */}
-      <View style={styles.segmentBar}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            hapticLight();
-            setActiveTab('overview');
-          }}
-          style={[styles.segmentBtn, activeTab === 'overview' && styles.segmentBtnActive]}
-        >
-          <Text
-            style={[
-              styles.segmentBtnText,
-              activeTab === 'overview' && styles.segmentBtnTextActive,
-            ]}
-          >
-            {t('overview')}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            hapticLight();
-            setActiveTab('weight');
-          }}
-          style={[styles.segmentBtn, activeTab === 'weight' && styles.segmentBtnActive]}
-        >
-          <Text
-            style={[
-              styles.segmentBtnText,
-              activeTab === 'weight' && styles.segmentBtnTextActive,
-            ]}
-          >
-            {language === 'uk' ? 'Вага' : 'Weight'}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            hapticLight();
-            setActiveTab('muscles');
-          }}
-          style={[styles.segmentBtn, activeTab === 'muscles' && styles.segmentBtnActive]}
-        >
-          <Text
-            style={[
-              styles.segmentBtnText,
-              activeTab === 'muscles' && styles.segmentBtnTextActive,
-            ]}
-          >
-            {language === 'uk' ? 'Мʼязи' : 'Muscles'}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            hapticLight();
-            setActiveTab('prs');
-          }}
-          style={[styles.segmentBtn, activeTab === 'prs' && styles.segmentBtnActive]}
-        >
-          <Text
-            style={[
-              styles.segmentBtnText,
-              activeTab === 'prs' && styles.segmentBtnTextActive,
-            ]}
-          >
-            {t('prs')}
-          </Text>
-        </Pressable>
-      </View>
+      {/* 2. Top Sliding Segment Switcher (Overview / Weight / Muscles / PRs) */}
+      <SlidingSegmentedControl<ActiveViewTab>
+        variant="bar"
+        value={activeTab}
+        onChange={setActiveTab}
+        style={{ marginHorizontal: 20, marginTop: 4, marginBottom: 14 }}
+        options={[
+          { key: 'overview', label: t('overview') },
+          { key: 'weight', label: language === 'uk' ? 'Вага' : 'Weight' },
+          { key: 'muscles', label: language === 'uk' ? 'Мʼязи' : 'Muscles' },
+          { key: 'prs', label: t('prs') },
+        ]}
+      />
 
       <ScrollView
         ref={scrollRef}

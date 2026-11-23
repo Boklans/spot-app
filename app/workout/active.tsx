@@ -8,11 +8,14 @@ import {
   BackHandler,
   Easing,
   Image,
+  LayoutAnimation,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  UIManager,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +24,7 @@ import { ActiveWorkoutSkeleton } from '@/components/ui/Skeleton';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -57,6 +61,7 @@ function formatElapsed(totalSec: number): string {
 export default function Active() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const reducedMotion = useReducedMotion();
   const { t, tm, td, te, tw, language } = useI18n();
   const { unit, unitLabel, format, formatWithUnit, fromKg, toKg } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
@@ -114,9 +119,27 @@ export default function Active() {
 
   const restAnim = useRef(new Animated.Value(0)).current;
   const headerProgressAnim = useRef(new Animated.Value(0)).current;
+  const [headerTrackWidth, setHeaderTrackWidth] = useState(0);
+  const [restTrackWidth, setRestTrackWidth] = useState(0);
   const setCheckScaleAnims = useRef<Record<number, Animated.Value>>({}).current;
   const setRowScaleAnims = useRef<Record<number, Animated.Value>>({}).current;
   const [totalRestSeconds, setTotalRestSeconds] = useState<number>(90);
+  const prevIsRestingRef = useRef(isResting);
+
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (prevIsRestingRef.current !== isResting) {
+      prevIsRestingRef.current = isResting;
+      if (!reducedMotion && Platform.OS !== 'web') {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      }
+    }
+  }, [isResting, reducedMotion]);
 
   const getSetCheckScale = (idx: number) => {
     if (!setCheckScaleAnims[idx]) {
@@ -133,6 +156,7 @@ export default function Active() {
   };
 
   const triggerSetBounce = (idx: number) => {
+    if (reducedMotion) return;
     const checkAnim = getSetCheckScale(idx);
     const rowAnim = getSetRowScale(idx);
     checkAnim.setValue(0.75);
@@ -188,7 +212,7 @@ export default function Active() {
       toValue: 0,
       duration: durationMs,
       easing: Easing.linear,
-      useNativeDriver: false,
+      useNativeDriver: true,
     });
     anim.start();
 
@@ -197,9 +221,10 @@ export default function Active() {
     };
   }, [restEndsAt]);
 
-  const restBarWidth = restAnim.interpolate({
+  const restBarTranslateX = restAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
+    outputRange: [-Math.max(1, restTrackWidth), 0],
+    extrapolate: 'clamp',
   });
 
   useEffect(() => {
@@ -261,17 +286,21 @@ export default function Active() {
   const percent = Math.round(progress.percentage);
 
   useEffect(() => {
+    if (reducedMotion) {
+      headerProgressAnim.setValue(percent);
+      return;
+    }
     Animated.spring(headerProgressAnim, {
       toValue: percent,
-      useNativeDriver: false,
-      speed: 16,
-      bounciness: 5,
+      useNativeDriver: true,
+      speed: 18,
+      bounciness: 4,
     }).start();
-  }, [percent, headerProgressAnim]);
+  }, [percent, reducedMotion, headerProgressAnim]);
 
-  const headerProgressWidth = headerProgressAnim.interpolate({
+  const headerProgressTranslateX = headerProgressAnim.interpolate({
     inputRange: [0, 100],
-    outputRange: ['0%', '100%'],
+    outputRange: [-Math.max(1, headerTrackWidth), 0],
     extrapolate: 'clamp',
   });
 
@@ -491,9 +520,23 @@ export default function Active() {
         <Text style={styles.topPercent}>{percent}%</Text>
       </View>
 
-      {/* Progress Line */}
-      <View style={styles.progressBarTrack}>
-        <Animated.View style={[styles.progressBarFill, { width: headerProgressWidth }]} />
+      {/* Progress Line (60fps native driver) */}
+      <View
+        style={[styles.progressBarTrack, { overflow: 'hidden' }]}
+        onLayout={(e) => {
+          const w = e.nativeEvent.layout.width;
+          if (w > 0 && w !== headerTrackWidth) setHeaderTrackWidth(w);
+        }}
+      >
+        <Animated.View
+          style={[
+            styles.progressBarFill,
+            {
+              width: '100%',
+              transform: [{ translateX: headerTrackWidth > 0 ? headerProgressTranslateX : -9999 }],
+            },
+          ]}
+        />
       </View>
 
       {/* Sleek Hevy-style Rest Timer Pill */}
@@ -532,8 +575,22 @@ export default function Active() {
               </Pressable>
             </View>
 
-            <View style={styles.restProgressTrack}>
-              <Animated.View style={[styles.restProgressFill, { width: restBarWidth }]} />
+            <View
+              style={[styles.restProgressTrack, { overflow: 'hidden' }]}
+              onLayout={(e) => {
+                const w = e.nativeEvent.layout.width;
+                if (w > 0 && w !== restTrackWidth) setRestTrackWidth(w);
+              }}
+            >
+              <Animated.View
+                style={[
+                  styles.restProgressFill,
+                  {
+                    width: '100%',
+                    transform: [{ translateX: restTrackWidth > 0 ? restBarTranslateX : -9999 }],
+                  },
+                ]}
+              />
             </View>
           </View>
 

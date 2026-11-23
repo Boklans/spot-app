@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
@@ -60,10 +60,8 @@ export function ProfileSettingsModal({
     .padStart(2, '0')}`;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <SafeAreaView style={styles.sheet}>
-          <View style={styles.header}>
+    <BottomSheet visible={visible} onClose={onClose} backgroundColor={colors.background} maxHeight="88%">
+      <View style={styles.header}>
             <Text style={styles.title}>
               {isUk ? 'Налаштування застосунку' : 'App Preferences'}
             </Text>
@@ -489,9 +487,7 @@ export function ProfileSettingsModal({
               </Pressable>
             </View>
           </ScrollView>
-        </SafeAreaView>
-      </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 

@@ -10,6 +10,7 @@ import { HomeSkeleton } from '@/components/ui/Skeleton';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { generateCoachInsight } from '@/lib/coachEngine';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { countWorkoutsThisWeek, getStartOfWeek } from '@/lib/progressCalculator';
@@ -27,6 +28,7 @@ export default function Home() {
   const { t, tm, te, tw, language } = useI18n();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const reducedMotion = useReducedMotion();
   const { formatVolume, formatWithUnit } = useWeightUnit();
   const [name, setName] = useState('');
   const [focusKey, setFocusKey] = useState(0);
@@ -47,8 +49,7 @@ export default function Home() {
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
-  const entryFadeAnim = useRef(new Animated.Value(0)).current;
-  const entrySlideAnim = useRef(new Animated.Value(8)).current;
+  const [progressTrackWidth, setProgressTrackWidth] = useState(0);
 
   // Focus synchronization (also runs on initial mount)
   useFocusEffect(
@@ -296,37 +297,11 @@ export default function Home() {
     ? `${greetingPrefix}, ${userGreetingName}`
     : greetingPrefix;
 
-  const triggerEntryAnim = useCallback(() => {
-    entryFadeAnim.setValue(0);
-    entrySlideAnim.setValue(18);
-    Animated.parallel([
-      Animated.timing(entryFadeAnim, {
-        toValue: 1,
-        duration: 320,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.spring(entrySlideAnim, {
-        toValue: 0,
-        friction: 7,
-        tension: 70,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [entryFadeAnim, entrySlideAnim]);
-
-  useFocusEffect(
-    useCallback(() => {
-      triggerEntryAnim();
-    }, [triggerEntryAnim])
-  );
-
   useEffect(() => {
-    triggerEntryAnim();
-  }, [homeState, triggerEntryAnim]);
-
-  useEffect(() => {
-    if (homeState !== 'IN_PROGRESS') return;
+    if (homeState !== 'IN_PROGRESS' || reducedMotion) {
+      pulseAnim.setValue(1);
+      return;
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -345,21 +320,25 @@ export default function Home() {
     );
     loop.start();
     return () => loop.stop();
-  }, [homeState, pulseAnim]);
+  }, [homeState, reducedMotion, pulseAnim]);
 
   useEffect(() => {
     const targetPct = inProgressData?.percent ?? 0;
+    if (reducedMotion) {
+      progressAnim.setValue(targetPct);
+      return;
+    }
     Animated.spring(progressAnim, {
       toValue: targetPct,
-      useNativeDriver: false,
-      speed: 16,
-      bounciness: 5,
+      useNativeDriver: true,
+      speed: 18,
+      bounciness: 4,
     }).start();
-  }, [inProgressData?.percent, progressAnim]);
+  }, [inProgressData?.percent, reducedMotion, progressAnim]);
 
-  const animatedProgressWidth = progressAnim.interpolate({
+  const animatedProgressTranslateX = progressAnim.interpolate({
     inputRange: [0, 100],
-    outputRange: ['0%', '100%'],
+    outputRange: [-Math.max(1, progressTrackWidth), 0],
     extrapolate: 'clamp',
   });
 
@@ -591,12 +570,7 @@ export default function Home() {
 
       {/* STATE B: Workout in Progress */}
       {homeState === 'IN_PROGRESS' && inProgressData && (
-        <Animated.View
-          style={{
-            opacity: entryFadeAnim,
-            transform: [{ translateY: entrySlideAnim }],
-          }}
-        >
+        <View>
           <View style={styles.stateCard}>
             <View style={styles.stateCardHeaderRow}>
               <View style={styles.inProgressBadge}>
@@ -619,9 +593,27 @@ export default function Home() {
               {inProgressData.progressText}  ·  {inProgressData.completedSets} / {inProgressData.totalSets} {t('sets').toLowerCase()}
             </Text>
 
-            {/* Progress Bar Track */}
-            <View style={styles.progressBarTrack}>
-              <Animated.View style={[styles.progressBarFill, { width: animatedProgressWidth }]} />
+            {/* Progress Bar Track (60fps native driver) */}
+            <View
+              style={styles.progressBarTrack}
+              onLayout={(e) => {
+                const w = e.nativeEvent.layout.width;
+                if (w > 0 && w !== progressTrackWidth) setProgressTrackWidth(w);
+              }}
+            >
+              <Animated.View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    width: '100%',
+                    transform: [
+                      {
+                        translateX: progressTrackWidth > 0 ? animatedProgressTranslateX : -9999,
+                      },
+                    ],
+                  },
+                ]}
+              />
             </View>
 
             {/* Current Active Exercise Info */}
@@ -672,7 +664,7 @@ export default function Home() {
               {language === 'uk' ? 'Швидкий запис списком' : 'Switch to Quick Log'}
             </Text>
           </Pressable>
-        </Animated.View>
+        </View>
       )}
 
       {/* STATE C: Workout Completed Today */}

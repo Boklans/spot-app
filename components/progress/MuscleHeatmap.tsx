@@ -1,14 +1,16 @@
-import React, { useId, useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Stop } from 'react-native-svg';
 import type { BodyPart, Slug } from 'react-native-body-highlighter';
 import { bodyFront } from 'react-native-body-highlighter/dist/assets/bodyFront';
 import { bodyBack } from 'react-native-body-highlighter/dist/assets/bodyBack';
 import { bodyFemaleFront } from 'react-native-body-highlighter/dist/assets/bodyFemaleFront';
 import { bodyFemaleBack } from 'react-native-body-highlighter/dist/assets/bodyFemaleBack';
+import { SlidingSegmentedControl } from '@/components/ui/SlidingSegmentedControl';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { hapticLight } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import type { MuscleRecoveryStat } from '@/lib/progressCalculator';
@@ -78,10 +80,39 @@ export function MuscleHeatmap({
   const colors = useThemeColors();
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const reducedMotion = useReducedMotion();
   const { tm, language } = useI18n();
   const isUk = language === 'uk';
   const isFemale = sex === 'female';
   const [mode, setMode] = useState<HeatmapMode>('load');
+
+  const focusOpacity = useRef(new Animated.Value(1)).current;
+  const focusShift = useRef(new Animated.Value(0)).current;
+  const isFirstFocusRef = useRef(true);
+
+  useEffect(() => {
+    if (isFirstFocusRef.current) {
+      isFirstFocusRef.current = false;
+      return;
+    }
+    if (reducedMotion) return;
+    focusOpacity.setValue(0.55);
+    focusShift.setValue(4);
+    Animated.parallel([
+      Animated.timing(focusOpacity, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(focusShift, {
+        toValue: 0,
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [selectedMuscle, mode, reducedMotion, focusOpacity, focusShift]);
 
   const getTier = (muscle: HeatmapMuscleKey): IntensityTier => getIntensityTier(stats[muscle]);
 
@@ -425,43 +456,28 @@ export function MuscleHeatmap({
                 ? 'АНАТОМІЯ НАВАНТАЖЕННЯ'
                 : 'MUSCLE DISTRIBUTION'}
           </Text>
-          <Text style={styles.title}>
+          <Text style={styles.title} numberOfLines={1}>
             {mode === 'recovery'
               ? isUk
-                ? 'Відновлення мʼязів'
-                : 'Recovery Anatomy'
+                ? 'Відновлення'
+                : 'Recovery Map'
               : isUk
-                ? 'Карта мʼязів · 7 днів'
-                : '7-Day Anatomy Map'}
+                ? 'Карта · 7 днів'
+                : '7-Day Anatomy'}
           </Text>
         </View>
 
-        <View style={styles.modeToggle}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              hapticLight();
-              setMode('load');
-            }}
-            style={[styles.modeBtn, mode === 'load' && styles.modeBtnActive]}
-          >
-            <Text style={[styles.modeBtnText, mode === 'load' && styles.modeBtnTextActive]}>
-              {isUk ? 'Обсяг' : 'Load'}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              hapticLight();
-              setMode('recovery');
-            }}
-            style={[styles.modeBtn, mode === 'recovery' && styles.modeBtnActive]}
-          >
-            <Text style={[styles.modeBtnText, mode === 'recovery' && styles.modeBtnTextActive]}>
-              {isUk ? 'Відновл.' : 'Recovery'}
-            </Text>
-          </Pressable>
-        </View>
+        <SlidingSegmentedControl
+          variant="pill"
+          accent
+          value={mode}
+          onChange={setMode}
+          style={{ width: 158 }}
+          options={[
+            { key: 'load', label: isUk ? 'Обсяг' : 'Load' },
+            { key: 'recovery', label: isUk ? 'Відновл.' : 'Recovery' },
+          ]}
+        />
       </View>
 
       {/* Real Illustrator-Traced Front + Back Anatomy */}
@@ -471,7 +487,12 @@ export function MuscleHeatmap({
       </View>
 
       {/* Selected Muscle Telemetry Strip */}
-      <View style={styles.focusStrip}>
+      <Animated.View
+        style={[
+          styles.focusStrip,
+          { opacity: focusOpacity, transform: [{ translateY: focusShift }] },
+        ]}
+      >
         <View style={styles.focusTopRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={styles.focusMuscleName}>{tm(selectedMuscle)}</Text>
@@ -510,7 +531,7 @@ export function MuscleHeatmap({
                 ? '0 робочих сетів за 7 днів'
                 : '0 working sets in last 7 days'}
         </Text>
-      </View>
+      </Animated.View>
 
       {/* Clean Muscle Filter Pills */}
       <View style={styles.quickPillsRow}>
