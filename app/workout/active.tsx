@@ -38,7 +38,7 @@ import {
 import { playRestCompleteSound } from '@/lib/soundEffects';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
-import { inferEquipmentFromName, isAssistedExercise, parseRepRange, practicalIncrement } from '@/lib/adaptiveProgression';
+import { inferEquipmentFromName, isAssistedExercise, isPerHandExercise, parseRepRange, practicalIncrement } from '@/lib/adaptiveProgression';
 import { getSessionProgress, useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import { useExerciseNotesStore } from '@/store/exerciseNotesStore';
 import { ExerciseDetailModal } from '@/components/program/ExerciseDetailModal';
@@ -76,6 +76,7 @@ export default function Active() {
   const setCurrentExerciseIndex = useWorkoutSessionStore((state) => state.setCurrentExerciseIndex);
   const addRestTime = useWorkoutSessionStore((state) => state.addRestTime);
   const skipRest = useWorkoutSessionStore((state) => state.skipRest);
+  const addWarmupSets = useWorkoutSessionStore((state) => state.addWarmupSets);
 
   const [finishing, setFinishing] = useState(false);
   const [submittingSet, setSubmittingSet] = useState(false);
@@ -882,6 +883,36 @@ export default function Active() {
               </Pressable>
             )}
 
+            {/* 1-Tap Warm-up Ramp Generator Chip */}
+            {!exercise.sets.some((s) => s.setType === 'warmup') && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={language === 'uk' ? 'Додати розминку' : 'Add warm-up sets'}
+                hitSlop={6}
+                onPress={() => {
+                  hapticMedium();
+                  if (!reducedMotion && Platform.OS !== 'web') {
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  }
+                  addWarmupSets(session.currentExerciseIndex);
+                }}
+                style={styles.addNoteChip}
+              >
+                <Ionicons name="flame-outline" size={13} color={colors.warning} />
+                <Text style={styles.addNoteChipText}>
+                  {language === 'uk' ? '+ Розминка' : '+ Warm-up'}
+                </Text>
+              </Pressable>
+            )}
+
+            {isPerHandExercise(exercise.name, exercise.equipment) && (
+              <View style={styles.addNoteChip}>
+                <Text style={[styles.addNoteChipText, { color: colors.primaryText }]}>
+                  {language === 'uk' ? 'Вага / 1 руку' : 'Per hand'}
+                </Text>
+              </View>
+            )}
+
             {!currentNote && (
               <Pressable
                 accessibilityRole="button"
@@ -1216,22 +1247,24 @@ export default function Active() {
         }}
       />
 
-      {/* Exercise Detail Modal (Anatomy, Technique, Mistakes, Personal Best) */}
+      {/* Exercise Detail Modal (Anatomy, Physio Tip, Technique, History) */}
       {exercise && (
         <ExerciseDetailModal
           visible={showDetailModal}
           onClose={() => setShowDetailModal(false)}
           exerciseName={exercise.name}
           muscleGroup={exercise.muscleGroup}
+          equipment={exercise.equipment}
           customImageUri={exercise.customImageUri}
         />
       )}
 
-      {/* Edit Set Modal (Direct Weight & Reps Keypad / Quick Delta Entry) */}
+      {/* Edit Set Modal (Direct Weight & Reps Keypad + Plate Calculator) */}
       {targetSetForEditing && (
         <EditSetModal
           visible={editingTarget !== null}
           exerciseName={te(targetExerciseForEditing?.name || '')}
+          equipment={targetExerciseForEditing?.equipment}
           setNumber={(editingTarget?.setIndex ?? 0) + 1}
           totalSets={targetExerciseForEditing?.sets.length ?? 3}
           isCompleted={targetSetForEditing.completed}

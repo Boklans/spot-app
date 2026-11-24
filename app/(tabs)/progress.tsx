@@ -31,6 +31,7 @@ import { analyzeBodyAndStrength } from '@/lib/bodyCompositionAI';
 import { hapticLight } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { getAllTimePersonalRecords } from '@/lib/personalRecords';
+import { evaluateLiftStandard, evaluateStrengthProfile } from '@/lib/strengthStandards';
 import {
   calculateMuscleProgress,
   calculateMuscleRecoveryStats,
@@ -144,6 +145,11 @@ export default function Progress() {
     [history, profile.baselineLifts]
   );
 
+  const strengthProfile = React.useMemo(
+    () => evaluateStrengthProfile(allTimeRecords, profile.weightKg, profile.sex),
+    [allTimeRecords, profile.weightKg, profile.sex]
+  );
+
   const allHistoryPrs = React.useMemo(() => {
     return allTimeRecords.map((rec) => {
       const dispWeight = formatWeight(fromKg(rec.weightKg));
@@ -175,6 +181,16 @@ export default function Progress() {
           ? 'Базовий показник'
           : 'Baseline';
 
+      const standardEval =
+        !rec.isBodyweight && !rec.isAssisted
+          ? evaluateLiftStandard({
+              exerciseName: rec.exerciseName,
+              estimated1RMKg: rec.estimated1RMKg,
+              bodyweightKg: profile.weightKg,
+              sex: profile.sex,
+            })
+          : null;
+
       return {
         id: rec.id,
         exerciseId: rec.exerciseId,
@@ -184,9 +200,10 @@ export default function Progress() {
         date: dateLabel,
         isNewPr: rec.isNewPr,
         icon: (rec.isNewPr ? 'trophy' : 'dumbbell') as 'trophy' | 'dumbbell',
+        standardEval,
       };
     });
-  }, [allTimeRecords, fromKg, unitLabel, language]);
+  }, [allTimeRecords, fromKg, unitLabel, language, profile.weightKg, profile.sex]);
 
   const prsCount = hasHistory
     ? realSummary.personalRecords > 0
@@ -1289,9 +1306,76 @@ export default function Progress() {
         {/* ========================================================================= */}
         {activeTab === 'prs' && (
           <View style={styles.tabContainer}>
+            {/* Strength Standards Summary Card */}
+            {strengthProfile && (
+              <View style={styles.strengthRankCard}>
+                <View style={styles.strengthRankHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.strengthRankEyebrow}>
+                      {language === 'uk' ? 'СТАНДАРТИ СИЛИ' : 'STRENGTH STANDARDS'}
+                    </Text>
+                    <Text style={styles.strengthRankTitle}>
+                      {language === 'uk'
+                        ? strengthProfile.overallRank.labelUk
+                        : strengthProfile.overallRank.labelEn}
+                    </Text>
+                  </View>
+                  <View style={styles.strengthScorePill}>
+                    <Text style={styles.strengthScoreNum}>{strengthProfile.overallScore}</Text>
+                    <Text style={styles.strengthScoreMax}>/100</Text>
+                  </View>
+                </View>
+
+                <View style={styles.strengthRankList}>
+                  {strengthProfile.evaluatedLifts.slice(0, 4).map((lift) => {
+                    const rankColor = colors.isDark
+                      ? lift.rank.colorDark
+                      : lift.rank.colorLight;
+                    return (
+                      <View key={lift.standardId} style={styles.strengthLiftRow}>
+                        <View style={styles.strengthLiftTop}>
+                          <Text style={styles.strengthLiftName} numberOfLines={1}>
+                            {te(lift.exerciseName)}
+                          </Text>
+                          <Text style={[styles.strengthLiftRank, { color: rankColor }]}>
+                            {language === 'uk' ? lift.rank.labelUk : lift.rank.labelEn} · {lift.bodyweightRatio}×
+                          </Text>
+                        </View>
+                        <View style={styles.strengthLiftTrack}>
+                          <View
+                            style={[
+                              styles.strengthLiftFill,
+                              {
+                                width: `${Math.max(10, Math.round(lift.progressToNext * 100))}%`,
+                                backgroundColor: rankColor,
+                              },
+                            ]}
+                          />
+                        </View>
+                        {lift.nextRank && lift.kgToNextRank > 0 && (
+                          <Text style={styles.strengthLiftNext}>
+                            +{formatWeight(fromKg(lift.kgToNextRank))} {unitLabel}{' '}
+                            {language === 'uk'
+                              ? `до «${lift.nextRank.labelUk}»`
+                              : `to ${lift.nextRank.labelEn}`}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
             {allHistoryPrs.length > 0 ? (
               <View style={styles.prsList}>
-                {allHistoryPrs.map((item) => (
+                {allHistoryPrs.map((item) => {
+                  const rankColor = item.standardEval
+                    ? colors.isDark
+                      ? item.standardEval.rank.colorDark
+                      : item.standardEval.rank.colorLight
+                    : null;
+                  return (
                   <Pressable
                     key={item.id}
                     accessibilityRole="button"
@@ -1317,13 +1401,22 @@ export default function Progress() {
                     </View>
 
                     <View style={styles.prCardBody}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <Text numberOfLines={1} style={styles.prCardName}>
                           {te(item.name)}
                         </Text>
                         {item.isNewPr && (
                           <View style={styles.prBadge}>
                             <Text style={styles.prBadgeText}>PR</Text>
+                          </View>
+                        )}
+                        {item.standardEval && rankColor && (
+                          <View style={[styles.prRankPill, { borderColor: rankColor }]}>
+                            <Text style={[styles.prRankPillText, { color: rankColor }]}>
+                              {language === 'uk'
+                                ? item.standardEval.rank.labelUk
+                                : item.standardEval.rank.labelEn}
+                            </Text>
                           </View>
                         )}
                       </View>
@@ -1338,7 +1431,8 @@ export default function Progress() {
                       <Ionicons name="chevron-forward" size={16} color="#6C7A8E" />
                     </View>
                   </Pressable>
-                ))}
+                  );
+                })}
               </View>
             ) : (
               <View style={styles.emptyCard}>
@@ -1519,6 +1613,116 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   tabContainer: {
     width: '100%',
+  },
+  strengthRankCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: 16,
+    marginBottom: 14,
+    gap: 14,
+    ...cardElevation(colors),
+  },
+  strengthRankHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  strengthRankEyebrow: {
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.0,
+    color: colors.primaryText,
+    marginBottom: 2,
+  },
+  strengthRankTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: -0.35,
+  },
+  strengthScorePill: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    backgroundColor: colors.elevated,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  strengthScoreNum: {
+    fontFamily: fonts.extraBold,
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.primaryText,
+    fontVariant: ['tabular-nums'],
+  },
+  strengthScoreMax: {
+    fontFamily: fonts.medium,
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: colors.muted,
+    marginLeft: 1,
+    fontVariant: ['tabular-nums'],
+  },
+  strengthRankList: {
+    gap: 11,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  strengthLiftRow: {
+    gap: 5,
+  },
+  strengthLiftTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  strengthLiftName: {
+    fontFamily: fonts.semiBold,
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: colors.text,
+    flex: 1,
+  },
+  strengthLiftRank: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  strengthLiftTrack: {
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.elevated,
+    overflow: 'hidden',
+  },
+  strengthLiftFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  strengthLiftNext: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.muted,
+    fontVariant: ['tabular-nums'],
+  },
+  prRankPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+  },
+  prRankPillText: {
+    fontFamily: fonts.bold,
+    fontSize: 9.5,
+    fontWeight: '700',
   },
   statsSummaryStrip: {
     flexDirection: 'row',

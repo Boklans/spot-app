@@ -17,6 +17,7 @@ import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
 import { hapticError, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
+import { mergeImportedWorkouts, parseWorkoutHistoryCsv } from '@/lib/csvImporter';
 import { useI18n } from '@/lib/i18n';
 import { BODY_WEIGHT_STORAGE_KEY, useBodyWeightStore } from '@/store/bodyWeightStore';
 import { EXERCISE_NOTES_STORAGE_KEY, useExerciseNotesStore } from '@/store/exerciseNotesStore';
@@ -43,6 +44,7 @@ export function ProfileBackupModal({ visible, onClose }: ProfileBackupModalProps
   const profile = useUserProfileStore((s) => s.profile);
 
   const [backupJsonInput, setBackupJsonInput] = useState('');
+  const [csvInput, setCsvInput] = useState('');
   const [backupCopied, setBackupCopied] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{
     type: 'success' | 'error';
@@ -236,6 +238,68 @@ export function ProfileBackupModal({ visible, onClose }: ProfileBackupModalProps
     }
   };
 
+  const applyCsvString = async (rawCsv: string) => {
+    setStatusMessage(null);
+    const trimmed = rawCsv.trim();
+    if (!trimmed) {
+      setStatusMessage({
+        type: 'error',
+        text: isUk
+          ? 'Виберіть .csv файл із Hevy/Strong або вставте його текст.'
+          : 'Choose a Hevy/Strong .csv file or paste its contents first.',
+      });
+      return;
+    }
+
+    const parsed = parseWorkoutHistoryCsv(trimmed, profile.weightUnit === 'lbs' ? 'lbs' : 'kg');
+    if (!parsed.success) {
+      hapticError();
+      setStatusMessage({
+        type: 'error',
+        text: isUk
+          ? 'Не вдалося розпізнати CSV. Підтримується експорт із Hevy та Strong.'
+          : parsed.error || 'Could not parse CSV. Supported exports: Hevy & Strong.',
+      });
+      return;
+    }
+
+    const existing = useWorkoutHistoryStore.getState().workouts;
+    const { merged, newlyAdded } = mergeImportedWorkouts(existing, parsed.workouts);
+    await useWorkoutHistoryStore.getState().replaceHistory(merged);
+    hapticSuccess();
+    setCsvInput('');
+
+    const sourceLabel = parsed.source === 'hevy' ? 'Hevy' : 'Strong';
+    setStatusMessage({
+      type: 'success',
+      text: isUk
+        ? `Імпортовано з ${sourceLabel}: +${newlyAdded} тренувань (${parsed.importedSetsCount} сетів).`
+        : `Imported from ${sourceLabel}: +${newlyAdded} workouts (${parsed.importedSetsCount} sets).`,
+    });
+  };
+
+  const handlePickCsvFileWeb = () => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    hapticLight();
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,text/csv';
+    input.onchange = (event: any) => {
+      const file = event?.target?.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const content = typeof e.target?.result === 'string' ? e.target.result : '';
+        if (content) {
+          setCsvInput(content);
+          await applyCsvString(content);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
   const handlePickBackupFileWeb = () => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     hapticLight();
@@ -274,7 +338,7 @@ export function ProfileBackupModal({ visible, onClose }: ProfileBackupModalProps
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+          <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
             {statusMessage && (
               <View
                 style={[
@@ -364,6 +428,48 @@ export function ProfileBackupModal({ visible, onClose }: ProfileBackupModalProps
                 <Ionicons name="cloud-upload-outline" size={17} color={colors.primaryText} />
                 <Text style={styles.restoreBtnText}>
                   {isUk ? 'Відновити дані з JSON' : 'Restore Data from JSON'}
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* 3. Import from Hevy / Strong (.CSV) */}
+            <View style={styles.sectionBox}>
+              <View style={styles.importHead}>
+                <Text style={styles.sectionTitle}>
+                  {isUk ? '3. Імпорт з Hevy / Strong (.CSV)' : '3. Import from Hevy / Strong (.CSV)'}
+                </Text>
+                {Platform.OS === 'web' && (
+                  <Pressable accessibilityRole="button" onPress={handlePickCsvFileWeb} style={styles.pickFileBtn}>
+                    <Ionicons name="document-text-outline" size={14} color={colors.primaryText} />
+                    <Text style={styles.pickFileText}>{isUk ? 'Вибрати .CSV' : 'Choose .CSV'}</Text>
+                  </Pressable>
+                )}
+              </View>
+
+              <Text style={styles.sectionDesc}>
+                {isUk
+                  ? 'Переносьте історію тренувань із Hevy або Strong без втрати даних — дублікати автоматично пропускаються.'
+                  : 'Migrate your workout history from Hevy or Strong safely — duplicate sessions are skipped automatically.'}
+              </Text>
+
+              <TextInput
+                value={csvInput}
+                onChangeText={setCsvInput}
+                placeholder="title,start_time,end_time,exercise_title,weight_kg,reps..."
+                placeholderTextColor={colors.muted}
+                multiline
+                numberOfLines={3}
+                style={styles.jsonInput}
+              />
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => applyCsvString(csvInput)}
+                style={styles.restoreBtn}
+              >
+                <Ionicons name="swap-horizontal-outline" size={17} color={colors.primaryText} />
+                <Text style={styles.restoreBtnText}>
+                  {isUk ? 'Імпортувати історію з CSV' : 'Import History from CSV'}
                 </Text>
               </Pressable>
             </View>

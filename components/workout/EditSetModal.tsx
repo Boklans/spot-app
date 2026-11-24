@@ -4,6 +4,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,13 +12,19 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { PlateCalculatorBar } from '@/components/workout/PlateCalculatorBar';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
+import { radii } from '@/constants/radii';
+import { fonts } from '@/constants/typography';
+import { isBarbellExercise, isPerHandExercise } from '@/lib/adaptiveProgression';
+import type { EquipmentId } from '@/lib/programGenerator';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 
 interface EditSetModalProps {
   visible: boolean;
   exerciseName: string;
+  equipment?: EquipmentId;
   setNumber: number;
   totalSets: number;
   isCompleted: boolean;
@@ -36,6 +43,7 @@ interface EditSetModalProps {
 export function EditSetModal({
   visible,
   exerciseName,
+  equipment,
   setNumber,
   totalSets,
   isCompleted,
@@ -59,6 +67,21 @@ export function EditSetModal({
   const [repsText, setRepsText] = useState('');
   const [selectedRir, setSelectedRir] = useState<number | null>(initialRir ?? null);
 
+  const isBarbell = useMemo(
+    () => isBarbellExercise(exerciseName, equipment),
+    [exerciseName, equipment]
+  );
+  const isPerHand = useMemo(
+    () => isPerHandExercise(exerciseName, equipment),
+    [exerciseName, equipment]
+  );
+  const [showPlateCalc, setShowPlateCalc] = useState(false);
+
+  const parsedDisplayWeight = useMemo(() => {
+    const n = parseFloat(weightText.replace(',', '.'));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, [weightText]);
+
   const weightInputRef = useRef<TextInputInstance>(null);
   const repsInputRef = useRef<TextInputInstance>(null);
 
@@ -68,6 +91,7 @@ export function EditSetModal({
       setWeightText(displayW > 0 ? String(Math.round(displayW * 10) / 10) : '0');
       setRepsText(String(initialReps ?? 8));
       setSelectedRir(initialRir ?? null);
+      setShowPlateCalc(isBarbell);
 
       // Auto-focus after modal transition
       const timer = setTimeout(() => {
@@ -79,7 +103,7 @@ export function EditSetModal({
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [visible, initialWeightKg, initialReps, initialRir, fromKg, initialFocusField]);
+  }, [visible, initialWeightKg, initialReps, initialRir, fromKg, initialFocusField, isBarbell]);
 
   const adjustWeightDelta = (delta: number) => {
     hapticLight();
@@ -128,6 +152,11 @@ export function EditSetModal({
       >
         <Pressable style={styles.backdrop} onPress={onClose} />
         <View style={styles.modalCard}>
+          <ScrollView
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
           {/* Header */}
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
@@ -149,16 +178,50 @@ export function EditSetModal({
               <Text numberOfLines={1} style={styles.exerciseTitle}>
                 {exerciseName}
               </Text>
+              {isPerHand && (
+                <Text style={styles.perHandHint}>
+                  {isUk
+                    ? 'Вводьте вагу однієї гантелі / на 1 руку'
+                    : 'Enter weight for one dumbbell / per hand'}
+                </Text>
+              )}
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              hitSlop={12}
-              onPress={onClose}
-              style={styles.closeBtn}
-            >
-              <Ionicons name="close" size={20} color="#8E99A8" />
-            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {parsedDisplayWeight > 0 && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle plate calculator"
+                  onPress={() => {
+                    hapticLight();
+                    setShowPlateCalc((prev) => !prev);
+                  }}
+                  style={[styles.plateToggleBtn, showPlateCalc && styles.plateToggleBtnActive]}
+                >
+                  <Ionicons
+                    name="disc-outline"
+                    size={14}
+                    color={showPlateCalc ? colors.activeChipText : colors.secondary}
+                  />
+                  <Text
+                    style={[
+                      styles.plateToggleText,
+                      showPlateCalc && styles.plateToggleTextActive,
+                    ]}
+                  >
+                    {isUk ? 'Млинці' : 'Plates'}
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                hitSlop={12}
+                onPress={onClose}
+                style={styles.closeBtn}
+              >
+                <Ionicons name="close" size={20} color={colors.secondary} />
+              </Pressable>
+            </View>
           </View>
 
           {/* Input Cards Grid */}
@@ -238,6 +301,16 @@ export function EditSetModal({
             </View>
           </View>
 
+          {/* Barbell Plate Calculator Visualizer */}
+          {showPlateCalc && parsedDisplayWeight > 0 && (
+            <PlateCalculatorBar
+              targetDisplayWeight={parsedDisplayWeight}
+              unit={unit}
+              exerciseName={exerciseName}
+              isUk={isUk}
+            />
+          )}
+
           {/* RIR (Reps in Reserve) Selector */}
           <View style={styles.rirSection}>
             <View style={styles.rirHeaderRow}>
@@ -307,6 +380,7 @@ export function EditSetModal({
               </Text>
             </Pressable>
           </View>
+          </ScrollView>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -327,6 +401,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 420,
+    maxHeight: '90%',
     backgroundColor: colors.surface,
     borderRadius: 22,
     borderWidth: 1,
@@ -371,10 +446,44 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     letterSpacing: 0.4,
   },
   exerciseTitle: {
+    fontFamily: fonts.bold,
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.text,
     letterSpacing: -0.3,
+  },
+  perHandHint: {
+    fontFamily: fonts.medium,
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: colors.primaryText,
+    marginTop: 2,
+  },
+  plateToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+    backgroundColor: colors.elevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  plateToggleBtnActive: {
+    backgroundColor: colors.activeChipBg,
+    borderColor: colors.activeChipBg,
+  },
+  plateToggleText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.secondary,
+  },
+  plateToggleTextActive: {
+    fontFamily: fonts.bold,
+    color: colors.activeChipText,
+    fontWeight: '700',
   },
   closeBtn: {
     width: 32,
@@ -383,7 +492,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
   },
   inputsRow: {
     flexDirection: 'row',

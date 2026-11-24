@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { generateProgram, resolveRestSeconds, type EquipmentId, type GeneratedExercise, type GeneratedWorkout } from '@/lib/programGenerator';
 import { findLatestExerciseSets, inferEquipmentFromName, practicalIncrement, recommendWeight, type WeightRecommendation } from '@/lib/adaptiveProgression';
+import { createWarmupWorkoutSets } from '@/lib/warmupGenerator';
 import type { CompletedWorkout, PersonalRecord, SetType } from '@/types/workout';
 import type { UserWorkout } from '@/types/userProgram';
 import { defaultOnboarding } from './workoutStore';
@@ -101,6 +102,7 @@ type WorkoutSessionState = {
   setCurrentSetIndex: (setIndex: number) => void;
   addSet: (exerciseIndex: number) => void;
   removeSet: (exerciseIndex: number) => void;
+  addWarmupSets: (exerciseIndex: number) => void;
   clearSession: () => void;
 };
 
@@ -891,6 +893,55 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
           currentExerciseIndex: newExerciseIndex,
           currentSetIndex: 0,
           exercises: [...state.session.exercises, createdExercise],
+        },
+      };
+    });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session) {
+      persistSnapshot({
+        session: state.session,
+        restEndsAt: state.restEndsAt,
+        restNextType: state.restNextType,
+      });
+    }
+  },
+
+  addWarmupSets: (exerciseIndex: number) => {
+    set((state) => {
+      if (!state.session) return state;
+      const targetEx = state.session.exercises[exerciseIndex];
+      if (!targetEx) return state;
+
+      // Prevent duplicate spam if warmup sets already exist on this exercise
+      if (targetEx.sets.some((s) => s.setType === 'warmup')) {
+        return state;
+      }
+
+      const firstWorkingSet = targetEx.sets.find((s) => s.setType !== 'warmup') ?? targetEx.sets[0];
+      const equipment = targetEx.equipment || inferEquipmentFromName(targetEx.name);
+      const warmups = createWarmupWorkoutSets({
+        workingWeightKg: firstWorkingSet?.weight ?? 0,
+        workingReps: firstWorkingSet?.reps ?? 8,
+        equipment,
+        exerciseName: targetEx.name,
+        exerciseIndex,
+      });
+
+      const nextExercises = state.session.exercises.map((ex, idx) =>
+        idx === exerciseIndex ? { ...ex, sets: [...warmups, ...ex.sets] } : ex
+      );
+
+      const isCurrentEx = state.session.currentExerciseIndex === exerciseIndex;
+      const updatedCurrentSetIndex = isCurrentEx ? 0 : state.session.currentSetIndex;
+
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          completed: false,
+          completedAt: undefined,
+          currentSetIndex: updatedCurrentSetIndex,
+          exercises: nextExercises,
         },
       };
     });

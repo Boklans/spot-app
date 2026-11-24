@@ -152,6 +152,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     safeInner: {
       maxHeight: '100%',
+      flexShrink: 1,
     },
     handleWrap: {
       alignItems: 'center',

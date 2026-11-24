@@ -21,6 +21,71 @@ export function isAssistedExercise(name: string): boolean {
   return lower.includes('assisted') || lower.includes('гравітрон') || lower.includes('gravitron');
 }
 
+/**
+ * Identifies unilateral / dumbbell exercises where lifters enter the weight of ONE hand/dumbbell.
+ */
+export function isPerHandExercise(name: string, equipment?: EquipmentId): boolean {
+  const lower = (name || '').toLowerCase();
+  if (isAssistedExercise(lower)) return false;
+  if (lower.includes('barbell') || lower.includes('штанга') || lower.includes('smith')) return false;
+  if (
+    lower.includes('single-arm') ||
+    lower.includes('single arm') ||
+    lower.includes('one-arm') ||
+    lower.includes('one arm') ||
+    lower.includes('однією рукою')
+  ) {
+    return true;
+  }
+  const resolved = equipment || inferEquipmentFromName(name);
+  if (resolved !== 'dumbbells') return false;
+  // Goblet squat / dumbbell pullover use a single shared dumbbell in both hands
+  if (lower.includes('goblet') || lower.includes('pullover') || lower.includes('кубков')) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Identifies barbell / plate-loaded lifts where a Barbell Plate Calculator is genuinely helpful.
+ */
+export function isBarbellExercise(name: string, equipment?: EquipmentId): boolean {
+  const lower = (name || '').toLowerCase();
+  if (isAssistedExercise(lower)) return false;
+  if (
+    lower.includes('dumbbell') ||
+    lower.includes('db ') ||
+    lower.includes('cable') ||
+    lower.includes('machine') ||
+    lower.includes('pulldown') ||
+    lower.includes('pushdown') ||
+    lower.includes('bodyweight') ||
+    lower.includes('push-up') ||
+    lower.includes('pull-up') ||
+    lower.includes('dip') ||
+    lower.includes('plank')
+  ) {
+    return false;
+  }
+  if (
+    lower.includes('barbell') ||
+    lower.includes('bench press') ||
+    lower.includes('squat') ||
+    lower.includes('deadlift') ||
+    lower.includes('overhead press') ||
+    lower.includes('military press') ||
+    lower.includes('hip thrust') ||
+    lower.includes('ez bar') ||
+    lower.includes('ez-bar') ||
+    lower.includes('leg press') ||
+    lower.includes('hack squat')
+  ) {
+    return true;
+  }
+  const resolved = equipment || inferEquipmentFromName(name);
+  return resolved === 'barbell';
+}
+
 export function inferEquipmentFromName(name: string, fallback: EquipmentId = 'barbell'): EquipmentId {
   const lower = (name || '').toLowerCase();
   if (isAssistedExercise(lower)) {
