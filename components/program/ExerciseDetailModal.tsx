@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ExerciseAnimationStage } from '@/components/exercises/animations/ExerciseAnimationStage';
 import { AnatomyPreview } from '@/components/progress/AnatomyPreview';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { SlidingSegmentedControl } from '@/components/ui/SlidingSegmentedControl';
@@ -8,6 +9,7 @@ import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/col
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
 import { isPerHandExercise } from '@/lib/adaptiveProgression';
+import { resolveExerciseAnimationId } from '@/lib/exerciseAnimations/registry';
 import { getExerciseDetails } from '@/lib/exerciseDetails';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
@@ -62,6 +64,11 @@ export function ExerciseDetailModal({
 
   const isPerHand = useMemo(
     () => isPerHandExercise(exerciseName, equipment as any),
+    [exerciseName, equipment]
+  );
+
+  const animationId = useMemo(
+    () => resolveExerciseAnimationId(exerciseName, equipment),
     [exerciseName, equipment]
   );
 
@@ -240,53 +247,100 @@ export function ExerciseDetailModal({
       >
         {activeTab === 'guide' ? (
           <>
-            {/* 1. Split Hero Visual: 3D Exercise Render + Target Anatomy */}
-            <View style={styles.heroRow}>
-              <View style={styles.heroImageCard}>
-                <Image
-                  source={getExerciseImage(exerciseName, customImageUri)}
-                  style={styles.heroImage}
-                  resizeMode="cover"
+            {/* 1. Hero Visual: Dedicated Full-Width Vector Animation (when available) OR 3D Render + Anatomy Split */}
+            {animationId ? (
+              <>
+                <ExerciseAnimationStage
+                  animationId={animationId}
+                  active={visible && activeTab === 'guide'}
                 />
-              </View>
 
-              <View style={styles.heroAnatomyCard}>
-                <Text style={styles.heroAnatomyLabel}>
-                  {isUk ? 'АНАТОМІЯ' : 'TARGET'}
-                </Text>
-                <AnatomyPreview
-                  muscles={anatomyMuscles}
-                  sex={profile.sex}
-                  height={132}
-                  showBack
-                />
-              </View>
-            </View>
+                {/* 2. Target Muscles Breakdown + Inline Compact Anatomy */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.animatedAnatomySplit}>
+                    <View style={styles.animatedMusclesCol}>
+                      <View style={styles.animatedMuscleBlock}>
+                        <Text style={styles.primaryBadgeLabelCompact}>
+                          {isUk ? 'Основні м’язи' : 'Primary'}
+                        </Text>
+                        <Text style={styles.anatomyTextLeft}>
+                          {isUk ? details.primaryMusclesUk : details.primaryMusclesEn}
+                        </Text>
+                      </View>
 
-            {/* 2. Target Muscles Breakdown */}
-            <View style={styles.sectionCard}>
-              <View style={styles.anatomyGroup}>
-                <View style={styles.anatomyBadgeRow}>
-                  <Text style={styles.primaryBadgeLabel}>
-                    {isUk ? 'Основні м’язи' : 'Primary'}
-                  </Text>
-                  <Text style={styles.anatomyText}>
-                    {isUk ? details.primaryMusclesUk : details.primaryMusclesEn}
-                  </Text>
+                      {Boolean(details.secondaryMusclesUk || details.secondaryMusclesEn) && (
+                        <View style={[styles.animatedMuscleBlock, styles.anatomyRowDivider]}>
+                          <Text style={styles.secondaryBadgeLabelCompact}>
+                            {isUk ? 'Допоміжні' : 'Secondary'}
+                          </Text>
+                          <Text style={styles.anatomyTextSecondaryLeft}>
+                            {isUk ? details.secondaryMusclesUk : details.secondaryMusclesEn}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.inlineAnatomyBox}>
+                      <AnatomyPreview
+                        muscles={anatomyMuscles}
+                        sex={profile.sex}
+                        height={92}
+                        showBack={false}
+                      />
+                    </View>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.heroRow}>
+                  <View style={styles.heroImageCard}>
+                    <Image
+                      source={getExerciseImage(exerciseName, customImageUri)}
+                      style={styles.heroImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+
+                  <View style={styles.heroAnatomyCard}>
+                    <Text style={styles.heroAnatomyLabel}>
+                      {isUk ? 'АНАТОМІЯ' : 'TARGET'}
+                    </Text>
+                    <AnatomyPreview
+                      muscles={anatomyMuscles}
+                      sex={profile.sex}
+                      height={132}
+                      showBack
+                    />
+                  </View>
                 </View>
 
-                {Boolean(details.secondaryMusclesUk || details.secondaryMusclesEn) && (
-                  <View style={[styles.anatomyBadgeRow, styles.anatomyRowDivider]}>
-                    <Text style={styles.secondaryBadgeLabel}>
-                      {isUk ? 'Допоміжні' : 'Secondary'}
-                    </Text>
-                    <Text style={styles.anatomyTextSecondary}>
-                      {isUk ? details.secondaryMusclesUk : details.secondaryMusclesEn}
-                    </Text>
+                {/* 2. Target Muscles Breakdown */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.anatomyGroup}>
+                    <View style={styles.anatomyBadgeRow}>
+                      <Text style={styles.primaryBadgeLabel}>
+                        {isUk ? 'Основні м’язи' : 'Primary'}
+                      </Text>
+                      <Text style={styles.anatomyText}>
+                        {isUk ? details.primaryMusclesUk : details.primaryMusclesEn}
+                      </Text>
+                    </View>
+
+                    {Boolean(details.secondaryMusclesUk || details.secondaryMusclesEn) && (
+                      <View style={[styles.anatomyBadgeRow, styles.anatomyRowDivider]}>
+                        <Text style={styles.secondaryBadgeLabel}>
+                          {isUk ? 'Допоміжні' : 'Secondary'}
+                        </Text>
+                        <Text style={styles.anatomyTextSecondary}>
+                          {isUk ? details.secondaryMusclesUk : details.secondaryMusclesEn}
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
-            </View>
+                </View>
+              </>
+            )}
 
             {/* 3. Dedicated Lyfta-Inspired PHYSIO TIP Callout */}
             {Boolean(details.safetyUk || details.safetyEn) && (
@@ -706,6 +760,50 @@ const createStyles = (colors: ThemeColors) =>
     },
     anatomyGroup: {
       gap: 10,
+    },
+    animatedAnatomySplit: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    animatedMusclesCol: {
+      flex: 1,
+      gap: 10,
+    },
+    animatedMuscleBlock: {
+      gap: 3,
+    },
+    primaryBadgeLabelCompact: {
+      fontFamily: fonts.medium,
+      color: colors.secondary,
+      fontSize: 11.5,
+      fontWeight: '500',
+    },
+    secondaryBadgeLabelCompact: {
+      fontFamily: fonts.medium,
+      color: colors.muted,
+      fontSize: 11.5,
+      fontWeight: '500',
+    },
+    anatomyTextLeft: {
+      fontFamily: fonts.semiBold,
+      color: colors.text,
+      fontSize: 13.5,
+      fontWeight: '600',
+    },
+    anatomyTextSecondaryLeft: {
+      fontFamily: fonts.medium,
+      color: colors.secondary,
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    inlineAnatomyBox: {
+      width: 64,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingLeft: 8,
+      borderLeftWidth: 1,
+      borderLeftColor: colors.divider,
     },
     anatomyBadgeRow: {
       flexDirection: 'row',
