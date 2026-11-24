@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ExerciseAnatomyStage } from '@/components/exercises/ExerciseAnatomyStage';
 import { AnatomyPreview } from '@/components/progress/AnatomyPreview';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { SlidingSegmentedControl } from '@/components/ui/SlidingSegmentedControl';
@@ -8,6 +9,7 @@ import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/col
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
 import { isPerHandExercise } from '@/lib/adaptiveProgression';
+import { getExerciseAnatomyVideo } from '@/lib/exerciseAnatomyVideos';
 import { getExerciseDetails } from '@/lib/exerciseDetails';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
@@ -62,6 +64,11 @@ export function ExerciseDetailModal({
 
   const isPerHand = useMemo(
     () => isPerHandExercise(exerciseName, equipment as any),
+    [exerciseName, equipment]
+  );
+
+  const anatomyVideo = useMemo(
+    () => getExerciseAnatomyVideo(exerciseName, equipment),
     [exerciseName, equipment]
   );
 
@@ -240,53 +247,63 @@ export function ExerciseDetailModal({
       >
         {activeTab === 'guide' ? (
           <>
-            {/* 1. Split Hero Visual: 3D Exercise Render + Target Anatomy */}
-            <View style={styles.heroRow}>
-              <View style={styles.heroImageCard}>
-                <Image
-                  source={getExerciseImage(exerciseName, customImageUri)}
-                  style={styles.heroImage}
-                  resizeMode="cover"
-                />
-              </View>
+            {/* 1. Hero Visual: Dedicated Full-Width 3D Muscular Anatomy Video (when available) OR 3D Render + Anatomy Split */}
+            {anatomyVideo ? (
+              <ExerciseAnatomyStage
+                spec={anatomyVideo}
+                defaultSex={profile.sex}
+                active={visible && activeTab === 'guide'}
+              />
+            ) : (
+              <>
+                <View style={styles.heroRow}>
+                  <View style={styles.heroImageCard}>
+                    <Image
+                      source={getExerciseImage(exerciseName, customImageUri)}
+                      style={styles.heroImage}
+                      resizeMode="cover"
+                    />
+                  </View>
 
-              <View style={styles.heroAnatomyCard}>
-                <Text style={styles.heroAnatomyLabel}>
-                  {isUk ? 'АНАТОМІЯ' : 'TARGET'}
-                </Text>
-                <AnatomyPreview
-                  muscles={anatomyMuscles}
-                  sex={profile.sex}
-                  height={132}
-                  showBack
-                />
-              </View>
-            </View>
-
-            {/* 2. Target Muscles Breakdown */}
-            <View style={styles.sectionCard}>
-              <View style={styles.anatomyGroup}>
-                <View style={styles.anatomyBadgeRow}>
-                  <Text style={styles.primaryBadgeLabel}>
-                    {isUk ? 'Основні м’язи' : 'Primary'}
-                  </Text>
-                  <Text style={styles.anatomyText}>
-                    {isUk ? details.primaryMusclesUk : details.primaryMusclesEn}
-                  </Text>
+                  <View style={styles.heroAnatomyCard}>
+                    <Text style={styles.heroAnatomyLabel}>
+                      {isUk ? 'АНАТОМІЯ' : 'TARGET'}
+                    </Text>
+                    <AnatomyPreview
+                      muscles={anatomyMuscles}
+                      sex={profile.sex}
+                      height={132}
+                      showBack
+                    />
+                  </View>
                 </View>
 
-                {Boolean(details.secondaryMusclesUk || details.secondaryMusclesEn) && (
-                  <View style={[styles.anatomyBadgeRow, styles.anatomyRowDivider]}>
-                    <Text style={styles.secondaryBadgeLabel}>
-                      {isUk ? 'Допоміжні' : 'Secondary'}
-                    </Text>
-                    <Text style={styles.anatomyTextSecondary}>
-                      {isUk ? details.secondaryMusclesUk : details.secondaryMusclesEn}
-                    </Text>
+                {/* 2. Target Muscles Breakdown */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.anatomyGroup}>
+                    <View style={styles.anatomyBadgeRow}>
+                      <Text style={styles.primaryBadgeLabel}>
+                        {isUk ? 'Основні м’язи' : 'Primary'}
+                      </Text>
+                      <Text style={styles.anatomyText}>
+                        {isUk ? details.primaryMusclesUk : details.primaryMusclesEn}
+                      </Text>
+                    </View>
+
+                    {Boolean(details.secondaryMusclesUk || details.secondaryMusclesEn) && (
+                      <View style={[styles.anatomyBadgeRow, styles.anatomyRowDivider]}>
+                        <Text style={styles.secondaryBadgeLabel}>
+                          {isUk ? 'Допоміжні' : 'Secondary'}
+                        </Text>
+                        <Text style={styles.anatomyTextSecondary}>
+                          {isUk ? details.secondaryMusclesUk : details.secondaryMusclesEn}
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
-            </View>
+                </View>
+              </>
+            )}
 
             {/* 3. Dedicated Lyfta-Inspired PHYSIO TIP Callout */}
             {Boolean(details.safetyUk || details.safetyEn) && (
