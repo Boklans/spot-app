@@ -25,7 +25,7 @@ import { defaultOnboarding, loadOnboarding, saveOnboarding } from '@/store/worko
 import type { UserExercise, UserProgram, UserWorkout } from '@/types/userProgram';
 
 export default function ProgramEdit() {
-  const { t, tm, td, language } = useI18n();
+  const { t, tm, td, te, tq, language } = useI18n();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const activeProgram = useProgramStore((state) => state.program);
@@ -532,10 +532,10 @@ export default function ProgramEdit() {
                           </Text>
                         </View>
                       )}
-                      <Text style={styles.exerciseTitle}>{exercise.name}</Text>
+                      <Text style={styles.exerciseTitle}>{te(exercise.name)}</Text>
                     </View>
                     <Text style={styles.exerciseMuscle}>
-                      {tm(exercise.muscleGroup)}  •  {exercise.equipment}
+                      {tm(exercise.muscleGroup)} · {tq(exercise.equipment)}
                     </Text>
                   </View>
 

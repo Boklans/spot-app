@@ -27,7 +27,7 @@ export function isAssistedExercise(name: string): boolean {
 export function isPerHandExercise(name: string, equipment?: EquipmentId): boolean {
   const lower = (name || '').toLowerCase();
   if (isAssistedExercise(lower)) return false;
-  if (lower.includes('barbell') || lower.includes('штанга') || lower.includes('smith')) return false;
+  if (lower.includes('barbell') || lower.includes('штанг') || lower.includes('smith') || lower.includes('сміт')) return false;
   if (
     lower.includes('single-arm') ||
     lower.includes('single arm') ||
@@ -35,6 +35,10 @@ export function isPerHandExercise(name: string, equipment?: EquipmentId): boolea
     lower.includes('one arm') ||
     lower.includes('однією рукою')
   ) {
+    return true;
+  }
+  if (lower.includes('гантел')) {
+    if (lower.includes('кубков') || lower.includes('пуловер')) return false;
     return true;
   }
   const resolved = equipment || inferEquipmentFromName(name);
@@ -55,8 +59,11 @@ export function isBarbellExercise(name: string, equipment?: EquipmentId): boolea
   if (
     lower.includes('dumbbell') ||
     lower.includes('db ') ||
+    lower.includes('гантел') ||
     lower.includes('cable') ||
+    lower.includes('блок') ||
     lower.includes('machine') ||
+    lower.includes('тренажер') ||
     lower.includes('pulldown') ||
     lower.includes('pushdown') ||
     lower.includes('bodyweight') ||
@@ -69,15 +76,21 @@ export function isBarbellExercise(name: string, equipment?: EquipmentId): boolea
   }
   if (
     lower.includes('barbell') ||
+    lower.includes('штанг') ||
     lower.includes('bench press') ||
+    lower.includes('жим лежачи') ||
     lower.includes('squat') ||
+    lower.includes('присідан') ||
     lower.includes('deadlift') ||
+    lower.includes('станова') ||
+    lower.includes('румунська') ||
     lower.includes('overhead press') ||
     lower.includes('military press') ||
     lower.includes('hip thrust') ||
     lower.includes('ez bar') ||
     lower.includes('ez-bar') ||
     lower.includes('leg press') ||
+    lower.includes('жим ногами') ||
     lower.includes('hack squat')
   ) {
     return true;

@@ -136,7 +136,7 @@ export function EditSetModal({
     onClose();
   };
 
-  const weightChips = unit === 'lbs' ? [-5, -1, 1, 5] : [-2.5, -0.5, 0.5, 2.5];
+  const weightChips = unit === 'lbs' ? [-5, -2.5, 2.5, 5] : [-5, -2.5, 2.5, 5];
   const repsChips = [-2, -1, 1, 2];
 
   return (
@@ -332,7 +332,7 @@ export function EditSetModal({
 
             <View style={styles.rirChipsRow}>
               {[
-                { val: 0, label: isUk ? '0 Відмова' : '0 Fail' },
+                { val: 0, label: isUk ? '0 Відм.' : '0 Fail' },
                 { val: 1, label: '1 RIR' },
                 { val: 2, label: '2 RIR' },
                 { val: 3, label: '3+ RIR' },
@@ -347,7 +347,10 @@ export function EditSetModal({
                     }}
                     style={[styles.rirChip, active && styles.rirChipActive]}
                   >
-                    <Text style={[styles.rirChipText, active && styles.rirChipTextActive]}>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.rirChipText, active && styles.rirChipTextActive]}
+                    >
                       {item.label}
                     </Text>
                   </Pressable>
@@ -531,22 +534,28 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   chipsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 6,
+    flexWrap: 'nowrap',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 4,
   },
   chipBtn: {
+    flex: 1,
     backgroundColor: colors.elevated,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 2,
+    paddingVertical: 6,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chipText: {
+    fontFamily: fonts.bold,
     color: colors.text,
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   actionsRow: {
     flexDirection: 'row',

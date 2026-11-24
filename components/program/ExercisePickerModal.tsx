@@ -45,7 +45,7 @@ export function ExercisePickerModal({
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, Platform.OS === 'ios' ? 52 : (StatusBar.currentHeight ?? 24));
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { tm, te, language } = useI18n();
+  const { tm, te, tq, language } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroupFilter>((initialMuscle as MuscleGroupFilter) || 'All');
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
@@ -74,20 +74,23 @@ export function ExercisePickerModal({
       const translatedName = translateExercise(item.name, language).toLowerCase();
       const translatedMuscle = tm(item.muscleGroup).toLowerCase();
 
+      const translatedEquipment = tq(item.equipment).toLowerCase();
+
       const matchesSearch =
         !query ||
         item.name.toLowerCase().includes(query) ||
         translatedName.includes(query) ||
         item.muscleGroup.toLowerCase().includes(query) ||
         translatedMuscle.includes(query) ||
-        item.equipment.toLowerCase().includes(query);
+        item.equipment.toLowerCase().includes(query) ||
+        translatedEquipment.includes(query);
 
       const matchesMuscle =
         selectedMuscle === 'All' || item.muscleGroup === selectedMuscle;
 
       return matchesSearch && matchesMuscle;
     });
-  }, [combinedLibrary, searchQuery, selectedMuscle, language, tm]);
+  }, [combinedLibrary, searchQuery, selectedMuscle, language, tm, tq]);
 
   const handleSelect = (exercise: LibraryExercise) => {
     hapticImpact();
@@ -271,7 +274,7 @@ export function ExercisePickerModal({
                           )}
                         </View>
                         <Text style={styles.exerciseMeta}>
-                          {tm(item.muscleGroup)} • {item.equipment}
+                          {tm(item.muscleGroup)} · {tq(item.equipment)}
                         </Text>
                       </View>
                     </View>

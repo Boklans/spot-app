@@ -64,7 +64,8 @@ export function formatVolumeWithUnit(volumeInKg: number, unit?: WeightUnit): str
 
 export function useWeightUnit() {
   const unit = useUserProfileStore((s) => s.profile.weightUnit) ?? 'kg';
-  const unitLabel = unit.toUpperCase();
+  const language = useUserProfileStore((s) => s.profile.language) ?? 'en';
+  const unitLabel = unit === 'lbs' ? 'lb' : language === 'uk' ? 'кг' : 'kg';
 
   const format = useCallback((weightInKg: number) => {
     const val = convertWeightToActiveUnit(weightInKg, unit);

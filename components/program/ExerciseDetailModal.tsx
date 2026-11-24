@@ -41,7 +41,7 @@ export function ExerciseDetailModal({
 }: ExerciseDetailModalProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { te, tm, tw, language } = useI18n();
+  const { te, tm, tw, tq, language } = useI18n();
   const { unitLabel, fromKg, formatVolume } = useWeightUnit();
   const isUk = language === 'uk';
 
@@ -183,7 +183,7 @@ export function ExerciseDetailModal({
           <View style={styles.kickerRow}>
             <Text style={styles.headerKickerText}>
               {tm(muscleGroup || 'Full Body')}
-              {equipment ? ` · ${equipment}` : ''}
+              {equipment ? ` · ${tq(equipment)}` : ''}
             </Text>
             {isPerHand && (
               <View style={styles.perHandBadge}>
@@ -219,7 +219,7 @@ export function ExerciseDetailModal({
           value={activeTab}
           onChange={setActiveTab}
           options={[
-            { key: 'guide', label: isUk ? 'Техніка та Physio' : 'Guide & Physio' },
+            { key: 'guide', label: isUk ? 'Техніка' : 'Guide' },
             {
               key: 'history',
               label:
@@ -257,7 +257,7 @@ export function ExerciseDetailModal({
                 <AnatomyPreview
                   muscles={anatomyMuscles}
                   sex={profile.sex}
-                  height={118}
+                  height={132}
                   showBack
                 />
               </View>
@@ -300,7 +300,7 @@ export function ExerciseDetailModal({
                 <View style={styles.physioHeaderRow}>
                   <Ionicons name="shield-checkmark-outline" size={16} color={physioAccent} />
                   <Text style={[styles.physioEyebrow, { color: physioAccent }]}>
-                    {isUk ? 'PHYSIO TIP · БЕЗПЕКА СУГЛОБІВ' : 'PHYSIO TIP · JOINT SAFETY'}
+                    {isUk ? 'ПОРАДА ФІЗІОТЕРАПЕВТА · БЕЗПЕКА СУГЛОБІВ' : 'PHYSIO TIP · JOINT SAFETY'}
                   </Text>
                 </View>
                 <Text style={styles.physioBody}>
@@ -615,7 +615,7 @@ const createStyles = (colors: ThemeColors) =>
     heroRow: {
       flexDirection: 'row',
       gap: 10,
-      height: 162,
+      height: 174,
     },
     heroImageCard: {
       flex: 1.2,

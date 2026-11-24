@@ -431,6 +431,12 @@ export default function Progress() {
     ALL: language === 'uk' ? 'За весь час' : 'All time',
   };
 
+  const periodCompactLabels: Record<ProgressPeriod, string> = {
+    '7D': language === 'uk' ? '7 дн.' : '7D',
+    '30D': language === 'uk' ? '30 дн.' : '30D',
+    ALL: language === 'uk' ? 'Весь час' : 'All',
+  };
+
   const daysMap: Record<ProgressPeriod, number> = { '7D': 7, '30D': 30, ALL: 365 };
   const bodyStats = getBodyWeightStats(daysMap[period] ?? 30);
   const avgMuscleChange =
@@ -466,7 +472,9 @@ export default function Progress() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* 1. Header with Journal Link & Period Dropdown */}
       <View style={styles.header}>
-        <Text style={styles.title}>{t('analytics')}</Text>
+        <Text style={styles.title} numberOfLines={1}>
+          {t('analytics')}
+        </Text>
         <View style={styles.headerActionsRow}>
           <Pressable
             accessibilityRole="button"
@@ -477,8 +485,8 @@ export default function Progress() {
             }}
             style={({ pressed }) => [styles.historyHeaderBtn, pressed && { opacity: 0.7 }]}
           >
-            <Ionicons name="time-outline" size={15} color={colors.text} />
-            <Text style={styles.historyHeaderBtnText}>
+            <Ionicons name="time-outline" size={14} color={colors.text} />
+            <Text style={styles.historyHeaderBtnText} numberOfLines={1}>
               {language === 'uk' ? 'Журнал' : 'History'}
               {history.length > 0 ? ` (${history.length})` : ''}
             </Text>
@@ -493,8 +501,10 @@ export default function Progress() {
             }}
             style={styles.dropdownBtn}
           >
-            <Text style={styles.dropdownBtnText}>{periodLabels[period]}</Text>
-            <Ionicons name="chevron-down" size={13} color="#8E959F" style={{ marginLeft: 4 }} />
+            <Text style={styles.dropdownBtnText} numberOfLines={1}>
+              {periodCompactLabels[period]}
+            </Text>
+            <Ionicons name="chevron-down" size={13} color={colors.secondary} />
           </Pressable>
         </View>
       </View>
@@ -1494,6 +1504,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
     paddingHorizontal: 20,
     paddingTop: 6,
     paddingBottom: 10,
@@ -1501,13 +1512,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   headerActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexShrink: 0,
   },
   historyHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 11,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: radii.sm,
     backgroundColor: colors.surface,
@@ -1519,19 +1531,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
     fontSize: 12,
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   title: {
     fontFamily: fonts.bold,
     color: colors.text,
-    fontSize: 27,
+    fontSize: 24,
     fontWeight: '700',
-    letterSpacing: -0.5,
+    letterSpacing: -0.45,
+    flexShrink: 1,
   },
   dropdownBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: radii.sm,
     backgroundColor: colors.surface,

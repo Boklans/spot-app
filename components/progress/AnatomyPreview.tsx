@@ -69,15 +69,17 @@ export function AnatomyPreview({
 
   const palette = colors.isDark
     ? {
-        structural: '#1C222B',
-        hair: '#151920',
-        inactive: '#262E3A',
+        structural: '#202631',
+        structuralOutline: 'rgba(255, 255, 255, 0.14)',
+        hair: '#181D26',
+        inactive: '#303949',
         activeTop: '#D9FF66',
         activeBot: '#A8E619',
         stroke: 'rgba(9, 11, 14, 0.55)',
       }
     : {
         structural: '#E2E8F0',
+        structuralOutline: 'rgba(15, 23, 42, 0.16)',
         hair: '#CBD5E1',
         inactive: '#CFD9E6',
         activeTop: '#22C55E',
@@ -134,6 +136,8 @@ export function AnatomyPreview({
                     key={`${slug}-${i}`}
                     d={d}
                     fill={slug === 'hair' ? palette.hair : palette.structural}
+                    stroke={palette.structuralOutline}
+                    strokeWidth={1.2}
                   />
                 ))}
               </G>
@@ -142,7 +146,7 @@ export function AnatomyPreview({
 
           const isActive = activeSet.has(muscleKey);
           return (
-            <G key={slug} opacity={isActive ? 1 : 0.78}>
+            <G key={slug} opacity={isActive ? 1 : 0.88}>
               {allPaths.map((d, i) => (
                 <Path
                   key={`${slug}-${i}`}

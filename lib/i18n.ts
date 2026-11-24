@@ -895,6 +895,21 @@ export function translateWorkoutName(name?: string, lang: AppLanguage = 'en'): s
   return clean;
 }
 
+export function translateEquipment(equipment?: string, lang: AppLanguage = 'en'): string {
+  if (!equipment) return '';
+  const lower = equipment.trim().toLowerCase();
+  const isUk = lang === 'uk';
+  if (lower === 'barbell') return isUk ? 'Штанга' : 'Barbell';
+  if (lower === 'dumbbells' || lower === 'dumbbell') return isUk ? 'Гантелі' : 'Dumbbells';
+  if (lower === 'machines' || lower === 'machine') return isUk ? 'Тренажер' : 'Machine';
+  if (lower === 'cables' || lower === 'cable') return isUk ? 'Блок' : 'Cable';
+  if (lower === 'bodyweight') return isUk ? 'Власна вага' : 'Bodyweight';
+  if (lower === 'kettlebell' || lower === 'kettlebells') return isUk ? 'Гиря' : 'Kettlebell';
+  if (lower === 'bands' || lower === 'band') return isUk ? 'Резинка' : 'Bands';
+  if (lower === 'full_gym' || lower === 'gym') return isUk ? 'Зал' : 'Full Gym';
+  return equipment;
+}
+
 export function useI18n() {
   const language = useUserProfileStore((state) => state.profile.language) ?? 'en';
   const t = useCallback((key: TranslationKey): string => getTranslation(key, language), [language]);
@@ -902,5 +917,6 @@ export function useI18n() {
   const td = useCallback((day?: string): string => formatDayLabel(day, language), [language]);
   const te = useCallback((exercise?: string): string => translateExercise(exercise, language), [language]);
   const tw = useCallback((workout?: string): string => translateWorkoutName(workout, language), [language]);
-  return { t, tm, td, te, tw, language };
+  const tq = useCallback((equipment?: string): string => translateEquipment(equipment, language), [language]);
+  return { t, tm, td, te, tw, tq, language };
 }

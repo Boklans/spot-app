@@ -63,7 +63,14 @@ export const STANDARD_PLATES: Record<PlateUnit, PlateSpec[]> = {
 
 export function getDefaultBarWeight(unit: PlateUnit, exerciseName?: string): number {
   const lower = (exerciseName || '').toLowerCase();
-  if (lower.includes('ez bar') || lower.includes('ez-bar') || lower.includes('curl') || lower.includes('skullcrusher')) {
+  if (
+    lower.includes('ez bar') ||
+    lower.includes('ez-bar') ||
+    lower.includes('curl') ||
+    lower.includes('згинання') ||
+    lower.includes('skullcrusher') ||
+    lower.includes('французьк')
+  ) {
     return unit === 'lbs' ? 25 : 10;
   }
   return unit === 'lbs' ? 45 : 20;

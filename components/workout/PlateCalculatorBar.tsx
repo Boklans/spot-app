@@ -21,8 +21,8 @@ interface PlateCalculatorBarProps {
 }
 
 /**
- * Compact, gym-floor Barbell Plate Visualizer showing exact plates per side
- * with IPF-inspired color coding and selectable bar weight (20/15/10 kg or 45/35/25 lb).
+ * Gym-floor Barbell Plate Visualizer with labeled IPF-colored plates on the sleeve,
+ * selectable bar weight (20/15/10 kg or 45/35/25 lb), and scannable per-side badges.
  */
 export function PlateCalculatorBar({
   targetDisplayWeight,
@@ -43,6 +43,7 @@ export function PlateCalculatorBar({
 
   const barOptions = BAR_WEIGHT_OPTIONS[unit];
   const summaryText = formatPlateSummary(result, isUk);
+  const unitText = unit === 'lbs' ? 'lb' : isUk ? 'кг' : 'kg';
 
   return (
     <View style={styles.wrap}>
@@ -72,43 +73,79 @@ export function PlateCalculatorBar({
         </View>
       </View>
 
-      {/* Visual Barbell Sleeve (Half-Bar Representation) */}
+      {/* Visual Barbell Sleeve with Labeled Plates */}
       <View style={styles.barVisualRow}>
         <View style={styles.shaft} />
         <View style={styles.collar} />
         <View style={styles.sleeveWrap}>
           <View style={styles.sleeveBar} />
           <View style={styles.platesRow}>
-            {result.sleevePlates.slice(0, 10).map((plate, idx) => (
-              <View
-                key={`${plate.weight}-${idx}`}
-                style={[
-                  styles.plateBlock,
-                  {
-                    backgroundColor: plate.color,
-                    height: Math.round(36 * plate.heightRatio),
-                    width: plate.thickness,
-                  },
-                ]}
-              />
-            ))}
+            {result.sleevePlates.slice(0, 7).map((plate, idx) => {
+              const plateHeight = Math.max(24, Math.round(48 * plate.heightRatio));
+              const plateWidth = plate.weight >= 10 ? 24 : plate.weight >= 5 ? 21 : 24;
+              return (
+                <View
+                  key={`${plate.weight}-${idx}`}
+                  style={[
+                    styles.plateBlock,
+                    {
+                      backgroundColor: plate.color,
+                      height: plateHeight,
+                      width: plateWidth,
+                    },
+                  ]}
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.plateBlockText,
+                      {
+                        color: plate.textColor,
+                        fontSize: plate.weight === 1.25 || plate.weight === 2.5 ? 8.5 : 10,
+                      },
+                    ]}
+                  >
+                    {plate.weight}
+                  </Text>
+                </View>
+              );
+            })}
+            {result.sleevePlates.length > 7 && (
+              <View style={styles.overflowBadge}>
+                <Text style={styles.overflowText}>+{result.sleevePlates.length - 7}</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
 
-      {/* Per-side breakdown + remainder warning */}
-      <View style={styles.summaryRow}>
-        <Text style={styles.summaryText} numberOfLines={2}>
-          {summaryText}
-        </Text>
-        {result.remainderPerSide > 0 && (
-          <Text style={styles.remainderText}>
-            {isUk
-              ? `≈ ${result.achievableTotal} ${unit === 'lbs' ? 'lb' : 'кг'}`
-              : `≈ ${result.achievableTotal} ${unit}`}
+      {/* Per-side color-coded pills + total breakdown */}
+      {result.perSide.length > 0 ? (
+        <View style={styles.badgesWrap}>
+          {result.perSide.map((item) => (
+            <View key={item.weight} style={styles.platePill}>
+              <View style={[styles.platePillDot, { backgroundColor: item.spec.color }]} />
+              <Text style={styles.platePillText}>
+                {item.count > 1 ? `${item.count}×${item.weight}` : `${item.weight}`} {unitText}
+              </Text>
+            </View>
+          ))}
+          <Text style={styles.perSideSuffix}>
+            {isUk ? 'на сторону' : 'per side'}
           </Text>
-        )}
-      </View>
+          {result.remainderPerSide > 0 && (
+            <Text style={styles.remainderText}>
+              ≈ {result.achievableTotal} {unitText}
+            </Text>
+          )}
+        </View>
+      ) : (
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryText} numberOfLines={2}>
+            {summaryText}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -143,7 +180,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     barChip: {
       paddingHorizontal: 7,
-      paddingVertical: 3,
+      paddingVertical: 3.5,
       borderRadius: 6,
       backgroundColor: colors.surface,
       borderWidth: 1,
@@ -168,48 +205,105 @@ const createStyles = (colors: ThemeColors) =>
     barVisualRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      height: 40,
-      paddingHorizontal: 4,
+      height: 52,
+      paddingHorizontal: 2,
     },
     shaft: {
-      width: 46,
-      height: 6,
-      borderTopLeftRadius: 3,
-      borderBottomLeftRadius: 3,
+      width: 34,
+      height: 7,
+      borderTopLeftRadius: 3.5,
+      borderBottomLeftRadius: 3.5,
       backgroundColor: colors.isDark ? '#4B5563' : '#94A3B8',
     },
     collar: {
-      width: 7,
-      height: 18,
-      borderRadius: 2,
+      width: 8,
+      height: 22,
+      borderRadius: 2.5,
       backgroundColor: colors.isDark ? '#6B7280' : '#64748B',
     },
     sleeveWrap: {
       flex: 1,
-      height: 40,
+      height: 52,
       justifyContent: 'center',
       position: 'relative',
     },
     sleeveBar: {
       position: 'absolute',
       left: 0,
-      right: 10,
-      height: 10,
-      borderTopRightRadius: 3,
-      borderBottomRightRadius: 3,
-      backgroundColor: colors.isDark ? '#374151' : '#CBD5E1',
+      right: 6,
+      height: 11,
+      borderTopRightRadius: 3.5,
+      borderBottomRightRadius: 3.5,
+      backgroundColor: colors.isDark ? '#2F3744' : '#CBD5E1',
     },
     platesRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 2.5,
-      paddingLeft: 3,
+      gap: 3,
+      paddingLeft: 4,
       zIndex: 1,
     },
     plateBlock: {
-      borderRadius: 2.5,
-      borderWidth: 0.5,
-      borderColor: 'rgba(0,0,0,0.28)',
+      borderRadius: 4,
+      borderWidth: 0.75,
+      borderColor: 'rgba(0,0,0,0.3)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    plateBlockText: {
+      fontFamily: fonts.extraBold,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+      includeFontPadding: false,
+    },
+    overflowBadge: {
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+      borderRadius: 4,
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    overflowText: {
+      fontFamily: fonts.bold,
+      fontSize: 10,
+      fontWeight: '700',
+      color: colors.secondary,
+    },
+    badgesWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: 6,
+    },
+    platePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radii.pill,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    platePillDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 3.5,
+    },
+    platePillText: {
+      fontFamily: fonts.bold,
+      fontSize: 11.5,
+      fontWeight: '700',
+      color: colors.text,
+      fontVariant: ['tabular-nums'],
+    },
+    perSideSuffix: {
+      fontFamily: fonts.medium,
+      fontSize: 11.5,
+      fontWeight: '500',
+      color: colors.secondary,
     },
     summaryRow: {
       flexDirection: 'row',
@@ -221,7 +315,7 @@ const createStyles = (colors: ThemeColors) =>
       fontFamily: fonts.semiBold,
       fontSize: 12,
       fontWeight: '600',
-      color: colors.text,
+      color: colors.secondary,
       flex: 1,
       fontVariant: ['tabular-nums'],
     },

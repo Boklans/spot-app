@@ -36,7 +36,7 @@ export function ExerciseLibraryModal({
 }: ExerciseLibraryModalProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { t, tm, te, language } = useI18n();
+  const { t, tm, te, tq, language } = useI18n();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
@@ -209,7 +209,7 @@ export function ExerciseLibraryModal({
                       )}
                     </View>
                     <Text style={styles.exerciseMeta}>
-                      {tm(item.muscleGroup)} • {item.equipment} • {t('base')} {item.defaultWeight} {t('kg')}
+                      {tm(item.muscleGroup)} · {tq(item.equipment)} · {t('base')} {item.defaultWeight} {t('kg')}
                     </Text>
                   </View>
                 </View>

@@ -40,7 +40,7 @@ export function WorkoutEditorModal({
 }: WorkoutEditorModalProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { t, tm, td, te, tw, language } = useI18n();
+  const { t, tm, td, te, tw, tq, language } = useI18n();
   const [workoutName, setWorkoutName] = useState(workout ? tw(workout.name) : '');
   const [dayLabel, setDayLabel] = useState(workout?.dayLabel || 'MON');
   const [exercises, setExercises] = useState<UserExercise[]>(workout?.exercises ?? []);
@@ -335,11 +335,11 @@ export function WorkoutEditorModal({
                                 />
                               </View>
                               <View style={styles.exerciseHeaderInfo}>
-                                <Text style={styles.exerciseRowName} numberOfLines={1}>
+                                <Text style={styles.exerciseRowName} numberOfLines={2}>
                                   {te(ex.name)}
                                 </Text>
-                                <Text style={styles.exerciseRowMeta}>
-                                  {tm(ex.muscleGroup)} • {ex.equipment}
+                                <Text style={styles.exerciseRowMeta} numberOfLines={1}>
+                                  {tm(ex.muscleGroup)} · {tq(ex.equipment)}
                                 </Text>
                               </View>
                             </View>
@@ -592,8 +592,10 @@ export function WorkoutEditorModal({
                                 </Pressable>
                                 <Text style={styles.stepperValue} numberOfLines={1}>
                                   {(ex.restSeconds ?? 90) === 0
-                                    ? (language === 'uk' ? '0s Суперсет' : '0s Superset')
-                                    : `${ex.restSeconds ?? 90}s`}
+                                    ? (language === 'uk' ? '0с Супер.' : '0s Superset')
+                                    : language === 'uk'
+                                      ? `${ex.restSeconds ?? 90}с`
+                                      : `${ex.restSeconds ?? 90}s`}
                                 </Text>
                                 <Pressable
                                   accessibilityRole="button"
@@ -613,14 +615,14 @@ export function WorkoutEditorModal({
                             </View>
                           </View>
 
-                          {/* Quick Rest Presets (0s Суперсет, 15s, 60s, 90s, 120s) */}
+                          {/* Quick Rest Presets (0с Суперсет, 15с, 60с, 90с, 120с) */}
                           <View style={styles.quickRestRow}>
                             {[
-                              { sec: 0, labelUk: '0s (Суперсет)', labelEn: '0s (Superset)' },
-                              { sec: 15, labelUk: '15s', labelEn: '15s' },
-                              { sec: 60, labelUk: '60s', labelEn: '60s' },
-                              { sec: 90, labelUk: '90s', labelEn: '90s' },
-                              { sec: 120, labelUk: '120s', labelEn: '120s' },
+                              { sec: 0, labelUk: '0с (Суперсет)', labelEn: '0s (Superset)' },
+                              { sec: 15, labelUk: '15с', labelEn: '15s' },
+                              { sec: 60, labelUk: '60с', labelEn: '60s' },
+                              { sec: 90, labelUk: '90с', labelEn: '90s' },
+                              { sec: 120, labelUk: '120с', labelEn: '120s' },
                             ].map((preset) => {
                               const isCurrent = (ex.restSeconds ?? 90) === preset.sec;
                               return (
@@ -871,6 +873,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     flex: 1,
+    paddingRight: 8,
   },
   exerciseHeaderInfo: {
     flex: 1,
@@ -907,6 +910,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: colors.text,
+    lineHeight: 19,
   },
   exerciseRowMeta: {
     fontSize: 12,

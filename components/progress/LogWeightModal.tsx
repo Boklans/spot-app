@@ -111,7 +111,9 @@ export function LogWeightModal({ visible, onClose, onSaved }: LogWeightModalProp
                   selectTextOnFocus
                   maxLength={6}
                 />
-                <Text style={styles.weightUnit}>{isLbs ? 'LBS' : 'KG'}</Text>
+                <Text style={styles.weightUnit}>
+                  {isLbs ? 'LBS' : language === 'uk' ? 'КГ' : 'KG'}
+                </Text>
               </View>
 
               {/* Quick Steppers */}
