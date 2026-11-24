@@ -53,8 +53,7 @@
           "enableBackgroundRecording": false,
           "enableBackgroundPlayback": false
         }
-      ],
-      "expo-video"
+      ]
     ],
     "experiments": {
       "typedRoutes": true

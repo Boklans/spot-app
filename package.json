@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "build:web": "expo export -p web && node scripts/prepare-web.js",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/verify-rotation.js && node scripts/verify-workout-logging.js && node scripts/verify-progression.js && node scripts/verify-female-programming.js && node scripts/verify-theme-system.js && node scripts/verify-gym-pro.js && node scripts/verify-3d-anatomy.js",
+    "test": "node scripts/verify-rotation.js && node scripts/verify-workout-logging.js && node scripts/verify-progression.js && node scripts/verify-female-programming.js && node scripts/verify-theme-system.js && node scripts/verify-gym-pro.js",
     "postinstall": "node scripts/patch-expo-notifications.js"
   },
   "dependencies": {
@@ -31,7 +31,6 @@
     "expo-notifications": "~58.1.6",
     "expo-router": "~58.0.26",
     "expo-splash-screen": "~58.0.11",
-    "expo-video": "~58.0.14",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.0",
