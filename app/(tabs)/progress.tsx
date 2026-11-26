@@ -1129,7 +1129,9 @@ export default function Progress() {
                     },
                   ]}
                 >
-                  {bodyStats.deltaWeight > 0 ? `+${bodyStats.deltaWeight}` : bodyStats.deltaWeight}
+                  {bodyStats.deltaWeight > 0
+                    ? `+${formatWeight(fromKg(bodyStats.deltaWeight))}`
+                    : formatWeight(fromKg(bodyStats.deltaWeight))}
                 </Text>
                 <Text style={styles.statLabel}>
                   {language === 'uk' ? 'Динаміка' : 'Change'} ({period})

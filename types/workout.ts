@@ -7,6 +7,11 @@ export type PersonalRecord = {
   exerciseName: string;
   value: number;
   label: string;
+  weightKg?: number;
+  reps?: number;
+  oneRepMaxKg?: number;
+  isAssisted?: boolean;
+  isBodyweight?: boolean;
 };
 
 export type SetType = 'normal' | 'warmup' | 'dropset' | 'failure';
@@ -42,4 +47,5 @@ export type CompletedWorkout = {
   totalVolume: number;
   exercises: CompletedExercise[];
   personalRecords: PersonalRecord[];
+  updatedAt?: string;
 };

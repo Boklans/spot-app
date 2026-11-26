@@ -21,6 +21,7 @@ import { inferEquipmentFromName, isAssistedExercise, recommendWeight } from '@/l
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { formatPersonalRecordLabel } from '@/lib/personalRecords';
 import { useWeightUnit } from '@/lib/weightUtils';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { getSessionSummary, useWorkoutSessionStore } from '@/store/workoutSessionStore';
@@ -34,7 +35,7 @@ export default function Complete() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const reducedMotion = useReducedMotion();
   const { t, te, tw, language } = useI18n();
-  const { formatVolume, formatWithUnit } = useWeightUnit();
+  const { unit, formatVolume, formatWithUnit } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
   const clearSession = useWorkoutSessionStore((state) => state.clearSession);
   const workouts = useWorkoutHistoryStore((state) => state.workouts);
@@ -431,7 +432,7 @@ export default function Complete() {
                     {te(record.exerciseName)}
                   </Text>
                   <Text numberOfLines={1} style={styles.prValueText}>
-                    {record.label}
+                    {formatPersonalRecordLabel(record, unit, language)}
                   </Text>
                 </View>
 

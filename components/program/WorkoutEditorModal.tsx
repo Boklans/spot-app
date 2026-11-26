@@ -21,6 +21,7 @@ import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticImpact, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { ALL_WEEKDAYS } from '@/lib/programGenerator';
+import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import type { UserExercise, UserWorkout } from '@/types/userProgram';
 
 interface WorkoutEditorModalProps {
@@ -41,9 +42,11 @@ export function WorkoutEditorModal({
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, tm, td, te, tw, tq, language } = useI18n();
+  const { unitLabel, step: weightStep, fromKg, toKg } = useWeightUnit();
   const [workoutName, setWorkoutName] = useState(workout ? tw(workout.name) : '');
   const [dayLabel, setDayLabel] = useState(workout?.dayLabel || 'MON');
   const [exercises, setExercises] = useState<UserExercise[]>(workout?.exercises ?? []);
+  const [rawWeightInputs, setRawWeightInputs] = useState<Record<number, string>>({});
   const [libraryVisible, setLibraryVisible] = useState(false);
 
   React.useEffect(() => {
@@ -51,6 +54,7 @@ export function WorkoutEditorModal({
       setWorkoutName(tw(workout.name));
       setDayLabel(workout.dayLabel || 'MON');
       setExercises(workout.exercises);
+      setRawWeightInputs({});
       setLibraryVisible(false);
     }
   }, [workout?.id, visible]);
@@ -515,7 +519,9 @@ export function WorkoutEditorModal({
                             <View style={styles.paramCol}>
                               <View style={styles.paramLabelRow}>
                                 <Text style={styles.paramLabel}>
-                                  {language === 'uk' ? 'ВАГА (КГ)' : 'WEIGHT (KG)'}
+                                  {language === 'uk'
+                                    ? `ВАГА (${unitLabel.toUpperCase()})`
+                                    : `WEIGHT (${unitLabel.toUpperCase()})`}
                                 </Text>
                               </View>
                               <View style={styles.stepperWrap}>
@@ -525,11 +531,17 @@ export function WorkoutEditorModal({
                                   hitSlop={6}
                                   onPress={() => {
                                     hapticImpact();
+                                    const currentDisplay = fromKg(ex.recommendedWeight || 0);
+                                    const nextDisplay = Math.max(
+                                      0,
+                                      Math.round((currentDisplay - weightStep) * 10) / 10
+                                    );
+                                    setRawWeightInputs((prev) => ({
+                                      ...prev,
+                                      [index]: formatWeight(nextDisplay),
+                                    }));
                                     handleUpdateExercise(index, {
-                                      recommendedWeight: Math.max(
-                                        0,
-                                        Math.round(((ex.recommendedWeight || 0) - 2.5) * 10) / 10
-                                      ),
+                                      recommendedWeight: toKg(nextDisplay),
                                     });
                                   }}
                                   style={styles.stepperBtn}
@@ -538,11 +550,31 @@ export function WorkoutEditorModal({
                                 </Pressable>
                                 <TextInput
                                   style={styles.stepperInput}
-                                  value={String(ex.recommendedWeight ?? 0)}
+                                  value={
+                                    rawWeightInputs[index] !== undefined
+                                      ? rawWeightInputs[index]
+                                      : formatWeight(fromKg(ex.recommendedWeight ?? 0))
+                                  }
                                   onChangeText={(text) => {
+                                    setRawWeightInputs((prev) => ({ ...prev, [index]: text }));
                                     const num = parseFloat(text.replace(',', '.'));
                                     if (!isNaN(num) && num >= 0) {
-                                      handleUpdateExercise(index, { recommendedWeight: Math.min(999, Math.round(num * 10) / 10) });
+                                      const clamped = Math.min(999, Math.round(num * 10) / 10);
+                                      handleUpdateExercise(index, {
+                                        recommendedWeight: toKg(clamped),
+                                      });
+                                    } else if (text.trim() === '') {
+                                      handleUpdateExercise(index, { recommendedWeight: 0 });
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    const currentText = rawWeightInputs[index];
+                                    if (currentText !== undefined && isNaN(parseFloat(currentText.replace(',', '.')))) {
+                                      setRawWeightInputs((prev) => {
+                                        const copy = { ...prev };
+                                        delete copy[index];
+                                        return copy;
+                                      });
                                     }
                                   }}
                                   maxLength={5}
@@ -556,9 +588,17 @@ export function WorkoutEditorModal({
                                   hitSlop={6}
                                   onPress={() => {
                                     hapticImpact();
+                                    const currentDisplay = fromKg(ex.recommendedWeight || 0);
+                                    const nextDisplay = Math.min(
+                                      999,
+                                      Math.round((currentDisplay + weightStep) * 10) / 10
+                                    );
+                                    setRawWeightInputs((prev) => ({
+                                      ...prev,
+                                      [index]: formatWeight(nextDisplay),
+                                    }));
                                     handleUpdateExercise(index, {
-                                      recommendedWeight:
-                                        Math.round(((ex.recommendedWeight || 0) + 2.5) * 10) / 10,
+                                      recommendedWeight: toKg(nextDisplay),
                                     });
                                   }}
                                   style={styles.stepperBtn}

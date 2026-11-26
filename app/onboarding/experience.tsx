@@ -30,7 +30,7 @@ export default function Experience() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, language } = useI18n();
-  const { unitLabel, toKg, fromKg } = useWeightUnit();
+  const { unit, unitLabel, toKg, fromKg } = useWeightUnit();
 
   const benchRef = useRef<TextInputInstance>(null);
   const squatRef = useRef<TextInputInstance>(null);
@@ -322,7 +322,7 @@ export default function Experience() {
                       editable={true}
                       style={styles.liftInput}
                       keyboardType="decimal-pad"
-                      placeholder={unitLabel === 'LBS' ? '135' : '60'}
+                      placeholder={unit === 'lbs' ? '135' : '60'}
                       placeholderTextColor={colors.muted}
                       value={benchText}
                       onChangeText={setBenchText}
@@ -347,7 +347,7 @@ export default function Experience() {
                       editable={true}
                       style={styles.liftInput}
                       keyboardType="decimal-pad"
-                      placeholder={unitLabel === 'LBS' ? '185' : '80'}
+                      placeholder={unit === 'lbs' ? '185' : '80'}
                       placeholderTextColor={colors.muted}
                       value={squatText}
                       onChangeText={setSquatText}
@@ -372,7 +372,7 @@ export default function Experience() {
                       editable={true}
                       style={styles.liftInput}
                       keyboardType="decimal-pad"
-                      placeholder={unitLabel === 'LBS' ? '225' : '100'}
+                      placeholder={unit === 'lbs' ? '225' : '100'}
                       placeholderTextColor={colors.muted}
                       value={deadliftText}
                       onChangeText={setDeadliftText}
@@ -397,7 +397,7 @@ export default function Experience() {
                       editable={true}
                       style={styles.liftInput}
                       keyboardType="decimal-pad"
-                      placeholder={unitLabel === 'LBS' ? '95' : '40'}
+                      placeholder={unit === 'lbs' ? '95' : '40'}
                       placeholderTextColor={colors.muted}
                       value={ohpText}
                       onChangeText={setOhpText}

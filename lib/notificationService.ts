@@ -4,7 +4,7 @@ import { AppState, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { translateExercise, translateWorkoutName } from '@/lib/i18n';
 import { calculateMuscleRecovery, normalizeMuscleGroup } from '@/lib/recoveryEngine';
-import { formatWeight } from '@/lib/weightUtils';
+import { convertWeightToActiveUnit, formatWeight } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { getScheduledWorkout } from '@/store/programProgressStore';
 import { useProgramProgressStore } from '@/store/programProgressStore';
@@ -709,9 +709,10 @@ export function getLiveShadeNotificationSnapshot(nowMs: number = Date.now()): Li
   const progressPercent = Math.round(progress.percentage);
 
   const weightKg = currentSet?.weight ?? 0;
+  const displayWeight = convertWeightToActiveUnit(weightKg, unit);
   const weightText =
     weightKg > 0
-      ? `${formatWeight(weightKg)} ${unitLabel}`
+      ? `${formatWeight(displayWeight)} ${unitLabel}`
       : lang === 'uk'
       ? 'Власна вага'
       : 'Bodyweight';

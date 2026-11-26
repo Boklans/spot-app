@@ -53,6 +53,30 @@ export function convertVolumeToActiveUnit(volumeInKg: number, unit?: WeightUnit)
   return Math.round(volumeInKg);
 }
 
+/**
+ * Resolves the stored kg weight from an edit modal input without introducing
+ * kg -> lbs -> kg rounding drift (`20 kg -> 44 lb -> 19.96 kg`) when the user
+ * did not modify the weight field (e.g. only edited reps or RIR).
+ */
+export function resolveSavedSetWeightKg(params: {
+  initialWeightKg: number;
+  weightText: string;
+  weightDirty: boolean;
+  unit?: WeightUnit;
+}): number {
+  const { initialWeightKg, weightText, weightDirty, unit } = params;
+  const active = unit ?? getActiveWeightUnit();
+  if (!weightDirty) {
+    return normalizeWeight(Math.max(0, Number.isFinite(initialWeightKg) ? initialWeightKg : 0));
+  }
+  const parsedW = parseFloat((weightText || '').replace(',', '.'));
+  if (!Number.isFinite(parsedW) || parsedW < 0) {
+    return normalizeWeight(Math.max(0, Number.isFinite(initialWeightKg) ? initialWeightKg : 0));
+  }
+  const clampedDisplay = Math.min(999.5, parsedW);
+  return normalizeWeight(convertWeightFromActiveUnit(clampedDisplay, active));
+}
+
 export function formatWeightWithUnit(weightInKg: number, unit?: WeightUnit): string {
   const active = unit ?? getActiveWeightUnit();
   const converted = convertWeightToActiveUnit(weightInKg, active);

@@ -20,12 +20,14 @@ import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { generateUUID } from '@/lib/programMigration';
 import { ALL_WEEKDAYS, getNextAvailableWeekday, getWorkoutDayLabel } from '@/lib/programGenerator';
 import { useI18n } from '@/lib/i18n';
+import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { useProgramStore } from '@/store/programStore';
 import { defaultOnboarding, loadOnboarding, saveOnboarding } from '@/store/workoutStore';
 import type { UserExercise, UserProgram, UserWorkout } from '@/types/userProgram';
 
 export default function ProgramEdit() {
   const { t, tm, td, te, tq, language } = useI18n();
+  const { unitLabel, step: weightStep, fromKg, toKg } = useWeightUnit();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const activeProgram = useProgramStore((state) => state.program);
@@ -337,12 +339,13 @@ export default function ProgramEdit() {
     handleUpdateExercise(workoutId, exercise.id, { sets: nextSets });
   };
 
-  const handleWeightDelta = (workoutId: string, exercise: UserExercise, delta: number) => {
+  const handleWeightDelta = (workoutId: string, exercise: UserExercise, deltaDisplay: number) => {
     hapticLight();
     isDirtyRef.current = true;
-    const next = Math.max(0, Math.min(999, parseFloat((exercise.recommendedWeight + delta).toFixed(2))));
-    setRawWeightInputs((prev) => ({ ...prev, [exercise.id]: String(next) }));
-    handleUpdateExercise(workoutId, exercise.id, { recommendedWeight: next });
+    const currentDisplay = fromKg(exercise.recommendedWeight || 0);
+    const nextDisplay = Math.max(0, Math.min(999, parseFloat((currentDisplay + deltaDisplay).toFixed(2))));
+    setRawWeightInputs((prev) => ({ ...prev, [exercise.id]: formatWeight(nextDisplay) }));
+    handleUpdateExercise(workoutId, exercise.id, { recommendedWeight: toKg(nextDisplay) });
   };
 
   // Top Level Save / Cancel Handlers
@@ -495,11 +498,11 @@ export default function ProgramEdit() {
             const weightDisplay =
               rawWeightInputs[exercise.id] !== undefined
                 ? rawWeightInputs[exercise.id]
-                : String(exercise.recommendedWeight);
+                : formatWeight(fromKg(exercise.recommendedWeight ?? 0));
             const incrementDisplay =
               rawIncrementInputs[exercise.id] !== undefined
                 ? rawIncrementInputs[exercise.id]
-                : String(exercise.weightIncrement);
+                : formatWeight(fromKg(exercise.weightIncrement ?? 0));
 
             return (
               <Card
@@ -661,12 +664,14 @@ export default function ProgramEdit() {
                   <View style={styles.variableCol}>
                     <View style={styles.variableLabelRow}>
                       <Text style={styles.variableLabel} numberOfLines={1}>
-                        {language === 'uk' ? 'ВАГА (КГ)' : 'WEIGHT (KG)'}
+                        {language === 'uk'
+                          ? `ВАГА (${unitLabel.toUpperCase()})`
+                          : `WEIGHT (${unitLabel.toUpperCase()})`}
                       </Text>
                     </View>
                     <View style={styles.stepperContainer}>
                       <Pressable
-                        onPress={() => handleWeightDelta(selectedWorkout.id, exercise, -2.5)}
+                        onPress={() => handleWeightDelta(selectedWorkout.id, exercise, -weightStep)}
                         style={styles.stepperButton}
                       >
                         <Text style={styles.stepperButtonText}>-</Text>
@@ -678,8 +683,13 @@ export default function ProgramEdit() {
                           const sanitized = !isNaN(num) && num > 999 ? '999' : text;
                           setRawWeightInputs((prev) => ({ ...prev, [exercise.id]: sanitized }));
                           if (!isNaN(num) && num >= 0) {
+                            const clamped = Math.min(999, Math.round(num * 10) / 10);
                             handleUpdateExercise(selectedWorkout.id, exercise.id, {
-                              recommendedWeight: Math.min(999, Math.round(num * 10) / 10),
+                              recommendedWeight: toKg(clamped),
+                            });
+                          } else if (text.trim() === '') {
+                            handleUpdateExercise(selectedWorkout.id, exercise.id, {
+                              recommendedWeight: 0,
                             });
                           }
                         }}
@@ -689,7 +699,7 @@ export default function ProgramEdit() {
                           if (isNaN(num)) {
                             setRawWeightInputs((prev) => ({
                               ...prev,
-                              [exercise.id]: String(exercise.recommendedWeight),
+                              [exercise.id]: formatWeight(fromKg(exercise.recommendedWeight ?? 0)),
                             }));
                           }
                         }}
@@ -699,7 +709,7 @@ export default function ProgramEdit() {
                         style={[styles.gridInput, styles.stepperInputCenter]}
                       />
                       <Pressable
-                        onPress={() => handleWeightDelta(selectedWorkout.id, exercise, 2.5)}
+                        onPress={() => handleWeightDelta(selectedWorkout.id, exercise, weightStep)}
                         style={styles.stepperButton}
                       >
                         <Text style={styles.stepperButtonText}>+</Text>
@@ -711,7 +721,9 @@ export default function ProgramEdit() {
                   <View style={styles.variableCol}>
                     <View style={styles.variableLabelRow}>
                       <Text style={styles.variableLabel} numberOfLines={1}>
-                        {language === 'uk' ? 'КРОК ВАГИ' : t('increment')}
+                        {language === 'uk'
+                          ? `КРОК (${unitLabel.toUpperCase()})`
+                          : `${t('increment')} (${unitLabel.toUpperCase()})`}
                       </Text>
                     </View>
                     <TextInput
@@ -721,8 +733,9 @@ export default function ProgramEdit() {
                         const sanitized = !isNaN(num) && num > 50 ? '50' : text;
                         setRawIncrementInputs((prev) => ({ ...prev, [exercise.id]: sanitized }));
                         if (!isNaN(num) && num >= 0) {
+                          const clamped = Math.min(50, Math.round(num * 10) / 10);
                           handleUpdateExercise(selectedWorkout.id, exercise.id, {
-                            weightIncrement: Math.min(50, Math.round(num * 10) / 10),
+                            weightIncrement: toKg(clamped),
                           });
                         }
                       }}
@@ -732,7 +745,7 @@ export default function ProgramEdit() {
                         if (isNaN(num)) {
                           setRawIncrementInputs((prev) => ({
                             ...prev,
-                            [exercise.id]: String(exercise.weightIncrement),
+                            [exercise.id]: formatWeight(fromKg(exercise.weightIncrement ?? 0)),
                           }));
                         }
                       }}

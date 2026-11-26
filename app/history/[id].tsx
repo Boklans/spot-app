@@ -19,6 +19,7 @@ import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { formatPersonalRecordLabel } from '@/lib/personalRecords';
 import { formatVolume } from '@/lib/progressCalculator';
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { useExerciseNotesStore } from '@/store/exerciseNotesStore';
@@ -33,7 +34,7 @@ export default function HistoryDetail() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, tm, te, tw, language } = useI18n();
-  const { formatWithUnit, fromKg, toKg, unitLabel } = useWeightUnit();
+  const { formatWithUnit, fromKg, toKg, unit, unitLabel } = useWeightUnit();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const workouts = useWorkoutHistoryStore((state) => state.workouts);
   const loadHistory = useWorkoutHistoryStore((state) => state.loadHistory);
@@ -383,7 +384,9 @@ export default function HistoryDetail() {
                 <Text numberOfLines={1} style={styles.prExerciseName}>
                   {te(record.exerciseName)}
                 </Text>
-                <Text style={styles.prValueText}>{record.label}</Text>
+                <Text style={styles.prValueText}>
+                  {formatPersonalRecordLabel(record, unit, language)}
+                </Text>
               </View>
             ))}
           </View>
@@ -715,9 +718,13 @@ export default function HistoryDetail() {
                         <Pressable
                           onPress={() => {
                             hapticLight();
-                            const stepKg = unitLabel === 'lbs' ? toKg(5) : 2.5;
+                            const stepDisplay = unit === 'lbs' ? 5 : 2.5;
+                            const nextDisplay = Math.max(
+                              0,
+                              Math.round((fromKg(set.weight) - stepDisplay) * 10) / 10
+                            );
                             handleUpdateDraftSet(exIdx, index, {
-                              weightKg: Math.max(0, set.weight - stepKg),
+                              weightKg: toKg(nextDisplay),
                             });
                           }}
                           style={{
@@ -757,9 +764,11 @@ export default function HistoryDetail() {
                         <Pressable
                           onPress={() => {
                             hapticLight();
-                            const stepKg = unitLabel === 'lbs' ? toKg(5) : 2.5;
+                            const stepDisplay = unit === 'lbs' ? 5 : 2.5;
+                            const nextDisplay =
+                              Math.round((fromKg(set.weight) + stepDisplay) * 10) / 10;
                             handleUpdateDraftSet(exIdx, index, {
-                              weightKg: set.weight + stepKg,
+                              weightKg: toKg(nextDisplay),
                             });
                           }}
                           style={{

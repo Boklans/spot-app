@@ -20,6 +20,7 @@ import { isBarbellExercise, isPerHandExercise } from '@/lib/adaptiveProgression'
 import type { EquipmentId } from '@/lib/programGenerator';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { resolveSavedSetWeightKg } from '@/lib/weightUtils';
 
 interface EditSetModalProps {
   visible: boolean;
@@ -84,9 +85,11 @@ export function EditSetModal({
 
   const weightInputRef = useRef<TextInputInstance>(null);
   const repsInputRef = useRef<TextInputInstance>(null);
+  const weightDirtyRef = useRef(false);
 
   useEffect(() => {
     if (visible) {
+      weightDirtyRef.current = false;
       const displayW = fromKg(initialWeightKg ?? 0);
       setWeightText(displayW > 0 ? String(Math.round(displayW * 10) / 10) : '0');
       setRepsText(String(initialReps ?? 8));
@@ -107,6 +110,7 @@ export function EditSetModal({
 
   const adjustWeightDelta = (delta: number) => {
     hapticLight();
+    weightDirtyRef.current = true;
     const curr = parseFloat(weightText.replace(',', '.')) || 0;
     const next = Math.max(0, Math.min(999.5, Math.round((curr + delta) * 10) / 10));
     setWeightText(String(next));
@@ -121,15 +125,18 @@ export function EditSetModal({
 
   const handleSave = () => {
     hapticMedium();
-    const parsedW = parseFloat(weightText.replace(',', '.'));
-    const safeDisplayW = !isNaN(parsedW) && parsedW >= 0 ? Math.min(999.5, parsedW) : fromKg(initialWeightKg);
-    const safeKg = toKg(safeDisplayW);
+    const safeKg = resolveSavedSetWeightKg({
+      initialWeightKg,
+      weightText,
+      weightDirty: weightDirtyRef.current,
+      unit,
+    });
 
     const parsedR = parseInt(repsText, 10);
     const safeReps = !isNaN(parsedR) && parsedR >= 1 ? Math.min(200, parsedR) : initialReps;
 
     onSave({
-      weight: Math.round(safeKg * 100) / 100,
+      weight: safeKg,
       reps: safeReps,
       rir: selectedRir,
     });
@@ -163,8 +170,8 @@ export function EditSetModal({
               <View style={styles.metaRow}>
                 <Text style={styles.kicker}>
                   {isUk
-                    ? `ПІДХІД ${setNumber} З ${totalSets}`
-                    : `SET ${setNumber} OF ${totalSets}`}
+                    ? `ПІДХІД ${setNumber} / ${totalSets}`
+                    : `SET ${setNumber} / ${totalSets}`}
                 </Text>
                 {isCompleted && (
                   <View style={styles.completedBadge}>
@@ -237,6 +244,7 @@ export function EditSetModal({
                 keyboardType="decimal-pad"
                 value={weightText}
                 onChangeText={(val) => {
+                  weightDirtyRef.current = true;
                   const num = parseFloat(val.replace(',', '.'));
                   if (!isNaN(num) && num > 999.5) setWeightText('999.5');
                   else setWeightText(val);

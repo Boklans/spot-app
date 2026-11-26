@@ -221,6 +221,30 @@ const builtInMocks = {
     selectionAsync: async () => {},
   },
   'expo-notifications': expoNotificationsMock,
+  'expo-router': {
+    router: {
+      push: () => {},
+      replace: () => {},
+      back: () => {},
+      canGoBack: () => false,
+    },
+    useRouter: () => ({
+      push: () => {},
+      replace: () => {},
+      back: () => {},
+      canGoBack: () => false,
+    }),
+    useLocalSearchParams: () => ({}),
+    useFocusEffect: () => {},
+    SplashScreen: {
+      preventAutoHideAsync: async () => true,
+      hideAsync: async () => true,
+    },
+  },
+  'expo-splash-screen': {
+    preventAutoHideAsync: async () => true,
+    hideAsync: async () => true,
+  },
   'expo-constants': {
     __esModule: true,
     default: { expoConfig: { extra: {} } },
@@ -264,6 +288,8 @@ function loadTsModule(relOrAbsPath) {
     return {
       __esModule: true,
       supabase: getSupabaseProxy(),
+      supabaseUrl: 'https://test-spot.supabase.co',
+      isSupabaseConfigured: () => Boolean(activeSupabaseMock),
     };
   }
 

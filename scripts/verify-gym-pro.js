@@ -326,4 +326,102 @@ let passed = 0;
   passed++;
 }
 
+// TEST 7 (P0-08): LBS Conversions, Lossless Round-Trip Weight Saving & Notification Shade Units
+{
+  const weightMod = loadTsModule('lib/weightUtils.ts');
+  const prsMod = loadTsModule('lib/personalRecords.ts');
+  const notifMod = loadTsModule('lib/notificationService.ts');
+  const profileMod = loadTsModule('store/userProfileStore.ts');
+  const sessionMod = loadTsModule('store/workoutSessionStore.ts');
+
+  // 1. Opening EditSetModal on 20 kg in LBS mode ("44" lb) and saving WITHOUT editing weight must preserve exact 20 kg (zero 19.96 kg drift!)
+  const untouchedKg = weightMod.resolveSavedSetWeightKg({
+    initialWeightKg: 20,
+    weightText: '44',
+    weightDirty: false,
+    unit: 'lbs',
+  });
+  assert.strictEqual(untouchedKg, 20, 'Untouched weight in LBS mode must remain exact 20 kg');
+
+  // 2. Explicitly typing 135 lbs converts cleanly to 61.24 kg (and displays back as 135 lbs)
+  const editedKg = weightMod.resolveSavedSetWeightKg({
+    initialWeightKg: 20,
+    weightText: '135',
+    weightDirty: true,
+    unit: 'lbs',
+  });
+  assert.strictEqual(editedKg, 61.24);
+  assert.strictEqual(weightMod.convertWeightToActiveUnit(editedKg, 'lbs'), 135);
+
+  // 3. Notification shade snapshot converts KG -> LBS accurately (no longer printing "61.23 lbs"!)
+  profileMod.useUserProfileStore.setState({
+    profile: { ...profileMod.useUserProfileStore.getState().profile, weightUnit: 'lbs', language: 'en' },
+    hydrated: true,
+  });
+  sessionMod.useWorkoutSessionStore.setState({
+    session: {
+      id: 'sess-lbs-shade',
+      programWorkoutId: 'upper-a',
+      workoutName: 'Upper Body A',
+      startedAt: new Date().toISOString(),
+      currentExerciseIndex: 0,
+      currentSetIndex: 0,
+      completed: false,
+      personalRecords: [],
+      exercises: [
+        {
+          id: 'barbell-bench-press',
+          name: 'Barbell Bench Press',
+          muscleGroup: 'Chest',
+          equipment: 'barbell',
+          weightIncrement: 2.5,
+          restSeconds: 90,
+          previousSets: [],
+          recommendation: { recommendedWeight: 61.23, recommendationReason: 'maintain', source: 'history', explanation: '' },
+          sets: [{ id: 's1', weight: 61.23, reps: 8, targetReps: '8-10', completed: false }],
+        },
+      ],
+    },
+    restEndsAt: null,
+    restNextType: null,
+    hydrated: true,
+  });
+  const shadeSnap = notifMod.getLiveShadeNotificationSnapshot();
+  assert.ok(shadeSnap);
+  assert.strictEqual(shadeSnap.weightText, '135 lbs', `Expected "135 lbs" in shade, got "${shadeSnap.weightText}"`);
+
+  // Reset profile back to kg
+  profileMod.useUserProfileStore.setState({
+    profile: { ...profileMod.useUserProfileStore.getState().profile, weightUnit: 'kg', language: 'en' },
+    hydrated: true,
+  });
+
+  // 4. Dynamic PR label formatting in LBS & UK (including legacy stored "kg" labels)
+  const legacyPr = {
+    id: 'pr-1',
+    type: 'weight',
+    exerciseId: 'bp',
+    exerciseName: 'Barbell Bench Press',
+    value: 100,
+    label: '100 kg × 5',
+  };
+  assert.strictEqual(prsMod.formatPersonalRecordLabel(legacyPr, 'lbs', 'en'), '220.5 lb × 5');
+  assert.strictEqual(prsMod.formatPersonalRecordLabel(legacyPr, 'kg', 'uk'), '100 кг × 5');
+
+  const bwPr = {
+    id: 'pr-bw',
+    type: 'estimated_1rm',
+    exerciseId: 'pu',
+    exerciseName: 'Pull-ups',
+    value: 14,
+    reps: 14,
+    isBodyweight: true,
+    label: '14 reps',
+  };
+  assert.strictEqual(prsMod.formatPersonalRecordLabel(bwPr, 'kg', 'uk'), '14 повт.');
+
+  console.log('✅ TEST 7 PASSED (P0-08): LBS conversions, lossless round-trip saves, PR labels, and OS notification shade units verified');
+  passed++;
+}
+
 console.log(`\n🎉 ALL ${passed} GYM FLOOR PRO ENGINE TESTS PASSED!\n`);

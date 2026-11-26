@@ -76,7 +76,7 @@ export default function QuickLogScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, tm, te, tw, language } = useI18n();
-  const { unit, unitLabel, fromKg, toKg } = useWeightUnit();
+  const { unit, unitLabel, formatVolume, fromKg, toKg } = useWeightUnit();
   const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
 
   const program = useProgramStore((state) => state.program);
@@ -799,7 +799,7 @@ export default function QuickLogScreen() {
             <View style={styles.summaryMetaItem}>
               <MaterialCommunityIcons name="dumbbell" size={15} color="#8E9BAE" />
               <Text style={styles.summaryMetaText}>
-                {Math.round(totalVolumeKg)} {unitLabel}
+                {formatVolume(totalVolumeKg)}
               </Text>
             </View>
           </View>
