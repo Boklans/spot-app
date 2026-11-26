@@ -113,7 +113,7 @@ export default function History() {
 
     for (const w of chronological) {
       for (const ex of w.exercises) {
-        const validSets = ex.sets.filter((s) => s.reps > 0 && s.weight >= 0);
+        const validSets = ex.sets.filter((s) => s.setType !== 'warmup' && s.reps > 0 && s.weight >= 0);
         if (validSets.length === 0) continue;
 
         const key = resolveCanonicalExerciseId(ex.exerciseName) || ex.exerciseName.trim().toLowerCase();
@@ -506,7 +506,8 @@ export default function History() {
                       {/* Exercise Summary List inside Card so user sees weights at a glance */}
                       <View style={styles.exercisePreviewList}>
                         {workout.exercises.map((ex) => {
-                          const validSets = ex.sets.filter((s) => s.reps > 0);
+                          const nonWarmupSets = ex.sets.filter((s) => s.setType !== 'warmup' && s.reps > 0);
+                          const validSets = nonWarmupSets.length > 0 ? nonWarmupSets : ex.sets.filter((s) => s.reps > 0);
                           if (validSets.length === 0) return null;
                           const topWeight = Math.max(...validSets.map((s) => s.weight));
                           const repsStr = validSets.map((s) => s.reps).join('/');

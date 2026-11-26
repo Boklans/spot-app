@@ -1,6 +1,6 @@
 import { areExercisesEquivalent, resolveCanonicalExerciseId } from '@/lib/exercises';
 import { calculateEstimated1RM } from '@/lib/personalRecords';
-import { convertVolumeToActiveUnit, getActiveWeightUnit } from '@/lib/weightUtils';
+import { calculateSetVolumeKg, convertVolumeToActiveUnit, getActiveWeightUnit } from '@/lib/weightUtils';
 import type { WeightUnit } from '@/store/userProfileStore';
 import type { UserProgram } from '@/types/userProgram';
 import type { CompletedExercise, CompletedWorkout } from '@/types/workout';
@@ -194,7 +194,14 @@ export function calculateMuscleRecoveryStats(
         const workingSets = (ex.sets || []).filter((s) => s.setType !== 'warmup');
         workoutWorkingSets += workingSets.length;
         workoutWorkingVol += workingSets.reduce(
-          (sum, s) => sum + (s.volume || (s.weight || 0) * (s.reps || 0)),
+          (sum, s) =>
+            sum +
+            calculateSetVolumeKg({
+              weightKg: s.weight || 0,
+              reps: s.reps || 0,
+              exerciseName: ex.exerciseName,
+              setType: s.setType,
+            }),
           0
         );
       }
@@ -249,7 +256,17 @@ function calculateMuscleVolumes(workouts: CompletedWorkout[]) {
     for (const exercise of workout.exercises) {
       const category = normalizeMuscleCategory(exercise.muscleGroup);
       const workingSets = exercise.sets.filter((s) => s.setType !== 'warmup');
-      const volume = workingSets.reduce((total, set) => total + set.volume, 0);
+      const volume = workingSets.reduce(
+        (total, set) =>
+          total +
+          calculateSetVolumeKg({
+            weightKg: set.weight || 0,
+            reps: set.reps || 0,
+            exerciseName: exercise.exerciseName,
+            setType: set.setType,
+          }),
+        0
+      );
       volumes.set(category, (volumes.get(category) ?? 0) + volume);
     }
   }

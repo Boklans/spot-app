@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { generateProgram, resolveRestSeconds, type EquipmentId, type GeneratedExercise, type GeneratedWorkout } from '@/lib/programGenerator';
 import { findLatestExerciseSets, inferEquipmentFromName, practicalIncrement, recommendWeight, type WeightRecommendation } from '@/lib/adaptiveProgression';
 import { createWarmupWorkoutSets } from '@/lib/warmupGenerator';
+import { calculateSetVolumeKg } from '@/lib/weightUtils';
 import type { CompletedWorkout, PersonalRecord, SetType } from '@/types/workout';
 import type { UserWorkout } from '@/types/userProgram';
 import { defaultOnboarding } from './workoutStore';
@@ -207,11 +208,12 @@ function persistSnapshot(snapshot: ActiveWorkoutStorage | null) {
 }
 
 function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history: CompletedWorkout[]): WorkoutExercise[] {
+  const deloadActive = useProgramStore.getState().deloadActive;
   return workout.exercises.map((exercise, exerciseIndex) => {
     const equipment: EquipmentId = (exercise as any).equipment || inferEquipmentFromName(exercise.name);
     const exerciseWithEquipment = { ...exercise, equipment } as GeneratedExercise;
     const previousSets = findLatestExerciseSets(history, exerciseWithEquipment);
-    const recommendation = recommendWeight(exerciseWithEquipment, previousSets);
+    const recommendation = recommendWeight(exerciseWithEquipment, previousSets, { deloadActive });
     const weight = recommendation.source === 'history'
       ? recommendation.recommendedWeight
       : (typeof exercise.recommendedWeight === 'number' && exercise.recommendedWeight > 0
@@ -486,8 +488,9 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       const targetSet = targetExercise?.sets[setIndex];
       if (!targetExercise || !targetSet) return state;
 
-      // Completed sets must never propagate changes to other sets
-      const shouldPropagate = propagate && !targetSet.completed;
+      // Completed sets and warm-up sets must never propagate changes onto working sets
+      const targetSetType = targetSet.setType ?? 'normal';
+      const shouldPropagate = propagate && !targetSet.completed && targetSetType !== 'warmup' && targetSetType !== 'dropset';
 
       const sanitizedValues = { ...values };
       if (typeof sanitizedValues.weight === 'number') {
@@ -512,8 +515,13 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
                       const updatedRir = values.rir === null ? undefined : values.rir !== undefined ? values.rir : workoutSet.rir;
                       return { ...workoutSet, ...sanitizedValues, rir: updatedRir };
                     }
-                    // Forward-propagate weight and reps ONLY if explicitly requested AND target is uncompleted
-                    if (shouldPropagate && sIdx > setIndex && !workoutSet.completed) {
+                    // Forward-propagate weight and reps ONLY to subsequent uncompleted sets of the same non-warmup type
+                    if (
+                      shouldPropagate &&
+                      sIdx > setIndex &&
+                      !workoutSet.completed &&
+                      (workoutSet.setType ?? 'normal') === targetSetType
+                    ) {
                       const { rir: _unusedRir, ...propagateValues } = sanitizedValues;
                       return { ...workoutSet, ...propagateValues };
                     }
@@ -793,7 +801,8 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         restSeconds: currentEx?.restSeconds ?? 90,
       };
       const previousSets = findLatestExerciseSets(history, generatedEx);
-      const rec = recommendWeight(generatedEx, previousSets);
+      const deloadActive = useProgramStore.getState().deloadActive;
+      const rec = recommendWeight(generatedEx, previousSets, { deloadActive });
       const defaultMinReps = Number.parseInt(generatedEx.targetRepRange ? generatedEx.targetRepRange.split('-')[0] : '8', 10) || 8;
       const resolvedIncrement = practicalIncrement(inferredEquipment, rec.recommendedWeight);
 
@@ -858,7 +867,8 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         restSeconds: resolveRestSeconds(),
       };
       const previousSets = findLatestExerciseSets(history, generatedEx);
-      const rec = recommendWeight(generatedEx, previousSets);
+      const deloadActive = useProgramStore.getState().deloadActive;
+      const rec = recommendWeight(generatedEx, previousSets, { deloadActive });
       const defaultMinReps = Number.parseInt(generatedEx.targetRepRange ? generatedEx.targetRepRange.split('-')[0] : '8', 10) || 8;
       const resolvedIncrement = practicalIncrement(inferredEquipment, rec.recommendedWeight);
       const newExerciseIndex = state.session.exercises.length;
@@ -984,19 +994,47 @@ export function getSessionProgress(session: WorkoutSession) {
 }
 
 export function getSessionSummary(session: WorkoutSession) {
-  const plannedSets = session.exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
+  const plannedTotalSets = session.exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
+  const plannedWorkingSets = session.exercises.reduce(
+    (total, exercise) => total + exercise.sets.filter((s) => s.setType !== 'warmup').length,
+    0
+  );
   const completedSets = session.exercises.flatMap((exercise) => exercise.sets.filter(isValidSessionSet));
   const workingCompletedSets = completedSets.filter((s) => s.setType !== 'warmup');
   const durationMs = session.completedAt
     ? Math.max(0, new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime())
     : 0;
   const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
-  const volume = Math.round(
-    workingCompletedSets.reduce((total, workoutSet) => total + workoutSet.weight * workoutSet.reps, 0) * 100
-  ) / 100;
+  const volume =
+    Math.round(
+      session.exercises.reduce((exSum, exercise) => {
+        const exWorkingSets = exercise.sets.filter(
+          (s) => isValidSessionSet(s) && s.setType !== 'warmup'
+        );
+        return (
+          exSum +
+          exWorkingSets.reduce(
+            (setSum, workoutSet) =>
+              setSum +
+              calculateSetVolumeKg({
+                weightKg: workoutSet.weight,
+                reps: workoutSet.reps,
+                exerciseName: exercise.name,
+                equipment: exercise.equipment,
+                setType: workoutSet.setType,
+              }),
+            0
+          )
+        );
+      }, 0) * 100
+    ) / 100;
   const exerciseCount = session.exercises.filter((exercise) => exercise.sets.some(isValidSessionSet)).length;
   const plannedExerciseCount = session.exercises.length;
-  const isPartial = plannedSets > 0 && completedSets.length < plannedSets;
+  const plannedSets = plannedWorkingSets > 0 ? plannedWorkingSets : plannedTotalSets;
+  const isPartial =
+    plannedWorkingSets > 0
+      ? workingCompletedSets.length < plannedWorkingSets
+      : completedSets.length > 0 || plannedTotalSets > 0;
 
   return {
     durationMinutes,

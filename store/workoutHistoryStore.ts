@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { detectPersonalRecords } from '@/lib/personalRecords';
+import { calculateSetVolumeKg } from '@/lib/weightUtils';
 import { useUserProfileStore } from '@/store/userProfileStore';
 import type { CompletedWorkout } from '@/types/workout';
 
@@ -152,7 +153,12 @@ export const useWorkoutHistoryStore = create<WorkoutHistoryState>((set, get) => 
           .filter((s) => typeof s.reps === 'number' && s.reps > 0 && typeof s.weight === 'number' && s.weight >= 0)
           .map((s) => ({
             ...s,
-            volume: s.setType === 'warmup' ? 0 : Math.round(s.weight * s.reps * 100) / 100,
+            volume: calculateSetVolumeKg({
+              weightKg: s.weight,
+              reps: s.reps,
+              exerciseName: ex.exerciseName,
+              setType: s.setType,
+            }),
           })),
       }))
       .filter((ex) => ex.sets.length > 0);
@@ -160,7 +166,7 @@ export const useWorkoutHistoryStore = create<WorkoutHistoryState>((set, get) => 
     const allSets = cleanedExercises.flatMap((ex) => ex.sets);
     const workingSets = allSets.filter((s) => s.setType !== 'warmup');
     const totalVolume =
-      Math.round(workingSets.reduce((sum, s) => sum + s.weight * s.reps, 0) * 100) / 100;
+      Math.round(workingSets.reduce((sum, s) => sum + s.volume, 0) * 100) / 100;
 
     const normalizedWorkout: CompletedWorkout = {
       ...updatedWorkout,

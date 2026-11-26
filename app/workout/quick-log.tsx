@@ -27,7 +27,7 @@ import {
 import { hapticImpact, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { resolveRestSeconds, type EquipmentId, type GeneratedExercise } from '@/lib/programGenerator';
-import { convertWeightToActiveUnit, formatWeight, useWeightUnit } from '@/lib/weightUtils';
+import { calculateSetVolumeKg, convertWeightToActiveUnit, formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
@@ -80,6 +80,7 @@ export default function QuickLogScreen() {
   const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
 
   const program = useProgramStore((state) => state.program);
+  const deloadActive = useProgramStore((state) => state.deloadActive);
   const progress = useProgramProgressStore((state) => state.progress);
   const activeSession = useWorkoutSessionStore((state) => state.session);
   const history = useWorkoutHistoryStore((state) => state.workouts);
@@ -151,7 +152,7 @@ export default function QuickLogScreen() {
         const equipment = (ex as any).equipment || inferEquipmentFromName(ex.name);
         const exWithEquip = { ...ex, equipment, sets: setsCount, targetRepRange: repRange } as GeneratedExercise;
         const previousSets = findLatestExerciseSets(history, exWithEquip);
-        const recommendation = recommendWeight(exWithEquip, previousSets);
+        const recommendation = recommendWeight(exWithEquip, previousSets, { deloadActive });
         const recWeightKg = recommendation.source === 'history'
           ? recommendation.recommendedWeight
           : (typeof ex.recommendedWeight === 'number' && ex.recommendedWeight > 0
@@ -351,7 +352,7 @@ export default function QuickLogScreen() {
       restSeconds: 90,
     };
     const previousSets = findLatestExerciseSets(history, generatedEx);
-    const recommendation = recommendWeight(generatedEx, previousSets);
+    const recommendation = recommendWeight(generatedEx, previousSets, { deloadActive });
     const recWeight = recommendation.source === 'history'
       ? recommendation.recommendedWeight
       : (libEx.defaultWeight || 0);
@@ -380,7 +381,7 @@ export default function QuickLogScreen() {
     };
     setExercises((prev) => [...prev, newEx]);
     setIsAddPickerVisible(false);
-  }, [fromKg, history]);
+  }, [deloadActive, fromKg, history]);
 
   // Overall Live Stats
   const { totalCompletedSets, totalVolumeKg } = useMemo(() => {
@@ -390,7 +391,13 @@ export default function QuickLogScreen() {
       for (const s of ex.sets) {
         if (s.reps > 0) {
           completedSets++;
-          volumeKg += ex.weight * s.reps;
+          volumeKg += calculateSetVolumeKg({
+            weightKg: ex.weight,
+            reps: s.reps,
+            exerciseName: ex.name,
+            equipment: ex.equipment,
+            setType: 'normal',
+          });
         }
       }
     }

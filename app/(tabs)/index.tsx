@@ -495,7 +495,7 @@ export default function Home() {
                   const equipment = (ex as any).equipment || inferEquipmentFromName(ex.name);
                   const exWithEquip = { ...ex, equipment } as any;
                   const prevSets = findLatestExerciseSets(history, exWithEquip);
-                  const rec = recommendWeight(exWithEquip, prevSets);
+                  const rec = recommendWeight(exWithEquip, prevSets, { deloadActive });
                   const effectiveWeight = rec.source === 'history'
                     ? rec.recommendedWeight
                     : (typeof ex.recommendedWeight === 'number' && ex.recommendedWeight > 0

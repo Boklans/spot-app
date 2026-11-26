@@ -64,6 +64,7 @@ export default function WorkoutPreview() {
   const activeRestEndsAt = useWorkoutSessionStore((state) => state.restEndsAt);
   const progress = useProgramProgressStore((state) => state.progress);
   const program = useProgramStore((state) => state.program);
+  const deloadActive = useProgramStore((state) => state.deloadActive);
   const history = useWorkoutHistoryStore((state) => state.workouts);
   const profileSex = useUserProfileStore((state) => state.profile.sex);
 
@@ -440,7 +441,7 @@ export default function WorkoutPreview() {
             const equipment = exercise.equipment || inferEquipmentFromName(exercise.name);
             const exWithEquip = { ...exercise, equipment } as any;
             const prevSets = findLatestExerciseSets(history, exWithEquip);
-            const rec = recommendWeight(exWithEquip, prevSets);
+            const rec = recommendWeight(exWithEquip, prevSets, { deloadActive });
             const effectiveWeight = rec.source === 'history'
               ? rec.recommendedWeight
               : (exercise.recommendedWeight || 0);

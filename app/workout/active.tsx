@@ -981,7 +981,12 @@ export default function Active() {
                 const isCurrent = index === session.currentSetIndex;
                 const isDone = set.completed;
                 const weightDisplay = set.weight ? format(set.weight) : (language === 'uk' ? 'ВТ' : 'BW');
-                const prevForThisSet = exercise.previousSets?.[index] || (index === 0 ? exercise.previousSets?.[0] : null);
+                const workingOrdinal = workingSetCounter - 1;
+                const prevForThisSet =
+                  setType === 'warmup'
+                    ? null
+                    : exercise.previousSets?.[workingOrdinal] ||
+                      (workingOrdinal === 0 ? exercise.previousSets?.[0] : null);
                 const prevSetText = prevForThisSet
                   ? `${prevForThisSet.weight ? format(prevForThisSet.weight) : (language === 'uk' ? 'ВТ' : 'BW')} × ${prevForThisSet.reps}`
                   : '—';

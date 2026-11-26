@@ -1,5 +1,6 @@
-import type { CompletedWorkout, PersonalRecord } from '@/types/workout';
+import { calculateSetVolumeKg } from '@/lib/weightUtils';
 import type { WorkoutSession } from '@/store/workoutSessionStore';
+import type { CompletedWorkout, PersonalRecord } from '@/types/workout';
 
 export function isValidCompletedSet(
   set: { completed?: boolean; weight?: number; reps?: number } | null | undefined
@@ -19,7 +20,13 @@ export function createCompletedWorkoutSnapshot(
     0,
     Math.round((new Date(completedAt).getTime() - new Date(session.startedAt).getTime()) / 1000)
   );
-  const plannedSets = session.exercises.reduce((total, ex) => total + (ex.sets?.length ?? 0), 0);
+
+  const plannedTotalSets = session.exercises.reduce((total, ex) => total + (ex.sets?.length ?? 0), 0);
+  const plannedWorkingSets = session.exercises.reduce(
+    (total, ex) => total + (ex.sets ?? []).filter((s) => s.setType !== 'warmup').length,
+    0
+  );
+
   const exercises = session.exercises
     .map((exercise) => ({
       exerciseId: exercise.id,
@@ -29,20 +36,34 @@ export function createCompletedWorkoutSnapshot(
       sets: exercise.sets.filter(isValidCompletedSet).map((set) => {
         const safeWeight = Math.max(0, Number.isFinite(set.weight) ? set.weight : 0);
         const safeReps = Math.max(0, Number.isFinite(set.reps) ? set.reps : 0);
+        const resolvedSetType = set.setType ?? 'normal';
         return {
           weight: safeWeight,
           reps: safeReps,
-          volume: Math.round(safeWeight * safeReps * 100) / 100,
+          volume: calculateSetVolumeKg({
+            weightKg: safeWeight,
+            reps: safeReps,
+            exerciseName: exercise.name,
+            equipment: exercise.equipment,
+            setType: resolvedSetType,
+          }),
           completedAt: set.completedAt ?? completedAt,
           rir: set.rir,
-          setType: set.setType ?? 'normal',
+          setType: resolvedSetType,
         };
       }),
     }))
     .filter((exercise) => exercise.sets.length > 0);
+
   const completedSets = exercises.flatMap((exercise) => exercise.sets);
   const workingSets = completedSets.filter((set) => set.setType !== 'warmup');
-  const isPartial = plannedSets > 0 && completedSets.length < plannedSets;
+
+  // Partial workout detection strictly evaluates prescribed working sets so skipped optional
+  // warm-up sets never block split rotation, while an all-warmup session stays partial.
+  const isPartial =
+    plannedWorkingSets > 0
+      ? workingSets.length < plannedWorkingSets
+      : completedSets.length > 0 || plannedTotalSets > 0;
 
   return {
     id: session.id,
@@ -53,7 +74,7 @@ export function createCompletedWorkoutSnapshot(
     completedAt,
     durationSeconds,
     totalSets: completedSets.length,
-    plannedSets,
+    plannedSets: plannedWorkingSets > 0 ? plannedWorkingSets : plannedTotalSets,
     isPartial,
     totalVolume: Math.round(workingSets.reduce((total, set) => total + set.volume, 0) * 100) / 100,
     exercises,

@@ -1,5 +1,8 @@
 import { useCallback } from 'react';
+import { getExerciseLoadType } from '@/lib/exercises';
+import type { EquipmentId } from '@/lib/programGenerator';
 import { useUserProfileStore, type WeightUnit } from '@/store/userProfileStore';
+import type { SetType } from '@/types/workout';
 
 export function normalizeWeight(value: number): number {
   return Math.round(value * 100) / 100;
@@ -60,6 +63,37 @@ export function formatVolumeWithUnit(volumeInKg: number, unit?: WeightUnit): str
   const active = unit ?? getActiveWeightUnit();
   const converted = convertVolumeToActiveUnit(volumeInKg, active);
   return `${converted.toLocaleString()} ${active.toUpperCase()}`;
+}
+
+/**
+ * Returns `2` strictly for bilateral per-hand dumbbell movements (where two dumbbells
+ * are lifted simultaneously while the user enters 1-hand weight), and `1` for unilateral
+ * exercises, barbells, machines, single shared-dumbbell lifts, and bodyweight.
+ */
+export function getExerciseVolumeMultiplier(exerciseName?: string, equipment?: EquipmentId): 1 | 2 {
+  const loadType = getExerciseLoadType(exerciseName, equipment);
+  return loadType === 'bilateral_per_hand' ? 2 : 1;
+}
+
+/**
+ * Canonical single source of truth for working set volume (in kg).
+ * - Warm-up sets always contribute `0` working volume.
+ * - Bilateral per-hand dumbbell exercises multiply `weightKg × 2 × reps`.
+ * - Unilateral exercises (`Single-Arm Row`, `Bulgarian Split Squat`, etc.) multiply `weightKg × 1 × reps`.
+ */
+export function calculateSetVolumeKg(params: {
+  weightKg: number;
+  reps: number;
+  exerciseName?: string;
+  equipment?: EquipmentId;
+  setType?: SetType | string;
+}): number {
+  const { weightKg, reps, exerciseName, equipment, setType } = params;
+  if (setType === 'warmup') return 0;
+  if (!Number.isFinite(weightKg) || weightKg <= 0) return 0;
+  if (!Number.isFinite(reps) || reps <= 0) return 0;
+  const multiplier = getExerciseVolumeMultiplier(exerciseName, equipment);
+  return Math.round(weightKg * multiplier * reps * 100) / 100;
 }
 
 export function useWeightUnit() {

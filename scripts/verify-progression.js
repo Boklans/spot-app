@@ -332,4 +332,95 @@ const benchPress = {
   passed++;
 }
 
+// TEST 12 (P0-01): Active Deload Week (-15%) reduces historical working weight & restores cleanly
+{
+  const squat = {
+    id: 'barbell-back-squat',
+    name: 'Barbell Back Squat',
+    muscleGroup: 'Legs',
+    equipment: 'barbell',
+    sets: 3,
+    targetRepRange: '8-12',
+    recommendedWeight: 70,
+    weightIncrement: 2.5,
+  };
+  const squatHistorySets = [
+    { weight: 100, reps: 10 },
+    { weight: 100, reps: 10 },
+    { weight: 100, reps: 10 },
+  ];
+
+  // Normal week: maintains 100 kg × 11 reps
+  const normalRec = recommendWeight(squat, squatHistorySets, { deloadActive: false });
+  assert.strictEqual(normalRec.recommendedWeight, 100);
+  assert.strictEqual(normalRec.recommendedReps, 11);
+
+  // Deload week (-15%): reduces 100 kg -> 85 kg × 8 reps even when history exists!
+  const deloadRec = recommendWeight(squat, squatHistorySets, { deloadActive: true });
+  assert.strictEqual(deloadRec.recommendedWeight, 85);
+  assert.strictEqual(deloadRec.recommendedReps, 8);
+  assert.strictEqual(deloadRec.recommendationReason, 'reduce');
+  assert.strictEqual(deloadRec.source, 'history');
+
+  // Program default with no history must NOT double-apply -15% (template was already reduced by applyDeloadWeek)
+  const deloadDefaultRec = recommendWeight({ ...squat, recommendedWeight: 59.5 }, [], { deloadActive: true });
+  assert.strictEqual(deloadDefaultRec.recommendedWeight, 59.5);
+  assert.strictEqual(deloadDefaultRec.recommendationReason, 'reduce');
+
+  // Assisted exercise deload increases counterweight assistance (30 kg -> ~35 kg)
+  const assistedRec = recommendWeight(
+    {
+      id: 'assisted-pull-up',
+      name: 'Assisted Pull-up',
+      muscleGroup: 'Back',
+      sets: 3,
+      targetRepRange: '8-12',
+      recommendedWeight: 30,
+      weightIncrement: 2.5,
+    },
+    [{ weight: 30, reps: 10 }, { weight: 30, reps: 10 }, { weight: 30, reps: 10 }],
+    { deloadActive: true }
+  );
+  assert.ok(assistedRec.recommendedWeight > 30, 'Deload on assisted pull-up must increase counterweight assistance');
+
+  console.log('✅ TEST 12 PASSED (P0-01): Deload Week (-15%) reduces historical working weights without double-applying on defaults');
+  passed++;
+}
+
+// TEST 13 (P0-02): Warm-up sets in workout history never block double progression
+{
+  const historyWithWarmups = [
+    {
+      id: 'w-warmup-1',
+      completedAt: '2026-11-18T10:00:00Z',
+      exercises: [
+        {
+          exerciseId: 'barbell-bench-press',
+          exerciseName: 'Barbell Bench Press',
+          sets: [
+            { weight: 35, reps: 8, setType: 'warmup' },
+            { weight: 55, reps: 5, setType: 'warmup' },
+            { weight: 67.5, reps: 2, setType: 'warmup' },
+            { weight: 80, reps: 12, setType: 'normal' },
+            { weight: 80, reps: 12, setType: 'normal' },
+            { weight: 80, reps: 12, setType: 'normal' },
+          ],
+        },
+      ],
+    },
+  ];
+
+  const extractedSets = findLatestExerciseSets(historyWithWarmups, benchPress);
+  assert.strictEqual(extractedSets.length, 3, 'findLatestExerciseSets must exclude warmup sets');
+  assert.ok(extractedSets.every((s) => s.weight === 80 && s.reps === 12));
+
+  const nextRec = recommendWeight(benchPress, extractedSets);
+  assert.strictEqual(nextRec.recommendedWeight, 82.5, 'Hitting 3x12 at 80kg after warmups must advance to 82.5kg');
+  assert.strictEqual(nextRec.recommendedReps, 8);
+  assert.strictEqual(nextRec.recommendationReason, 'increase');
+
+  console.log('✅ TEST 13 PASSED (P0-02): Warm-up sets are isolated from findLatestExerciseSets and never block weight increases');
+  passed++;
+}
+
 console.log(`\n🎉 ALL ${passed} REAL-MODULE ADAPTIVE PROGRESSION ENGINE TESTS PASSED!\n`);

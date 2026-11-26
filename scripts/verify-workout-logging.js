@@ -427,8 +427,202 @@ function seedSession(session) {
     passedTests++;
   }
 
+  // Test 17 (P0-01): End-to-end session creation under active Deload Week (-15%)
+  {
+    const prog = {
+      id: 'prog-deload',
+      name: 'Strength UL',
+      splitType: 'upper_lower',
+      daysPerWeek: 4,
+      workouts: [
+        {
+          id: 'upper-a',
+          name: 'Upper A',
+          dayLabel: 'MON',
+          muscleGroups: ['Chest'],
+          estimatedMinutes: 45,
+          exercises: [
+            {
+              id: 'barbell-bench-press',
+              name: 'Barbell Bench Press',
+              muscleGroup: 'Chest',
+              equipment: 'barbell',
+              sets: 3,
+              recommendedWeight: 60,
+              targetRepRange: '8-12',
+              weightIncrement: 2.5,
+            },
+          ],
+        },
+      ],
+    };
+    resetMemoryStorage({
+      'spot-workout-history': [
+        {
+          id: 'prev-1',
+          programWorkoutId: 'upper-a',
+          workoutName: 'Upper A',
+          workoutDate: '2026-11-15',
+          startedAt: '2026-11-15T10:00:00Z',
+          completedAt: '2026-11-15T10:45:00Z',
+          durationSeconds: 2700,
+          totalSets: 3,
+          plannedSets: 3,
+          isPartial: false,
+          totalVolume: 3000,
+          exercises: [
+            {
+              exerciseId: 'barbell-bench-press',
+              exerciseName: 'Barbell Bench Press',
+              muscleGroup: 'Chest',
+              sets: [
+                { weight: 100, reps: 10, volume: 1000, completedAt: '2026-11-15T10:10:00Z' },
+                { weight: 100, reps: 10, volume: 1000, completedAt: '2026-11-15T10:13:00Z' },
+                { weight: 100, reps: 10, volume: 1000, completedAt: '2026-11-15T10:16:00Z' },
+              ],
+            },
+          ],
+          personalRecords: [],
+        },
+      ],
+    });
+    useWorkoutHistoryStore.setState({ workouts: [], hydrated: false });
+    useProgramStore.setState({ program: prog, hydrated: true, deloadActive: false });
+    await useProgramStore.getState().applyDeloadWeek();
+    assert.strictEqual(useProgramStore.getState().deloadActive, true);
+
+    await useWorkoutSessionStore.getState().initializeSession(useProgramStore.getState().program.workouts[0]);
+    const deloadSession = useWorkoutSessionStore.getState().session;
+    assert.strictEqual(deloadSession.exercises[0].sets[0].weight, 85, 'Session Bench Press must load at 85 kg (-15% of 100 kg)');
+
+    await useProgramStore.getState().restoreFromDeload();
+    assert.strictEqual(useProgramStore.getState().deloadActive, false);
+    await useWorkoutSessionStore.getState().initializeSession(useProgramStore.getState().program.workouts[0]);
+    const restoredSession = useWorkoutSessionStore.getState().session;
+    assert.strictEqual(restoredSession.exercises[0].sets[0].weight, 100, 'After restoreFromDeload, historical 100 kg resumes');
+
+    console.log('✅ TEST 17 PASSED (P0-01): initializeSession prescribes -15% deload weight from history and restores cleanly');
+    passedTests++;
+  }
+
+  // Test 18 (P0-02): Skipping optional warm-up set does NOT mark completed working workout isPartial or block rotation, and warmup edit does NOT overwrite working sets
+  {
+    const session = createMockSession();
+    seedSession(session);
+    useWorkoutSessionStore.getState().addWarmupSets(0);
+
+    // Editing Warmup Set 0 with propagate=true MUST NOT overwrite Working Sets!
+    useWorkoutSessionStore.getState().updateSet(0, 0, { weight: 30, reps: 10 }, true);
+    const afterWarmupEdit = useWorkoutSessionStore.getState().session.exercises[0].sets;
+    const workingSetsBeforeComplete = afterWarmupEdit.filter((s) => s.setType !== 'warmup');
+    assert.ok(
+      workingSetsBeforeComplete.every((s) => s.weight === 57.5),
+      'Warmup set propagation must never overwrite working set weights'
+    );
+
+    // Complete 2 warmups, skip 1 warmup, and complete ALL 3 working sets
+    const allSets = useWorkoutSessionStore.getState().session.exercises[0].sets;
+    const warmupIndices = allSets.map((s, idx) => (s.setType === 'warmup' ? idx : -1)).filter((i) => i >= 0);
+    const workingIndices = allSets.map((s, idx) => (s.setType !== 'warmup' ? idx : -1)).filter((i) => i >= 0);
+
+    // Complete first warmup (leave last warmup uncompleted!) and complete all 3 working sets
+    useWorkoutSessionStore.getState().toggleSetCompletion(0, warmupIndices[0]);
+    for (const wIdx of workingIndices) {
+      useWorkoutSessionStore.getState().toggleSetCompletion(0, wIdx);
+    }
+
+    const prog = {
+      id: 'prog-warmup-rot',
+      name: 'Push Pull',
+      splitType: 'upper_lower',
+      workouts: [
+        { id: 'workout-push-a', name: 'Push A', dayLabel: 'MON', exercises: [] },
+        { id: 'workout-pull-a', name: 'Pull A', dayLabel: 'WED', exercises: [] },
+      ],
+    };
+    useProgramStore.setState({ program: prog, hydrated: true, deloadActive: false });
+    await useProgramProgressStore.getState().resetProgress('prog-warmup-rot', 'workout-push-a');
+    useWorkoutHistoryStore.setState({ workouts: [], hydrated: true });
+
+    const finalized = await finalizeWorkoutSession(useWorkoutSessionStore.getState().session);
+    assert.strictEqual(finalized.isPartial, false, 'Skipping an optional warmup when all working sets are done must yield isPartial = false');
+    assert.strictEqual(useProgramProgressStore.getState().progress.nextWorkoutId, 'workout-pull-a', 'Split rotation must advance cleanly');
+    const savedWarmup = finalized.exercises[0].sets.find((s) => s.setType === 'warmup');
+    assert.strictEqual(savedWarmup.volume, 0, 'Warmup set volume must be stored as 0');
+
+    console.log('✅ TEST 18 PASSED (P0-02): Skipped warm-up sets never trigger false isPartial or block split rotation; warmup edits never overwrite working sets');
+    passedTests++;
+  }
+
+  // Test 19 (P0-05): Bilateral per-hand dumbbell exercises multiply volume ×2 while unilateral & single-DB exercises stay ×1
+  {
+    const { calculateSetVolumeKg } = loadTsModule('lib/weightUtils.ts');
+    const { calculateMuscleProgress } = loadTsModule('lib/progressCalculator.ts');
+
+    // Bilateral 2-dumbbell Bench Press: 30 kg per hand × 10 reps = 600 kg per set (×2)
+    assert.strictEqual(
+      calculateSetVolumeKg({ weightKg: 30, reps: 10, exerciseName: 'Dumbbell Bench Press', equipment: 'dumbbells' }),
+      600
+    );
+    // Unilateral Single-Arm Dumbbell Row: 30 kg × 10 reps = 300 kg per set (×1 — never double-counted!)
+    assert.strictEqual(
+      calculateSetVolumeKg({ weightKg: 30, reps: 10, exerciseName: 'Single-Arm Dumbbell Row', equipment: 'dumbbells' }),
+      300
+    );
+    // Unilateral Bulgarian Split Squat: 16 kg × 10 reps = 160 kg (×1)
+    assert.strictEqual(
+      calculateSetVolumeKg({ weightKg: 16, reps: 10, exerciseName: 'Bulgarian Split Squat', equipment: 'dumbbells' }),
+      160
+    );
+    // Single shared-dumbbell Goblet Squat: 24 kg × 10 reps = 240 kg (×1)
+    assert.strictEqual(
+      calculateSetVolumeKg({ weightKg: 24, reps: 10, exerciseName: 'Goblet Squat', equipment: 'dumbbells' }),
+      240
+    );
+
+    // Verify createCompletedWorkoutSnapshot & Analytics Muscle Progress apply ×2 on bilateral dumbbells
+    const dbSession = {
+      id: 'sess-db-vol',
+      programWorkoutId: 'upper-db',
+      workoutName: 'Upper DB',
+      workoutDate: '2026-11-20',
+      startedAt: '2026-11-20T10:00:00Z',
+      completedAt: '2026-11-20T10:30:00Z',
+      currentExerciseIndex: 0,
+      currentSetIndex: 0,
+      completed: true,
+      personalRecords: [],
+      exercises: [
+        {
+          id: 'db-bench',
+          name: 'Dumbbell Bench Press',
+          muscleGroup: 'Chest',
+          equipment: 'dumbbells',
+          weightIncrement: 1,
+          restSeconds: 90,
+          previousSets: [],
+          recommendation: { recommendedWeight: 30, recommendationReason: 'maintain', source: 'program_default', explanation: '' },
+          sets: [
+            { id: 's1', weight: 30, reps: 10, targetReps: '8-12', completed: true, completedAt: '2026-11-20T10:05:00Z' },
+            { id: 's2', weight: 30, reps: 10, targetReps: '8-12', completed: true, completedAt: '2026-11-20T10:08:00Z' },
+            { id: 's3', weight: 30, reps: 10, targetReps: '8-12', completed: true, completedAt: '2026-11-20T10:11:00Z' },
+          ],
+        },
+      ],
+    };
+    const snap = createCompletedWorkoutSnapshot(dbSession);
+    assert.strictEqual(snap.exercises[0].sets[0].weight, 30, 'Per-hand weight remains 30 kg');
+    assert.strictEqual(snap.totalVolume, 1800, '3 sets × 10 reps × (30 kg × 2 hands) = 1800 kg total volume');
+
+    const muscleProg = calculateMuscleProgress([snap], 'ALL', new Date('2026-11-21T10:00:00Z'));
+    assert.strictEqual(muscleProg.find((m) => m.name === 'Chest').volume, 1800);
+
+    console.log('✅ TEST 19 PASSED (P0-05): Bilateral per-hand dumbbells compute ×2 tonnage while keeping per-hand weight & ×1 unilateral volume');
+    passedTests++;
+  }
+
   console.log(`\n========================================`);
-  console.log(`Results: ${passedTests} / 16 PASSED, 0 FAILED (100% Real TS Execution)`);
+  console.log(`Results: ${passedTests} / 19 PASSED, 0 FAILED (100% Real TS Execution)`);
   console.log(`========================================\n`);
 })().catch((err) => {
   console.error('❌ Workout logging verification failed:', err);

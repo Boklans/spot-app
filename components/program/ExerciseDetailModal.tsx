@@ -15,7 +15,7 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { calculateEstimated1RM } from '@/lib/personalRecords';
 import { evaluateLiftStandard } from '@/lib/strengthStandards';
-import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
+import { calculateSetVolumeKg, formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { useUserProfileStore } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 
@@ -98,7 +98,12 @@ export function ExerciseDetailModal({
       let best1RM = 0;
       for (const s of match.sets) {
         if (s.setType !== 'warmup') {
-          workingVolume += (s.weight || 0) * (s.reps || 0);
+          workingVolume += calculateSetVolumeKg({
+            weightKg: s.weight || 0,
+            reps: s.reps || 0,
+            exerciseName: match.exerciseName,
+            setType: s.setType,
+          });
           if (s.weight > 0 && s.reps > 0) {
             best1RM = Math.max(best1RM, calculateEstimated1RM(s.weight, s.reps));
           }
