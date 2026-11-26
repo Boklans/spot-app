@@ -196,9 +196,6 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
       heightCm: finalHeightCm,
     }).catch(() => undefined);
 
-    // Refresh program generator with new body metrics
-    await useProgramStore.getState().refreshProgram();
-
     onClose();
   };
 

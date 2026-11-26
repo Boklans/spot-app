@@ -424,4 +424,65 @@ let passed = 0;
   passed++;
 }
 
-console.log(`\n🎉 ALL ${passed} GYM FLOOR PRO ENGINE TESTS PASSED!\n`);
+// ============================================================================
+// TEST 8: Onboarding Split Preservation & Profile/Onboarding Cache Sync (P0-07)
+// ============================================================================
+(async () => {
+  const workoutStoreMod = loadTsModule('store/workoutStore.ts');
+  const profileMod = loadTsModule('store/userProfileStore.ts');
+  const programStoreMod = loadTsModule('store/programStore.ts');
+  const programGenMod = loadTsModule('lib/programGenerator.ts');
+  const programMigMod = loadTsModule('lib/programMigration.ts');
+  const { resetMemoryStorage, memoryAsyncStorage } = require('./tsRunner');
+
+  resetMemoryStorage();
+  workoutStoreMod.clearOnboardingCache();
+
+  // 1. Preset split ('upper_lower') saved via setPresetProgram preserves splitType & splitPreference (no forced 'custom')
+  await workoutStoreMod.saveOnboarding({
+    name: 'Olena',
+    sex: 'female',
+    goal: 'build_muscle',
+    experience: 'intermediate',
+    trainingFrequency: 4,
+    splitPreference: 'upper_lower',
+    completed: true,
+  });
+  const generatedUL = programGenMod.generateProgram((await workoutStoreMod.loadOnboarding()));
+  const presetProg = programMigMod.migrateGeneratedToUserProgram(generatedUL);
+  await programStoreMod.useProgramStore.getState().setPresetProgram(presetProg);
+
+  const savedProg = programStoreMod.useProgramStore.getState().program;
+  const savedOb = await workoutStoreMod.loadOnboarding();
+  assert.strictEqual(savedProg.splitType, 'upper_lower', 'Preset splitType must remain upper_lower, not forced custom');
+  assert.strictEqual(savedOb.splitPreference, 'upper_lower', 'Onboarding splitPreference must remain upper_lower');
+
+  // 2. Updating profile synchronizes cachedOnboarding in RAM immediately (no stale cache!)
+  await profileMod.useUserProfileStore.getState().updateProfile({
+    name: 'Olena K',
+    goal: 'Get Stronger',
+    experience: 'Advanced',
+    workoutsPerWeek: 5,
+    weightKg: 63.5,
+  });
+  const cachedAfterProfileUpdate = await workoutStoreMod.loadOnboarding();
+  assert.strictEqual(cachedAfterProfileUpdate.name, 'Olena K');
+  assert.strictEqual(cachedAfterProfileUpdate.goal, 'get_stronger');
+  assert.strictEqual(cachedAfterProfileUpdate.experience, 'advanced');
+  assert.strictEqual(cachedAfterProfileUpdate.trainingFrequency, 5);
+  assert.strictEqual(cachedAfterProfileUpdate.weightKg, 63.5);
+
+  // 3. Clearing onboarding cache + removing AsyncStorage key leaves zero ghost RAM state
+  await memoryAsyncStorage.removeItem('spot-onboarding');
+  workoutStoreMod.clearOnboardingCache();
+  const afterReset = await workoutStoreMod.loadOnboarding();
+  assert.strictEqual(afterReset, null, 'Deleted onboarding must not leak from cachedOnboarding RAM');
+
+  console.log('✅ TEST 8 PASSED (P0-07): Preset onboarding split preserved & profile/onboarding RAM cache stays 100% synchronized');
+  passed++;
+
+  console.log(`\n🎉 ALL ${passed} GYM FLOOR PRO ENGINE TESTS PASSED!\n`);
+})().catch((err) => {
+  console.error('❌ Async test failure in verify-gym-pro.js:', err);
+  process.exit(1);
+});

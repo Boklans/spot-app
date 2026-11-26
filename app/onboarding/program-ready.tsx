@@ -239,13 +239,15 @@ export default function ProgramReady() {
   const currentSplit = onboarding.splitPreference ?? program.splitType;
   const isCustom = currentSplit === 'custom';
 
-  const buildUserProgramFromLocal = () => ({
+  const buildUserProgramFromLocal = (forceCustom = false): UserProgram => ({
     id: program.id,
     name: program.name,
     description: program.description ?? '',
     daysPerWeek: program.daysPerWeek,
     estimatedWorkoutMinutes: program.estimatedWorkoutMinutes,
-    splitType: 'custom' as const,
+    splitType: forceCustom ? 'custom' : program.splitType,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     workouts: program.workouts.map((w) => ({
       id: w.id,
       name: w.name,
@@ -277,7 +279,7 @@ export default function ProgramReady() {
     if (storeProg?.splitType === 'custom' && !hasEdits) {
       // Custom program already in store
     } else {
-      await useProgramStore.getState().setCustomProgram(buildUserProgramFromLocal() as unknown as UserProgram);
+      await useProgramStore.getState().setCustomProgram(buildUserProgramFromLocal(true));
     }
     setHasEdits(false);
     router.push('/program/edit');
@@ -285,7 +287,13 @@ export default function ProgramReady() {
 
   const handleStartTraining = async () => {
     hapticSuccess();
-    const isCustom = onboarding.splitPreference === 'custom';
+    const shouldSaveAsCustom =
+      onboarding.splitPreference === 'custom' ||
+      onboarding.splitPreference === 'blank' ||
+      hasEdits;
+    const resolvedSplitPreference: WorkoutSplitPreference = shouldSaveAsCustom
+      ? 'custom'
+      : (onboarding.splitPreference ?? program.splitType);
     const profile = useUserProfileStore.getState().profile;
     const finalWeightKg = (profile.weightKg && profile.weightKg > 0) ? profile.weightKg : (onboarding.weightKg ?? 78);
     const finalBaselineLifts = profile.baselineLifts || onboarding.baselineLifts;
@@ -305,7 +313,7 @@ export default function ProgramReady() {
       weightKg: finalWeightKg,
       baselineLifts: finalBaselineLifts,
       completed: true,
-      splitPreference: isCustom ? ('custom' as WorkoutSplitPreference) : onboarding.splitPreference,
+      splitPreference: resolvedSplitPreference,
     };
     setOnboarding(updated);
     await saveOnboarding(updated);
@@ -319,12 +327,19 @@ export default function ProgramReady() {
     });
     await useBodyWeightStore.getState().syncBaselineWeight(finalWeightKg);
 
-    const userProgram = buildUserProgramFromLocal() as unknown as UserProgram;
-    await useProgramStore.getState().setCustomProgram(userProgram);
+    const userProgram = buildUserProgramFromLocal(shouldSaveAsCustom);
+    if (shouldSaveAsCustom) {
+      await useProgramStore.getState().setCustomProgram(userProgram);
+    } else {
+      await useProgramStore.getState().setPresetProgram(userProgram);
+    }
     await useProgramProgressStore
       .getState()
-      .resetProgress(userProgram.id, userProgram.workouts[0]?.id);
-    
+      .resetProgress(
+        useProgramStore.getState().program.id,
+        useProgramStore.getState().program.workouts[0]?.id
+      );
+
     await useUserProfileStore.getState().loadProfile();
     router.replace('/(tabs)');
   };

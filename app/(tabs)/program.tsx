@@ -76,25 +76,26 @@ export default function Program() {
   const handleSwitchSplit = (splitId: WorkoutSplitPreference) => {
     const activeSplit = onboarding?.splitPreference ?? program.splitType;
     if (activeSplit === splitId) return;
-    if (program.splitType === 'custom' && splitId !== 'custom') {
-      Alert.alert(
-        language === 'uk' ? 'Змінити програму?' : 'Switch program split?',
-        language === 'uk'
+    Alert.alert(
+      language === 'uk' ? 'Змінити програму?' : 'Switch program split?',
+      program.splitType === 'custom' && splitId !== 'custom'
+        ? language === 'uk'
           ? 'Поточну чергу тренувань буде скинуто до першого дня нового спліту. Ваша кастомна програма залишиться збереженою у вкладці Custom.'
-          : 'Your current workout rotation will reset to Day 1 of the new split. Your custom routine remains saved under Custom.',
-        [
-          { text: language === 'uk' ? 'Скасувати' : 'Cancel', style: 'cancel' },
-          {
-            text: language === 'uk' ? 'Змінити' : 'Switch',
-            onPress: () => {
-              void applySplitSwitch(splitId);
-            },
+          : 'Your current workout rotation will reset to Day 1 of the new split. Your custom routine remains saved under Custom.'
+        : language === 'uk'
+          ? 'Перемикання спліту замінить поточну активну програму та скине чергу тренувань до Дня 1.'
+          : 'Switching splits will replace your current active program and reset your workout rotation to Day 1.',
+      [
+        { text: language === 'uk' ? 'Скасувати' : 'Cancel', style: 'cancel' },
+        {
+          text: language === 'uk' ? 'Змінити' : 'Switch',
+          style: 'destructive',
+          onPress: () => {
+            void applySplitSwitch(splitId);
           },
-        ]
-      );
-      return;
-    }
-    void applySplitSwitch(splitId);
+        },
+      ]
+    );
   };
 
   const handleSaveWorkout = async (updatedWorkout: UserWorkout) => {

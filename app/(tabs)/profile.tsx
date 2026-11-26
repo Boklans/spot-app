@@ -39,6 +39,7 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { useWeightUnit } from '@/lib/weightUtils';
 import { useAuthStore } from '@/store/authStore';
 import { useBodyWeightStore } from '@/store/bodyWeightStore';
+import { useCustomExercisesStore } from '@/store/customExercisesStore';
 import { useExerciseNotesStore } from '@/store/exerciseNotesStore';
 import { useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
@@ -51,6 +52,7 @@ import {
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 import {
+  clearOnboardingCache,
   defaultOnboarding,
   loadOnboarding,
   saveOnboarding,
@@ -196,7 +198,33 @@ export default function Profile() {
     );
   };
 
+  const confirmProgramRebuild = (onConfirm: () => Promise<void>) => {
+    Alert.alert(
+      isUk ? 'Оновити програму тренувань?' : 'Rebuild training program?',
+      isUk
+        ? 'Бажаєте перегенерувати активну програму під нові параметри? Поточну чергу тренувань буде скинуто до Дня 1.'
+        : 'Would you like to regenerate your active program for these new settings? Your workout rotation will reset to Day 1.',
+      [
+        {
+          text: isUk ? 'Залишити поточну' : 'Keep current',
+          style: 'cancel',
+          onPress: () => {
+            hapticLight();
+          },
+        },
+        {
+          text: isUk ? 'Оновити програму' : 'Rebuild program',
+          style: 'destructive',
+          onPress: () => {
+            void onConfirm();
+          },
+        },
+      ]
+    );
+  };
+
   const handleSelectGoal = async (goal: UserGoal) => {
+    if (profile.goal === goal) return;
     await updateProfile({ goal });
     const goalKeyMap: Record<UserGoal, 'build_muscle' | 'lose_fat' | 'get_stronger' | 'recomposition'> = {
       'Build Muscle': 'build_muscle',
@@ -207,13 +235,16 @@ export default function Profile() {
     const currentOnboarding = (await loadOnboarding()) ?? defaultOnboarding;
     const updated = { ...currentOnboarding, goal: goalKeyMap[goal] || 'build_muscle' };
     await saveOnboarding(updated);
-    await useProgramStore.getState().refreshProgram(updated);
-    const newProgram = useProgramStore.getState().program;
-    await useProgramProgressStore.getState().resetProgress(newProgram.id, newProgram.workouts[0]?.id);
-    hapticSuccess();
+    confirmProgramRebuild(async () => {
+      await useProgramStore.getState().refreshProgram(updated);
+      const newProgram = useProgramStore.getState().program;
+      await useProgramProgressStore.getState().resetProgress(newProgram.id, newProgram.workouts[0]?.id);
+      hapticSuccess();
+    });
   };
 
   const handleSelectExperience = async (experience: UserExperience) => {
+    if (profile.experience === experience) return;
     await updateProfile({ experience });
     const expKeyMap: Record<UserExperience, 'beginner' | 'intermediate' | 'advanced'> = {
       Beginner: 'beginner',
@@ -223,21 +254,26 @@ export default function Profile() {
     const currentOnboarding = (await loadOnboarding()) ?? defaultOnboarding;
     const updated = { ...currentOnboarding, experience: expKeyMap[experience] || 'beginner' };
     await saveOnboarding(updated);
-    await useProgramStore.getState().refreshProgram(updated);
-    const newProgram = useProgramStore.getState().program;
-    await useProgramProgressStore.getState().resetProgress(newProgram.id, newProgram.workouts[0]?.id);
-    hapticSuccess();
+    confirmProgramRebuild(async () => {
+      await useProgramStore.getState().refreshProgram(updated);
+      const newProgram = useProgramStore.getState().program;
+      await useProgramProgressStore.getState().resetProgress(newProgram.id, newProgram.workouts[0]?.id);
+      hapticSuccess();
+    });
   };
 
   const handleSelectWorkoutsPerWeek = async (count: number) => {
+    if (profile.workoutsPerWeek === count) return;
     await updateProfile({ workoutsPerWeek: count });
     const currentOnboarding = (await loadOnboarding()) ?? defaultOnboarding;
     const updated = { ...currentOnboarding, trainingFrequency: count };
     await saveOnboarding(updated);
-    await useProgramStore.getState().refreshProgram(updated);
-    const newProgram = useProgramStore.getState().program;
-    await useProgramProgressStore.getState().resetProgress(newProgram.id, newProgram.workouts[0]?.id);
-    hapticSuccess();
+    confirmProgramRebuild(async () => {
+      await useProgramStore.getState().refreshProgram(updated);
+      const newProgram = useProgramStore.getState().program;
+      await useProgramProgressStore.getState().resetProgress(newProgram.id, newProgram.workouts[0]?.id);
+      hapticSuccess();
+    });
   };
 
   const handleSelectSplit = async (selectedLabel: string) => {
@@ -252,12 +288,29 @@ export default function Profile() {
     }
 
     const currentOnboarding = (await loadOnboarding()) ?? defaultOnboarding;
-    const updated = { ...currentOnboarding, splitPreference: splitKey };
-    await saveOnboarding(updated);
-    await useProgramStore.getState().refreshProgram(updated);
-    const newProgram = useProgramStore.getState().program;
-    await useProgramProgressStore.getState().resetProgress(newProgram.id, newProgram.workouts[0]?.id);
-    hapticSuccess();
+    if ((currentOnboarding.splitPreference ?? program.splitType) === splitKey) return;
+
+    Alert.alert(
+      isUk ? 'Змінити спліт програми?' : 'Switch program split?',
+      isUk
+        ? 'Перемикання спліту замінить активну програму тренувань та скине чергу до Дня 1.'
+        : 'Switching splits will replace your active training program and reset your rotation to Day 1.',
+      [
+        { text: isUk ? 'Скасувати' : 'Cancel', style: 'cancel' },
+        {
+          text: isUk ? 'Змінити' : 'Switch',
+          style: 'destructive',
+          onPress: async () => {
+            const updated = { ...currentOnboarding, splitPreference: splitKey };
+            await saveOnboarding(updated);
+            await useProgramStore.getState().refreshProgram(updated);
+            const newProgram = useProgramStore.getState().program;
+            await useProgramProgressStore.getState().resetProgress(newProgram.id, newProgram.workouts[0]?.id);
+            hapticSuccess();
+          },
+        },
+      ]
+    );
   };
 
   const handleToggleNotifications = async (val: boolean) => {
@@ -301,6 +354,7 @@ export default function Profile() {
   const handleRestartOnboarding = async () => {
     hapticMedium();
     try {
+      clearOnboardingCache();
       await AsyncStorage.multiRemove([
         'spot-onboarding',
         'spot-custom-program',
@@ -363,12 +417,14 @@ export default function Profile() {
               if (keysToRemove.length > 0) {
                 await AsyncStorage.multiRemove(keysToRemove);
               }
+              clearOnboardingCache();
               useWorkoutSessionStore.getState().clearSession();
               await useWorkoutHistoryStore.getState().clearHistory();
               await useUserProfileStore.getState().resetProfile();
               await useBodyWeightStore.getState().clearHistory();
               await useProgramStore.getState().resetProgram();
               await useExerciseNotesStore.getState().clearNotes();
+              await useCustomExercisesStore.getState().clearCustomExercises();
               await hapticSuccess();
               setAppSettingsVisible(false);
               router.replace('/onboarding/welcome');
