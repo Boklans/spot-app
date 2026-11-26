@@ -82,6 +82,11 @@ export const useExerciseNotesStore = create<ExerciseNotesState>((set, get) => ({
     set({ notes: current, hydrated: true });
     try {
       await AsyncStorage.setItem(EXERCISE_NOTES_STORAGE_KEY, JSON.stringify(current));
+      if (trimmed.length === 0) {
+        await import('@/lib/cloudSync')
+          .then(({ recordDeletedExerciseNote }) => recordDeletedExerciseNote(key))
+          .catch(() => undefined);
+      }
     } catch {
       // Ignore storage write errors
     }

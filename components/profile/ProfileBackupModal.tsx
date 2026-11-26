@@ -16,6 +16,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
+import { buildSpotBackupPayload, restoreSpotBackupPayload } from '@/lib/backupService';
 import { hapticError, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { mergeImportedWorkouts, parseWorkoutHistoryCsv } from '@/lib/csvImporter';
 import { useI18n } from '@/lib/i18n';
@@ -53,16 +54,7 @@ export function ProfileBackupModal({ visible, onClose }: ProfileBackupModalProps
 
   const notesCount = Object.values(notes).filter((v) => v && v.trim().length > 0).length;
 
-  const buildBackupPayload = () => ({
-    app: 'SPOT',
-    version: APP_VERSION,
-    exportedAt: new Date().toISOString(),
-    profile: useUserProfileStore.getState().profile,
-    program: useProgramStore.getState().program,
-    workouts: useWorkoutHistoryStore.getState().workouts,
-    notes: useExerciseNotesStore.getState().notes,
-    bodyWeight: useBodyWeightStore.getState().entries,
-  });
+  const buildBackupPayload = () => buildSpotBackupPayload(APP_VERSION);
 
   const handleDownloadBackupJson = async () => {
     hapticMedium();
@@ -126,28 +118,18 @@ export function ProfileBackupModal({ visible, onClose }: ProfileBackupModalProps
 
   const applyBackupJsonString = async (rawJson: string) => {
     setStatusMessage(null);
-    const trimmed = rawJson.trim();
-    if (!trimmed) {
-      setStatusMessage({
-        type: 'error',
-        text: isUk
-          ? 'Вставте JSON-код резервної копії або виберіть файл.'
-          : 'Paste backup JSON or choose a file first.',
-      });
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (!parsed || typeof parsed !== 'object') {
-        throw new Error('Invalid JSON structure');
+    const result = await restoreSpotBackupPayload(rawJson);
+    if (!result.ok) {
+      if (result.reason === 'empty') {
+        setStatusMessage({
+          type: 'error',
+          text: isUk
+            ? 'Вставте JSON-код резервної копії або виберіть файл.'
+            : 'Paste backup JSON or choose a file first.',
+        });
+        return;
       }
-
-      const hasWorkouts = Array.isArray(parsed.workouts);
-      const hasProgram = parsed.program && Array.isArray(parsed.program.workouts);
-      const hasNotes = parsed.notes && typeof parsed.notes === 'object';
-
-      if (!hasWorkouts && !hasProgram && !hasNotes) {
+      if (result.reason === 'empty_payload') {
         setStatusMessage({
           type: 'error',
           text: isUk
@@ -156,86 +138,24 @@ export function ProfileBackupModal({ visible, onClose }: ProfileBackupModalProps
         });
         return;
       }
-
-      if (hasWorkouts) {
-        await useWorkoutHistoryStore.getState().replaceHistory(parsed.workouts);
-      }
-      if (hasProgram) {
-        await useProgramStore.getState().updateUserProgram(parsed.program);
-      }
-      if (hasNotes && parsed.notes && typeof parsed.notes === 'object' && !Array.isArray(parsed.notes)) {
-        const sanitizedNotes: Record<string, string> = {};
-        for (const [k, v] of Object.entries(parsed.notes)) {
-          if (typeof k === 'string' && typeof v === 'string') {
-            sanitizedNotes[k] = v.slice(0, 1000);
-          }
-        }
-        await AsyncStorage.setItem(EXERCISE_NOTES_STORAGE_KEY, JSON.stringify(sanitizedNotes));
-        await useExerciseNotesStore.getState().loadNotes();
-      }
-      if (Array.isArray(parsed.bodyWeight) && parsed.bodyWeight.length > 0) {
-        const sanitizedWeight = parsed.bodyWeight
-          .filter(
-            (e: any) =>
-              e &&
-              typeof e === 'object' &&
-              typeof e.weightKg === 'number' &&
-              Number.isFinite(e.weightKg) &&
-              e.weightKg >= 20 &&
-              e.weightKg <= 350 &&
-              typeof e.date === 'string'
-          )
-          .map((e: any, idx: number) => ({
-            id: typeof e.id === 'string' && e.id ? e.id : `bw-import-${Date.now()}-${idx}`,
-            weightKg: Math.round(e.weightKg * 10) / 10,
-            date: e.date,
-            timestamp: typeof e.timestamp === 'number' && Number.isFinite(e.timestamp) ? e.timestamp : Date.now(),
-          }));
-        if (sanitizedWeight.length > 0) {
-          await AsyncStorage.setItem(BODY_WEIGHT_STORAGE_KEY, JSON.stringify(sanitizedWeight));
-          await useBodyWeightStore.getState().loadHistory();
-        }
-      }
-      if (parsed.profile && typeof parsed.profile === 'object' && !Array.isArray(parsed.profile)) {
-        const p = parsed.profile as Record<string, unknown>;
-        const safeProfileUpdates: Partial<typeof profile> = {};
-        if (typeof p.name === 'string') safeProfileUpdates.name = p.name.trim().slice(0, 20);
-        if (typeof p.age === 'number' && p.age >= 12 && p.age <= 100) safeProfileUpdates.age = Math.round(p.age);
-        if (p.sex === 'male' || p.sex === 'female') safeProfileUpdates.sex = p.sex;
-        if (typeof p.weightKg === 'number' && p.weightKg >= 20 && p.weightKg <= 350) safeProfileUpdates.weightKg = p.weightKg;
-        if (typeof p.heightCm === 'number' && p.heightCm >= 80 && p.heightCm <= 250) safeProfileUpdates.heightCm = p.heightCm;
-        if (p.weightUnit === 'kg' || p.weightUnit === 'lbs') safeProfileUpdates.weightUnit = p.weightUnit;
-        if (p.heightUnit === 'cm' || p.heightUnit === 'ft') safeProfileUpdates.heightUnit = p.heightUnit;
-        if (p.language === 'en' || p.language === 'uk') safeProfileUpdates.language = p.language;
-        if (p.theme === 'dark' || p.theme === 'light') safeProfileUpdates.theme = p.theme;
-        if (typeof p.defaultRestSeconds === 'number' && p.defaultRestSeconds >= 15 && p.defaultRestSeconds <= 600) {
-          safeProfileUpdates.defaultRestSeconds = p.defaultRestSeconds;
-        }
-        if (typeof p.workoutsPerWeek === 'number' && p.workoutsPerWeek >= 1 && p.workoutsPerWeek <= 7) {
-          safeProfileUpdates.workoutsPerWeek = p.workoutsPerWeek;
-        }
-        if (Object.keys(safeProfileUpdates).length > 0) {
-          await useUserProfileStore.getState().updateProfile(safeProfileUpdates);
-        }
-      }
-
-      hapticSuccess();
-      setBackupJsonInput('');
-      setStatusMessage({
-        type: 'success',
-        text: isUk
-          ? `Дані успішно відновлено! (${hasWorkouts ? parsed.workouts.length : 0} тренувань)`
-          : `Backup restored! (${hasWorkouts ? parsed.workouts.length : 0} workouts)`,
-      });
-    } catch {
-      hapticError();
       setStatusMessage({
         type: 'error',
         text: isUk
-          ? 'Помилка формату JSON. Перевірте правильність скопійованих даних.'
-          : 'Invalid JSON format. Please check the backup data.',
+          ? 'Невірний формат JSON. Перевірте скопійовані дані або файл.'
+          : 'Invalid JSON format. Please check the backup file.',
       });
+      return;
     }
+
+    const restoredCount = result.workoutsCount ?? 0;
+    hapticSuccess();
+    setBackupJsonInput('');
+    setStatusMessage({
+      type: 'success',
+      text: isUk
+        ? `Дані успішно відновлено! (${restoredCount} тренувань)`
+        : `Backup restored! (${restoredCount} workouts)`,
+    });
   };
 
   const applyCsvString = async (rawCsv: string) => {

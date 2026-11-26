@@ -119,7 +119,11 @@ export const useWorkoutHistoryStore = create<WorkoutHistoryState>((set, get) => 
       return true;
     }
 
-    const next = [workout, ...current];
+    const stampedWorkout: CompletedWorkout = {
+      ...workout,
+      updatedAt: workout.updatedAt || workout.completedAt || new Date().toISOString(),
+    };
+    const next = [stampedWorkout, ...current];
     try {
       await AsyncStorage.setItem(WORKOUT_HISTORY_STORAGE_KEY, JSON.stringify(next));
       set({ workouts: next, hydrated: true, error: null });
@@ -137,6 +141,9 @@ export const useWorkoutHistoryStore = create<WorkoutHistoryState>((set, get) => 
     try {
       await AsyncStorage.setItem(WORKOUT_HISTORY_STORAGE_KEY, JSON.stringify(next));
       set({ workouts: next, hydrated: true, error: null });
+      await import('@/lib/cloudSync')
+        .then(({ recordDeletedWorkout }) => recordDeletedWorkout(id))
+        .catch(() => undefined);
       return true;
     } catch {
       set({ error: 'Workout could not be deleted.' });
@@ -168,20 +175,26 @@ export const useWorkoutHistoryStore = create<WorkoutHistoryState>((set, get) => 
     const totalVolume =
       Math.round(workingSets.reduce((sum, s) => sum + s.volume, 0) * 100) / 100;
 
+    const nowIso = new Date().toISOString();
     const normalizedWorkout: CompletedWorkout = {
       ...updatedWorkout,
       exercises: cleanedExercises,
       totalSets: allSets.length,
       totalVolume,
+      updatedAt: nowIso,
     };
 
     const replaced = current.map((item) =>
       item.id === normalizedWorkout.id ? normalizedWorkout : item
     );
     const next = recalculateHistoryPRs(replaced);
+    const syncedTarget = next.find((item) => item.id === normalizedWorkout.id) ?? normalizedWorkout;
     try {
       await AsyncStorage.setItem(WORKOUT_HISTORY_STORAGE_KEY, JSON.stringify(next));
       set({ workouts: next, hydrated: true, error: null });
+      await import('@/lib/cloudSync')
+        .then(({ syncCompletedWorkout }) => syncCompletedWorkout(syncedTarget))
+        .catch(() => undefined);
       return true;
     } catch {
       set({ error: 'Workout could not be updated.' });

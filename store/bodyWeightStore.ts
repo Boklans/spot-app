@@ -199,6 +199,9 @@ export const useBodyWeightStore = create<BodyWeightState>((set, get) => ({
 
     try {
       await AsyncStorage.setItem(BODY_WEIGHT_STORAGE_KEY, JSON.stringify(filtered));
+      await import('@/lib/cloudSync')
+        .then(({ recordDeletedBodyWeight }) => recordDeletedBodyWeight(id))
+        .catch(() => undefined);
     } catch {
       // Continue
     }

@@ -1,14 +1,26 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isSupabaseConfigured, supabase } from './supabase';
 import { useAuthStore } from '@/store/authStore';
-import { useBodyWeightStore } from '@/store/bodyWeightStore';
+import { BODY_WEIGHT_STORAGE_KEY, useBodyWeightStore } from '@/store/bodyWeightStore';
+import { useCustomExercisesStore, type CustomExercise } from '@/store/customExercisesStore';
+import { EXERCISE_NOTES_STORAGE_KEY, normalizeExerciseNoteKey, useExerciseNotesStore } from '@/store/exerciseNotesStore';
 import { useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore, USER_PROGRAM_STORAGE_KEY } from '@/store/programStore';
 import { useUserProfileStore, USER_PROFILE_STORAGE_KEY } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore, WORKOUT_HISTORY_STORAGE_KEY } from '@/store/workoutHistoryStore';
-import { useExerciseNotesStore, EXERCISE_NOTES_STORAGE_KEY } from '@/store/exerciseNotesStore';
-import { loadOnboarding, saveOnboarding } from '@/store/workoutStore';
+import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
+import { clearOnboardingCache, loadOnboarding, saveOnboarding } from '@/store/workoutStore';
 import type { CompletedWorkout } from '@/types/workout';
+
+export const LAST_SYNCED_USER_ID_KEY = 'spot_last_synced_user_id';
+export const PENDING_CLOUD_DELETES_KEY = 'spot_pending_cloud_deletes';
+
+export interface PendingCloudDeletes {
+  workouts: string[];
+  bodyWeights: string[];
+  exerciseNotes: string[];
+  customExercises: string[];
+}
 
 export interface SyncStatus {
   isSyncing: boolean;
@@ -44,6 +56,245 @@ function scopedCloudId(userId: string, rawId: string): string {
   return clean.startsWith(`${userId}:`) ? clean : `${userId}:${clean}`;
 }
 
+function emptyPendingDeletes(): PendingCloudDeletes {
+  return {
+    workouts: [],
+    bodyWeights: [],
+    exerciseNotes: [],
+    customExercises: [],
+  };
+}
+
+export async function loadPendingCloudDeletes(): Promise<PendingCloudDeletes> {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_CLOUD_DELETES_KEY);
+    if (!raw) return emptyPendingDeletes();
+    const parsed = JSON.parse(raw) as Partial<PendingCloudDeletes>;
+    return {
+      workouts: Array.isArray(parsed.workouts) ? Array.from(new Set(parsed.workouts.filter(Boolean))) : [],
+      bodyWeights: Array.isArray(parsed.bodyWeights) ? Array.from(new Set(parsed.bodyWeights.filter(Boolean))) : [],
+      exerciseNotes: Array.isArray(parsed.exerciseNotes) ? Array.from(new Set(parsed.exerciseNotes.filter(Boolean))) : [],
+      customExercises: Array.isArray(parsed.customExercises) ? Array.from(new Set(parsed.customExercises.filter(Boolean))) : [],
+    };
+  } catch {
+    return emptyPendingDeletes();
+  }
+}
+
+async function savePendingCloudDeletes(pending: PendingCloudDeletes): Promise<void> {
+  const hasAny =
+    pending.workouts.length > 0 ||
+    pending.bodyWeights.length > 0 ||
+    pending.exerciseNotes.length > 0 ||
+    pending.customExercises.length > 0;
+  try {
+    if (!hasAny) {
+      await AsyncStorage.removeItem(PENDING_CLOUD_DELETES_KEY);
+    } else {
+      await AsyncStorage.setItem(PENDING_CLOUD_DELETES_KEY, JSON.stringify(pending));
+    }
+  } catch {
+    // Ignore storage error
+  }
+}
+
+export async function recordDeletedWorkout(workoutId: string): Promise<void> {
+  if (!workoutId) return;
+  const pending = await loadPendingCloudDeletes();
+  if (!pending.workouts.includes(workoutId)) {
+    pending.workouts.push(workoutId);
+    await savePendingCloudDeletes(pending);
+  }
+  const user = useAuthStore.getState().user;
+  if (user && isSupabaseConfigured()) {
+    await flushPendingCloudDeletes(user.id);
+  }
+}
+
+export async function recordDeletedBodyWeight(entryId: string): Promise<void> {
+  if (!entryId) return;
+  const pending = await loadPendingCloudDeletes();
+  if (!pending.bodyWeights.includes(entryId)) {
+    pending.bodyWeights.push(entryId);
+    await savePendingCloudDeletes(pending);
+  }
+  const user = useAuthStore.getState().user;
+  if (user && isSupabaseConfigured()) {
+    await flushPendingCloudDeletes(user.id);
+  }
+}
+
+export async function recordDeletedExerciseNote(exerciseNameOrKey: string): Promise<void> {
+  const key = normalizeExerciseNoteKey(exerciseNameOrKey) || exerciseNameOrKey.trim().toLowerCase();
+  if (!key) return;
+  const pending = await loadPendingCloudDeletes();
+  if (!pending.exerciseNotes.includes(key)) {
+    pending.exerciseNotes.push(key);
+    await savePendingCloudDeletes(pending);
+  }
+  const user = useAuthStore.getState().user;
+  if (user && isSupabaseConfigured()) {
+    await syncProgramMetadataToCloud(user.id);
+  }
+}
+
+export async function recordDeletedCustomExercise(customExerciseId: string): Promise<void> {
+  if (!customExerciseId) return;
+  const pending = await loadPendingCloudDeletes();
+  if (!pending.customExercises.includes(customExerciseId)) {
+    pending.customExercises.push(customExerciseId);
+    await savePendingCloudDeletes(pending);
+  }
+  const user = useAuthStore.getState().user;
+  if (user && isSupabaseConfigured()) {
+    await syncProgramMetadataToCloud(user.id);
+  }
+}
+
+async function flushPendingCloudDeletes(userId: string): Promise<PendingCloudDeletes> {
+  const pending = await loadPendingCloudDeletes();
+  if (!isSupabaseConfigured() || !userId) return pending;
+
+  if (pending.workouts.length > 0) {
+    try {
+      const scopedIds = pending.workouts.flatMap((id) => [scopedCloudId(userId, id), id]);
+      const { error } = await supabase
+        .from('workout_history')
+        .delete()
+        .eq('user_id', userId)
+        .in('id', Array.from(new Set(scopedIds)));
+      if (!error) {
+        pending.workouts = [];
+      }
+    } catch {
+      // Keep tombstone queued for next sync
+    }
+  }
+
+  if (pending.bodyWeights.length > 0) {
+    try {
+      const scopedIds = pending.bodyWeights.flatMap((id) => [scopedCloudId(userId, id), id]);
+      const { error } = await supabase
+        .from('body_weight_logs')
+        .delete()
+        .eq('user_id', userId)
+        .in('id', Array.from(new Set(scopedIds)));
+      if (!error) {
+        pending.bodyWeights = [];
+      }
+    } catch {
+      // Keep tombstone queued for next sync
+    }
+  }
+
+  await savePendingCloudDeletes(pending);
+  return pending;
+}
+
+/**
+ * Purges local user-specific stores & AsyncStorage keys so signing out or switching
+ * accounts on a shared device never leaks User A's workouts/weights/notes/programs to User B.
+ */
+export async function clearLocalDataOnSignOut(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([
+      WORKOUT_HISTORY_STORAGE_KEY,
+      BODY_WEIGHT_STORAGE_KEY,
+      EXERCISE_NOTES_STORAGE_KEY,
+      USER_PROGRAM_STORAGE_KEY,
+      'spot-custom-program',
+      'spot-active-program',
+      'spot-program',
+      'spot-program-progress',
+      'spot-onboarding',
+      'spot-deload-backup',
+      PENDING_CLOUD_DELETES_KEY,
+      LAST_SYNCED_USER_ID_KEY,
+    ]);
+  } catch {
+    // Ignore storage removal errors
+  }
+
+  clearOnboardingCache();
+  await useWorkoutSessionStore.getState().discardSession();
+  await useWorkoutHistoryStore.getState().clearHistory();
+  await useBodyWeightStore.getState().clearHistory();
+  await useExerciseNotesStore.getState().clearNotes();
+  await useCustomExercisesStore.getState().clearCustomExercises();
+  await useUserProfileStore.getState().resetProfile();
+  await useProgramStore.getState().resetProgram();
+
+  currentStatus = {
+    isSyncing: false,
+    lastSyncedAt: null,
+    error: null,
+  };
+  notifyListeners();
+}
+
+/**
+ * Ensures local stores belong to `incomingUserId` (or to an anonymous pre-login user).
+ * If local storage is still stamped with a DIFFERENT authenticated user's ID, wipes local data first.
+ */
+export async function ensureAccountIsolation(incomingUserId: string): Promise<void> {
+  if (!incomingUserId) return;
+  const lastOwnerId = await AsyncStorage.getItem(LAST_SYNCED_USER_ID_KEY).catch(() => null);
+  if (lastOwnerId && lastOwnerId !== incomingUserId) {
+    await clearLocalDataOnSignOut();
+  }
+  await AsyncStorage.setItem(LAST_SYNCED_USER_ID_KEY, incomingUserId).catch(() => undefined);
+}
+
+async function syncProgramMetadataToCloud(userId: string): Promise<boolean> {
+  const program = useProgramStore.getState().program;
+  if (!program) return true;
+  const progress = useProgramProgressStore.getState().progress;
+  const profile = useUserProfileStore.getState().profile;
+  const onboarding = await loadOnboarding();
+  const exerciseNotes = await useExerciseNotesStore.getState().loadNotes();
+  const customExercises = useCustomExercisesStore.getState().hydrated
+    ? useCustomExercisesStore.getState().customExercises
+    : await useCustomExercisesStore.getState().loadCustomExercises();
+
+  const { error } = await supabase.from('user_programs').upsert({
+    id: scopedCloudId(userId, program.id || 'main'),
+    user_id: userId,
+    name: program.name,
+    days_per_week: program.daysPerWeek,
+    program_data: program,
+    progress_data: {
+      ...progress,
+      exerciseNotes,
+      customExercises,
+      profileMeta: {
+        sex: profile.sex,
+        age: profile.age,
+        theme: profile.theme,
+        baselineLifts: profile.baselineLifts,
+        sessionDurationMinutes: onboarding?.sessionDurationMinutes ?? 45,
+      },
+    },
+    updated_at: new Date().toISOString(),
+  });
+
+  if (!error) {
+    const pending = await loadPendingCloudDeletes();
+    if (pending.exerciseNotes.length > 0 || pending.customExercises.length > 0) {
+      pending.exerciseNotes = [];
+      pending.customExercises = [];
+      await savePendingCloudDeletes(pending);
+    }
+    return true;
+  }
+  return false;
+}
+
+function getWorkoutFreshnessMs(workout: CompletedWorkout): number {
+  const stamp = workout.updatedAt || workout.completedAt || workout.startedAt;
+  const ms = stamp ? new Date(stamp).getTime() : 0;
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 /**
  * Uploads local app state to Supabase for the authenticated user.
  */
@@ -57,12 +308,21 @@ export async function syncUp(): Promise<{ success: boolean; error?: string }> {
   notifyListeners();
 
   try {
+    await ensureAccountIsolation(user.id);
+    const remainingDeletes = await flushPendingCloudDeletes(user.id);
+    const deletedWorkoutSet = new Set(remainingDeletes.workouts);
+    const deletedWeightSet = new Set(remainingDeletes.bodyWeights);
+
     const profile = useUserProfileStore.getState().profile;
-    const program = useProgramStore.getState().program;
-    const progress = useProgramProgressStore.getState().progress;
-    const workouts = useWorkoutHistoryStore.getState().workouts;
-    const weightEntries = useBodyWeightStore.getState().entries;
-    const onboarding = await loadOnboarding();
+    const workouts = (
+      useWorkoutHistoryStore.getState().hydrated
+        ? useWorkoutHistoryStore.getState().workouts
+        : await useWorkoutHistoryStore.getState().loadHistory()
+    ).filter((w) => w && !deletedWorkoutSet.has(w.id));
+
+    const weightEntries = useBodyWeightStore
+      .getState()
+      .entries.filter((e) => e && !deletedWeightSet.has(e.id));
 
     // 1. Sync Profile
     const { error: profileErr } = await supabase.from('profiles').upsert({
@@ -82,33 +342,14 @@ export async function syncUp(): Promise<{ success: boolean; error?: string }> {
     });
     if (profileErr) throw profileErr;
 
-    // 2. Sync Program, Exercise Notes & Extended Profile Meta (sex/age/theme/baselineLifts/duration)
-    if (program) {
-      const exerciseNotes = await useExerciseNotesStore.getState().loadNotes();
-      const { error: progErr } = await supabase.from('user_programs').upsert({
-        id: scopedCloudId(user.id, program.id || 'main'),
-        user_id: user.id,
-        name: program.name,
-        days_per_week: program.daysPerWeek,
-        program_data: program,
-        progress_data: {
-          ...progress,
-          exerciseNotes,
-          profileMeta: {
-            sex: profile.sex,
-            age: profile.age,
-            theme: profile.theme,
-            baselineLifts: profile.baselineLifts,
-            sessionDurationMinutes: onboarding?.sessionDurationMinutes ?? 45,
-          },
-        },
-        updated_at: new Date().toISOString(),
-      });
-      if (progErr) throw progErr;
+    // 2. Sync Program, Exercise Notes, Custom Exercises & Extended Profile Meta
+    const progOk = await syncProgramMetadataToCloud(user.id);
+    if (!progOk) {
+      throw new Error('Failed to sync program metadata');
     }
 
     // 3. Sync Workout History
-    if (workouts && workouts.length > 0) {
+    if (workouts.length > 0) {
       const workoutRows = workouts.map((w) => ({
         id: scopedCloudId(user.id, w.id),
         user_id: user.id,
@@ -122,7 +363,7 @@ export async function syncUp(): Promise<{ success: boolean; error?: string }> {
     }
 
     // 4. Sync Body Weight Entries
-    if (weightEntries && weightEntries.length > 0) {
+    if (weightEntries.length > 0) {
       const weightRows = weightEntries.map((e) => ({
         id: scopedCloudId(user.id, e.id),
         user_id: user.id,
@@ -164,6 +405,13 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
   notifyListeners();
 
   try {
+    await ensureAccountIsolation(user.id);
+    const pendingDeletes = await flushPendingCloudDeletes(user.id);
+    const deletedWorkoutSet = new Set(pendingDeletes.workouts);
+    const deletedWeightSet = new Set(pendingDeletes.bodyWeights);
+    const deletedNotesSet = new Set(pendingDeletes.exerciseNotes);
+    const deletedCustomExSet = new Set(pendingDeletes.customExercises);
+
     // 1. Fetch Profile
     const { data: profileRow, error: profileFetchErr } = await supabase
       .from('profiles')
@@ -172,7 +420,7 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
       .maybeSingle();
     if (profileFetchErr) throw profileFetchErr;
 
-    // 2. Fetch User Program (also carries extended profileMeta & exerciseNotes)
+    // 2. Fetch User Program (also carries extended profileMeta, exerciseNotes & customExercises)
     const { data: programRow, error: programFetchErr } = await supabase
       .from('user_programs')
       .select('*')
@@ -183,7 +431,13 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
     if (programFetchErr) throw programFetchErr;
 
     const profileMeta = programRow?.progress_data?.profileMeta as
-      | { sex?: 'male' | 'female'; age?: number; theme?: 'dark' | 'light'; baselineLifts?: any; sessionDurationMinutes?: number }
+      | {
+          sex?: 'male' | 'female' | 'unspecified';
+          age?: number;
+          theme?: 'dark' | 'light';
+          baselineLifts?: any;
+          sessionDurationMinutes?: number;
+        }
       | undefined;
 
     if (profileRow && (profileRow.goal || profileRow.weight_kg)) {
@@ -222,7 +476,9 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
           ? 'lose_fat'
           : mergedProfile.goal === 'Get Stronger'
             ? 'get_stronger'
-            : 'build_muscle';
+            : mergedProfile.goal === 'Recomposition'
+              ? 'recomposition'
+              : 'build_muscle';
       const mappedExperience =
         mergedProfile.experience === 'Beginner'
           ? 'beginner'
@@ -249,19 +505,56 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
       await AsyncStorage.setItem('spot-program', JSON.stringify(programRow.program_data));
 
       if (programRow.progress_data) {
-        const { exerciseNotes, profileMeta: _pm, ...cleanProgress } = programRow.progress_data;
+        const {
+          exerciseNotes: cloudExerciseNotes,
+          customExercises: cloudCustomExercises,
+          profileMeta: _pm,
+          ...cleanProgress
+        } = programRow.progress_data;
         useProgramProgressStore.setState({ progress: cleanProgress, hydrated: true });
         await AsyncStorage.setItem('spot-program-progress', JSON.stringify(cleanProgress));
-        if (exerciseNotes && typeof exerciseNotes === 'object') {
+
+        if (cloudExerciseNotes && typeof cloudExerciseNotes === 'object') {
           const currentNotes = await useExerciseNotesStore.getState().loadNotes();
-          const mergedNotes = { ...exerciseNotes, ...currentNotes };
+          const mergedNotes: Record<string, string> = {};
+          for (const [rawKey, val] of Object.entries(cloudExerciseNotes as Record<string, unknown>)) {
+            if (typeof val === 'string' && val.trim().length > 0) {
+              const normKey = normalizeExerciseNoteKey(rawKey) || rawKey.trim().toLowerCase();
+              if (!deletedNotesSet.has(normKey)) {
+                mergedNotes[normKey] = val.trim();
+              }
+            }
+          }
+          for (const [localKey, val] of Object.entries(currentNotes)) {
+            if (typeof val === 'string' && val.trim().length > 0 && !deletedNotesSet.has(localKey)) {
+              mergedNotes[localKey] = val.trim();
+            }
+          }
           useExerciseNotesStore.setState({ notes: mergedNotes, hydrated: true });
           await AsyncStorage.setItem(EXERCISE_NOTES_STORAGE_KEY, JSON.stringify(mergedNotes));
+        }
+
+        if (Array.isArray(cloudCustomExercises)) {
+          const localCustom = useCustomExercisesStore.getState().hydrated
+            ? useCustomExercisesStore.getState().customExercises
+            : await useCustomExercisesStore.getState().loadCustomExercises();
+          const customById = new Map<string, CustomExercise>();
+          for (const ce of cloudCustomExercises as CustomExercise[]) {
+            if (ce?.id && !deletedCustomExSet.has(ce.id)) {
+              customById.set(ce.id, ce);
+            }
+          }
+          for (const le of localCustom) {
+            if (le?.id && !deletedCustomExSet.has(le.id)) {
+              customById.set(le.id, le);
+            }
+          }
+          await useCustomExercisesStore.getState().replaceCustomExercises(Array.from(customById.values()));
         }
       }
     }
 
-    // 3. Fetch & MERGE Workout History (preserve offline workouts!)
+    // 3. Fetch & MERGE Workout History (Last-Write-Wins via updatedAt, respecting deletion tombstones)
     const { data: historyRows, error: histFetchErr } = await supabase
       .from('workout_history')
       .select('workout_data')
@@ -269,27 +562,56 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
       .order('completed_at', { ascending: false });
     if (histFetchErr) throw histFetchErr;
 
-    if (historyRows && historyRows.length > 0) {
-      const cloudWorkouts: CompletedWorkout[] = historyRows
-        .map((r: any) => r.workout_data)
-        .filter(Boolean);
-      const localWorkouts = await useWorkoutHistoryStore.getState().loadHistory();
+    const localWorkouts = await useWorkoutHistoryStore.getState().loadHistory();
+    const cloudWorkouts: CompletedWorkout[] = (historyRows || [])
+      .map((r: any) => r?.workout_data as CompletedWorkout)
+      .filter((w): w is CompletedWorkout => Boolean(w?.id && !deletedWorkoutSet.has(w.id)));
+
+    if (cloudWorkouts.length > 0 || localWorkouts.length > 0) {
       const byId = new Map<string, CompletedWorkout>();
+      const localNewerWorkouts: CompletedWorkout[] = [];
+
       for (const lw of localWorkouts) {
-        if (lw?.id) byId.set(lw.id, lw);
+        if (lw?.id && !deletedWorkoutSet.has(lw.id)) {
+          byId.set(lw.id, lw);
+        }
       }
       for (const cw of cloudWorkouts) {
-        if (cw?.id) byId.set(cw.id, cw);
+        const existingLocal = byId.get(cw.id);
+        if (!existingLocal) {
+          byId.set(cw.id, cw);
+        } else {
+          const localTime = getWorkoutFreshnessMs(existingLocal);
+          const cloudTime = getWorkoutFreshnessMs(cw);
+          if (cloudTime > localTime) {
+            byId.set(cw.id, cw);
+          } else if (localTime > cloudTime) {
+            localNewerWorkouts.push(existingLocal);
+          }
+        }
       }
+
       const mergedWorkouts = Array.from(byId.values()).sort(
         (a, b) => new Date(b.completedAt || b.startedAt).getTime() - new Date(a.completedAt || a.startedAt).getTime()
       );
 
       useWorkoutHistoryStore.setState({ workouts: mergedWorkouts, hydrated: true });
       await AsyncStorage.setItem(WORKOUT_HISTORY_STORAGE_KEY, JSON.stringify(mergedWorkouts));
+
+      // Push any locally edited workouts that are newer than cloud rows so cloud converges immediately
+      if (localNewerWorkouts.length > 0) {
+        const rowsToUpdate = localNewerWorkouts.map((w) => ({
+          id: scopedCloudId(user.id, w.id),
+          user_id: user.id,
+          workout_name: w.workoutName || 'Workout',
+          workout_data: w,
+          completed_at: w.completedAt || new Date().toISOString(),
+        }));
+        await supabase.from('workout_history').upsert(rowsToUpdate);
+      }
     }
 
-    // 4. Fetch & MERGE Body Weight Logs (preserve offline logs!)
+    // 4. Fetch & MERGE Body Weight Logs (respecting deletion tombstones)
     const { data: weightRows, error: weightFetchErr } = await supabase
       .from('body_weight_logs')
       .select('*')
@@ -298,24 +620,37 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
     if (weightFetchErr) throw weightFetchErr;
 
     if (weightRows && weightRows.length > 0) {
-      const cloudEntries = weightRows.map((r: any) => ({
-        id: String(r.id).startsWith(`${user.id}:`) ? String(r.id).slice(user.id.length + 1) : r.id,
-        weightKg: Number(r.weight_kg),
-        date: r.date,
-        timestamp: Number(r.timestamp),
-      }));
-      const localEntries = await useBodyWeightStore.getState().loadHistory();
+      const cloudEntries = weightRows
+        .map((r: any) => ({
+          id: String(r.id).startsWith(`${user.id}:`) ? String(r.id).slice(user.id.length + 1) : String(r.id),
+          weightKg: Number(r.weight_kg),
+          date: r.date,
+          timestamp: Number(r.timestamp),
+        }))
+        .filter((ce: { id: string }) => ce.id && !deletedWeightSet.has(ce.id));
+
+      const localEntries = useBodyWeightStore.getState().hydrated
+        ? useBodyWeightStore.getState().entries
+        : await useBodyWeightStore.getState().loadHistory();
       const weightById = new Map<string, { id: string; weightKg: number; date: string; timestamp: number }>();
       for (const le of localEntries) {
-        if (le?.id) weightById.set(le.id, le);
+        if (le?.id && !deletedWeightSet.has(le.id)) {
+          weightById.set(le.id, le);
+        }
       }
       for (const ce of cloudEntries) {
-        if (ce?.id) weightById.set(ce.id, ce);
+        if (ce?.id && !deletedWeightSet.has(ce.id)) {
+          weightById.set(ce.id, ce);
+        }
       }
       const mergedEntries = Array.from(weightById.values()).sort((a, b) => a.timestamp - b.timestamp);
 
-      useBodyWeightStore.setState({ entries: mergedEntries });
-      await AsyncStorage.setItem('spot-body-weight-history', JSON.stringify(mergedEntries));
+      useBodyWeightStore.setState({ entries: mergedEntries, hydrated: true });
+      await AsyncStorage.setItem(BODY_WEIGHT_STORAGE_KEY, JSON.stringify(mergedEntries));
+    }
+
+    if (pendingDeletes.exerciseNotes.length > 0 || pendingDeletes.customExercises.length > 0) {
+      await syncProgramMetadataToCloud(user.id);
     }
 
     currentStatus = {
@@ -334,7 +669,7 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
 }
 
 /**
- * Syncs a single newly completed workout session to cloud in the background.
+ * Syncs a single newly completed or edited workout session to cloud in the background.
  */
 export async function syncCompletedWorkout(session: CompletedWorkout): Promise<void> {
   if (!isSupabaseConfigured()) return;
@@ -342,6 +677,7 @@ export async function syncCompletedWorkout(session: CompletedWorkout): Promise<v
   if (!user) return;
 
   try {
+    await ensureAccountIsolation(user.id);
     const { error: wErr } = await supabase.from('workout_history').upsert({
       id: scopedCloudId(user.id, session.id),
       user_id: user.id,
@@ -351,39 +687,12 @@ export async function syncCompletedWorkout(session: CompletedWorkout): Promise<v
     });
     if (wErr) throw wErr;
 
-    // Also sync latest program progress WITHOUT overwriting exerciseNotes or profileMeta
-    const program = useProgramStore.getState().program;
-    const progress = useProgramProgressStore.getState().progress;
-    const profile = useUserProfileStore.getState().profile;
-    const onboarding = await loadOnboarding();
-    if (program) {
-      const exerciseNotes = await useExerciseNotesStore.getState().loadNotes();
-      const { error: pErr } = await supabase.from('user_programs').upsert({
-        id: scopedCloudId(user.id, program.id || 'main'),
-        user_id: user.id,
-        name: program.name,
-        days_per_week: program.daysPerWeek,
-        program_data: program,
-        progress_data: {
-          ...progress,
-          exerciseNotes,
-          profileMeta: {
-            sex: profile.sex,
-            age: profile.age,
-            theme: profile.theme,
-            baselineLifts: profile.baselineLifts,
-            sessionDurationMinutes: onboarding?.sessionDurationMinutes ?? 45,
-          },
-        },
-        updated_at: new Date().toISOString(),
-      });
-      if (pErr) throw pErr;
-    }
+    await syncProgramMetadataToCloud(user.id);
 
     currentStatus = { ...currentStatus, lastSyncedAt: Date.now() };
     notifyListeners();
   } catch {
-    // Fail silently in background - offline queue
+    // Fail silently in background - local state remains authoritative via updatedAt
   }
 }
 
@@ -411,7 +720,6 @@ export async function wipeAllCloudUserData(): Promise<{ success: boolean; error?
 
     const userId = user.id;
 
-    // 1. Wipe user_metadata on auth.users so name and details are removed
     try {
       await supabase.auth.updateUser({
         data: {
@@ -423,7 +731,6 @@ export async function wipeAllCloudUserData(): Promise<{ success: boolean; error?
       // Continue
     }
 
-    // 2. Permanently delete user from auth.users via RPC
     const { error: rpcErr } = await supabase.rpc('delete_user_account');
     let rpcMissing = false;
     if (rpcErr) {
@@ -433,13 +740,11 @@ export async function wipeAllCloudUserData(): Promise<{ success: boolean; error?
       }
     }
 
-    // 3. Fallback explicit delete for all tables
     await supabase.from('workout_history').delete().eq('user_id', userId);
     await supabase.from('user_programs').delete().eq('user_id', userId);
     await supabase.from('body_weight_logs').delete().eq('user_id', userId);
     await supabase.from('profiles').delete().eq('id', userId);
 
-    // 4. Sign out
     await useAuthStore.getState().signOut();
 
     currentStatus = {

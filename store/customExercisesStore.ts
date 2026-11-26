@@ -75,6 +75,9 @@ export const useCustomExercisesStore = create<CustomExercisesState>((set, get) =
     set({ customExercises: updated });
     try {
       await AsyncStorage.setItem(CUSTOM_EXERCISES_STORAGE_KEY, JSON.stringify(updated));
+      await import('@/lib/cloudSync')
+        .then(({ recordDeletedCustomExercise }) => recordDeletedCustomExercise(id))
+        .catch(() => undefined);
     } catch {
       // Ignore
     }
