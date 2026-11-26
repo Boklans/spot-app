@@ -1,3 +1,4 @@
+import { findCanonicalExercise } from '@/lib/exercises';
 import { EXERCISE_LIBRARY } from '@/lib/exerciseLibrary';
 import type { CompletedExercise, CompletedSet, CompletedWorkout, SetType } from '@/types/workout';
 
@@ -74,6 +75,9 @@ export function parseCsvRows(rawText: string): string[][] {
 }
 
 function inferMuscleGroupFromExerciseName(name: string): string {
+  const canonical = findCanonicalExercise(name);
+  if (canonical) return canonical.categoryMuscle;
+
   const lower = name.trim().toLowerCase();
   const exact = EXERCISE_LIBRARY.find((ex) => ex.name.toLowerCase() === lower);
   if (exact) return exact.muscleGroup;

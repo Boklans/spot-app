@@ -1,5 +1,6 @@
 import type { CompletedWorkout, PersonalRecord } from '@/types/workout';
 import { isAssistedExercise } from '@/lib/adaptiveProgression';
+import { areExercisesEquivalent, resolveCanonicalExerciseId } from '@/lib/exercises';
 import { formatWeight } from '@/lib/weightUtils';
 
 export type BaselineLiftsInput = {
@@ -35,12 +36,7 @@ function isSameExercise(
   a: { exerciseId?: string; exerciseName?: string },
   b: { exerciseId?: string; exerciseName?: string }
 ): boolean {
-  const nameA = normalizeExerciseName(a.exerciseName || '');
-  const nameB = normalizeExerciseName(b.exerciseName || '');
-  if (nameA && nameB) {
-    return nameA === nameB;
-  }
-  return Boolean(a.exerciseId && b.exerciseId && a.exerciseId === b.exerciseId);
+  return areExercisesEquivalent(a, b);
 }
 
 function getBaselineWeightForExercise(
@@ -48,42 +44,23 @@ function getBaselineWeightForExercise(
   baselineLifts?: BaselineLiftsInput
 ): number {
   if (!baselineLifts) return 0;
-  const lower = normalizeExerciseName(exerciseName);
-  if (
-    lower === 'bench press' ||
-    lower === 'barbell bench press' ||
-    lower === 'жим штанги лежачи'
-  ) {
+  const canonicalId = resolveCanonicalExerciseId(exerciseName);
+  if (canonicalId === 'barbell-bench-press') {
     return baselineLifts.benchPressKg && baselineLifts.benchPressKg > 0
       ? baselineLifts.benchPressKg
       : 0;
   }
-  if (
-    lower === 'barbell squat' ||
-    lower === 'squat' ||
-    lower === 'back squat' ||
-    lower === 'присідання зі штангою'
-  ) {
+  if (canonicalId === 'barbell-back-squat') {
     return baselineLifts.squatKg && baselineLifts.squatKg > 0
       ? baselineLifts.squatKg
       : 0;
   }
-  if (
-    lower === 'deadlift' ||
-    lower === 'barbell deadlift' ||
-    lower === 'conventional deadlift' ||
-    lower === 'станова тяга'
-  ) {
+  if (canonicalId === 'conventional-deadlift') {
     return baselineLifts.deadliftKg && baselineLifts.deadliftKg > 0
       ? baselineLifts.deadliftKg
       : 0;
   }
-  if (
-    lower === 'overhead press' ||
-    lower === 'barbell overhead press' ||
-    lower === 'standing overhead press' ||
-    lower === 'жим штанги стоячи'
-  ) {
+  if (canonicalId === 'overhead-barbell-press') {
     return baselineLifts.overheadPressKg && baselineLifts.overheadPressKg > 0
       ? baselineLifts.overheadPressKg
       : 0;
@@ -275,7 +252,7 @@ export function getAllTimePersonalRecords(
       );
       if (validSets.length === 0) continue;
 
-      const key = normalizeExerciseName(exercise.exerciseName) || exercise.exerciseId;
+      const key = resolveCanonicalExerciseId(exercise.exerciseName) || exercise.exerciseId;
       if (!key) continue;
 
       const prevSeen = seenCount.get(key) ?? 0;
@@ -357,7 +334,7 @@ export function getAllTimePersonalRecords(
 
   for (const item of baselineEntries) {
     if (typeof item.weightKg !== 'number' || item.weightKg <= 0) continue;
-    const key = normalizeExerciseName(item.name);
+    const key = resolveCanonicalExerciseId(item.name);
     const existing = byExercise.get(key);
     if (!existing) {
       byExercise.set(key, {

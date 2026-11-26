@@ -1,4 +1,5 @@
 import type { AllTimeExerciseRecord } from '@/lib/personalRecords';
+import { findCanonicalExercise } from '@/lib/exercises';
 
 export type StrengthRankKey = 'novice' | 'beginner' | 'intermediate' | 'advanced' | 'elite';
 
@@ -159,7 +160,9 @@ export interface StrengthProfileSummary {
 }
 
 function matchLiftStandard(exerciseName: string): LiftStandardDef | null {
-  const lower = (exerciseName || '').trim().toLowerCase();
+  const canonical = findCanonicalExercise(exerciseName);
+  const resolvedName = canonical ? canonical.nameEn : exerciseName;
+  const lower = (resolvedName || '').trim().toLowerCase();
   if (!lower) return null;
 
   for (const def of LIFT_STANDARDS) {

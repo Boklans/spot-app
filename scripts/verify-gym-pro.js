@@ -233,4 +233,97 @@ let passed = 0;
   passed++;
 }
 
+// TEST 6 (P0-04): Canonical Exercise Registry, Cross-Catalog Identity & Ukrainian Translation Precision
+{
+  const exercisesMod = loadTsModule('lib/exercises.ts');
+  const libraryMod = loadTsModule('lib/exerciseLibrary.ts');
+  const catalogMod = loadTsModule('lib/exerciseCatalog.ts');
+  const i18nMod = loadTsModule('lib/i18n.ts');
+  const prsMod = loadTsModule('lib/personalRecords.ts');
+  const calcMod = loadTsModule('lib/progressCalculator.ts');
+  const notesMod = loadTsModule('store/exerciseNotesStore.ts');
+
+  const allowedCategories = new Set(['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core']);
+
+  assert.ok(libraryMod.EXERCISE_LIBRARY.length >= 45, 'Canonical library must include full exercise roster');
+  assert.strictEqual(libraryMod.EXERCISE_LIBRARY.length, catalogMod.EXERCISE_CATALOG.length);
+
+  for (const ex of libraryMod.EXERCISE_LIBRARY) {
+    assert.ok(allowedCategories.has(ex.muscleGroup), `Exercise ${ex.name} has unfilterable category ${ex.muscleGroup}`);
+    const uk = i18nMod.translateExercise(ex.name, 'uk');
+    assert.ok(/[а-яіїєґ]/i.test(uk), `Exercise "${ex.name}" must translate into Ukrainian Cyrillic (got "${uk}")`);
+  }
+
+  // Substring collision regression checks (FL-05)
+  assert.strictEqual(i18nMod.translateExercise('Barbell Bench Press', 'uk'), 'Жим штанги лежачи');
+  assert.strictEqual(i18nMod.translateExercise('Incline Barbell Bench Press', 'uk'), 'Жим штанги під кутом');
+  assert.strictEqual(i18nMod.translateExercise('Standing Dumbbell Shoulder Press', 'uk'), 'Жим гантелей стоячи');
+  assert.strictEqual(i18nMod.translateExercise('Dumbbell Shoulder Press', 'uk'), 'Жим гантелей сидячи');
+  assert.strictEqual(i18nMod.translateExercise('Barbell Front Squat', 'uk'), 'Фронтальні присідання зі штангою');
+
+  // Unified exercise identity across generator ("Bench Press") and picker ("Barbell Bench Press")
+  assert.strictEqual(
+    exercisesMod.resolveCanonicalExerciseId('Bench Press'),
+    exercisesMod.resolveCanonicalExerciseId('Barbell Bench Press')
+  );
+  assert.strictEqual(
+    exercisesMod.resolveCanonicalExerciseId('Жим штанги лежачи'),
+    'barbell-bench-press'
+  );
+  assert.notStrictEqual(
+    exercisesMod.resolveCanonicalExerciseId('Incline Barbell Bench Press'),
+    exercisesMod.resolveCanonicalExerciseId('Barbell Bench Press')
+  );
+
+  // History logged under "Barbell Bench Press" matches program template "Bench Press"
+  const crossHistory = [
+    {
+      id: 'w-hist-1',
+      completedAt: '2026-11-10T10:00:00Z',
+      startedAt: '2026-11-10T09:15:00Z',
+      exercises: [
+        {
+          exerciseId: 'lib-bench-press',
+          exerciseName: 'Barbell Bench Press',
+          muscleGroup: 'Chest',
+          sets: [
+            { weight: 80, reps: 10, volume: 800, completedAt: '2026-11-10T09:20:00Z' },
+            { weight: 80, reps: 10, volume: 800, completedAt: '2026-11-10T09:23:00Z' },
+          ],
+        },
+      ],
+    },
+  ];
+  const matchedSets = adaptive.findLatestExerciseSets(crossHistory, { id: 'bench_press', name: 'Bench Press' });
+  assert.strictEqual(matchedSets.length, 2);
+  assert.strictEqual(matchedSets[0].weight, 80);
+
+  const progressMatch = calcMod.calculateExerciseProgress(crossHistory, { name: 'Bench Press' }, 'ALL', new Date('2026-11-15T10:00:00Z'));
+  assert.ok(progressMatch);
+  assert.strictEqual(progressMatch.historicalMaxWeight, 80);
+
+  const prMatch = prsMod.detectPersonalRecords(
+    {
+      id: 'w-hist-2',
+      completedAt: '2026-11-14T10:00:00Z',
+      exercises: [{ exerciseId: 'upper-a-1', exerciseName: 'Bench Press', muscleGroup: 'Chest', sets: [{ weight: 82.5, reps: 10, volume: 825, completedAt: '2026-11-14T10:00:00Z' }] }],
+    },
+    crossHistory
+  );
+  assert.strictEqual(prMatch.length, 1);
+
+  // Legacy note lookup preserved while normalizing to canonical ID
+  notesMod.useExerciseNotesStore.setState({ notes: { 'bench press': 'Seat 3, medium grip' }, hydrated: true });
+  assert.strictEqual(notesMod.useExerciseNotesStore.getState().getNote('Barbell Bench Press'), 'Seat 3, medium grip');
+
+  // Missing flagship lifts now present
+  assert.ok(exercisesMod.findCanonicalExercise('Hip Thrust'));
+  assert.ok(exercisesMod.findCanonicalExercise('Conventional Deadlift'));
+  assert.ok(exercisesMod.findCanonicalExercise('Assisted Pull-up'));
+  assert.ok(exercisesMod.findCanonicalExercise('Assisted Dip'));
+
+  console.log('✅ TEST 6 PASSED (P0-04): Canonical exercise registry unifies identity, catalogs, notes, PRs, and Ukrainian translations');
+  passed++;
+}
+
 console.log(`\n🎉 ALL ${passed} GYM FLOOR PRO ENGINE TESTS PASSED!\n`);

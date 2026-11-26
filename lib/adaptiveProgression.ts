@@ -1,5 +1,6 @@
 import type { CompletedWorkout } from '@/types/workout';
 import type { EquipmentId, GeneratedExercise } from '@/lib/programGenerator';
+import { areExercisesEquivalent, findCanonicalExercise } from '@/lib/exercises';
 import { addWeight, formatWeight, normalizeWeight, subtractWeight } from '@/lib/weightUtils';
 
 export type ProgressionReason = 'increase' | 'maintain' | 'reduce' | 'program_default';
@@ -100,6 +101,10 @@ export function isBarbellExercise(name: string, equipment?: EquipmentId): boolea
 }
 
 export function inferEquipmentFromName(name: string, fallback: EquipmentId = 'barbell'): EquipmentId {
+  const canonical = findCanonicalExercise(name);
+  if (canonical) {
+    return canonical.equipment;
+  }
   const lower = (name || '').toLowerCase();
   if (isAssistedExercise(lower)) {
     return 'machines';
@@ -114,17 +119,32 @@ export function inferEquipmentFromName(name: string, fallback: EquipmentId = 'ba
     lower.includes('plank') ||
     lower.includes('bodyweight') ||
     lower.includes('hanging knee') ||
+    lower.includes('відтискан') ||
+    lower.includes('підтягуван') ||
+    lower.includes('планк') ||
+    lower.includes('власною вагою') ||
     (lower.includes('dip') && !lower.includes('machine')) ||
+    (lower.includes('брус') && !lower.includes('гравітрон')) ||
     (lower.includes('crunch') && !lower.includes('cable') && !lower.includes('machine'))
   ) {
     return 'bodyweight';
   }
-  if (lower.includes('dumbbell') || lower.includes('db ') || lower.includes('lateral raise') || lower.includes('hammer curl')) {
+  if (
+    lower.includes('dumbbell') ||
+    lower.includes('db ') ||
+    lower.includes('гантел') ||
+    lower.includes('lateral raise') ||
+    lower.includes('hammer curl') ||
+    lower.includes('молотки')
+  ) {
     return 'dumbbells';
   }
   if (
     lower.includes('machine') ||
     lower.includes('cable') ||
+    lower.includes('тренажер') ||
+    lower.includes('блок') ||
+    lower.includes('кросовер') ||
     lower.includes('pulldown') ||
     lower.includes('pushdown') ||
     lower.includes('leg press') ||
@@ -140,16 +160,11 @@ export function inferEquipmentFromName(name: string, fallback: EquipmentId = 'ba
 }
 
 export function findLatestExerciseSets(history: CompletedWorkout[], exercise: GeneratedExercise): HistoricalSet[] {
-  const targetName = (exercise.name || '').trim().toLowerCase();
   const matches = history
     .flatMap((workout) => workout.exercises.map((item) => ({ workout, item })))
     .filter(({ item }) => {
       if (!item.sets || item.sets.length === 0) return false;
-      const itemName = (item.exerciseName || '').trim().toLowerCase();
-      if (itemName && targetName) {
-        return itemName === targetName;
-      }
-      return item.exerciseId === exercise.id;
+      return areExercisesEquivalent(item, exercise);
     })
     .sort((left, right) => new Date(right.workout.completedAt).getTime() - new Date(left.workout.completedAt).getTime());
   return matches[0]?.item.sets.map((set) => ({ weight: set.weight, reps: set.reps })) ?? [];

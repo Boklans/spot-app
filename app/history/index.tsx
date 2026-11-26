@@ -7,6 +7,7 @@ import { Screen } from '@/components/ui/Screen';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { isAssistedExercise } from '@/lib/adaptiveProgression';
+import { resolveCanonicalExerciseId } from '@/lib/exercises';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -115,7 +116,7 @@ export default function History() {
         const validSets = ex.sets.filter((s) => s.reps > 0 && s.weight >= 0);
         if (validSets.length === 0) continue;
 
-        const key = ex.exerciseName.trim().toLowerCase();
+        const key = resolveCanonicalExerciseId(ex.exerciseName) || ex.exerciseName.trim().toLowerCase();
         const assisted = isAssistedExercise(ex.exerciseName);
         const workingWeight = assisted
           ? Math.min(...validSets.map((s) => s.weight))

@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { CANONICAL_EXERCISES, findCanonicalExercise } from '@/lib/exercises';
 import { useUserProfileStore, type AppLanguage } from '@/store/userProfileStore';
 
 export type TranslationKey = keyof typeof en;
@@ -765,21 +766,47 @@ const UKRAINIAN_EXERCISES: Record<string, string> = {
   'plank': 'Планка',
 };
 
+for (const item of CANONICAL_EXERCISES) {
+  UKRAINIAN_EXERCISES[item.nameEn.toLowerCase()] = item.nameUk;
+  for (const alias of item.aliases) {
+    const cleanAlias = alias.trim().toLowerCase();
+    // Register ASCII/Latin aliases toward Ukrainian
+    if (cleanAlias && !/[а-яіїєґ]/i.test(cleanAlias) && !UKRAINIAN_EXERCISES[cleanAlias]) {
+      UKRAINIAN_EXERCISES[cleanAlias] = item.nameUk;
+    }
+  }
+}
+
 const ENGLISH_EXERCISES: Record<string, string> = {};
 for (const [enKey, ukVal] of Object.entries(UKRAINIAN_EXERCISES)) {
   ENGLISH_EXERCISES[ukVal.toLowerCase()] = enKey.replace(/\b\w/g, (c) => c.toUpperCase());
 }
+for (const item of CANONICAL_EXERCISES) {
+  ENGLISH_EXERCISES[item.nameUk.toLowerCase()] = item.nameEn;
+}
+
+const SORTED_UKRAINIAN_EXERCISE_ENTRIES = Object.entries(UKRAINIAN_EXERCISES).sort(
+  (a, b) => b[0].length - a[0].length
+);
+const SORTED_ENGLISH_EXERCISE_ENTRIES = Object.entries(ENGLISH_EXERCISES).sort(
+  (a, b) => b[0].length - a[0].length
+);
 
 export function translateExercise(name?: string, lang: AppLanguage = 'en'): string {
   if (!name) return '';
   const clean = name.trim();
   const lower = clean.toLowerCase();
 
+  const canonical = findCanonicalExercise(clean);
+  if (canonical) {
+    return lang === 'uk' ? canonical.nameUk : canonical.nameEn;
+  }
+
   if (lang === 'uk') {
     if (UKRAINIAN_EXERCISES[lower]) {
       return UKRAINIAN_EXERCISES[lower];
     }
-    for (const [key, translated] of Object.entries(UKRAINIAN_EXERCISES)) {
+    for (const [key, translated] of SORTED_UKRAINIAN_EXERCISE_ENTRIES) {
       if (lower.includes(key)) {
         return translated;
       }
@@ -790,7 +817,7 @@ export function translateExercise(name?: string, lang: AppLanguage = 'en'): stri
   if (ENGLISH_EXERCISES[lower]) {
     return ENGLISH_EXERCISES[lower];
   }
-  for (const [key, translated] of Object.entries(ENGLISH_EXERCISES)) {
+  for (const [key, translated] of SORTED_ENGLISH_EXERCISE_ENTRIES) {
     if (lower.includes(key)) {
       return translated;
     }

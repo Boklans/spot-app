@@ -1,3 +1,4 @@
+import { areExercisesEquivalent, resolveCanonicalExerciseId } from '@/lib/exercises';
 import { calculateEstimated1RM } from '@/lib/personalRecords';
 import { convertVolumeToActiveUnit, getActiveWeightUnit } from '@/lib/weightUtils';
 import type { WeightUnit } from '@/store/userProfileStore';
@@ -273,18 +274,10 @@ export function calculateExerciseProgress(
   period: ProgressPeriod,
   now = new Date()
 ): StrengthProgress {
-  const targetNameLower = (targetExercise.name || '').trim().toLowerCase();
-
-  // Match strictly by normalized exerciseName when available; fall back to exerciseId only if name is missing
+  // Match via canonical exercise identity so "Bench Press" and "Barbell Bench Press" share unified progress
   const matchingWorkouts = filterWorkoutsByPeriod(history, period, now)
     .map((workout) => {
-      const exercise = workout.exercises.find((ex) => {
-        const exNameLower = (ex.exerciseName || '').trim().toLowerCase();
-        if (exNameLower && targetNameLower) {
-          return exNameLower === targetNameLower;
-        }
-        return Boolean(targetExercise.id && ex.exerciseId === targetExercise.id);
-      });
+      const exercise = workout.exercises.find((ex) => areExercisesEquivalent(ex, targetExercise));
       return exercise && exercise.sets.length > 0 ? { workout, exercise } : null;
     })
     .filter((item): item is { workout: CompletedWorkout; exercise: CompletedExercise } => Boolean(item));
@@ -375,7 +368,7 @@ export function getAvailableExercisesForProgress(
     for (const exercise of workout.exercises) {
       if (!exercise.sets || exercise.sets.length === 0) continue;
       const trimmedName = exercise.exerciseName.trim();
-      const key = trimmedName.toLowerCase();
+      const key = resolveCanonicalExerciseId(trimmedName) || trimmedName.toLowerCase();
       const id = exercise.exerciseId;
 
       if (!seenNames.has(key)) {
@@ -397,7 +390,7 @@ export function getAvailableExercisesForProgress(
       if (!Array.isArray(workout.exercises)) continue;
       for (const exercise of workout.exercises) {
         const trimmedName = exercise.name.trim();
-        const key = trimmedName.toLowerCase();
+        const key = resolveCanonicalExerciseId(trimmedName) || trimmedName.toLowerCase();
         if (!seenNames.has(key)) {
           seenNames.add(key);
           if (exercise.id) seenIds.add(exercise.id);

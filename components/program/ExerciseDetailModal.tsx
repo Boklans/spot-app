@@ -9,6 +9,7 @@ import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
 import { isPerHandExercise } from '@/lib/adaptiveProgression';
 import { getExerciseDetails } from '@/lib/exerciseDetails';
+import { areExercisesEquivalent } from '@/lib/exercises';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -88,8 +89,8 @@ export function ExerciseDetailModal({
     }[] = [];
 
     for (const w of workouts) {
-      const match = w.exercises.find(
-        (ex) => (ex.exerciseName || '').trim().toLowerCase() === normalizedTarget
+      const match = w.exercises.find((ex) =>
+        areExercisesEquivalent(ex, { name: exerciseName })
       );
       if (!match || !match.sets?.length) continue;
 
