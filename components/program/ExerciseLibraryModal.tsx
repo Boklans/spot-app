@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Image,
   Modal,
@@ -41,6 +41,13 @@ export function ExerciseLibraryModal({
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const customExercises = useCustomExercisesStore((state) => state.customExercises);
+  const customHydrated = useCustomExercisesStore((state) => state.hydrated);
+
+  useEffect(() => {
+    if (visible && !customHydrated) {
+      void useCustomExercisesStore.getState().loadCustomExercises();
+    }
+  }, [visible, customHydrated]);
 
   const combinedCatalog = useMemo(() => {
     const customAsCatalog: CatalogExercise[] = customExercises.map((c) => ({

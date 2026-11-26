@@ -8,66 +8,7 @@
  * - lib/adaptiveProgression.ts (isPerHandExercise / isBarbellExercise)
  */
 const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
-const ts = require('typescript');
-
-const ROOT = path.join(__dirname, '..');
-const moduleCache = new Map();
-
-function loadTsModule(relPath) {
-  const fullPath = path.resolve(ROOT, relPath);
-  if (moduleCache.has(fullPath)) return moduleCache.get(fullPath).exports;
-
-  const source = fs.readFileSync(fullPath, 'utf8');
-  const transpiled = ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2020,
-      esModuleInterop: true,
-    },
-    fileName: fullPath,
-  });
-
-  const mod = { exports: {} };
-  moduleCache.set(fullPath, mod);
-
-  const localRequire = (specifier) => {
-    if (specifier.startsWith('@/')) {
-      const targetRel = specifier.slice(2);
-      const candidates = [
-        targetRel + '.ts',
-        targetRel + '.tsx',
-        path.join(targetRel, 'index.ts'),
-      ];
-      for (const c of candidates) {
-        if (fs.existsSync(path.resolve(ROOT, c))) {
-          return loadTsModule(c);
-        }
-      }
-      // Minimal stub for non-domain RN/store modules if referenced only by type
-      return {};
-    }
-    if (specifier.startsWith('.')) {
-      const dir = path.dirname(fullPath);
-      const base = path.resolve(dir, specifier);
-      for (const ext of ['.ts', '.tsx', '.js']) {
-        if (fs.existsSync(base + ext)) {
-          return loadTsModule(path.relative(ROOT, base + ext));
-        }
-      }
-    }
-    return require(specifier);
-  };
-
-  const fn = vm.runInThisContext(
-    `(function(exports, require, module, __filename, __dirname) {\n${transpiled.outputText}\n})`,
-    { filename: fullPath }
-  );
-  fn(mod.exports, localRequire, mod, fullPath, path.dirname(fullPath));
-  return mod.exports;
-}
+const { loadTsModule } = require('./tsRunner');
 
 console.log('\n--- Running SPOT 2.0 Gym Floor Pro Verification Suite ---\n');
 

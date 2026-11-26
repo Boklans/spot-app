@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -51,6 +51,13 @@ export function ExercisePickerModal({
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [detailExercise, setDetailExercise] = useState<LibraryExercise | null>(null);
   const customExercises = useCustomExercisesStore((state) => state.customExercises);
+  const customHydrated = useCustomExercisesStore((state) => state.hydrated);
+
+  useEffect(() => {
+    if (visible && !customHydrated) {
+      void useCustomExercisesStore.getState().loadCustomExercises();
+    }
+  }, [visible, customHydrated]);
 
   const combinedLibrary = useMemo(() => {
     const customAsLibrary: LibraryExercise[] = customExercises.map((c) => ({

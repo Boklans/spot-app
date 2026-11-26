@@ -27,6 +27,8 @@ type CustomExercisesState = {
     data: Omit<CustomExercise, 'id' | 'createdAt' | 'isCustom'>
   ) => Promise<CustomExercise>;
   deleteCustomExercise: (id: string) => Promise<void>;
+  clearCustomExercises: () => Promise<void>;
+  replaceCustomExercises: (items: CustomExercise[]) => Promise<void>;
   toLibraryExercises: () => LibraryExercise[];
 };
 
@@ -92,7 +94,23 @@ export const useCustomExercisesStore = create<CustomExercisesState>((set, get) =
       isCustom: true,
     }));
   },
+  clearCustomExercises: async () => {
+    set({ customExercises: [], hydrated: true });
+    try {
+      await AsyncStorage.removeItem(CUSTOM_EXERCISES_STORAGE_KEY);
+    } catch {
+      // Ignore
+    }
+  },
+
+  replaceCustomExercises: async (items: CustomExercise[]) => {
+    const safe = Array.isArray(items) ? items : [];
+    set({ customExercises: safe, hydrated: true });
+    try {
+      await AsyncStorage.setItem(CUSTOM_EXERCISES_STORAGE_KEY, JSON.stringify(safe));
+    } catch {
+      // Ignore
+    }
+  },
 }));
 
-// Auto-hydrate on startup
-useCustomExercisesStore.getState().loadCustomExercises();
