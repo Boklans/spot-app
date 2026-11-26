@@ -621,8 +621,74 @@ function seedSession(session) {
     passedTests++;
   }
 
+  // Test 20 (P0-03): discardSession clears state & AsyncStorage; mid-workout swapExercise preserves completed sets!
+  {
+    const multiSetSession = {
+      id: 'sess-swap-guard',
+      programWorkoutId: 'upper-a',
+      workoutName: 'Upper A',
+      workoutDate: '2026-11-22',
+      startedAt: '2026-11-22T10:00:00Z',
+      currentExerciseIndex: 0,
+      currentSetIndex: 0,
+      completed: false,
+      personalRecords: [],
+      exercises: [
+        {
+          id: 'barbell-bench-press',
+          name: 'Barbell Bench Press',
+          muscleGroup: 'Chest',
+          equipment: 'barbell',
+          weightIncrement: 2.5,
+          restSeconds: 90,
+          previousSets: [],
+          recommendation: { recommendedWeight: 80, recommendationReason: 'maintain', source: 'program_default', explanation: '' },
+          sets: [
+            { id: 's1', weight: 80, reps: 8, targetReps: '8-10', completed: false },
+            { id: 's2', weight: 80, reps: 8, targetReps: '8-10', completed: false },
+            { id: 's3', weight: 80, reps: 8, targetReps: '8-10', completed: false },
+            { id: 's4', weight: 80, reps: 8, targetReps: '8-10', completed: false },
+          ],
+        },
+      ],
+    };
+    seedSession(multiSetSession);
+
+    // Complete 2 of 4 sets on Barbell Bench Press (1,280 kg completed work)
+    useWorkoutSessionStore.getState().completeCurrentSet();
+    useWorkoutSessionStore.getState().completeCurrentSet();
+    assert.strictEqual(useWorkoutSessionStore.getState().session.currentSetIndex, 2);
+
+    // Swap exercise mid-workout -> default mode MUST preserve the 2 completed Bench sets & insert Machine Chest Press with 2 remaining sets!
+    useWorkoutSessionStore.getState().swapExercise({
+      name: 'Machine Chest Press',
+      muscleGroup: 'Chest',
+      defaultWeight: 50,
+      equipment: 'machines',
+    });
+
+    const swappedState = useWorkoutSessionStore.getState().session;
+    assert.strictEqual(swappedState.exercises.length, 2, 'Completed exercise kept + replacement inserted');
+    assert.strictEqual(swappedState.exercises[0].name, 'Barbell Bench Press');
+    assert.strictEqual(swappedState.exercises[0].sets.length, 2, 'Original exercise trimmed to its 2 completed sets');
+    assert.ok(swappedState.exercises[0].sets.every((s) => s.completed === true));
+    assert.strictEqual(swappedState.exercises[1].name, 'Machine Chest Press');
+    assert.strictEqual(swappedState.exercises[1].sets.length, 2, 'Replacement exercise receives remaining 2 uncompleted sets');
+    assert.strictEqual(swappedState.currentExerciseIndex, 1, 'Focus moves to newly inserted replacement exercise');
+    assert.strictEqual(swappedState.currentSetIndex, 0);
+
+    // Verify explicit discardSession wipes in-memory session AND persisted AsyncStorage key
+    await useWorkoutSessionStore.getState().discardSession();
+    assert.strictEqual(useWorkoutSessionStore.getState().session, null);
+    const rehydrated = await useWorkoutSessionStore.getState().hydrateSession();
+    assert.strictEqual(rehydrated, false, 'Discarded workout must not resurrect on hydrateSession');
+
+    console.log('✅ TEST 20 PASSED (P0-03): swapExercise preserves completed sets & discardSession cleanly purges active workout');
+    passedTests++;
+  }
+
   console.log(`\n========================================`);
-  console.log(`Results: ${passedTests} / 19 PASSED, 0 FAILED (100% Real TS Execution)`);
+  console.log(`Results: ${passedTests} / 20 PASSED, 0 FAILED (100% Real TS Execution)`);
   console.log(`========================================\n`);
 })().catch((err) => {
   console.error('❌ Workout logging verification failed:', err);

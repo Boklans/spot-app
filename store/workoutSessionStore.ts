@@ -66,6 +66,10 @@ export type ActiveWorkoutStorage = {
   restNextType: 'set' | 'exercise' | null;
 };
 
+export type SwapExerciseOptions = {
+  mode?: 'preserve_completed' | 'replace_all';
+};
+
 type WorkoutSessionState = {
   session: WorkoutSession | null;
   restEndsAt: number | null;
@@ -82,14 +86,17 @@ type WorkoutSessionState = {
   updateExerciseRest: (exerciseIndex: number, restSeconds: number, applyToAll?: boolean) => void;
   addRestTime: (seconds: number) => void;
   skipRest: () => void;
-  swapExercise: (newExercise: {
-    name: string;
-    muscleGroup: string;
-    defaultWeight?: number;
-    customImageUri?: string;
-    isCustom?: boolean;
-    equipment?: EquipmentId;
-  }) => void;
+  swapExercise: (
+    newExercise: {
+      name: string;
+      muscleGroup: string;
+      defaultWeight?: number;
+      customImageUri?: string;
+      isCustom?: boolean;
+      equipment?: EquipmentId;
+    },
+    options?: SwapExerciseOptions
+  ) => void;
   addExercise: (newExercise: {
     name: string;
     muscleGroup: string;
@@ -105,6 +112,7 @@ type WorkoutSessionState = {
   removeSet: (exerciseIndex: number) => void;
   addWarmupSets: (exerciseIndex: number) => void;
   clearSession: () => void;
+  discardSession: () => Promise<void>;
 };
 
 let persistenceQueue = Promise.resolve();
@@ -184,27 +192,32 @@ function parseActiveWorkout(value: string | null): ActiveWorkoutStorage | null {
 let pendingSnapshot: ActiveWorkoutStorage | null | undefined = undefined;
 let isPersisting = false;
 
+function enqueueStorageWrite(task: () => Promise<void>): Promise<void> {
+  persistenceQueue = persistenceQueue.then(task).catch(() => undefined);
+  return persistenceQueue;
+}
+
 async function processPersistence() {
   if (isPersisting || pendingSnapshot === undefined) return;
   isPersisting = true;
   const snapshotToSave = pendingSnapshot;
   pendingSnapshot = undefined;
-  try {
+  await enqueueStorageWrite(async () => {
     if (!snapshotToSave) {
       await AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
     } else {
       await AsyncStorage.setItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY, JSON.stringify(snapshotToSave));
     }
-  } catch {}
+  });
   isPersisting = false;
   if (pendingSnapshot !== undefined) {
-    processPersistence();
+    void processPersistence();
   }
 }
 
 function persistSnapshot(snapshot: ActiveWorkoutStorage | null) {
   pendingSnapshot = snapshot;
-  processPersistence();
+  void processPersistence();
 }
 
 function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history: CompletedWorkout[]): WorkoutExercise[] {
@@ -780,31 +793,106 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
     if (state.session) persistSnapshot({ session: state.session, restEndsAt: null, restNextType: null });
   },
 
-  swapExercise: (newExercise) => {
+  swapExercise: (newExercise, options) => {
     set((state) => {
       if (!state.session) return state;
       const { currentExerciseIndex } = state.session;
       const currentEx = state.session.exercises[currentExerciseIndex];
+      if (!currentEx) return state;
+
+      const completedSetsInCurrent = currentEx.sets.filter((s) => s.completed);
+      const uncompletedWorkingSets = currentEx.sets.filter(
+        (s) => !s.completed && s.setType !== 'warmup'
+      );
+      const mode = options?.mode ?? 'preserve_completed';
+      const shouldPreserveCompleted =
+        mode === 'preserve_completed' && completedSetsInCurrent.length > 0;
+
+      const targetSetCount = shouldPreserveCompleted
+        ? Math.max(1, uncompletedWorkingSets.length)
+        : Math.max(1, currentEx.sets.filter((s) => s.setType !== 'warmup').length || currentEx.sets.length || 3);
+
       const history = useWorkoutHistoryStore.getState().workouts;
       const isBw = typeof newExercise.defaultWeight === 'number' && newExercise.defaultWeight === 0;
       const inferredEquipment = newExercise.equipment || (isBw ? 'bodyweight' : inferEquipmentFromName(newExercise.name, 'barbell'));
-      const swappedId = newExercise.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const swappedId = `${newExercise.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'swapped'}-${Date.now()}`;
+      const targetRepRange =
+        uncompletedWorkingSets[0]?.targetReps ||
+        currentEx.sets.find((s) => s.setType !== 'warmup')?.targetReps ||
+        currentEx.sets[0]?.targetReps ||
+        '8-12';
+
       const generatedEx: GeneratedExercise = {
-        id: swappedId || `swapped-${Date.now()}`,
+        id: swappedId,
         name: newExercise.name,
         muscleGroup: newExercise.muscleGroup,
         equipment: inferredEquipment,
-        sets: currentEx?.sets.length ?? 3,
-        targetRepRange: currentEx?.sets[0]?.targetReps ?? '8-12',
+        sets: targetSetCount,
+        targetRepRange,
         recommendedWeight: newExercise.defaultWeight ?? 20,
         weightIncrement: practicalIncrement(inferredEquipment, newExercise.defaultWeight ?? 20),
-        restSeconds: currentEx?.restSeconds ?? 90,
+        restSeconds: currentEx.restSeconds ?? 90,
       };
       const previousSets = findLatestExerciseSets(history, generatedEx);
       const deloadActive = useProgramStore.getState().deloadActive;
       const rec = recommendWeight(generatedEx, previousSets, { deloadActive });
       const defaultMinReps = Number.parseInt(generatedEx.targetRepRange ? generatedEx.targetRepRange.split('-')[0] : '8', 10) || 8;
       const resolvedIncrement = practicalIncrement(inferredEquipment, rec.recommendedWeight);
+
+      const replacementSets: WorkoutSet[] = Array.from({ length: targetSetCount }, (_, sIdx) => ({
+        id: `exercise-swap-${currentExerciseIndex + 1}-set-${sIdx + 1}-${Date.now()}`,
+        weight: rec.recommendedWeight,
+        reps: rec.recommendedReps ?? defaultMinReps,
+        targetReps: targetRepRange,
+        completed: false,
+        setType: 'normal',
+      }));
+
+      if (shouldPreserveCompleted) {
+        // Trim uncompleted sets from current exercise (retaining 100% of completed sets!)
+        // and insert the replacement exercise immediately after currentExerciseIndex.
+        const trimmedCurrent: WorkoutExercise = {
+          ...currentEx,
+          supersetWithNext: false,
+          sets: completedSetsInCurrent,
+        };
+        const insertedReplacement: WorkoutExercise = {
+          id: generatedEx.id,
+          name: newExercise.name,
+          muscleGroup: newExercise.muscleGroup,
+          equipment: inferredEquipment,
+          previousSets,
+          recommendation: rec,
+          weightIncrement: resolvedIncrement,
+          restSeconds: currentEx.restSeconds ?? 90,
+          isCustomRest: currentEx.isCustomRest,
+          customImageUri: newExercise.customImageUri,
+          isCustom: newExercise.isCustom,
+          supersetWithNext: currentEx.supersetWithNext,
+          sets: replacementSets,
+        };
+
+        const nextExercises = [
+          ...state.session.exercises.slice(0, currentExerciseIndex),
+          trimmedCurrent,
+          insertedReplacement,
+          ...state.session.exercises.slice(currentExerciseIndex + 1),
+        ];
+
+        return {
+          ...state,
+          restEndsAt: null,
+          restNextType: null,
+          session: {
+            ...state.session,
+            completed: false,
+            completedAt: undefined,
+            currentExerciseIndex: currentExerciseIndex + 1,
+            currentSetIndex: 0,
+            exercises: nextExercises,
+          },
+        };
+      }
 
       return {
         ...state,
@@ -826,13 +914,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
               weightIncrement: resolvedIncrement,
               customImageUri: newExercise.customImageUri,
               isCustom: newExercise.isCustom,
-              sets: ex.sets.map((s) => ({
-                ...s,
-                weight: rec.recommendedWeight,
-                reps: rec.recommendedReps ?? defaultMinReps,
-                completed: false,
-                completedAt: undefined,
-              })),
+              sets: replacementSets,
             };
           }),
         },
@@ -969,12 +1051,22 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
     set({ session: null, restEndsAt: null, restNextType: null });
     persistSnapshot(null);
   },
+
+  discardSession: async () => {
+    set({ session: null, restEndsAt: null, restNextType: null });
+    await clearPersistedActiveWorkout();
+    try {
+      const notifMod = await import('@/lib/notificationService');
+      await notifMod.dismissActiveWorkoutNotification();
+    } catch {
+      // Safe fallback in offline/Node environments
+    }
+  },
 }));
 
 export async function clearPersistedActiveWorkout() {
   pendingSnapshot = undefined;
-  persistenceQueue = persistenceQueue.then(() => AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY));
-  await persistenceQueue;
+  await enqueueStorageWrite(() => AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY));
 }
 
 function isValidSessionSet(workoutSet: WorkoutSet | null | undefined): boolean {

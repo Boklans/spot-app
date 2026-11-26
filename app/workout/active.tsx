@@ -77,6 +77,7 @@ export default function Active() {
   const addRestTime = useWorkoutSessionStore((state) => state.addRestTime);
   const skipRest = useWorkoutSessionStore((state) => state.skipRest);
   const addWarmupSets = useWorkoutSessionStore((state) => state.addWarmupSets);
+  const discardSession = useWorkoutSessionStore((state) => state.discardSession);
 
   const [finishing, setFinishing] = useState(false);
   const [submittingSet, setSubmittingSet] = useState(false);
@@ -311,41 +312,109 @@ export default function Active() {
     router.replace('/(tabs)');
   }, []);
 
+  const confirmDiscardWorkout = useCallback(() => {
+    Alert.alert(
+      language === 'uk' ? 'Скасувати тренування?' : 'Discard Workout?',
+      language === 'uk'
+        ? 'Усі підходи поточної сесії буде скасовано без збереження в історію.'
+        : 'All sets in this session will be discarded without saving to your workout history.',
+      [
+        { text: language === 'uk' ? 'Продовжити тренування' : 'Keep Training', style: 'cancel' },
+        {
+          text: language === 'uk' ? 'Скасувати тренування' : 'Discard Workout',
+          style: 'destructive',
+          onPress: async () => {
+            await discardSession();
+            exitWorkout();
+          },
+        },
+      ]
+    );
+  }, [discardSession, exitWorkout, language]);
+
   const handleClose = useCallback(() => {
-    if (!session || progress.completedSets === 0) {
+    if (!session) {
       exitWorkout();
       return;
     }
+
+    if (progress.completedSets === 0) {
+      Alert.alert(
+        language === 'uk' ? 'Вийти з тренування?' : 'Leave Workout?',
+        language === 'uk'
+          ? 'Ви ще не завершили жодного підходу. Поставити сесію на паузу чи скасувати її?'
+          : 'No sets have been completed yet. Pause to resume later, or discard this workout?',
+        [
+          { text: language === 'uk' ? 'Залишитись' : 'Keep Training', style: 'cancel' },
+          {
+            text: language === 'uk' ? 'Пауза (на головну)' : 'Pause & Exit',
+            onPress: exitWorkout,
+          },
+          {
+            text: language === 'uk' ? 'Скасувати тренування' : 'Discard Workout',
+            style: 'destructive',
+            onPress: async () => {
+              await discardSession();
+              exitWorkout();
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     const isPartialNow = progress.completedSets < progress.totalSets;
+    const saveAction = {
+      text: isPartialNow
+        ? (language === 'uk' ? `Зберегти частково (${progress.completedSets}/${progress.totalSets})` : `Save Partial (${progress.completedSets}/${progress.totalSets})`)
+        : (language === 'uk' ? 'Завершити та зберегти' : 'Finish & Save'),
+      onPress: async () => {
+        setFinishing(true);
+        try {
+          await finalizeWorkoutSession(session);
+          router.replace('/workout/complete');
+        } catch {
+          setFinishing(false);
+          exitWorkout();
+        }
+      },
+    };
+
+    const buttons =
+      Platform.OS === 'ios'
+        ? [
+            { text: language === 'uk' ? 'Продовжити тренування' : 'Keep Training', style: 'cancel' as const },
+            {
+              text: language === 'uk' ? 'Пауза (на головну)' : 'Pause & Exit',
+              onPress: exitWorkout,
+            },
+            saveAction,
+            {
+              text: language === 'uk' ? 'Скасувати тренування' : 'Discard Workout',
+              style: 'destructive' as const,
+              onPress: async () => {
+                await discardSession();
+                exitWorkout();
+              },
+            },
+          ]
+        : [
+            { text: language === 'uk' ? 'Продовжити' : 'Keep Training', style: 'cancel' as const },
+            {
+              text: language === 'uk' ? 'Пауза' : 'Pause & Exit',
+              onPress: exitWorkout,
+            },
+            saveAction,
+          ];
+
     Alert.alert(
       language === 'uk' ? 'Перервати тренування?' : 'Interrupt Workout?',
       language === 'uk'
         ? `Виконано ${progress.completedSets} із ${progress.totalSets} підходів. Зберегти виконані підходи як часткове тренування чи поставити на паузу?`
         : `You completed ${progress.completedSets} of ${progress.totalSets} sets. Save completed sets as a partial workout, or pause to resume later?`,
-      [
-        { text: language === 'uk' ? 'Продовжити тренування' : 'Keep Training', style: 'cancel' },
-        {
-          text: language === 'uk' ? 'Пауза (на головну)' : 'Pause & Exit',
-          onPress: exitWorkout,
-        },
-        {
-          text: isPartialNow
-            ? (language === 'uk' ? `Зберегти частково (${progress.completedSets}/${progress.totalSets})` : `Save Partial (${progress.completedSets}/${progress.totalSets})`)
-            : (language === 'uk' ? 'Завершити та зберегти' : 'Finish & Save'),
-          onPress: async () => {
-            setFinishing(true);
-            try {
-              await finalizeWorkoutSession(session);
-              router.replace('/workout/complete');
-            } catch {
-              setFinishing(false);
-              exitWorkout();
-            }
-          },
-        },
-      ]
+      buttons
     );
-  }, [session, progress.completedSets, progress.totalSets, language, exitWorkout]);
+  }, [session, progress.completedSets, progress.totalSets, language, exitWorkout, discardSession]);
 
   useEffect(() => {
     const onBackPress = () => {
@@ -1201,6 +1270,33 @@ export default function Active() {
             )}
           </View>
         </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={language === 'uk' ? 'Скасувати тренування' : 'Discard workout'}
+          hitSlop={8}
+          onPress={() => {
+            hapticLight();
+            confirmDiscardWorkout();
+          }}
+          style={({ pressed }) => [
+            {
+              alignSelf: 'center',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              marginTop: 12,
+            },
+            pressed && { opacity: 0.65 },
+          ]}
+        >
+          <Ionicons name="trash-outline" size={14} color={colors.danger} />
+          <Text style={{ color: colors.danger, fontSize: 13, fontWeight: '600' }}>
+            {language === 'uk' ? 'Скасувати тренування' : 'Discard workout'}
+          </Text>
+        </Pressable>
       </ScrollView>
 {/* 5. Sticky Bottom Action Bar */}
       <View style={styles.bottomBar}>
@@ -1225,28 +1321,51 @@ export default function Active() {
         activeExerciseName={pickerMode === 'swap' ? exercise.name : undefined}
         onClose={() => setPickerMode(null)}
         onSelect={(selectedEx) => {
+          const payload = {
+            name: selectedEx.name,
+            muscleGroup: selectedEx.muscleGroup,
+            defaultWeight: selectedEx.defaultWeight,
+            customImageUri: selectedEx.customImageUri,
+            isCustom: selectedEx.isCustom,
+            equipment: selectedEx.equipment,
+          };
           if (pickerMode === 'swap') {
             if (selectedEx.name.trim().toLowerCase() !== exercise.name.trim().toLowerCase()) {
+              const completedInExercise = exercise.sets.filter((s) => s.completed).length;
+              if (completedInExercise > 0) {
+                setPickerMode(null);
+                Alert.alert(
+                  language === 'uk' ? 'Замінити вправу?' : 'Swap Exercise?',
+                  language === 'uk'
+                    ? `Ви вже виконали ${completedInExercise} підх. у вправі «${te(exercise.name)}». Зберегти виконані підходи й додати «${te(selectedEx.name)}» на залишок підходів?`
+                    : `You already completed ${completedInExercise} set(s) of "${exercise.name}". Keep those completed sets and add "${selectedEx.name}" for the remaining sets?`,
+                  [
+                    { text: language === 'uk' ? 'Скасувати' : 'Cancel', style: 'cancel' },
+                    {
+                      text: language === 'uk' ? 'Замінити все' : 'Replace All',
+                      style: 'destructive',
+                      onPress: () => {
+                        hapticMedium();
+                        swapExercise(payload, { mode: 'replace_all' });
+                      },
+                    },
+                    {
+                      text: language === 'uk' ? 'Зберегти виконані' : 'Keep Completed',
+                      onPress: () => {
+                        hapticMedium();
+                        swapExercise(payload, { mode: 'preserve_completed' });
+                      },
+                    },
+                  ]
+                );
+                return;
+              }
               hapticMedium();
-              swapExercise({
-                name: selectedEx.name,
-                muscleGroup: selectedEx.muscleGroup,
-                defaultWeight: selectedEx.defaultWeight,
-                customImageUri: selectedEx.customImageUri,
-                isCustom: selectedEx.isCustom,
-                equipment: selectedEx.equipment,
-              });
+              swapExercise(payload, { mode: 'replace_all' });
             }
           } else if (pickerMode === 'add') {
             hapticMedium();
-            addExercise({
-              name: selectedEx.name,
-              muscleGroup: selectedEx.muscleGroup,
-              defaultWeight: selectedEx.defaultWeight,
-              customImageUri: selectedEx.customImageUri,
-              isCustom: selectedEx.isCustom,
-              equipment: selectedEx.equipment,
-            });
+            addExercise(payload);
           }
           setPickerMode(null);
         }}

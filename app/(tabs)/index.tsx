@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { SpotCoachCard } from '@/components/home/SpotCoachCard';
 import { AnatomyPreview } from '@/components/progress/AnatomyPreview';
@@ -40,6 +40,7 @@ export default function Home() {
   const restoreFromDeload = useProgramStore((state) => state.restoreFromDeload);
   const programHydrated = useProgramStore((state) => state.hydrated);
   const activeSession = useWorkoutSessionStore((state) => state.session);
+  const discardSession = useWorkoutSessionStore((state) => state.discardSession);
   const progress = useProgramProgressStore((state) => state.progress);
   const setNextWorkout = useProgramProgressStore((state) => state.setNextWorkout);
   const history = useWorkoutHistoryStore((state) => state.workouts);
@@ -662,6 +663,40 @@ export default function Home() {
             <Ionicons name="list-outline" size={15} color="#8E959F" />
             <Text style={styles.quickLogSecondaryBtnText}>
               {language === 'uk' ? 'Швидкий запис списком' : 'Switch to Quick Log'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Discard workout"
+            onPress={() => {
+              hapticLight();
+              Alert.alert(
+                language === 'uk' ? 'Скасувати тренування?' : 'Discard Workout?',
+                language === 'uk'
+                  ? 'Активну сесію буде закрито без збереження в історію.'
+                  : 'This active session will be closed without saving to your workout history.',
+                [
+                  { text: language === 'uk' ? 'Залишити' : 'Keep Session', style: 'cancel' },
+                  {
+                    text: language === 'uk' ? 'Скасувати тренування' : 'Discard Workout',
+                    style: 'destructive',
+                    onPress: () => {
+                      void discardSession();
+                    },
+                  },
+                ]
+              );
+            }}
+            style={({ pressed }) => [
+              styles.quickLogSecondaryBtn,
+              { marginTop: 8 },
+              pressed && styles.quickLogSecondaryBtnPressed,
+            ]}
+          >
+            <Ionicons name="trash-outline" size={15} color={colors.danger} />
+            <Text style={[styles.quickLogSecondaryBtnText, { color: colors.danger }]}>
+              {language === 'uk' ? 'Скасувати тренування' : 'Discard Workout'}
             </Text>
           </Pressable>
         </View>
