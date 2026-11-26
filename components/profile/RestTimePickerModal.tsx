@@ -135,7 +135,7 @@ export function RestTimePickerModal({
               onPress={onClose}
               style={styles.closeBtn}
             >
-              <Ionicons name="close" size={22} color="#FFFFFF" />
+              <Ionicons name="close" size={22} color={colors.text} />
             </Pressable>
           </View>
 
@@ -283,7 +283,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderTopRightRadius: 24,
     maxHeight: '85%',
     borderWidth: 1,
-    borderColor: '#1F2937',
+    borderColor: colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -293,10 +293,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#1A222D',
+    borderBottomColor: colors.border,
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: 0.2,
@@ -309,7 +309,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   closeBtn: {
     padding: 6,
     borderRadius: 16,
-    backgroundColor: '#1E2633',
+    backgroundColor: colors.elevated,
   },
   content: {
     padding: 20,
@@ -317,18 +317,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingBottom: 30,
   },
   optionCard: {
-    backgroundColor: '#141A23',
+    backgroundColor: colors.elevated,
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#1E2836',
+    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   optionCardActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
-    borderColor: colors.primary,
+    backgroundColor: colors.primaryMuted,
+    borderColor: colors.accentLine,
   },
   cardPressed: {
     opacity: 0.85,
@@ -338,12 +338,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingRight: 12,
   },
   optionLabel: {
-    color: '#F1F5F9',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
   },
   optionLabelActive: {
-    color: colors.primary,
+    color: colors.primaryText,
   },
   optionSub: {
     color: colors.secondary,
@@ -360,16 +360,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   customCard: {
-    backgroundColor: '#141A23',
+    backgroundColor: colors.elevated,
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#1E2836',
+    borderColor: colors.border,
     marginTop: 4,
   },
   customCardActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.06)',
-    borderColor: colors.primary,
+    backgroundColor: colors.primaryMuted,
+    borderColor: colors.accentLine,
   },
   customCardHeader: {
     flexDirection: 'row',
@@ -380,7 +380,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 14,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    borderTopColor: colors.divider,
   },
   stepperRow: {
     flexDirection: 'row',
@@ -389,15 +389,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 8,
   },
   stepBtn: {
-    backgroundColor: '#1C2430',
+    backgroundColor: colors.surface,
     paddingHorizontal: 10,
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#2D3A4B',
+    borderColor: colors.border,
   },
   stepBtnText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -407,7 +407,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
   },
   customValueMain: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 22,
     fontWeight: '900',
   },

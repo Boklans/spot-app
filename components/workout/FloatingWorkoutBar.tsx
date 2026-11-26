@@ -323,7 +323,7 @@ const createStyles = (colors: ThemeColors) =>
       overflow: 'hidden',
     },
     containerResting: {
-      borderColor: colors.primary,
+      borderColor: colors.accentLine,
       backgroundColor: colors.isDark ? '#151B14' : '#F0FDF4',
     },
     progressTrack: {
@@ -333,7 +333,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     progressFill: {
       height: '100%',
-      backgroundColor: colors.primary,
+      backgroundColor: colors.accentIndicator,
     },
     contentRow: {
       flexDirection: 'row',

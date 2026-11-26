@@ -13,11 +13,12 @@ export const darkColors = {
   onPrimary: '#0B0D0F',
   primaryMuted: 'rgba(200, 255, 61, 0.14)',
   accentLine: '#C8FF3D',
+  accentIndicator: '#C8FF3D',
   activeChipBg: '#C8FF3D',
   activeChipText: '#0B0D0F',
   text: '#F5F7FA',
   secondary: '#96A0AE',
-  muted: '#6E7785',
+  muted: '#848F9F',
   success: '#4ADE80',
   warning: '#FBBF24',
   danger: '#F87171',
@@ -37,11 +38,12 @@ export const lightColors = {
   onPrimary: '#0E1114',
   primaryMuted: '#ECFCCB',
   accentLine: '#15803D',
+  accentIndicator: '#15803D',
   activeChipBg: '#0E1114',
   activeChipText: '#FFFFFF',
   text: '#0E1114',
   secondary: '#5B6779',
-  muted: '#8C98A9',
+  muted: '#5A6678',
   success: '#16A34A',
   warning: '#D97706',
   danger: '#DC2626',
@@ -61,6 +63,7 @@ export type ThemeColors = {
   onPrimary: string;
   primaryMuted: string;
   accentLine: string;
+  accentIndicator: string;
   activeChipBg: string;
   activeChipText: string;
   text: string;

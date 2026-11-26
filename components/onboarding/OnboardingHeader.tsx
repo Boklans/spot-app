@@ -158,7 +158,7 @@ const createStyles = (colors: ThemeColors) =>
       opacity: 0.55,
     },
     segmentCurrent: {
-      backgroundColor: colors.primary,
+      backgroundColor: colors.accentIndicator,
     },
     stepLabel: {
       fontSize: 10.5,

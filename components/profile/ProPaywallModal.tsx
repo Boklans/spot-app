@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -163,7 +164,7 @@ export function ProPaywallModal({
             onPress={onClose}
             style={styles.closeBtn}
           >
-            <Ionicons name="close" size={26} color="#FFFFFF" />
+            <Ionicons name="close" size={26} color={colors.text} />
           </Pressable>
         </View>
 
@@ -174,7 +175,7 @@ export function ProPaywallModal({
           {/* Hero Card */}
           <View style={styles.heroCard}>
             <View style={styles.brainWrap}>
-              <MaterialCommunityIcons name="lightning-bolt" size={32} color={colors.primary} />
+              <MaterialCommunityIcons name="lightning-bolt" size={32} color={colors.primaryText} />
             </View>
             <Text style={styles.kicker}>SPOT PRO</Text>
             <Text style={styles.heroTitle}>
@@ -196,7 +197,7 @@ export function ProPaywallModal({
             {features.map((feat, idx) => (
               <View key={idx} style={styles.featureRow}>
                 <View style={styles.checkCircle}>
-                  <Ionicons name="checkmark" size={14} color={colors.primary} />
+                  <Ionicons name="checkmark" size={14} color={colors.primaryText} />
                 </View>
                 <View style={styles.featureTextWrap}>
                   <Text style={styles.featureTitle}>{feat.title}</Text>
@@ -310,11 +311,11 @@ export function ProPaywallModal({
           <Text style={styles.legalSubtext}>
             {selectedPlan === 'annual'
               ? (isUk
-                  ? 'Перші 14 днів безкоштовно, далі $49.99 на рік. Скасувати можна будь-коли в налаштуваннях Google Play.'
-                  : '14 days free trial, then $49.99/year. Cancel anytime in Google Play settings.')
+                  ? `Перші 14 днів безкоштовно, далі $49.99 на рік. Скасувати можна будь-коли в налаштуваннях ${Platform.OS === 'ios' ? 'App Store' : 'Google Play'}.`
+                  : `14 days free trial, then $49.99/year. Cancel anytime in ${Platform.OS === 'ios' ? 'App Store' : 'Google Play'} settings.`)
               : (isUk
-                  ? '$4.99 щомісяця. Скасувати можна будь-коли в налаштуваннях Google Play.'
-                  : '$4.99 billed monthly. Cancel anytime in Google Play settings.')}
+                  ? `$4.99 щомісяця. Скасувати можна будь-коли в налаштуваннях ${Platform.OS === 'ios' ? 'App Store' : 'Google Play'}.`
+                  : `$4.99 billed monthly. Cancel anytime in ${Platform.OS === 'ios' ? 'App Store' : 'Google Play'} settings.`)}
           </Text>
 
           {/* Restore & Policy Links */}
@@ -382,7 +383,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   content: {
     paddingHorizontal: 20,
@@ -396,7 +397,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 20,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.2)',
+    borderColor: colors.accentLine,
     marginTop: 10,
     marginBottom: 20,
   },
@@ -404,21 +405,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
+    borderColor: colors.accentLine,
   },
   kicker: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1.5,
   },
   heroTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 24,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -439,7 +440,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 20,
     padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: colors.border,
     marginBottom: 20,
     gap: 14,
   },
@@ -459,7 +460,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: 'rgba(200, 255, 61, 0.15)',
+    backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
@@ -468,7 +469,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
   },
   featureTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -490,11 +491,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   planCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(200, 255, 61, 0.06)',
+    borderColor: colors.accentLine,
+    backgroundColor: colors.primaryMuted,
   },
   planBadgeRow: {
     flexDirection: 'row',
@@ -524,7 +525,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingRight: 10,
   },
   planTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '800',
     marginBottom: 2,
@@ -540,7 +541,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 3,
   },
   planPriceNumber: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: -0.5,
@@ -551,15 +552,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
   },
   trialPill: {
-    backgroundColor: 'rgba(200, 255, 61, 0.15)',
+    backgroundColor: colors.surface,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.3)',
+    borderColor: colors.accentLine,
   },
   trialPillText: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,

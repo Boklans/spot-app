@@ -50,7 +50,7 @@ export function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTitleRow}>
-            <Ionicons name="shield-checkmark" size={22} color={colors.primary} />
+            <Ionicons name="shield-checkmark" size={22} color={colors.primaryText} />
             <Text style={styles.title}>
               {isUk ? 'Політика конфіденційності' : 'Privacy Policy'}
             </Text>
@@ -65,7 +65,7 @@ export function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps
             }}
             style={styles.closeBtn}
           >
-            <Ionicons name="close" size={24} color="#8E9BAE" />
+            <Ionicons name="close" size={24} color={colors.secondary} />
           </Pressable>
         </View>
 
@@ -143,7 +143,7 @@ export function PrivacyPolicyModal({ visible, onClose }: PrivacyPolicyModalProps
               onPress={handleContactSupport}
               style={styles.supportBtn}
             >
-              <Ionicons name="mail-outline" size={16} color={colors.primary} />
+              <Ionicons name="mail-outline" size={16} color={colors.primaryText} />
               <Text style={styles.supportBtnText}>
                 {isUk ? 'Підтримка (Email)' : 'Contact Support'}
               </Text>
@@ -167,7 +167,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: colors.border,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -175,7 +175,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 10,
   },
   title: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: -0.3,
@@ -192,28 +192,28 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   badge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    backgroundColor: colors.primaryMuted,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
+    borderColor: colors.accentLine,
   },
   badgeText: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
   sectionHeader: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '700',
     marginTop: 20,
     marginBottom: 8,
   },
   paragraph: {
-    color: '#9CA3AF',
+    color: colors.secondary,
     fontSize: 14,
     lineHeight: 22,
     marginBottom: 12,
@@ -248,15 +248,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#15191F',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
   },
   supportBtnText: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 14,
     fontWeight: '700',
   },

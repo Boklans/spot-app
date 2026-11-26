@@ -3,7 +3,7 @@ import { useThemeColors } from '@/constants/colors';
 
 export function ProgressBar({ value, color }: { value: number; color?: string }) {
   const colors = useThemeColors();
-  const barColor = color ?? colors.primary;
+  const barColor = color ?? colors.accentIndicator;
   return (
     <View style={[styles.track, { backgroundColor: colors.elevated }]}>
       <View

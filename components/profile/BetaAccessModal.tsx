@@ -61,7 +61,7 @@ export function BetaAccessModal({ visible, onClose }: BetaAccessModalProps) {
             onPress={onClose}
             style={styles.closeBtn}
           >
-            <Ionicons name="close" size={26} color="#FFFFFF" />
+            <Ionicons name="close" size={26} color={colors.text} />
           </Pressable>
         </View>
 
@@ -72,7 +72,7 @@ export function BetaAccessModal({ visible, onClose }: BetaAccessModalProps) {
           {/* Hero Card */}
           <View style={styles.heroCard}>
             <View style={styles.iconWrap}>
-              <MaterialCommunityIcons name="rocket-launch" size={32} color={colors.primary} />
+              <MaterialCommunityIcons name="rocket-launch" size={32} color={colors.primaryText} />
             </View>
             <View style={styles.betaBadge}>
               <Text style={styles.betaBadgeText}>
@@ -111,7 +111,7 @@ export function BetaAccessModal({ visible, onClose }: BetaAccessModalProps) {
             ].map((item, idx) => (
               <View key={idx} style={styles.perkRow}>
                 <View style={styles.checkWrap}>
-                  <Ionicons name="checkmark" size={15} color={colors.primary} />
+                  <Ionicons name="checkmark" size={15} color={colors.primaryText} />
                 </View>
                 <View style={styles.perkTextWrap}>
                   <Text style={styles.perkTitle}>{item.title}</Text>
@@ -141,7 +141,7 @@ export function BetaAccessModal({ visible, onClose }: BetaAccessModalProps) {
             onPress={handleOpenPlayStore}
             style={({ pressed }) => [styles.playStoreBtn, pressed && { opacity: 0.85 }]}
           >
-            <Ionicons name="star" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+            <Ionicons name="star" size={18} color={colors.primaryText} style={{ marginRight: 8 }} />
             <Text style={styles.playStoreBtnText}>
               {isUk ? 'Оцінити в Google Play' : 'Rate on Google Play'}
             </Text>
@@ -182,7 +182,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   content: {
     paddingHorizontal: 20,
@@ -196,7 +196,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 20,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.25)',
+    borderColor: colors.accentLine,
     marginTop: 10,
     marginBottom: 20,
   },
@@ -204,12 +204,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
+    backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.3)',
+    borderColor: colors.accentLine,
   },
   betaBadge: {
     backgroundColor: '#7C5CFF',
@@ -225,7 +225,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     letterSpacing: 1,
   },
   heroTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 22,
     fontWeight: '900',
     textAlign: 'center',
@@ -233,7 +233,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     letterSpacing: -0.3,
   },
   heroSub: {
-    color: '#94A3B8',
+    color: colors.secondary,
     fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',
@@ -246,7 +246,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 20,
     padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: colors.border,
     marginBottom: 20,
     gap: 14,
   },
@@ -266,7 +266,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: 'rgba(200, 255, 61, 0.15)',
+    backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
@@ -275,7 +275,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
   },
   perkTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -311,16 +311,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: '100%',
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#1A212B',
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.3)',
+    borderColor: colors.accentLine,
     marginBottom: 16,
   },
   playStoreBtnText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.3,

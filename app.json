@@ -40,8 +40,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Дозвольте SPOT доступ до галереї, щоб встановити власне фото профілю.",
-          "cameraPermission": "Дозвольте SPOT доступ до камери, щоб зробити фото для профілю."
+          "photosPermission": "Allow SPOT to access your photo library to set a custom profile or exercise photo. / Дозвольте SPOT доступ до галереї для встановлення фото профілю або власної вправи.",
+          "cameraPermission": "Allow SPOT to access your camera to take a custom profile or exercise photo. / Дозвольте SPOT доступ до камери, щоб зробити фото профілю або власної вправи."
         }
       ],
       "expo-asset",
@@ -60,7 +60,12 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.vanzalabs.spot"
+      "bundleIdentifier": "com.vanzalabs.spot",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Allow SPOT to access your photo library to set a custom profile or exercise photo. / Дозвольте SPOT доступ до галереї для встановлення фото профілю або власної вправи.",
+        "NSCameraUsageDescription": "Allow SPOT to access your camera to take a custom profile or exercise photo. / Дозвольте SPOT доступ до камери, щоб зробити фото профілю або власної вправи."
+      }
     },
     "android": {
       "package": "com.vanzalabs.spot",

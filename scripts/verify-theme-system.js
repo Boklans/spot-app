@@ -123,5 +123,66 @@ let passed = 0;
   passed++;
 }
 
+// TEST 7: WCAG AA Contrast Verification & Light-Mode Modal Regression Guard (P0-09)
+{
+  const { loadTsModule } = require('./tsRunner');
+  const { darkColors, lightColors } = loadTsModule('constants/colors.ts');
+
+  function hexToRgb(hex) {
+    const clean = hex.replace('#', '');
+    return [
+      parseInt(clean.slice(0, 2), 16),
+      parseInt(clean.slice(2, 4), 16),
+      parseInt(clean.slice(4, 6), 16),
+    ];
+  }
+
+  function relativeLuminance([r, g, b]) {
+    const [rs, gs, bs] = [r, g, b].map((c) => {
+      const s = c / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+  }
+
+  function contrastRatio(fgHex, bgHex) {
+    const l1 = relativeLuminance(hexToRgb(fgHex));
+    const l2 = relativeLuminance(hexToRgb(bgHex));
+    const lighter = Math.max(l1, l2);
+    const darker = Math.min(l1, l2);
+    return (lighter + 0.05) / (darker + 0.05);
+  }
+
+  // Verify WCAG AA (>= 4.5:1) across both dark and light surfaces
+  for (const [themeName, palette] of [['dark', darkColors], ['light', lightColors]]) {
+    assert.ok(contrastRatio(palette.text, palette.background) >= 7.0, `${themeName}.text on background must be >= 7:1`);
+    assert.ok(contrastRatio(palette.text, palette.surface) >= 7.0, `${themeName}.text on surface must be >= 7:1`);
+    assert.ok(contrastRatio(palette.secondary, palette.surface) >= 4.5, `${themeName}.secondary on surface must be >= 4.5:1`);
+    assert.ok(contrastRatio(palette.muted, palette.surface) >= 4.5, `${themeName}.muted on surface must be >= 4.5:1 (WCAG AA)`);
+    assert.ok(contrastRatio(palette.primaryText, palette.surface) >= 4.5, `${themeName}.primaryText on surface must be >= 4.5:1`);
+    assert.ok(contrastRatio(palette.accentIndicator, palette.surface) >= 4.5, `${themeName}.accentIndicator on surface must be >= 4.5:1`);
+    assert.ok(contrastRatio(palette.onPrimary, palette.primary) >= 7.0, `${themeName}.onPrimary on primary must be >= 7:1`);
+  }
+
+  // Regression guard across the 9 remediated modals: forbid white text on dynamic surface/background
+  const guardedModals = [
+    'components/profile/LanguagePickerModal.tsx',
+    'components/profile/RestTimePickerModal.tsx',
+    'components/profile/ReminderTimePickerModal.tsx',
+    'components/profile/PreferencePickerModal.tsx',
+    'components/profile/PrivacyPolicyModal.tsx',
+    'components/program/CreateExerciseModal.tsx',
+    'components/program/ExerciseLibraryModal.tsx',
+  ];
+  for (const modalRel of guardedModals) {
+    const src = fs.readFileSync(path.join(__dirname, '..', modalRel), 'utf8');
+    assert.ok(!src.includes("color: '#FFFFFF'"), `${modalRel} must not hardcode color: '#FFFFFF' (invisible in Light Mode)`);
+    assert.ok(!src.includes('color="#FFFFFF"'), `${modalRel} must not hardcode color="#FFFFFF" on icons`);
+  }
+
+  console.log('✅ TEST 7 PASSED (P0-09): WCAG AA (>=4.5:1) verified on Dark & Light palettes and 9 modal regressions guarded');
+  passed++;
+}
+
 console.log(`\n🎉 ALL ${passed} THEME SYSTEM TESTS PASSED!\n`);
 

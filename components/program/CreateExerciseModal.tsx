@@ -192,7 +192,7 @@ export function CreateExerciseModal({
               style={({ pressed }) => [styles.closeBtn, pressed && styles.pressed]}
               hitSlop={12}
             >
-              <Ionicons name="close" size={24} color="#8E959F" />
+              <Ionicons name="close" size={24} color={colors.secondary} />
             </Pressable>
           </View>
 
@@ -222,7 +222,7 @@ export function CreateExerciseModal({
                 ) : (
                   <View style={styles.imagePlaceholder}>
                     <View style={styles.imageIconCircle}>
-                      <Ionicons name="camera-outline" size={28} color={colors.primary} />
+                      <Ionicons name="camera-outline" size={28} color={colors.primaryText} />
                     </View>
                     <Text style={styles.imagePlaceholderText}>
                       {language === 'uk' ? '+ Завантажити фото вправи' : '+ Add Exercise Photo'}
@@ -247,7 +247,7 @@ export function CreateExerciseModal({
                     ? 'напр. Жим під кутом у Хаммері'
                     : 'e.g. Incline Hammer Chest Press'
                 }
-                placeholderTextColor="#6C7A8E"
+                placeholderTextColor={colors.muted}
                 value={name}
                 onChangeText={setName}
                 autoFocus={true}
@@ -321,7 +321,7 @@ export function CreateExerciseModal({
                     }}
                     style={styles.stepBtn}
                   >
-                    <Ionicons name="remove" size={18} color="#FFFFFF" />
+                    <Ionicons name="remove" size={18} color={colors.text} />
                   </Pressable>
                   <View style={styles.stepValueBox}>
                     <Text style={styles.stepValueText}>{sets}</Text>
@@ -333,7 +333,7 @@ export function CreateExerciseModal({
                     }}
                     style={styles.stepBtn}
                   >
-                    <Ionicons name="add" size={18} color="#FFFFFF" />
+                    <Ionicons name="add" size={18} color={colors.text} />
                   </Pressable>
                 </View>
               </View>
@@ -353,7 +353,7 @@ export function CreateExerciseModal({
                     }}
                     style={styles.stepBtn}
                   >
-                    <Ionicons name="remove" size={18} color="#FFFFFF" />
+                    <Ionicons name="remove" size={18} color={colors.text} />
                   </Pressable>
                   <View style={styles.weightInputBox}>
                     <TextInput
@@ -362,7 +362,7 @@ export function CreateExerciseModal({
                       value={weightText}
                       onChangeText={setWeightText}
                       placeholder="0"
-                      placeholderTextColor="#6C7A8E"
+                      placeholderTextColor={colors.muted}
                     />
                   </View>
                   <Pressable
@@ -374,7 +374,7 @@ export function CreateExerciseModal({
                     }}
                     style={styles.stepBtn}
                   >
-                    <Ionicons name="add" size={18} color="#FFFFFF" />
+                    <Ionicons name="add" size={18} color={colors.text} />
                   </Pressable>
                 </View>
               </View>
@@ -446,30 +446,30 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1A212D',
+    borderBottomColor: colors.border,
   },
   eyebrow: {
     fontSize: 11,
     fontWeight: '800',
-    color: colors.primary,
+    color: colors.primaryText,
     letterSpacing: 1.2,
     marginBottom: 2,
   },
   title: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.3,
   },
   closeBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#161B24',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
   },
   pressed: {
     opacity: 0.7,
@@ -488,9 +488,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1.5,
-    borderColor: '#242B35',
+    borderColor: colors.border,
     borderStyle: 'dashed',
-    backgroundColor: '#11151C',
+    backgroundColor: colors.surface,
   },
   imagePreviewWrap: {
     width: '100%',
@@ -529,7 +529,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(200, 255, 61, 0.1)',
+    backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -537,7 +537,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   imagePlaceholderText: {
     fontSize: 14,
     fontWeight: '800',
-    color: colors.primary,
+    color: colors.primaryText,
     marginBottom: 2,
   },
   imagePlaceholderSub: {
@@ -555,13 +555,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: '#151922',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -574,13 +574,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: '#151922',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
   },
   pillActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.12)',
-    borderColor: colors.primary,
+    backgroundColor: colors.primaryMuted,
+    borderColor: colors.accentLine,
   },
   pillText: {
     fontSize: 13,
@@ -588,7 +588,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.secondary,
   },
   pillTextActive: {
-    color: colors.primary,
+    color: colors.primaryText,
   },
   rowTwoCols: {
     flexDirection: 'row',
@@ -605,7 +605,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.elevated,
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -613,24 +613,24 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepValueText: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   weightInputBox: {
     flex: 1,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#0E1115',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#242B35',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,
@@ -638,7 +638,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   weightInputText: {
     fontSize: 18,
     fontWeight: '900',
-    color: colors.primary,
+    color: colors.primaryText,
     textAlign: 'center',
     width: '100%',
   },

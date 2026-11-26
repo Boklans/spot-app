@@ -126,8 +126,22 @@ export async function setupNotificationCategories(lang: AppLanguage = 'uk'): Pro
   }
 }
 
-async function handleNotificationAction(actionIdentifier: string, data?: Record<string, any>): Promise<void> {
+export async function handleNotificationAction(
+  actionIdentifier: string,
+  data?: Record<string, any>
+): Promise<void> {
   try {
+    // Ensure stores are hydrated from AsyncStorage first so cold-start killed-process taps never drop!
+    if (!useUserProfileStore.getState().hydrated) {
+      await useUserProfileStore.getState().loadProfile().catch(() => undefined);
+    }
+    if (!useWorkoutSessionStore.getState().hydrated) {
+      await useWorkoutSessionStore.getState().hydrateSession().catch(() => undefined);
+    }
+    if (!useProgramStore.getState().hydrated) {
+      await useProgramStore.getState().loadProgram().catch(() => undefined);
+    }
+
     if (actionIdentifier === ACTION_SUB_15S) {
       useWorkoutSessionStore.getState().addRestTime(-15);
       await syncActiveWorkoutNotification(true);
@@ -506,7 +520,9 @@ export function buildWorkoutReminderContent(
 /**
  * Schedule weekly notifications for all configured workout days.
  */
-export async function scheduleWorkoutDayReminders(): Promise<void> {
+export async function scheduleWorkoutDayReminders(options?: {
+  promptIfNeeded?: boolean;
+}): Promise<void> {
   if (Platform.OS === 'web') return;
 
   await initNotifications();
@@ -517,7 +533,17 @@ export async function scheduleWorkoutDayReminders(): Promise<void> {
     return;
   }
 
-  const hasPermission = await requestNotificationPermissions();
+  let hasPermission = false;
+  if (options?.promptIfNeeded) {
+    hasPermission = await requestNotificationPermissions();
+  } else {
+    try {
+      const existing = await Notifications.getPermissionsAsync();
+      hasPermission = existing.status === 'granted';
+    } catch {
+      hasPermission = false;
+    }
+  }
   if (!hasPermission) {
     return;
   }

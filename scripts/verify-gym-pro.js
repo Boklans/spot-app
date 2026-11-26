@@ -481,6 +481,51 @@ let passed = 0;
   console.log('✅ TEST 8 PASSED (P0-07): Preset onboarding split preserved & profile/onboarding RAM cache stays 100% synchronized');
   passed++;
 
+  // ============================================================================
+  // TEST 9: Cold-Kill Notification Action Hydration & Silent Boot Reminders (P0-10)
+  // ============================================================================
+  {
+    const notifMod = loadTsModule('lib/notificationService.ts');
+    const sessionMod = loadTsModule('store/workoutSessionStore.ts');
+    const { notificationsState, resetNotificationsMock } = require('./tsRunner');
+
+    // 1. Simulate cold-killed app: initialize a real session so it persists to AsyncStorage, then clear RAM store (session: null, hydrated: false)
+    await sessionMod.useWorkoutSessionStore.getState().initializeSession();
+    // Flush microtasks so serialized AsyncStorage persistence completes
+    await new Promise((r) => setTimeout(r, 20));
+    const storedRaw = await memoryAsyncStorage.getItem('spot_active_workout_session');
+    assert.ok(storedRaw, 'Active workout session must be persisted in AsyncStorage');
+
+    sessionMod.useWorkoutSessionStore.setState({ session: null, restEndsAt: null, hydrated: false });
+
+    // User taps "Complete Set" in the OS notification shade from cold-killed state!
+    await notifMod.handleNotificationAction(notifMod.ACTION_COMPLETE_SET, {});
+
+    const hydratedAfterTap = sessionMod.useWorkoutSessionStore.getState();
+    assert.strictEqual(hydratedAfterTap.hydrated, true, 'Notification action must hydrate session on cold start');
+    assert.ok(hydratedAfterTap.session, 'Cold-start notification action must load persisted session');
+    assert.strictEqual(
+      hydratedAfterTap.session.exercises[0].sets[0].completed,
+      true,
+      'Cold-start ACTION_COMPLETE_SET must complete set 1 instead of dropping the tap'
+    );
+    assert.strictEqual(hydratedAfterTap.session.currentSetIndex, 1);
+
+    // 2. Cold-boot scheduleWorkoutDayReminders({ promptIfNeeded: false }) must NOT schedule or hijack when permissions are undetermined
+    resetNotificationsMock();
+    notificationsState.permissionsGranted = false;
+    await notifMod.scheduleWorkoutDayReminders({ promptIfNeeded: false });
+    assert.strictEqual(
+      notificationsState.scheduled.length,
+      0,
+      'Cold-boot reminder check must not schedule when OS permission is not yet granted'
+    );
+    resetNotificationsMock();
+
+    console.log('✅ TEST 9 PASSED (P0-10): Cold-kill notification actions hydrate session & boot reminder check avoids OS permission hijack');
+    passed++;
+  }
+
   console.log(`\n🎉 ALL ${passed} GYM FLOOR PRO ENGINE TESTS PASSED!\n`);
 })().catch((err) => {
   console.error('❌ Async test failure in verify-gym-pro.js:', err);

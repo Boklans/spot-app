@@ -178,7 +178,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   closeText: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -197,8 +197,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: 'transparent',
   },
   optionRowSelected: {
-    borderColor: 'rgba(200, 255, 61, 0.4)',
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    borderColor: colors.accentLine,
+    backgroundColor: colors.primaryMuted,
   },
   optionText: {
     color: colors.text,
@@ -206,11 +206,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
   },
   optionTextSelected: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontWeight: '800',
   },
   checkmark: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 16,
     fontWeight: '900',
   },

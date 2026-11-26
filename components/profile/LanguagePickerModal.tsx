@@ -58,7 +58,7 @@ export function LanguagePickerModal({
               onPress={onClose}
               style={styles.closeBtn}
             >
-              <Ionicons name="close" size={22} color="#FFFFFF" />
+              <Ionicons name="close" size={22} color={colors.text} />
             </Pressable>
           </View>
 
@@ -115,7 +115,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
-    borderColor: '#1F2937',
+    borderColor: colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -125,10 +125,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#1A222D',
+    borderBottomColor: colors.border,
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: 0.2,
@@ -141,24 +141,24 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   closeBtn: {
     padding: 6,
     borderRadius: 16,
-    backgroundColor: '#1E2633',
+    backgroundColor: colors.elevated,
   },
   content: {
     padding: 20,
     gap: 12,
   },
   optionCard: {
-    backgroundColor: '#141A23',
+    backgroundColor: colors.elevated,
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#1E2836',
+    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
   },
   optionCardActive: {
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
-    borderColor: colors.primary,
+    backgroundColor: colors.primaryMuted,
+    borderColor: colors.accentLine,
   },
   cardPressed: {
     opacity: 0.85,
@@ -173,12 +173,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
   },
   optionLabel: {
-    color: '#F1F5F9',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '700',
   },
   optionLabelActive: {
-    color: colors.primary,
+    color: colors.primaryText,
   },
   optionSub: {
     color: colors.secondary,

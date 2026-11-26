@@ -96,17 +96,17 @@ export function ExerciseLibraryModal({
           onPress={onClose}
           style={styles.closeBtn}
         >
-          <Ionicons name={embedded ? 'arrow-back' : 'close'} size={22} color="#FFFFFF" />
+          <Ionicons name={embedded ? 'arrow-back' : 'close'} size={22} color={colors.text} />
         </Pressable>
       </View>
 
           {/* Search Input */}
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color="#8E9BAE" />
+            <Ionicons name="search" size={18} color={colors.secondary} />
             <TextInput
               style={styles.searchInput}
               placeholder={t('searchExercisePlaceholder')}
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.muted}
               value={search}
               onChangeText={setSearch}
               autoCapitalize="none"
@@ -178,7 +178,7 @@ export function ExerciseLibraryModal({
                     : 'Gym machine or movement with custom photo'}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+              <Ionicons name="chevron-forward" size={18} color={colors.primaryText} />
             </Pressable>
 
             {filteredExercises.map((item) => (
@@ -242,7 +242,7 @@ export function ExerciseLibraryModal({
                 pressed && { opacity: 0.8 },
               ]}
             >
-              <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
+              <Ionicons name="arrow-back" size={18} color={colors.text} />
               <Text style={styles.bottomCloseBtnText}>
                 {language === 'uk' ? 'Назад до редагування' : 'Back to Workout'}
               </Text>
@@ -296,7 +296,7 @@ export function ExerciseLibraryModal({
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   embeddedContainer: {
     flex: 1,
-    backgroundColor: '#12161D',
+    backgroundColor: colors.surface,
     display: 'flex',
     flexDirection: 'column',
   },
@@ -306,11 +306,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#12161D',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
     height: '88%',
     display: 'flex',
     flexDirection: 'column',
@@ -338,20 +338,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1C232E',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161B22',
+    backgroundColor: colors.elevated,
     marginHorizontal: 20,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
     gap: 10,
     marginBottom: 12,
   },
@@ -376,15 +376,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 14,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#161B22',
+    backgroundColor: colors.elevated,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   categoryChipSelected: {
-    backgroundColor: 'rgba(200, 255, 61, 0.15)',
-    borderColor: colors.primary,
+    backgroundColor: colors.primaryMuted,
+    borderColor: colors.accentLine,
   },
   categoryChipText: {
     fontSize: 12,
@@ -392,7 +392,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.secondary,
   },
   categoryChipTextSelected: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontWeight: '800',
   },
   listContent: {
@@ -404,15 +404,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#161B22',
+    backgroundColor: colors.elevated,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#1F2733',
+    borderColor: colors.border,
     padding: 14,
   },
   exerciseCardPressed: {
     opacity: 0.8,
-    backgroundColor: '#1A212B',
   },
   exerciseCardLeft: {
     flexDirection: 'row',
@@ -424,9 +423,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 10,
-    backgroundColor: colors.elevated,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#242C38',
+    borderColor: colors.border,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -469,8 +468,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 24,
     borderTopWidth: 1,
-    borderTopColor: '#1E2633',
-    backgroundColor: '#12161D',
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
     flexShrink: 0,
   },
   bottomCloseBtn: {
@@ -478,11 +477,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#1E2633',
+    backgroundColor: colors.elevated,
     height: 48,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#2E3847',
+    borderColor: colors.border,
   },
   bottomCloseBtnText: {
     color: colors.text,
@@ -493,9 +492,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#161B24',
+    backgroundColor: colors.primaryMuted,
     borderWidth: 1,
-    borderColor: 'rgba(200, 255, 61, 0.3)',
+    borderColor: colors.accentLine,
     borderRadius: 16,
     padding: 14,
     marginBottom: 14,
@@ -521,15 +520,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '500',
   },
   customBadge: {
-    backgroundColor: 'rgba(200, 255, 61, 0.15)',
+    backgroundColor: colors.primaryMuted,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.accentLine,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
   },
   customBadgeText: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
