@@ -372,7 +372,7 @@ export function ProfileSettingsModal({
                   hapticLight();
                   onUpdateProfile({ soundEnabled: !profile.soundEnabled });
                 }}
-                style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
               >
                 <View style={styles.rowLeft}>
                   <Ionicons name="volume-high-outline" size={20} color={colors.secondary} />
@@ -387,6 +387,32 @@ export function ProfileSettingsModal({
                     onUpdateProfile({ soundEnabled: val });
                   }}
                   value={profile.soundEnabled}
+                />
+              </Pressable>
+
+              {/* Haptic Feedback Toggle (P3-01) */}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  onUpdateProfile({ hapticsEnabled: profile.hapticsEnabled === false });
+                }}
+                style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
+              >
+                <View style={styles.rowLeft}>
+                  <Ionicons name="phone-portrait-outline" size={20} color={colors.secondary} />
+                  <Text style={styles.rowTitle}>
+                    {isUk ? 'Вібровідгук (Haptics)' : 'Haptic Feedback'}
+                  </Text>
+                </View>
+                <Switch
+                  trackColor={{ false: colors.elevated, true: colors.accentLine }}
+                  thumbColor="#FFFFFF"
+                  ios_backgroundColor={colors.elevated}
+                  onValueChange={(val) => {
+                    onUpdateProfile({ hapticsEnabled: val });
+                    if (val) void hapticLight();
+                  }}
+                  value={profile.hapticsEnabled !== false}
                 />
               </Pressable>
             </View>

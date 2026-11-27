@@ -65,6 +65,7 @@ export type UserProfile = {
   notifications: boolean;
   notificationTime: string;
   soundEnabled: boolean;
+  hapticsEnabled: boolean;
   baselineLifts?: BaselineLifts;
   trialStartedAt?: string;
 };
@@ -88,6 +89,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   notifications: true,
   notificationTime: '09:00',
   soundEnabled: true,
+  hapticsEnabled: true,
   baselineLifts: undefined,
   trialStartedAt: undefined,
 };
@@ -157,6 +159,7 @@ function normalizeLoadedProfile(parsed: unknown): UserProfile {
         ? p.notificationTime
         : DEFAULT_USER_PROFILE.notificationTime,
     soundEnabled: typeof p.soundEnabled === 'boolean' ? p.soundEnabled : true,
+    hapticsEnabled: typeof p.hapticsEnabled === 'boolean' ? p.hapticsEnabled : true,
     baselineLifts,
     trialStartedAt: typeof p.trialStartedAt === 'string' ? p.trialStartedAt : new Date().toISOString(),
   };

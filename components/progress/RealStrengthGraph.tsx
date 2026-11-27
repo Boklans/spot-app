@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
+  PanResponder,
   Pressable,
   StyleSheet,
   Text,
@@ -8,7 +9,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 import { ThemeColors, useThemeColors } from '@/constants/colors';
-import { hapticLight } from '@/lib/haptics';
+import { hapticLight, hapticSelection } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 
 export type StrengthSessionPoint = {
@@ -45,6 +46,57 @@ export function RealStrengthGraph({
 
   const [selectedIdx, setSelectedIdx] = useState<number>(
     data.length > 0 ? data.length - 1 : 0
+  );
+  const selectedIdxRef = useRef(selectedIdx);
+  selectedIdxRef.current = selectedIdx;
+  const pointsRef = useRef<Array<{ idx: number; x: number }>>([]);
+
+  const scrubPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => pointsRef.current.length > 1,
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          pointsRef.current.length > 1 && Math.abs(gesture.dx) > Math.abs(gesture.dy) && Math.abs(gesture.dx) > 4,
+        onPanResponderGrant: (evt) => {
+          const touchX = evt.nativeEvent.locationX;
+          const pts = pointsRef.current;
+          if (pts.length === 0) return;
+          let nearest = pts[0];
+          let minDist = Math.abs(pts[0].x - touchX);
+          for (let i = 1; i < pts.length; i++) {
+            const d = Math.abs(pts[i].x - touchX);
+            if (d < minDist) {
+              minDist = d;
+              nearest = pts[i];
+            }
+          }
+          if (nearest.idx !== selectedIdxRef.current) {
+            selectedIdxRef.current = nearest.idx;
+            setSelectedIdx(nearest.idx);
+            void hapticSelection();
+          }
+        },
+        onPanResponderMove: (evt) => {
+          const touchX = evt.nativeEvent.locationX;
+          const pts = pointsRef.current;
+          if (pts.length === 0) return;
+          let nearest = pts[0];
+          let minDist = Math.abs(pts[0].x - touchX);
+          for (let i = 1; i < pts.length; i++) {
+            const d = Math.abs(pts[i].x - touchX);
+            if (d < minDist) {
+              minDist = d;
+              nearest = pts[i];
+            }
+          }
+          if (nearest.idx !== selectedIdxRef.current) {
+            selectedIdxRef.current = nearest.idx;
+            setSelectedIdx(nearest.idx);
+            void hapticSelection();
+          }
+        },
+      }),
+    []
   );
 
   useEffect(() => {
@@ -112,6 +164,8 @@ export function RealStrengthGraph({
       idx,
     };
   });
+
+  pointsRef.current = points.map((p) => ({ idx: p.idx, x: p.x }));
 
   const avgNorm = (avgVal - minY) / rangeY;
   const avgY = topPadding + usableHeight - avgNorm * usableHeight;
@@ -210,7 +264,10 @@ export function RealStrengthGraph({
         </View>
 
         {/* Plot Area */}
-        <View style={[styles.plotArea, { width: graphAreaWidth, height: graphAreaHeight }]}>
+        <View
+          style={[styles.plotArea, { width: graphAreaWidth, height: graphAreaHeight }]}
+          {...scrubPanResponder.panHandlers}
+        >
           <Svg width={graphAreaWidth} height={graphAreaHeight}>
             <Defs>
               <LinearGradient id="strengthGrad" x1="0" y1="0" x2="0" y2="1">

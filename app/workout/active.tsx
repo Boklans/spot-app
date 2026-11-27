@@ -424,15 +424,17 @@ export default function Active() {
     isSubmittingSetRef.current = true;
     setSubmittingSet(true);
     try {
-      hapticSuccess();
+      // P3-01 Haptic hierarchy: medium for normal set completion, success reserved for full workout completion
       toggleSetCompletion(targetExerciseIndex, targetSetIndex);
 
       const latestSession = useWorkoutSessionStore.getState().session;
       if (latestSession?.completed) {
+        hapticSuccess();
         setFinishing(true);
         await finalizeWorkoutSession(latestSession);
         router.replace('/workout/complete');
       } else {
+        hapticMedium();
         setTimeout(() => {
           isSubmittingSetRef.current = false;
           setSubmittingSet(false);
