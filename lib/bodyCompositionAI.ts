@@ -1,5 +1,70 @@
+import { isAssistedExercise } from '@/lib/adaptiveProgression';
+import { resolveCanonicalExerciseId } from '@/lib/exercises';
 import { BodyWeightStats } from '@/store/bodyWeightStore';
 import { UserGoal } from '@/store/userProfileStore';
+import type { CompletedWorkout } from '@/types/workout';
+
+/**
+ * Computes average per-exercise estimated 1RM % delta across the selected time window (P2-07).
+ * Unlike raw period tonnage, a lighter training week (e.g. 2 sessions instead of 4 at identical
+ * lifting strength) produces 0% instead of a false -50% "muscle catabolism" warning!
+ */
+export function calculateAverageStrengthDeltaPercent(
+  history: CompletedWorkout[],
+  days = 30,
+  referenceBodyweightKg = 80
+): number {
+  if (!history || history.length < 2) return 0;
+  const cutoffMs = days >= 365 ? 0 : Date.now() - days * 24 * 60 * 60 * 1000;
+  const chronological = [...history]
+    .filter((w) => {
+      const ts = new Date(w.completedAt || w.startedAt).getTime();
+      return !isNaN(ts) && ts >= cutoffMs;
+    })
+    .sort(
+      (a, b) =>
+        new Date(a.completedAt || a.startedAt).getTime() -
+        new Date(b.completedAt || b.startedAt).getTime()
+    );
+
+  const byLift = new Map<string, { first: number; latest: number; count: number }>();
+
+  for (const w of chronological) {
+    for (const ex of w.exercises || []) {
+      const working = (ex.sets || []).filter(
+        (s) => s.setType !== 'warmup' && s.weight > 0 && s.reps > 0
+      );
+      if (working.length === 0) continue;
+
+      const assisted = isAssistedExercise(ex.exerciseName);
+      let bestE1rm = 0;
+      for (const s of working) {
+        const effLoad = assisted ? Math.max(5, referenceBodyweightKg - s.weight) : s.weight;
+        const e1rm = effLoad * (1 + s.reps / 30);
+        if (e1rm > bestE1rm) bestE1rm = e1rm;
+      }
+      if (bestE1rm <= 0) continue;
+
+      const key = resolveCanonicalExerciseId(ex.exerciseName) || ex.exerciseName.trim().toLowerCase();
+      const prev = byLift.get(key);
+      if (!prev) {
+        byLift.set(key, { first: bestE1rm, latest: bestE1rm, count: 1 });
+      } else {
+        prev.latest = bestE1rm;
+        prev.count += 1;
+      }
+    }
+  }
+
+  const deltas: number[] = [];
+  for (const entry of byLift.values()) {
+    if (entry.count >= 2 && entry.first > 0) {
+      deltas.push(((entry.latest - entry.first) / entry.first) * 100);
+    }
+  }
+  if (deltas.length === 0) return 0;
+  return Math.round(deltas.reduce((sum, d) => sum + d, 0) / deltas.length);
+}
 
 export interface AICorrelationAnalysis {
   status: 'optimal' | 'good' | 'warning' | 'plateau';

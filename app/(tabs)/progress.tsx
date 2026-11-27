@@ -22,6 +22,7 @@ import { BodyWeightGraph } from '@/components/progress/BodyWeightGraph';
 import { HistoryFeed } from '@/components/history/HistoryFeed';
 import { LogWeightModal } from '@/components/progress/LogWeightModal';
 import { MuscleHeatmap } from '@/components/progress/MuscleHeatmap';
+import { SectionErrorBoundary } from '@/components/ui/SectionErrorBoundary';
 import { AnalyticsSkeleton } from '@/components/ui/Skeleton';
 import { useWorkoutBarBottomInset } from '@/components/ui/Screen';
 import { SlidingSegmentedControl } from '@/components/ui/SlidingSegmentedControl';
@@ -30,7 +31,10 @@ import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { isAssistedExercise } from '@/lib/adaptiveProgression';
-import { analyzeBodyAndStrength } from '@/lib/bodyCompositionAI';
+import {
+  analyzeBodyAndStrength,
+  calculateAverageStrengthDeltaPercent,
+} from '@/lib/bodyCompositionAI';
 import { parseLocalDateKey, toLocalDateKey } from '@/lib/dateUtils';
 import { hapticLight } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -139,7 +143,10 @@ export default function Progress() {
   const chartWidth = Math.min(screenWidth - 80, 320);
 
   const hasHistory = history.length > 0;
-  const realSummary = calculateProgressSummary(history, period);
+  const realSummary = React.useMemo(
+    () => calculateProgressSummary(history, period),
+    [history, period]
+  );
 
   const workoutsCount = hasHistory ? realSummary.workouts : 0;
   const periodFilteredWorkouts = React.useMemo(() => {
@@ -149,9 +156,13 @@ export default function Progress() {
     return history.filter((w) => new Date(w.completedAt || w.startedAt).getTime() >= cutoff);
   }, [history, period]);
 
-  const totalCompletedSets = periodFilteredWorkouts.reduce(
-    (sum, w) => sum + (w.totalSets || w.exercises.reduce((exSum, e) => exSum + e.sets.length, 0)),
-    0
+  const totalCompletedSets = React.useMemo(
+    () =>
+      periodFilteredWorkouts.reduce(
+        (sum, w) => sum + (w.totalSets || w.exercises.reduce((exSum, e) => exSum + e.sets.length, 0)),
+        0
+      ),
+    [periodFilteredWorkouts]
   );
 
   // Deduplicated all-time Personal Records per exercise across workout history + baseline lifts
@@ -226,61 +237,43 @@ export default function Progress() {
       : allHistoryPrs.length
     : allHistoryPrs.length;
 
-  // Real muscle group calculation (normalized across Quads/Hamstrings/Glutes -> Legs, Biceps/Triceps -> Arms)
-  const realMuscles = calculateMuscleProgress(history, period);
-  const displayMuscles = CORE_MUSCLES.map((muscleName) => {
-    const found = realMuscles.find(
-      (m) => m.name.toLowerCase() === muscleName.toLowerCase()
-    );
-    return {
-      name: muscleName,
-      volume: found?.volume ?? 0,
-      changePercent: found?.changePercent ?? 0,
-    };
-  });
+  // Real muscle group calculation (memoized — P2-04)
+  const realMuscles = React.useMemo(
+    () => calculateMuscleProgress(history, period),
+    [history, period]
+  );
+  const displayMuscles = React.useMemo(
+    () =>
+      CORE_MUSCLES.map((muscleName) => {
+        const found = realMuscles.find(
+          (m) => m.name.toLowerCase() === muscleName.toLowerCase()
+        );
+        return {
+          name: muscleName,
+          volume: found?.volume ?? 0,
+          changePercent: found?.changePercent ?? 0,
+        };
+      }),
+    [realMuscles]
+  );
 
   const muscleRecoveryStats = React.useMemo(
     () => calculateMuscleRecoveryStats(history),
     [history]
   );
 
-  // Calculate detailed stats for selected muscle using normalized muscle categories (excluding warmup sets)
-  const selectedMuscleWorkouts = periodFilteredWorkouts.filter((w) =>
-    w.exercises.some(
-      (e) =>
-        normalizeMuscleCategory(e.muscleGroup).toLowerCase() === selectedMuscle.toLowerCase() &&
-        e.sets.some((s) => s.setType !== 'warmup')
-    )
-  );
-  const selectedMuscleSets = selectedMuscleWorkouts.reduce(
-    (total, w) =>
-      total +
-      w.exercises
-        .filter(
-          (e) => normalizeMuscleCategory(e.muscleGroup).toLowerCase() === selectedMuscle.toLowerCase()
-        )
-        .reduce((sum, e) => sum + e.sets.filter((s) => s.setType !== 'warmup').length, 0),
-    0
-  );
-  const selectedMuscleVolume = selectedMuscleWorkouts.reduce(
-    (total, w) =>
-      total +
-      w.exercises
-        .filter(
-          (e) => normalizeMuscleCategory(e.muscleGroup).toLowerCase() === selectedMuscle.toLowerCase()
-        )
-        .reduce(
-          (sum, e) =>
-            sum +
-            e.sets
-              .filter((s) => s.setType !== 'warmup')
-              .reduce((sSum, s) => sSum + s.volume, 0),
-          0
-        ),
-    0
+  const weeklyMuscleVolumes = React.useMemo(
+    () =>
+      Object.fromEntries(
+        CORE_MUSCLES.map((m) => [m, muscleRecoveryStats[m]?.weeklyVolume ?? 0])
+      ),
+    [muscleRecoveryStats]
   );
 
-  const availableExercises = getAvailableExercisesForProgress(program, history);
+  const availableExercises = React.useMemo(
+    () => getAvailableExercisesForProgress(program, history),
+    [program, history]
+  );
 
   const selectedExercise =
     availableExercises.find(
@@ -463,18 +456,17 @@ export default function Progress() {
   };
 
   const daysMap: Record<ProgressPeriod, number> = { '7D': 7, '30D': 30, ALL: 365 };
-  const bodyStats = getBodyWeightStats(daysMap[period] ?? 30);
-  const avgMuscleChange =
-    realMuscles.length > 0
-      ? Math.round(
-          realMuscles.reduce((sum, m) => sum + (m.changePercent || 0), 0) / realMuscles.length
-        )
-      : 0;
-  const aiAnalysis = analyzeBodyAndStrength(
-    profile.goal,
-    bodyStats,
-    avgMuscleChange,
-    language
+  const bodyStats = React.useMemo(
+    () => getBodyWeightStats(daysMap[period] ?? 30),
+    [getBodyWeightStats, bodyWeightEntries, period]
+  );
+  const strengthDeltaPercent = React.useMemo(
+    () => calculateAverageStrengthDeltaPercent(history, daysMap[period] ?? 30, profile.weightKg || 80),
+    [history, period, profile.weightKg]
+  );
+  const aiAnalysis = React.useMemo(
+    () => analyzeBodyAndStrength(profile.goal, bodyStats, strengthDeltaPercent, language),
+    [profile.goal, bodyStats, strengthDeltaPercent, language]
   );
 
   const effectiveWeightEntries = React.useMemo(() => {
@@ -769,19 +761,21 @@ export default function Progress() {
                   {sessionPoints.length > 0 ? (
                     <>
                       <View style={styles.chartWrap}>
-                        <RealStrengthGraph
-                          data={sessionPoints}
-                          width={chartWidth}
-                          height={165}
-                          metric={isSelectedExerciseBw ? 'weight' : chartMetric}
-                          unit={
-                            isSelectedExerciseBw
-                              ? language === 'uk'
-                                ? 'ПОВТ'
-                                : 'REPS'
-                              : unitLabel
-                          }
-                        />
+                        <SectionErrorBoundary>
+                          <RealStrengthGraph
+                            data={sessionPoints}
+                            width={chartWidth}
+                            height={165}
+                            metric={isSelectedExerciseBw ? 'weight' : chartMetric}
+                            unit={
+                              isSelectedExerciseBw
+                                ? language === 'uk'
+                                  ? 'ПОВТ'
+                                  : 'REPS'
+                                : unitLabel
+                            }
+                          />
+                        </SectionErrorBoundary>
                       </View>
 
                       <View style={styles.chartFooter}>
@@ -1004,107 +998,56 @@ export default function Progress() {
         )}
 
         {/* ========================================================================= */}
-        {/* VIEW 2: MUSCLE PROGRESS                                                   */}
+        {/* VIEW 2: MUSCLE PROGRESS (Unified Rolling 7-Day Microcycle — P2-07)        */}
         {/* ========================================================================= */}
         {activeTab === 'muscles' && (
           <View style={styles.tabContainer}>
-            <MuscleHeatmap
-              stats={muscleRecoveryStats}
-              volumes={Object.fromEntries(displayMuscles.map((m) => [m.name, m.volume]))}
-              selectedMuscle={selectedMuscle}
-              onSelectMuscle={(m) => setSelectedMuscle(m)}
-              sex={profile.sex}
-              formatVolume={formatVolume}
-            />
-            {hasHistory ? (
-              <>
-                <View style={styles.muscleListCard}>
-                  {displayMuscles.map((muscle) => {
-                    const isSelected = selectedMuscle === muscle.name;
-                    const hasVolume = muscle.volume > 0;
-                    const maxVol = Math.max(1, ...displayMuscles.map((m) => m.volume));
-                    const barFillPercent = hasVolume
-                      ? Math.max(15, Math.min(95, (muscle.volume / maxVol) * 100))
-                      : 0;
-                    const recStat = muscleRecoveryStats[muscle.name];
-
-                    return (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`${muscle.name} progress`}
-                        key={muscle.name}
-                        onPress={() => {
-                          hapticLight();
-                          setSelectedMuscle(muscle.name);
-                        }}
-                        style={[styles.muscleRow, isSelected && styles.muscleRowSelected]}
-                      >
-                        <View style={styles.muscleRowTop}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Text style={styles.muscleName}>{tm(muscle.name)}</Text>
-                            {recStat && (
-                              <Text style={styles.muscleWeeklySetsTag}>
-                                {recStat.weeklySets}/{recStat.targetSets}{' '}
-                                {language === 'uk' ? 'сетів (7д)' : 'sets (7d)'}
-                              </Text>
-                            )}
-                          </View>
-                          <Text
-                            style={[
-                              styles.muscleDelta,
-                              { color: hasVolume ? colors.primaryText : '#6C7A8E' },
-                            ]}
-                          >
-                            {hasVolume
-                              ? formatVolume(muscle.volume)
-                              : language === 'uk'
-                                ? 'Не треновано'
-                                : 'Not trained'}
-                          </Text>
-                        </View>
-
-                        {/* Progress Bar */}
-                        <View style={styles.progressBarTrack}>
-                          <View
-                            style={[
-                              styles.progressBarFill,
-                              {
-                                width: `${barFillPercent}%`,
-                                backgroundColor: colors.accentLine,
-                              },
-                            ]}
-                          />
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {/* Bottom Muscle Summary Card */}
+            <SectionErrorBoundary>
+              <MuscleHeatmap
+                stats={muscleRecoveryStats}
+                volumes={weeklyMuscleVolumes}
+                selectedMuscle={selectedMuscle}
+                onSelectMuscle={(m) => setSelectedMuscle(m)}
+                sex={profile.sex}
+                formatVolume={formatVolume}
+              />
+            </SectionErrorBoundary>
+            {hasHistory ? (() => {
+              const selectedStat = muscleRecoveryStats[selectedMuscle];
+              const weeklySets = selectedStat?.weeklySets ?? 0;
+              const targetSets = selectedStat?.targetSets ?? 12;
+              const weeklyVol = selectedStat?.weeklyVolume ?? 0;
+              const readiness = selectedStat?.recoveryPercent ?? 100;
+              return (
                 <View style={styles.muscleSummaryCard}>
-                  <Text style={styles.summaryMuscleTitle}>{tm(selectedMuscle)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <Text style={styles.summaryMuscleTitle}>{tm(selectedMuscle)}</Text>
+                    <Text style={styles.muscleWeeklySetsTag}>
+                      {language === 'uk' ? `Відновлення: ${readiness}%` : `Readiness: ${readiness}%`}
+                    </Text>
+                  </View>
                   <View style={styles.summaryGrid}>
                     <View style={styles.summaryCol}>
                       <Text style={styles.summaryMainVal}>
-                        {selectedMuscleSets} {t('sets').toLowerCase()}
+                        {weeklySets} / {targetSets} {t('sets').toLowerCase()}
                       </Text>
                       <Text style={styles.summarySubVal}>
-                        {selectedMuscleWorkouts.length} {t('workouts').toLowerCase()}
+                        {language === 'uk' ? 'Мікроцикл 7 днів' : 'Rolling 7-day target'}
                       </Text>
                     </View>
 
                     <View style={styles.summaryColRight}>
                       <Text style={styles.summaryMainVal}>
-                        {formatVolume(selectedMuscleVolume)} {t('volume').toLowerCase()}
+                        {formatVolume(weeklyVol)}
                       </Text>
                       <Text style={styles.summarySubVal}>
-                        {periodLabels[period]}
+                        {language === 'uk' ? 'Тоннаж за 7 днів' : '7-day working volume'}
                       </Text>
                     </View>
                   </View>
                 </View>
-              </>
-            ) : (
+              );
+            })() : (
               <View style={styles.emptyCard}>
                 <View style={styles.emptyGlowRing}>
                   <View style={styles.emptyIconBadge}>
@@ -1233,13 +1176,15 @@ export default function Progress() {
               </View>
 
               <View style={styles.chartWrap}>
-                <BodyWeightGraph
-                  entries={effectiveWeightEntries}
-                  width={chartWidth + 20}
-                  height={175}
-                  unit={unitLabel}
-                  fromKg={fromKg}
-                />
+                <SectionErrorBoundary>
+                  <BodyWeightGraph
+                    entries={effectiveWeightEntries}
+                    width={chartWidth + 20}
+                    height={175}
+                    unit={unitLabel}
+                    fromKg={fromKg}
+                  />
+                </SectionErrorBoundary>
               </View>
             </View>
 

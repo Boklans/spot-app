@@ -196,20 +196,26 @@ const EXERCISE_IMAGES: Record<string, ImageSourcePropType> = {
   'ab wheel': require('@/assets/exercises/plank.jpg'),
 };
 
+const SORTED_FEMALE_KEYS = Object.keys(FEMALE_EXERCISE_IMAGES).sort((a, b) => b.length - a.length);
+const SORTED_MALE_KEYS = Object.keys(EXERCISE_IMAGES).sort((a, b) => b.length - a.length);
+
 /**
- * Searches a dictionary for the most specific matching key (longest key first).
+ * Searches a dictionary for the most specific matching key (pre-sorted longest key first).
  */
-function matchExercise(name: string, dictionary: Record<string, ImageSourcePropType>): ImageSourcePropType | null {
+function matchExercise(
+  name: string,
+  dictionary: Record<string, ImageSourcePropType>,
+  sortedKeys: string[]
+): ImageSourcePropType | null {
   const lower = name.toLowerCase().trim();
   if (!lower) return null;
 
-  // Exact match first
+  // Exact match first (O(1))
   if (dictionary[lower]) {
     return dictionary[lower];
   }
 
-  // Substring match sorted by length descending so specific names take precedence
-  const sortedKeys = Object.keys(dictionary).sort((a, b) => b.length - a.length);
+  // Substring match using pre-sorted keys (zero per-call allocations)
   for (const key of sortedKeys) {
     if (lower.includes(key)) {
       return dictionary[key];
@@ -234,7 +240,7 @@ export function getExerciseImage(
 
   // 1. If user is female, check if we have a biomechanically accurate female render for this exercise
   if (currentSex === 'female' && exerciseName) {
-    const femaleMatch = matchExercise(exerciseName, FEMALE_EXERCISE_IMAGES);
+    const femaleMatch = matchExercise(exerciseName, FEMALE_EXERCISE_IMAGES, SORTED_FEMALE_KEYS);
     if (femaleMatch) {
       return femaleMatch;
     }
@@ -243,7 +249,7 @@ export function getExerciseImage(
   // 2. Otherwise (or as an anatomically accurate fallback for exercises without dedicated female renders yet),
   // match against the full 3D exercise library so every movement displays its correct equipment and form
   if (exerciseName) {
-    const libraryMatch = matchExercise(exerciseName, EXERCISE_IMAGES);
+    const libraryMatch = matchExercise(exerciseName, EXERCISE_IMAGES, SORTED_MALE_KEYS);
     if (libraryMatch) {
       return libraryMatch;
     }

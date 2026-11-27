@@ -55,18 +55,28 @@ export default function Home() {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const [progressTrackWidth, setProgressTrackWidth] = useState(0);
 
-  // Focus synchronization (also runs on initial mount)
+  // Focus synchronization (skips redundant AsyncStorage re-reads once stores are hydrated — P2-04)
   useFocusEffect(
     useCallback(() => {
       setFocusKey((k) => k + 1);
-      loadOnboarding().then((data) => {
-        if (data?.name) setName(data.name);
-      });
-      useWorkoutSessionStore.getState().hydrateSession();
-      useUserProfileStore.getState().loadProfile();
-      useProgramStore.getState().getOrLoadProgram();
-      useWorkoutHistoryStore.getState().loadHistory();
-    }, [])
+      if (!name) {
+        loadOnboarding().then((data) => {
+          if (data?.name) setName(data.name);
+        });
+      }
+      if (!useWorkoutSessionStore.getState().hydrated) {
+        void useWorkoutSessionStore.getState().hydrateSession();
+      }
+      if (!useUserProfileStore.getState().hydrated) {
+        void useUserProfileStore.getState().loadProfile();
+      }
+      if (!useProgramStore.getState().hydrated) {
+        void useProgramStore.getState().getOrLoadProgram();
+      }
+      if (!useWorkoutHistoryStore.getState().hydrated) {
+        void useWorkoutHistoryStore.getState().loadHistory();
+      }
+    }, [name])
   );
 
   const nextWorkout = program && program.workouts?.length ? getScheduledWorkout(program, progress) : null;
