@@ -1,4 +1,4 @@
-import { isBarbellExercise, roundPracticalWeight } from '@/lib/adaptiveProgression';
+import { isAssistedExercise, isBarbellExercise, roundPracticalWeight } from '@/lib/adaptiveProgression';
 import type { EquipmentId } from '@/lib/programGenerator';
 import type { WorkoutSet } from '@/store/workoutSessionStore';
 
@@ -27,6 +27,19 @@ export function buildWarmupPlan(input: WarmupPlanInput): PlannedWarmupSet[] {
   // Bodyweight or unloaded exercise: 1 controlled activation set
   if (equipment === 'bodyweight' || safeWorking <= 0) {
     return [{ weight: 0, reps: 10, targetReps: '10' }];
+  }
+
+  // Assisted / Gravitron movements: MORE counterweight = lighter warm-up effort!
+  if (isAssistedExercise(exerciseName)) {
+    const step1 = Math.max(safeWorking + 5, roundPracticalWeight(safeWorking * 1.35, 'machines'));
+    const step2 = Math.max(safeWorking + 2.5, roundPracticalWeight(safeWorking * 1.15, 'machines'));
+    if (Math.abs(step1 - step2) < 0.01) {
+      return [{ weight: step1, reps: 8, targetReps: '8' }];
+    }
+    return [
+      { weight: step1, reps: 8, targetReps: '8' },
+      { weight: step2, reps: 5, targetReps: '5' },
+    ];
   }
 
   const isBarbell = isBarbellExercise(exerciseName, equipment);

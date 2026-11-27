@@ -28,7 +28,9 @@ import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/col
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { isAssistedExercise } from '@/lib/adaptiveProgression';
 import { analyzeBodyAndStrength } from '@/lib/bodyCompositionAI';
+import { parseLocalDateKey, toLocalDateKey } from '@/lib/dateUtils';
 import { hapticLight } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { getAllTimePersonalRecords } from '@/lib/personalRecords';
@@ -330,7 +332,8 @@ export default function Progress() {
       const workingSets = allSets.filter((s) => s.setType !== 'warmup');
       const sets = workingSets.length > 0 ? workingSets : allSets;
       const isBw = sets.length > 0 && sets.every((s) => (s.weight || 0) === 0);
-      let bestWeight = 0;
+      const isAssisted = isAssistedExercise(exerciseName);
+      let bestWeight = isAssisted ? Number.POSITIVE_INFINITY : 0;
       let bestReps = 0;
       let totalVol = 0;
 
@@ -340,11 +343,17 @@ export default function Progress() {
         totalVol += sw * sr;
         if (isBw) {
           if (sr > bestReps) bestReps = sr;
+        } else if (isAssisted) {
+          if (sw > 0 && (sw < bestWeight || (sw === bestWeight && sr > bestReps))) {
+            bestWeight = sw;
+            bestReps = sr;
+          }
         } else if (sw > bestWeight || (sw === bestWeight && sr > bestReps)) {
           bestWeight = sw;
           bestReps = sr;
         }
       }
+      if (!Number.isFinite(bestWeight)) bestWeight = 0;
 
       const d = new Date(w.completedAt || w.startedAt);
       const isToday = new Date().toDateString() === d.toDateString();
@@ -359,7 +368,10 @@ export default function Progress() {
             })
           : `W${index + 1}`;
 
-      const est1RM = isBw ? bestReps : Math.round(bestWeight * (1 + bestReps / 30));
+      const effective1RmBaseKg = isAssisted
+        ? Math.max(5, (profile.weightKg || 75) - bestWeight)
+        : bestWeight;
+      const est1RM = isBw ? bestReps : Math.round(effective1RmBaseKg * (1 + bestReps / 30));
 
       return {
         date: w.completedAt || w.startedAt,
@@ -462,7 +474,7 @@ export default function Progress() {
     return [
       {
         id: 'baseline-today',
-        date: new Date().toISOString().split('T')[0],
+        date: toLocalDateKey(),
         timestamp: Date.now(),
         weightKg: w,
         note: 'Baseline',

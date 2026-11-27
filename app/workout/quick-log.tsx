@@ -25,6 +25,7 @@ import {
   type WeightRecommendation,
 } from '@/lib/adaptiveProgression';
 import { hapticImpact, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
+import { toLocalDateKey } from '@/lib/dateUtils';
 import { useI18n } from '@/lib/i18n';
 import { resolveRestSeconds, type EquipmentId, type GeneratedExercise } from '@/lib/programGenerator';
 import { calculateSetVolumeKg, convertWeightToActiveUnit, formatWeight, useWeightUnit } from '@/lib/weightUtils';
@@ -41,6 +42,7 @@ import {
 
 type QuickSet = {
   id: string;
+  weight?: number;
   reps: number;
   repsText: string;
   targetReps: string;
@@ -124,6 +126,7 @@ export default function QuickLogScreen() {
           restSeconds: ex.restSeconds || 90,
           sets: ex.sets.map((s) => ({
             id: s.id,
+            weight: typeof s.weight === 'number' ? s.weight : weightKg,
             reps: s.completed ? s.reps : 0,
             repsText: s.completed && s.reps > 0 ? s.reps.toString() : '',
             targetReps: s.targetReps || '8-12',
@@ -207,6 +210,7 @@ export default function QuickLogScreen() {
           weightText: formatWeight(displayW),
           sets: ex.sets.map((s) => ({
             ...s,
+            weight: weightKg,
             reps: targetRep,
             repsText: targetRep.toString(),
             completed: true,
@@ -231,6 +235,7 @@ export default function QuickLogScreen() {
           ...ex,
           weight: nextKg,
           weightText: formatWeight(nextDisplay),
+          sets: ex.sets.map((s) => ({ ...s, weight: nextKg })),
         };
       })
     );
@@ -247,6 +252,7 @@ export default function QuickLogScreen() {
           ...ex,
           weight: nextKg,
           weightText: text,
+          sets: ex.sets.map((s) => ({ ...s, weight: nextKg })),
         };
       })
     );
@@ -286,6 +292,7 @@ export default function QuickLogScreen() {
           ...ex,
           sets: ex.sets.map((s) => ({
             ...s,
+            weight: s.weight ?? ex.weight,
             reps: targetRep,
             repsText: targetRep.toString(),
             completed: true,
@@ -305,6 +312,7 @@ export default function QuickLogScreen() {
         const fallbackRep = ex.recommendedReps || parseTargetReps(ex.targetRepRange);
         const newSet: QuickSet = {
           id: `set-${exIdx}-${Date.now()}`,
+          weight: lastSet?.weight ?? ex.weight,
           reps: lastSet?.reps ?? fallbackRep,
           repsText: lastSet?.repsText || fallbackRep.toString(),
           targetReps: ex.targetRepRange,
@@ -392,7 +400,7 @@ export default function QuickLogScreen() {
         if (s.reps > 0) {
           completedSets++;
           volumeKg += calculateSetVolumeKg({
-            weightKg: ex.weight,
+            weightKg: s.weight ?? ex.weight,
             reps: s.reps,
             exerciseName: ex.name,
             equipment: ex.equipment,
@@ -432,13 +440,13 @@ export default function QuickLogScreen() {
       const startedAtMs = completedAtMs - durationMinutes * 60 * 1000;
       const startedAt = new Date(startedAtMs).toISOString();
       const completedAt = new Date(completedAtMs).toISOString();
-      const workoutDate = new Date(completedAtMs).toISOString().slice(0, 10);
+      const workoutDate = toLocalDateKey(completedAtMs);
 
       // Convert QuickExercise[] to standard WorkoutExercise[]
       const canonicalExercises: WorkoutExercise[] = exercises.map((ex, exIdx) => {
         const canonicalSets: WorkoutSet[] = ex.sets.map((s, sIdx) => ({
           id: s.id || `quick-set-${exIdx}-${sIdx}`,
-          weight: Math.round(ex.weight * 100) / 100,
+          weight: Math.round((s.weight ?? ex.weight) * 100) / 100,
           reps: s.reps > 0 ? s.reps : 0,
           targetReps: s.targetReps || ex.targetRepRange,
           completed: s.reps > 0,
@@ -600,6 +608,29 @@ export default function QuickLogScreen() {
                       >
                         <Text style={[styles.whenPillText, isSelected && styles.whenPillTextActive]}>
                           {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <Text style={[styles.timeLabel, { marginTop: 6 }]}>
+                  {language === 'uk' ? 'Тривалість сесії' : 'Session duration'}
+                </Text>
+                <View style={styles.whenPillsRow}>
+                  {[30, 45, 60, 75].map((mins) => {
+                    const isSelected = durationMinutes === mins;
+                    return (
+                      <Pressable
+                        key={mins}
+                        onPress={() => {
+                          hapticLight();
+                          setDurationMinutes(mins);
+                        }}
+                        style={[styles.whenPill, isSelected && styles.whenPillActive]}
+                      >
+                        <Text style={[styles.whenPillText, isSelected && styles.whenPillTextActive]}>
+                          {mins} {language === 'uk' ? 'хв' : 'min'}
                         </Text>
                       </Pressable>
                     );

@@ -109,15 +109,15 @@ export default function Goal() {
         ? 'Get Stronger'
         : selectedGoal === 'lose_fat'
           ? 'Lose Fat'
-          : 'Build Muscle';
+          : selectedGoal === 'recomposition'
+            ? 'Recomposition'
+            : 'Build Muscle';
 
-    await Promise.all([
-      useUserProfileStore.getState().updateProfile({ goal: profileGoal }),
-      saveOnboarding({
-        goal: selectedGoal,
-        priorityMuscles: [selectedFocus],
-      }),
-    ]);
+    await useUserProfileStore.getState().updateProfile({ goal: profileGoal });
+    await saveOnboarding({
+      goal: selectedGoal,
+      priorityMuscles: [selectedFocus],
+    });
 
     router.push('/onboarding/experience');
   };

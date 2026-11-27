@@ -105,7 +105,7 @@ export function OnboardingHeader({
             },
           ]}
         >
-          {isUk ? `КРОК ${step} З ${totalSteps}` : `STEP ${step} OF ${totalSteps}`}
+          {isUk ? `КРОК ${step} / ${totalSteps}` : `STEP ${step} / ${totalSteps}`}
         </Animated.Text>
       </View>
 

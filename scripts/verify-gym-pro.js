@@ -526,6 +526,187 @@ let passed = 0;
     passed++;
   }
 
+  // ============================================================================
+  // TEST 10: Superset Rest Transitions, Warm-up Superset Isolation & Timer Clamping (P1-01, P1-02)
+  // ============================================================================
+  {
+    const sessionMod = loadTsModule('store/workoutSessionStore.ts');
+
+    const supersetExercises = [
+      {
+        id: 'ex-a1',
+        name: 'Barbell Bench Press',
+        muscleGroup: 'Chest',
+        equipment: 'barbell',
+        weightIncrement: 2.5,
+        restSeconds: 0,
+        supersetWithNext: true,
+        previousSets: [],
+        recommendation: { recommendedWeight: 80, recommendationReason: 'maintain', source: 'program_default', explanation: '' },
+        sets: [
+          { id: 'w1', weight: 40, reps: 8, targetReps: '8', completed: false, setType: 'warmup' },
+          { id: 's1', weight: 80, reps: 8, targetReps: '8-10', completed: false, setType: 'normal' },
+          { id: 's2', weight: 80, reps: 8, targetReps: '8-10', completed: false, setType: 'normal' },
+        ],
+      },
+      {
+        id: 'ex-a2',
+        name: 'Barbell Row',
+        muscleGroup: 'Back',
+        equipment: 'barbell',
+        weightIncrement: 2.5,
+        restSeconds: 90,
+        supersetWithNext: false,
+        previousSets: [],
+        recommendation: { recommendedWeight: 70, recommendationReason: 'maintain', source: 'program_default', explanation: '' },
+        sets: [
+          { id: 'r1', weight: 70, reps: 10, targetReps: '8-12', completed: false, setType: 'normal' },
+          { id: 'r2', weight: 70, reps: 10, targetReps: '8-12', completed: false, setType: 'normal' },
+        ],
+      },
+    ];
+
+    assert.strictEqual(sessionMod.getSupersetBadgeLabel(supersetExercises, 0), 'A1');
+    assert.strictEqual(sessionMod.getSupersetBadgeLabel(supersetExercises, 1), 'A2');
+
+    sessionMod.useWorkoutSessionStore.setState({
+      session: {
+        id: 'sess-superset',
+        programWorkoutId: 'upper-ss',
+        workoutName: 'Upper Superset',
+        startedAt: new Date().toISOString(),
+        currentExerciseIndex: 0,
+        currentSetIndex: 0,
+        completed: false,
+        personalRecords: [],
+        exercises: supersetExercises,
+      },
+      restEndsAt: null,
+      restTotalSeconds: 0,
+      restNextType: null,
+      hydrated: true,
+    });
+
+    // 1. Completing warmup set w1 on A1 must stay on A1 (set index 1) and NOT jump to A2!
+    sessionMod.useWorkoutSessionStore.getState().toggleSetCompletion(0, 0);
+    let st = sessionMod.useWorkoutSessionStore.getState();
+    assert.strictEqual(st.session.currentExerciseIndex, 0, 'Warmup set on A1 must stay on A1');
+    assert.strictEqual(st.session.currentSetIndex, 1);
+
+    // 2. Completing working set s1 on A1 (restSeconds: 0) jumps to A2 (exercise 1, set 0) with 0s rest!
+    sessionMod.useWorkoutSessionStore.getState().toggleSetCompletion(0, 1);
+    st = sessionMod.useWorkoutSessionStore.getState();
+    assert.strictEqual(st.session.currentExerciseIndex, 1, 'Working set on A1 must alternate to A2');
+    assert.strictEqual(st.session.currentSetIndex, 0);
+    assert.strictEqual(st.restEndsAt, null, 'A1 -> A2 transition with 0s rest must have restEndsAt === null');
+
+    // 3. Completing working set r1 on A2 (restSeconds: 90) jumps back to A1 (exercise 0, set 2) with A2's 90s round rest!
+    sessionMod.useWorkoutSessionStore.getState().toggleSetCompletion(1, 0);
+    st = sessionMod.useWorkoutSessionStore.getState();
+    assert.strictEqual(st.session.currentExerciseIndex, 0, 'Working set on A2 must return to A1 next round');
+    assert.strictEqual(st.session.currentSetIndex, 2);
+    assert.strictEqual(st.restTotalSeconds, 90, 'A2 -> A1 round transition must use A2 restSeconds (90s), not A1 0s!');
+    assert.ok(st.restEndsAt && st.restEndsAt > Date.now() + 80000);
+
+    // 4. Subtracting -15s when only 10s remain clears rest cleanly (restEndsAt === null)
+    sessionMod.useWorkoutSessionStore.setState({ restEndsAt: Date.now() + 10000, restTotalSeconds: 60 });
+    sessionMod.useWorkoutSessionStore.getState().addRestTime(-15);
+    st = sessionMod.useWorkoutSessionStore.getState();
+    assert.strictEqual(st.restEndsAt, null, 'addRestTime(-15) with 10s left must clear restEndsAt cleanly');
+    assert.strictEqual(st.restTotalSeconds, 0);
+
+    console.log('✅ TEST 10 PASSED (P1-01 & P1-02): Superset A1/A2 transitions, warmup isolation, and rest timer clamping verified');
+    passed++;
+  }
+
+  // ============================================================================
+  // TEST 11: 360-Combination Program Generator Matrix & Local Date Keys (P1-03, P1-04)
+  // ============================================================================
+  {
+    const dateMod = loadTsModule('lib/dateUtils.ts');
+    const exercisesMod = loadTsModule('lib/exercises.ts');
+
+    // Local date round-trip without UTC shift
+    const localSample = new Date(2026, 10, 27, 0, 30, 0); // 00:30 local time (would be Nov 26 in UTC+2!)
+    const key = dateMod.toLocalDateKey(localSample);
+    assert.strictEqual(key, '2026-11-27', '00:30 local time must stay 2026-11-27 in local date key');
+    const parsedBack = dateMod.parseLocalDateKey(key);
+    assert.strictEqual(parsedBack.getFullYear(), 2026);
+    assert.strictEqual(parsedBack.getMonth(), 10);
+    assert.strictEqual(parsedBack.getDate(), 27);
+
+    // 360-combination generator matrix: 2 sexes x 4 goals x 3 experiences x 5 equipment presets x 3 splits
+    const sexes = ['male', 'female'];
+    const goals = ['build_muscle', 'get_stronger', 'lose_fat', 'recomposition'];
+    const experiences = ['beginner', 'intermediate', 'advanced'];
+    const equipmentPresets = [
+      ['full_gym'],
+      ['dumbbells', 'bodyweight'],
+      ['barbell', 'dumbbells', 'bodyweight'],
+      ['bodyweight'],
+      ['machines', 'dumbbells'],
+    ];
+    const splits = [
+      { splitPreference: 'full_body', trainingFrequency: 3 },
+      { splitPreference: 'upper_lower', trainingFrequency: 4 },
+      { splitPreference: 'push_pull_legs', trainingFrequency: 6 },
+    ];
+
+    const forbiddenPullPresses = new Set([
+      'overhead-press',
+      'dumbbell-shoulder-press',
+      'standing-dumbbell-shoulder-press',
+      'machine-shoulder-press',
+      'arnold-press',
+      'pike-push-up',
+    ]);
+
+    let combosChecked = 0;
+    for (const sex of sexes) {
+      for (const goal of goals) {
+        for (const experience of experiences) {
+          for (const equipment of equipmentPresets) {
+            for (const sp of splits) {
+              const prog = programGenMod.generateProgram({
+                name: 'Matrix',
+                sex,
+                goal,
+                experience,
+                trainingFrequency: sp.trainingFrequency,
+                splitPreference: sp.splitPreference,
+                equipment,
+                completed: true,
+              });
+              combosChecked++;
+              for (const w of prog.workouts) {
+                const seen = new Set();
+                for (const ex of w.exercises) {
+                  const cid = exercisesMod.resolveCanonicalExerciseId(ex.name) || ex.name.toLowerCase();
+                  assert.ok(
+                    !seen.has(cid),
+                    `Duplicate exercise "${ex.name}" in workout "${w.name}" (${sex}/${goal}/${experience}/${sp.splitPreference}/[${equipment.join(',')}])`
+                  );
+                  seen.add(cid);
+
+                  if (/pull/i.test(w.id) || /pull/i.test(w.name)) {
+                    assert.ok(
+                      !forbiddenPullPresses.has(cid),
+                      `Overhead push "${ex.name}" leaked onto Pull day "${w.name}"!`
+                    );
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    assert.strictEqual(combosChecked, 360);
+
+    console.log(`✅ TEST 11 PASSED (P1-03 & P1-04): All ${combosChecked} program combinations have 0 duplicates & 0 Pull-day presses; local date keys verified`);
+    passed++;
+  }
+
   console.log(`\n🎉 ALL ${passed} GYM FLOOR PRO ENGINE TESTS PASSED!\n`);
 })().catch((err) => {
   console.error('❌ Async test failure in verify-gym-pro.js:', err);

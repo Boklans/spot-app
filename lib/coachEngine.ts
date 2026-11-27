@@ -1,3 +1,5 @@
+import { isAssistedExercise } from '@/lib/adaptiveProgression';
+import { resolveCanonicalExerciseId } from '@/lib/exercises';
 import { calculateMuscleRecoveryStats } from '@/lib/progressCalculator';
 import type { CompletedWorkout } from '@/types/workout';
 import type { AppLanguage } from '@/store/userProfileStore';
@@ -15,12 +17,19 @@ export interface CoachInsight {
   accent: 'lime' | 'amber' | 'emerald' | 'purple';
 }
 
-function estimateTopE1RM(sets: Array<{ weight: number; reps: number; setType?: string }>): number {
+function estimateTopE1RM(
+  sets: Array<{ weight: number; reps: number; setType?: string }>,
+  assisted = false,
+  referenceBodyweightKg = 80
+): number {
   let best = 0;
   for (const s of sets) {
     if (s.setType === 'warmup') continue;
     if (s.weight > 0 && s.reps > 0) {
-      const e1rm = s.weight * (1 + s.reps / 30);
+      const effectiveLoad = assisted
+        ? Math.max(5, referenceBodyweightKg - s.weight)
+        : s.weight;
+      const e1rm = effectiveLoad * (1 + s.reps / 30);
       if (e1rm > best) best = e1rm;
     }
   }
@@ -86,15 +95,23 @@ export function generateCoachInsight(params: {
   );
 
   // Group exercise e1RM history chronologically (newest first)
-  const liftHistory = new Map<string, { name: string; e1rms: number[]; topWeights: number[] }>();
+  const liftHistory = new Map<
+    string,
+    { name: string; assisted: boolean; e1rms: number[]; topWeights: number[] }
+  >();
   for (const w of fullWorkouts.slice(0, 24)) {
     for (const ex of w.exercises || []) {
-      const key = ex.exerciseName.trim().toLowerCase();
-      const e1rm = estimateTopE1RM(ex.sets || []);
-      const topW = Math.max(0, ...(ex.sets || []).filter((s) => s.setType !== 'warmup').map((s) => s.weight || 0));
+      const key = resolveCanonicalExerciseId(ex.exerciseName) || ex.exerciseName.trim().toLowerCase();
+      const assisted = isAssistedExercise(ex.exerciseName);
+      const working = (ex.sets || []).filter((s) => s.setType !== 'warmup' && (s.weight || 0) > 0);
+      if (working.length === 0) continue;
+      const e1rm = estimateTopE1RM(working, assisted);
+      const topW = assisted
+        ? Math.min(...working.map((s) => s.weight || 0))
+        : Math.max(0, ...working.map((s) => s.weight || 0));
       if (e1rm <= 0) continue;
       if (!liftHistory.has(key)) {
-        liftHistory.set(key, { name: ex.exerciseName, e1rms: [], topWeights: [] });
+        liftHistory.set(key, { name: ex.exerciseName, assisted, e1rms: [], topWeights: [] });
       }
       const entry = liftHistory.get(key)!;
       entry.e1rms.push(e1rm);
@@ -149,7 +166,8 @@ export function generateCoachInsight(params: {
     if (data.topWeights.length >= 2) {
       const latest = data.topWeights[0];
       const earliest = data.topWeights[data.topWeights.length - 1];
-      const diff = latest - earliest;
+      // For assisted exercises, reducing counterweight (earliest - latest > 0) is a positive strength win!
+      const diff = data.assisted ? earliest - latest : latest - earliest;
       if (diff >= 2.5 && earliest > 0) {
         const pct = Math.round((diff / earliest) * 100);
         if (!bestGain || diff > bestGain.diffKg) {

@@ -99,20 +99,29 @@ export default function HistoryDetail() {
     hapticMedium();
     setIsSharing(true);
     try {
+      const isUk = language === 'uk';
       const prText = prs.length > 0
-        ? `\n🏆 Personal Records:\n${prs.map((p) => `• ${p.exerciseName}: ${p.label}`).join('\n')}`
+        ? isUk
+          ? `\n🏆 Особисті рекорди:\n${prs.map((p) => `• ${te(p.exerciseName)}: ${formatPersonalRecordLabel(p, unit, language)}`).join('\n')}`
+          : `\n🏆 Personal Records:\n${prs.map((p) => `• ${p.exerciseName}: ${formatPersonalRecordLabel(p, unit, language)}`).join('\n')}`
         : '';
 
-      const shareMessage =
-        `🔥 SPOT WORKOUT COMPLETE!\n\n` +
-        `🏋️ Workout: ${workout.workoutName}\n` +
-        `⏱ Duration: ${durationMin} min\n` +
-        `📊 Volume: ${formatVolume(workout.totalVolume)}\n` +
-        `🔢 Sets: ${workout.totalSets} completed${prText}\n\n` +
-        `Tracked with SPOT — AI Strength Coach.`;
+      const shareMessage = isUk
+        ? `🔥 ТРЕНУВАННЯ ЗАВЕРШЕНО В SPOT!\n\n` +
+          `🏋️ Тренування: ${tw(workout.workoutName)}\n` +
+          `⏱ Тривалість: ${durationMin} хв\n` +
+          `📊 Тоннаж: ${formatVolume(workout.totalVolume)}\n` +
+          `🔢 Підходів: ${workout.totalSets}${prText}\n\n` +
+          `Записано у SPOT — розумному трекері силових тренувань.`
+        : `🔥 SPOT WORKOUT COMPLETE!\n\n` +
+          `🏋️ Workout: ${workout.workoutName}\n` +
+          `⏱ Duration: ${durationMin} min\n` +
+          `📊 Volume: ${formatVolume(workout.totalVolume)}\n` +
+          `🔢 Sets: ${workout.totalSets} completed${prText}\n\n` +
+          `Tracked with SPOT — Strength Progression Tracker.`;
 
       await Share.share({
-        title: `${workout.workoutName} Summary • SPOT`,
+        title: isUk ? `${tw(workout.workoutName)} • SPOT` : `${workout.workoutName} Summary • SPOT`,
         message: shareMessage,
       });
     } catch {

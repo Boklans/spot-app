@@ -8,7 +8,9 @@ import {
 } from 'react-native';
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 import { useThemeColors, ThemeColors } from '@/constants/colors';
+import { parseLocalDateKey } from '@/lib/dateUtils';
 import { hapticLight } from '@/lib/haptics';
+import { useI18n } from '@/lib/i18n';
 import { BodyWeightEntry } from '@/store/bodyWeightStore';
 
 interface BodyWeightGraphProps {
@@ -27,6 +29,8 @@ export function BodyWeightGraph({
   fromKg = (kg) => kg,
 }: BodyWeightGraphProps) {
   const colors = useThemeColors();
+  const { language } = useI18n();
+  const isUk = language === 'uk';
   const styles = useMemo(() => createStyles(colors), [colors]);
   const screenWidth = Dimensions.get('window').width;
   const chartWidth = width ?? Math.min(screenWidth - 48, 340);
@@ -144,7 +148,7 @@ export function BodyWeightGraph({
             )}
           </View>
           <Text style={styles.calloutDate}>
-            {new Date(selectedPoint.date).toLocaleDateString('en-US', {
+            {parseLocalDateKey(selectedPoint.date).toLocaleDateString(isUk ? 'uk-UA' : 'en-US', {
               month: 'short',
               day: 'numeric',
               year: 'numeric',
@@ -154,10 +158,10 @@ export function BodyWeightGraph({
 
         <View style={styles.calloutMeta}>
           <Text style={styles.avgText}>
-            AVG {avgWeight} {unit}
+            {isUk ? 'СЕР.' : 'AVG'} {avgWeight} {unit}
           </Text>
           <Text style={styles.rangeText}>
-            Min {minWeight} • Max {maxWeight}
+            {isUk ? 'Мін' : 'Min'} {minWeight} • {isUk ? 'Макс' : 'Max'} {maxWeight}
           </Text>
         </View>
       </View>

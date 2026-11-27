@@ -165,21 +165,36 @@ export function findLatestExerciseSets(history: CompletedWorkout[], exercise: Ge
   );
 }
 
-export function parseRepRange(value: string) {
-  const [minimum, maximum] = (value || '8-12').split('-').map(Number);
-  return { minimum: minimum || 8, maximum: maximum || minimum || 12 };
+export function parseRepRange(value: string): {
+  minimum: number;
+  maximum: number;
+  isTimed: boolean;
+} {
+  const raw = (value || '8-12').toLowerCase().trim();
+  const isTimed = /\b(sec|secs|second|seconds|сек|с)\b|\d+\s*s\b/.test(raw);
+  const nums = raw.match(/\d+/g)?.map(Number).filter((n) => Number.isFinite(n) && n > 0) ?? [];
+  if (nums.length >= 2) {
+    const lo = Math.min(nums[0], nums[1]);
+    const hi = Math.max(nums[0], nums[1]);
+    return { minimum: lo, maximum: hi, isTimed };
+  }
+  if (nums.length === 1) {
+    return { minimum: nums[0], maximum: nums[0], isTimed };
+  }
+  return { minimum: 8, maximum: 12, isTimed: false };
 }
 
 export function practicalIncrement(equipment: EquipmentId, weight: number) {
-  if (equipment === 'bodyweight') return 0;
+  if (equipment === 'bodyweight') return weight > 0 ? 2.5 : 0;
   if (equipment === 'dumbbells') return weight >= 30 ? 2 : 1;
   if (equipment === 'machines') return weight >= 50 ? 5 : 2.5;
   return 2.5;
 }
 
 export function roundPracticalWeight(value: number, equipment: EquipmentId) {
-  if (equipment === 'bodyweight') return 0;
+  if (equipment === 'bodyweight' && value <= 0) return 0;
   const increment = practicalIncrement(equipment, value);
+  if (increment <= 0) return 0;
   return Math.max(0, Math.round(value / increment) * increment);
 }
 
@@ -189,20 +204,26 @@ export function recommendWeight(
   options?: RecommendWeightOptions
 ): WeightRecommendation {
   const deloadActive = Boolean(options?.deloadActive);
-  const { minimum, maximum } = parseRepRange(exercise.targetRepRange);
+  const { minimum, maximum, isTimed } = parseRepRange(exercise.targetRepRange);
   const equipment = exercise.equipment || inferEquipmentFromName(exercise.name);
   const requiredSets = Math.max(1, exercise.sets || 3);
   const validSets = previousSets.filter(
     (s) => s.setType !== 'warmup' && typeof s.reps === 'number' && s.reps > 0
   );
   const completedAllSets = validSets.length >= requiredSets;
+  const hasWeightedBodyweightLoad =
+    equipment === 'bodyweight' &&
+    (validSets.some((s) => s.weight > 0) || (exercise.recommendedWeight || 0) > 0);
 
-  if (equipment === 'bodyweight') {
+  if (equipment === 'bodyweight' && !hasWeightedBodyweightLoad) {
+    const unitEn = isTimed ? 'sec' : 'reps';
+    const unitUk = isTimed ? 'сек' : 'повт.';
     if (validSets.length > 0) {
       const reps = validSets.map((s) => s.reps);
       const minHit = Math.min(...reps);
+      const step = isTimed ? 5 : 1;
       const nextReps = completedAllSets && minHit >= minimum
-        ? Math.min(maximum, minHit + 1)
+        ? Math.min(maximum, minHit + step)
         : Math.min(maximum, Math.max(minimum, minHit));
       return {
         recommendedWeight: 0,
@@ -210,11 +231,11 @@ export function recommendWeight(
         recommendationReason: 'maintain',
         source: 'history',
         explanation: completedAllSets
-          ? `Last time: ${reps.join('/')} reps. Aim for ${nextReps} controlled reps today.`
-          : `Last time: ${reps.join('/')} (${validSets.length}/${requiredSets} sets). Complete all ${requiredSets} sets of ${nextReps} reps today.`,
+          ? `Last time: ${reps.join('/')} ${unitEn}. Aim for ${nextReps} controlled ${unitEn} today.`
+          : `Last time: ${reps.join('/')} (${validSets.length}/${requiredSets} sets). Complete all ${requiredSets} sets of ${nextReps} ${unitEn} today.`,
         explanationUk: completedAllSets
-          ? `Минулого разу: ${reps.join('/')} повт. Ціль сьогодні — ${nextReps} підконтрольних повторень.`
-          : `Минулого разу: ${reps.join('/')} (${validSets.length}/${requiredSets} підх.). Закріпіть усі ${requiredSets} підходи по ${nextReps} повт.`,
+          ? `Минулого разу: ${reps.join('/')} ${unitUk} Ціль сьогодні — ${nextReps} ${unitUk}`
+          : `Минулого разу: ${reps.join('/')} (${validSets.length}/${requiredSets} підх.). Закріпіть усі ${requiredSets} підходи по ${nextReps} ${unitUk}`,
       };
     }
     return {
@@ -222,8 +243,12 @@ export function recommendWeight(
       recommendedReps: minimum,
       recommendationReason: 'program_default',
       source: 'program_default',
-      explanation: 'Use your bodyweight and focus on controlled reps.',
-      explanationUk: 'Виконуйте з власною вагою під повним контролем.',
+      explanation: isTimed
+        ? `Hold strict form for ${minimum} seconds per set.`
+        : 'Use your bodyweight and focus on controlled reps.',
+      explanationUk: isTimed
+        ? `Утримуйте технічне положення ${minimum} сек у кожному підході.`
+        : 'Виконуйте з власною вагою під повним контролем.',
     };
   }
 

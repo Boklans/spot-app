@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { generateProgram, resolveRestSeconds, type EquipmentId, type GeneratedExercise, type GeneratedWorkout } from '@/lib/programGenerator';
 import { findLatestExerciseSets, inferEquipmentFromName, practicalIncrement, recommendWeight, type WeightRecommendation } from '@/lib/adaptiveProgression';
 import { createWarmupWorkoutSets } from '@/lib/warmupGenerator';
+import { toLocalDateKey } from '@/lib/dateUtils';
 import { calculateSetVolumeKg } from '@/lib/weightUtils';
 import type { CompletedWorkout, PersonalRecord, SetType } from '@/types/workout';
 import type { UserWorkout } from '@/types/userProgram';
@@ -63,8 +64,33 @@ export const ACTIVE_WORKOUT_SESSION_STORAGE_KEY = 'spot_active_workout_session';
 export type ActiveWorkoutStorage = {
   session: WorkoutSession;
   restEndsAt: number | null;
+  restTotalSeconds?: number;
   restNextType: 'set' | 'exercise' | null;
 };
+
+export function getSupersetBadgeLabel(
+  exercises: Pick<WorkoutExercise, 'supersetWithNext'>[],
+  index: number
+): string | null {
+  if (!exercises || index < 0 || index >= exercises.length) return null;
+  const isFirstInPair = Boolean(exercises[index]?.supersetWithNext && exercises[index + 1]);
+  const isSecondInPair = Boolean(index > 0 && exercises[index - 1]?.supersetWithNext);
+  if (!isFirstInPair && !isSecondInPair) return null;
+
+  let groupOrdinal = 0;
+  for (let i = 0; i <= index; i++) {
+    if (exercises[i]?.supersetWithNext && exercises[i + 1]) {
+      if (i === index) {
+        return `${String.fromCharCode(65 + groupOrdinal)}1`;
+      }
+      if (i + 1 === index) {
+        return `${String.fromCharCode(65 + groupOrdinal)}2`;
+      }
+      groupOrdinal++;
+    }
+  }
+  return isFirstInPair ? 'A1' : 'A2';
+}
 
 export type SwapExerciseOptions = {
   mode?: 'preserve_completed' | 'replace_all';
@@ -73,6 +99,7 @@ export type SwapExerciseOptions = {
 type WorkoutSessionState = {
   session: WorkoutSession | null;
   restEndsAt: number | null;
+  restTotalSeconds: number;
   restNextType: 'set' | 'exercise' | null;
   hydrated: boolean;
   hydrateSession: () => Promise<boolean>;
@@ -182,6 +209,12 @@ function parseActiveWorkout(value: string | null): ActiveWorkoutStorage | null {
         exercises: normalizedExercises,
       },
       restEndsAt,
+      restTotalSeconds:
+        typeof parsed.restTotalSeconds === 'number' && parsed.restTotalSeconds > 0
+          ? parsed.restTotalSeconds
+          : restEndsAt && restEndsAt > Date.now()
+            ? Math.ceil((restEndsAt - Date.now()) / 1000)
+            : 0,
       restNextType,
     };
   } catch {
@@ -269,6 +302,7 @@ function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history
 export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
   session: null,
   restEndsAt: null,
+  restTotalSeconds: 0,
   restNextType: null,
   hydrated: false,
 
@@ -281,7 +315,13 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         set({ hydrated: true });
         return false;
       }
-      set({ session: snapshot.session, restEndsAt: snapshot.restEndsAt, restNextType: snapshot.restNextType, hydrated: true });
+      set({
+        session: snapshot.session,
+        restEndsAt: snapshot.restEndsAt,
+        restTotalSeconds: snapshot.restTotalSeconds ?? 0,
+        restNextType: snapshot.restNextType,
+        hydrated: true,
+      });
       return true;
     } catch {
       set({ hydrated: true });
@@ -300,7 +340,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         id: `session-${Date.now()}`,
         programWorkoutId: targetWorkout.id,
         workoutName: targetWorkout.name,
-        workoutDate: now.slice(0, 10),
+        workoutDate: toLocalDateKey(now),
         startedAt: now,
         currentExerciseIndex: 0,
         currentSetIndex: 0,
@@ -309,9 +349,10 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         completed: false,
       },
       restEndsAt: null,
+      restTotalSeconds: 0,
       restNextType: null,
     });
-    persistSnapshot(useWorkoutSessionStore.getState().session ? { session: useWorkoutSessionStore.getState().session as WorkoutSession, restEndsAt: null, restNextType: null } : null);
+    persistSnapshot(useWorkoutSessionStore.getState().session ? { session: useWorkoutSessionStore.getState().session as WorkoutSession, restEndsAt: null, restTotalSeconds: 0, restNextType: null } : null);
   },
 
   setPersonalRecords: (personalRecords) => {
@@ -403,34 +444,40 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       let nextSetIndex = targetSetIdx;
       let movedToAnotherExercise = false;
       let isSupersetTransitionToSecond = false;
+      let isSupersetRoundComplete = false;
+      const isWarmupSet = targetSet.setType === 'warmup';
 
-      // Smart Superset Check:
-      // 1) If current exercise is A1 in a superset (supersetWithNext === true), jump to A2 (targetExIdx + 1) if A2 has uncompleted sets
-      const nextPartnerEx = currentExUpdated.supersetWithNext
-        ? exercisesWithCompletedSet[targetExIdx + 1]
-        : undefined;
-      const prevPartnerEx = targetExIdx > 0 && exercisesWithCompletedSet[targetExIdx - 1]?.supersetWithNext
-        ? exercisesWithCompletedSet[targetExIdx - 1]
-        : undefined;
+      // Smart Superset Check (never jump exercises during warm-up sets):
+      const nextPartnerEx =
+        !isWarmupSet && currentExUpdated.supersetWithNext
+          ? exercisesWithCompletedSet[targetExIdx + 1]
+          : undefined;
+      const prevPartnerEx =
+        !isWarmupSet &&
+        targetExIdx > 0 &&
+        exercisesWithCompletedSet[targetExIdx - 1]?.supersetWithNext
+          ? exercisesWithCompletedSet[targetExIdx - 1]
+          : undefined;
 
       const nextPartnerUncompletedIdx = nextPartnerEx
-        ? nextPartnerEx.sets.findIndex((s) => !s.completed)
+        ? nextPartnerEx.sets.findIndex((s) => !s.completed && s.setType !== 'warmup')
         : -1;
       const prevPartnerUncompletedIdx = prevPartnerEx
-        ? prevPartnerEx.sets.findIndex((s) => !s.completed)
+        ? prevPartnerEx.sets.findIndex((s) => !s.completed && s.setType !== 'warmup')
         : -1;
 
       if (nextPartnerEx && nextPartnerUncompletedIdx !== -1) {
-        // Jump from A1 -> A2
+        // Jump from A1 -> A2 (0s rest inside superset pair)
         nextExerciseIndex = targetExIdx + 1;
         nextSetIndex = nextPartnerUncompletedIdx;
         movedToAnotherExercise = true;
         isSupersetTransitionToSecond = true;
       } else if (prevPartnerEx && prevPartnerUncompletedIdx !== -1) {
-        // Jump from A2 -> A1 for the next round of the superset
+        // Jump from A2 -> A1 for the next round of the superset (use A2's full rest duration!)
         nextExerciseIndex = targetExIdx - 1;
         nextSetIndex = prevPartnerUncompletedIdx;
         movedToAnotherExercise = true;
+        isSupersetRoundComplete = true;
       } else {
         // Standard progression within current exercise
         // 1. Next uncompleted set in current exercise after targetSetIdx
@@ -465,12 +512,15 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         }
       }
 
-      const targetExerciseForRest = movedToAnotherExercise
-        ? exercisesWithCompletedSet[nextExerciseIndex] ?? exercise
-        : exercise;
+      const targetExerciseForRest =
+        movedToAnotherExercise && !isSupersetRoundComplete
+          ? exercisesWithCompletedSet[nextExerciseIndex] ?? exercise
+          : exercise;
       const restDuration = isSupersetTransitionToSecond
         ? 0
-        : resolveRestSeconds(targetExerciseForRest);
+        : typeof targetExerciseForRest?.restSeconds === 'number'
+          ? targetExerciseForRest.restSeconds
+          : resolveRestSeconds(targetExerciseForRest);
 
       return {
         ...state,
@@ -481,11 +531,12 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
           currentSetIndex: nextSetIndex,
         },
         restEndsAt: restDuration > 0 ? Date.now() + restDuration * 1000 : null,
+        restTotalSeconds: restDuration > 0 ? restDuration : 0,
         restNextType: restDuration > 0 ? (movedToAnotherExercise ? 'exercise' : 'set') : null,
       };
     });
     const state = useWorkoutSessionStore.getState();
-    if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
+    if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restTotalSeconds: state.restTotalSeconds, restNextType: state.restNextType });
   },
 
   updateCurrentSet: (values, propagate = false) => {
@@ -769,11 +820,25 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
 
   addRestTime: (seconds) => {
     set((state) => {
-      const base = Math.max(Date.now(), state.restEndsAt ?? Date.now());
-      const newRestEndsAt = Math.max(Date.now(), base + seconds * 1000);
+      if (state.restEndsAt === null && seconds <= 0) {
+        return state;
+      }
+      const now = Date.now();
+      const base = Math.max(now, state.restEndsAt ?? now);
+      const nextEndsAt = base + seconds * 1000;
+      if (nextEndsAt <= now) {
+        return {
+          ...state,
+          restEndsAt: null,
+          restTotalSeconds: 0,
+          restNextType: null,
+        };
+      }
+      const nextRemaining = Math.ceil((nextEndsAt - now) / 1000);
       return {
         ...state,
-        restEndsAt: newRestEndsAt,
+        restEndsAt: nextEndsAt,
+        restTotalSeconds: Math.max(state.restTotalSeconds || 0, nextRemaining),
       };
     });
 
@@ -782,15 +847,16 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       persistSnapshot({
         session: state.session,
         restEndsAt: state.restEndsAt,
+        restTotalSeconds: state.restTotalSeconds,
         restNextType: state.restNextType,
       });
     }
   },
 
   skipRest: () => {
-    set({ restEndsAt: null, restNextType: null });
+    set({ restEndsAt: null, restTotalSeconds: 0, restNextType: null });
     const state = useWorkoutSessionStore.getState();
-    if (state.session) persistSnapshot({ session: state.session, restEndsAt: null, restNextType: null });
+    if (state.session) persistSnapshot({ session: state.session, restEndsAt: null, restTotalSeconds: 0, restNextType: null });
   },
 
   swapExercise: (newExercise, options) => {

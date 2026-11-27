@@ -423,4 +423,129 @@ const benchPress = {
   passed++;
 }
 
+// TEST 14 (P1-02): Timed sets ("30-60 sec") & Weighted Bodyweight progression ("Pull-ups" + 10 kg)
+{
+  const { parseRepRange } = loadTsModule('lib/adaptiveProgression.ts');
+  const plankRange = parseRepRange('30-60 sec');
+  assert.strictEqual(plankRange.minimum, 30);
+  assert.strictEqual(plankRange.maximum, 60);
+  assert.strictEqual(plankRange.isTimed, true);
+
+  const singleSec = parseRepRange('45s');
+  assert.strictEqual(singleSec.minimum, 45);
+  assert.strictEqual(singleSec.maximum, 45);
+  assert.strictEqual(singleSec.isTimed, true);
+
+  // Weighted Pull-ups (bodyweight equipment with +10 kg belt hitting top of 8-12 rep range -> +12.5 kg!)
+  const weightedPullUp = {
+    id: 'pull-ups',
+    name: 'Pull-ups',
+    muscleGroup: 'Back',
+    equipment: 'bodyweight',
+    sets: 3,
+    targetRepRange: '8-12',
+    recommendedWeight: 0,
+    weightIncrement: 2.5,
+  };
+  const weightedRec = recommendWeight(weightedPullUp, [
+    { weight: 10, reps: 12 },
+    { weight: 10, reps: 12 },
+    { weight: 10, reps: 12 },
+  ]);
+  assert.strictEqual(weightedRec.recommendedWeight, 12.5, 'Weighted Pull-ups at +10kg x 12 must advance to +12.5kg');
+  assert.strictEqual(weightedRec.recommendedReps, 8);
+  assert.strictEqual(weightedRec.recommendationReason, 'increase');
+
+  console.log('✅ TEST 14 PASSED (P1-02): Timed sets ("30-60 sec") & weighted bodyweight progression verified');
+  passed++;
+}
+
+// TEST 15 (P1-02): Assisted Pull-up Coach Win (never false Fatigue!) & Assisted Warm-up (+counterweight)
+{
+  const coachMod = loadTsModule('lib/coachEngine.ts');
+  const warmupMod = loadTsModule('lib/warmupGenerator.ts');
+
+  const nowMs = Date.now();
+  const assistedHistory = [
+    {
+      id: 'assist-3',
+      totalSets: 2,
+      completedAt: new Date(nowMs - 1 * 86400000).toISOString(),
+      exercises: [
+        {
+          exerciseId: 'assisted-pull-up',
+          exerciseName: 'Assisted Pull-up',
+          muscleGroup: 'Back',
+          sets: [
+            { weight: 35, reps: 10, volume: 0, completedAt: new Date(nowMs - 1 * 86400000).toISOString() },
+            { weight: 35, reps: 10, volume: 0, completedAt: new Date(nowMs - 1 * 86400000).toISOString() },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'assist-2',
+      totalSets: 2,
+      completedAt: new Date(nowMs - 4 * 86400000).toISOString(),
+      exercises: [
+        {
+          exerciseId: 'assisted-pull-up',
+          exerciseName: 'Assisted Pull-up',
+          muscleGroup: 'Back',
+          sets: [
+            { weight: 40, reps: 10, volume: 0, completedAt: new Date(nowMs - 4 * 86400000).toISOString() },
+            { weight: 40, reps: 10, volume: 0, completedAt: new Date(nowMs - 4 * 86400000).toISOString() },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'assist-1',
+      totalSets: 2,
+      completedAt: new Date(nowMs - 8 * 86400000).toISOString(),
+      exercises: [
+        {
+          exerciseId: 'assisted-pull-up',
+          exerciseName: 'Assisted Pull-up',
+          muscleGroup: 'Back',
+          sets: [
+            { weight: 45, reps: 10, volume: 0, completedAt: new Date(nowMs - 8 * 86400000).toISOString() },
+            { weight: 45, reps: 10, volume: 0, completedAt: new Date(nowMs - 8 * 86400000).toISOString() },
+          ],
+        },
+      ],
+    },
+  ];
+
+  const insight = coachMod.generateCoachInsight({
+    history: assistedHistory,
+    deloadActive: false,
+    language: 'en',
+    translateExercise: (s) => s,
+    translateMuscle: (s) => s,
+    formatWeightDiff: (kg) => `${kg} kg`,
+  });
+
+  assert.notStrictEqual(
+    insight.type,
+    'deload_recommended',
+    'Decreasing counterweight on Assisted Pull-up (45->40->35kg) is strength gain and must NEVER trigger deload!'
+  );
+  assert.strictEqual(insight.type, 'strength_win', 'Decreasing counterweight on Assisted Pull-up must register as strength_win');
+
+  // Assisted warm-up must INCREASE counterweight assistance (> 35 kg) so warm-up feels lighter!
+  const warmups = warmupMod.buildWarmupPlan({
+    workingWeightKg: 35,
+    equipment: 'machines',
+    exerciseName: 'Assisted Pull-up',
+    exerciseIndex: 0,
+  });
+  assert.strictEqual(warmups.length, 2);
+  assert.ok(warmups[0].weight > warmups[1].weight, 'Warmup 1 on Assisted Pull-up must have MORE assistance than Warmup 2');
+  assert.ok(warmups[1].weight > 35, 'Warmup 2 on Assisted Pull-up must have MORE assistance (>35kg) than working set');
+
+  console.log('✅ TEST 15 PASSED (P1-02): Assisted lifts celebrate strength wins in Coach & generate lighter (+assistance) warm-ups');
+  passed++;
+}
+
 console.log(`\n🎉 ALL ${passed} REAL-MODULE ADAPTIVE PROGRESSION ENGINE TESTS PASSED!\n`);

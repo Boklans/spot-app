@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { parseLocalDateKey, toLocalDateKey } from '@/lib/dateUtils';
 import { useUserProfileStore } from './userProfileStore';
 
 export const BODY_WEIGHT_STORAGE_KEY = 'spot-body-weight-history';
@@ -34,10 +35,7 @@ interface BodyWeightState {
 }
 
 function formatDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return toLocalDateKey(date);
 }
 
 export const useBodyWeightStore = create<BodyWeightState>((set, get) => ({
@@ -150,7 +148,7 @@ export const useBodyWeightStore = create<BodyWeightState>((set, get) => ({
   },
 
   addEntry: async (weightKg: number, dateStr?: string, note?: string) => {
-    const targetDate = dateStr ? new Date(dateStr) : new Date();
+    const targetDate = dateStr ? parseLocalDateKey(dateStr) : new Date();
     const dateFormatted = formatDate(targetDate);
     const timestamp = targetDate.getTime();
     const cleanWeight = Math.round(weightKg * 10) / 10;

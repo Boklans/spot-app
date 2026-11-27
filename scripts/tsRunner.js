@@ -235,6 +235,7 @@ const builtInMocks = {
       canGoBack: () => false,
     }),
     useLocalSearchParams: () => ({}),
+    usePathname: () => '/(tabs)/program',
     useFocusEffect: () => {},
     SplashScreen: {
       preventAutoHideAsync: async () => true,

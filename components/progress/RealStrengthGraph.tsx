@@ -9,6 +9,7 @@ import {
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 import { ThemeColors, useThemeColors } from '@/constants/colors';
 import { hapticLight } from '@/lib/haptics';
+import { useI18n } from '@/lib/i18n';
 
 export type StrengthSessionPoint = {
   date: string;
@@ -37,6 +38,7 @@ export function RealStrengthGraph({
   metric = 'weight',
 }: RealStrengthGraphProps) {
   const colors = useThemeColors();
+  const { language } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const screenWidth = Dimensions.get('window').width;
   const chartWidth = width ?? Math.min(screenWidth - 68, 330);
@@ -315,7 +317,9 @@ export function RealStrengthGraph({
                 { top: Math.max(2, Math.min(graphAreaHeight - 18, avgY - 8)) },
               ]}
             >
-              <Text style={styles.avgTagText}>AVG {avgVal}</Text>
+              <Text style={styles.avgTagText}>
+                {language === 'uk' ? 'СЕР.' : 'AVG'} {avgVal}
+              </Text>
             </View>
           )}
 

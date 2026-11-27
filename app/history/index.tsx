@@ -7,6 +7,7 @@ import { Screen } from '@/components/ui/Screen';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { isAssistedExercise } from '@/lib/adaptiveProgression';
+import { toLocalDateKey } from '@/lib/dateUtils';
 import { resolveCanonicalExerciseId } from '@/lib/exercises';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight } from '@/lib/haptics';
@@ -17,7 +18,7 @@ import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import type { CompletedWorkout } from '@/types/workout';
 
 function dateKey(value: string) {
-  return new Date(value).toISOString().slice(0, 10);
+  return toLocalDateKey(value);
 }
 
 type HistoryViewMode = 'log' | 'compare';

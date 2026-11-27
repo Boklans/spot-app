@@ -166,19 +166,28 @@ const exerciseOptions = {
     option('Incline Dumbbell Press', 'Chest', 20, 'dumbbells'),
     option('Incline Bench Press', 'Chest', 55, 'barbell'),
     option('Incline Chest Press', 'Chest', 40, 'machines'),
+    option('Decline Push-ups', 'Chest', 0, 'bodyweight', '10-15'),
     option('Push-ups', 'Chest', 0, 'bodyweight'),
   ],
   verticalPull: [
     option('Lat Pulldown', 'Back', 55, 'machines'),
-    option('Dumbbell Row', 'Back', 20, 'dumbbells'),
-    option('Barbell Row', 'Back', 60, 'barbell'),
     option('Pull-ups', 'Back', 0, 'bodyweight'),
+    option('Dumbbell Pullover', 'Back', 18, 'dumbbells', '10-12'),
+    option('Barbell Row', 'Back', 60, 'barbell'),
+    option('Dumbbell Row', 'Back', 20, 'dumbbells'),
   ],
   row: [
     option('Seated Row', 'Back', 50, 'machines'),
+    option('Chest-Supported Dumbbell Row', 'Back', 18, 'dumbbells'),
     option('Dumbbell Row', 'Back', 20, 'dumbbells'),
     option('Barbell Row', 'Back', 60, 'barbell'),
     option('Inverted Row', 'Back', 0, 'bodyweight'),
+  ],
+  rearDeltUpperBack: [
+    option('Face Pulls', 'Shoulders', 20, 'machines', '12-15'),
+    option('Reverse Pec Deck', 'Shoulders', 30, 'machines', '12-15'),
+    option('Rear Delt Dumbbell Fly', 'Shoulders', 8, 'dumbbells', '12-15'),
+    option('Prone Y-T-W Raise', 'Shoulders', 0, 'bodyweight', '12-15'),
   ],
   squat: [
     option('Squat', 'Quads', 70, 'barbell'),
@@ -206,6 +215,7 @@ const exerciseOptions = {
   ],
   biceps: [
     option('Biceps Curl', 'Biceps', 12, 'dumbbells'),
+    option('Hammer Curl', 'Biceps', 12, 'dumbbells'),
     option('Cable Curl', 'Biceps', 25, 'machines'),
     option('Barbell Curl', 'Biceps', 25, 'barbell'),
     option('Chin-ups', 'Biceps', 0, 'bodyweight'),
@@ -213,8 +223,10 @@ const exerciseOptions = {
   triceps: [
     option('Triceps Pushdown', 'Triceps', 40, 'machines'),
     option('Dumbbell Overhead Extension', 'Triceps', 14, 'dumbbells'),
+    option('Skull Crushers', 'Triceps', 25, 'barbell'),
     option('Close-grip Bench Press', 'Triceps', 50, 'barbell'),
     option('Bench Dips', 'Triceps', 0, 'bodyweight'),
+    option('Diamond Push-ups', 'Triceps', 0, 'bodyweight', '10-15'),
   ],
   core: [
     option('Plank', 'Core', 0, 'bodyweight', '30-60 sec'),
@@ -246,6 +258,7 @@ const exerciseOptions = {
     option('Bulgarian Split Squat', 'Glutes', 12, 'dumbbells', '10-12'),
     option('Walking Lunges', 'Legs', 12, 'dumbbells', '10-12'),
     option('Cable Pull-Through', 'Glutes', 30, 'machines', '12-15'),
+    option('Single-Leg Glute Bridge', 'Glutes', 0, 'bodyweight', '12-15'),
     option('Glute Bridge', 'Glutes', 0, 'bodyweight', '12-15'),
   ],
 };
@@ -687,8 +700,8 @@ function pushPullLegsTemplates(
     exercises: [
       pick(exerciseOptions.verticalPull, equipment, limitations),
       pick(exerciseOptions.row, equipment, limitations),
+      pick(exerciseOptions.rearDeltUpperBack, equipment, limitations),
       pick(exerciseOptions.biceps, equipment, limitations),
-      pick(exerciseOptions.shoulderPush, equipment, limitations),
       pick(exerciseOptions.core, equipment, limitations),
     ],
     estimatedMinutes: 50,
@@ -1064,6 +1077,50 @@ export function calibrateInitialWeight(
   return Math.round(raw / 2.5) * 2.5;
 }
 
+function deduplicateExercisesInWorkout(
+  candidates: ExerciseOption[],
+  equipment: EquipmentId[],
+  limitations: TrainingLimitation[] = []
+): ExerciseOption[] {
+  const allPools: ExerciseOption[] = Object.values(exerciseOptions).flat();
+  const usedNames = new Set<string>();
+  const result: ExerciseOption[] = [];
+
+  for (const item of candidates) {
+    const norm = item.name.trim().toLowerCase();
+    if (!usedNames.has(norm)) {
+      usedNames.add(norm);
+      result.push(item);
+      continue;
+    }
+
+    // Find an unused exercise targeting the same muscle group (or compatible group) & available equipment
+    const sameMusclePool = allPools.filter((alt) => {
+      const altNorm = alt.name.trim().toLowerCase();
+      if (usedNames.has(altNorm)) return false;
+      if (!isAvailable(alt.equipment, equipment)) return false;
+      if (limitations.includes('lower_back') && (altNorm === 'squat' || altNorm === 'barbell row' || altNorm === 'romanian deadlift')) {
+        return false;
+      }
+      if (limitations.includes('knees') && (altNorm.includes('lunge') || altNorm.includes('split squat') || altNorm === 'leg extension')) {
+        return false;
+      }
+      if (limitations.includes('shoulders') && (altNorm === 'bench press' || altNorm === 'overhead press' || altNorm === 'bench dips')) {
+        return false;
+      }
+      return alt.muscleGroup.toLowerCase() === item.muscleGroup.toLowerCase();
+    });
+
+    if (sameMusclePool.length > 0) {
+      const chosen = sameMusclePool[0];
+      usedNames.add(chosen.name.trim().toLowerCase());
+      result.push(chosen);
+    }
+  }
+
+  return result;
+}
+
 function isPriorityMuscleGroup(
   muscleGroup: string,
   priorities: PriorityMuscleFocus[] = ['balanced']
@@ -1072,7 +1129,7 @@ function isPriorityMuscleGroup(
   if (priorities.includes('lower_glutes') && ['glutes', 'quads', 'hamstrings', 'legs'].includes(m)) {
     return true;
   }
-  if (priorities.includes('upper_push') && ['chest', 'shoulders', 'triceps'].includes(m)) {
+  if (priorities.includes('upper_push') && ['chest', 'shoulders', 'triceps', 'biceps'].includes(m)) {
     return true;
   }
   if (priorities.includes('back_core') && ['back', 'core'].includes(m)) {
@@ -1100,11 +1157,22 @@ function buildWorkouts(
   const activeGoal = onboarding?.goal || (profile.goal === 'Lose Fat' ? 'lose_fat' : profile.goal === 'Get Stronger' ? 'get_stronger' : 'build_muscle');
   const activePriorities = onboarding?.priorityMuscles ?? ['balanced'];
 
+  const rawEquipment = (onboarding?.equipment ?? defaultEquipment)
+    .map(normalizeEquipmentToken)
+    .filter((item): item is EquipmentId => Boolean(item));
+  const activeEquipment = rawEquipment.length > 0 ? rawEquipment : defaultEquipment;
+  const activeLimitations = onboarding?.limitations ?? [];
+
   return repeatTemplates(templates, frequency).map((template, index) => {
+    const dedupedTemplateExercises = deduplicateExercisesInWorkout(
+      template.exercises,
+      activeEquipment,
+      activeLimitations
+    );
     const candidateExercises =
-      template.exercises.length > maxExercises
-        ? template.exercises.slice(0, maxExercises)
-        : template.exercises;
+      dedupedTemplateExercises.length > maxExercises
+        ? dedupedTemplateExercises.slice(0, maxExercises)
+        : dedupedTemplateExercises;
 
     const exercises: GeneratedExercise[] = candidateExercises.map((exercise) => {
       const calibratedWeight = calibrateInitialWeight(
@@ -1481,8 +1549,8 @@ export function generateFocusWorkout(
           pools: [
             exerciseOptions.verticalPull,
             exerciseOptions.row,
+            exerciseOptions.rearDeltUpperBack,
             exerciseOptions.biceps,
-            exerciseOptions.shoulderPush,
             exerciseOptions.core,
           ],
         },
@@ -1492,8 +1560,8 @@ export function generateFocusWorkout(
             exerciseOptions.row,
             exerciseOptions.verticalPull,
             exerciseOptions.biceps,
+            exerciseOptions.rearDeltUpperBack,
             exerciseOptions.core,
-            exerciseOptions.shoulderPush,
           ],
         },
       ];
@@ -1529,12 +1597,17 @@ export function generateFocusWorkout(
   const targetExerciseCount = duration <= 30 ? 4 : duration <= 45 ? 5 : 6;
   const poolsToUse = selectedVariant.pools.slice(0, targetExerciseCount);
 
-  const selectedOptions = poolsToUse.map((pool, poolIdx) => {
+  const rawSelectedOptions = poolsToUse.map((pool, poolIdx) => {
     const valid = pool.filter((item) => isAvailable(item.equipment, equipment));
     if (valid.length === 0) return pool[pool.length - 1];
     const itemIdx = (Math.floor(cycle / variants.length) + poolIdx) % valid.length;
     return valid[itemIdx] ?? valid[0];
   });
+  const selectedOptions = deduplicateExercisesInWorkout(
+    rawSelectedOptions,
+    equipment,
+    onboarding?.limitations ?? []
+  );
 
   const exercises: GeneratedExercise[] = selectedOptions.map((exercise) => {
     const calibratedWeight = onboarding

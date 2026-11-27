@@ -1,3 +1,4 @@
+import { toLocalDateKey } from '@/lib/dateUtils';
 import { calculateSetVolumeKg } from '@/lib/weightUtils';
 import type { WorkoutSession } from '@/store/workoutSessionStore';
 import type { CompletedWorkout, PersonalRecord } from '@/types/workout';
@@ -69,7 +70,7 @@ export function createCompletedWorkoutSnapshot(
     id: session.id,
     programWorkoutId: session.programWorkoutId,
     workoutName: session.workoutName,
-    workoutDate: session.workoutDate || session.startedAt.slice(0, 10),
+    workoutDate: session.workoutDate || toLocalDateKey(session.startedAt),
     startedAt: session.startedAt,
     completedAt,
     durationSeconds,

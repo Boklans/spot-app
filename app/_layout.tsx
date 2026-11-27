@@ -25,6 +25,7 @@ import {
   scheduleWorkoutDayReminders,
   startLiveWorkoutNotificationSync,
 } from '@/lib/notificationService';
+import { GlobalRestCompletionWatcher } from '@/components/workout/WorkoutTimers';
 
 LogBox.ignoreLogs(['Error configuring Purchases', 'Invalid API key']);
 
@@ -172,6 +173,7 @@ export default function SpotAppRoot() {
     <SafeAreaProvider>
       <ThemeProvider value={navigationTheme}>
         <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
+        <GlobalRestCompletionWatcher />
         <Stack
           screenOptions={{
             headerShown: false,

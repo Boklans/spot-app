@@ -93,7 +93,7 @@ export default function ParamsSetup() {
     { value: 'female', label: isUk ? 'Жіноча' : 'Female', icon: 'female-outline' },
   ];
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!isNameValid) {
       hapticLight();
       setNameError(true);
@@ -122,23 +122,21 @@ export default function ParamsSetup() {
       ? Math.round(parsedHeight)
       : (initialProfile.heightCm || 172);
 
-    Promise.all([
-      useUserProfileStore.getState().updateProfile({
-        name: effectiveName,
-        age: effectiveAge,
-        sex,
-        weightKg: effectiveWeightKg,
-        heightCm: effectiveHeightCm,
-      }),
-      useBodyWeightStore.getState().syncBaselineWeight(effectiveWeightKg),
-      saveOnboarding({
-        name: effectiveName,
-        age: effectiveAge,
-        sex,
-        weightKg: effectiveWeightKg,
-        heightCm: effectiveHeightCm,
-      }),
-    ]).catch((err) => console.warn('Non-blocking onboarding save error:', err));
+    await useUserProfileStore.getState().updateProfile({
+      name: effectiveName,
+      age: effectiveAge,
+      sex,
+      weightKg: effectiveWeightKg,
+      heightCm: effectiveHeightCm,
+    });
+    await useBodyWeightStore.getState().syncBaselineWeight(effectiveWeightKg);
+    await saveOnboarding({
+      name: effectiveName,
+      age: effectiveAge,
+      sex,
+      weightKg: effectiveWeightKg,
+      heightCm: effectiveHeightCm,
+    }).catch(() => undefined);
 
     router.push('/onboarding/goal');
   };
