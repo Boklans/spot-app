@@ -572,20 +572,49 @@ export async function scheduleWorkoutDayReminders(options?: {
   const hour = parseInt(hourStr || '9', 10);
   const minute = parseInt(minStr || '0', 10);
 
+  // Determine the immediate upcoming training day so ONLY that day uses the live nextWorkout
+  // snapshot, while other repeating weekly days use timeless copy (preventing stale "Upper A"
+  // notifications from repeating on Lower days forever).
+  const todayJsDay = new Date().getDay(); // 0=Sun..6=Sat
+  const todayExpoWeekday = todayJsDay + 1; // 1=Sun..7=Sat
+  let closestDayKey: string | null = null;
+  let closestDelta = 99;
+  for (const dk of trainingDays) {
+    const wd = DAY_KEY_TO_EXPO_WEEKDAY[dk.toUpperCase()];
+    if (!wd) continue;
+    const delta = (wd - todayExpoWeekday + 7) % 7;
+    if (delta < closestDelta) {
+      closestDelta = delta;
+      closestDayKey = dk.toUpperCase();
+    }
+  }
+
+  const genericTitle =
+    lang === 'uk' ? 'Сьогодні день тренування! ⚡' : 'Training Day Today! ⚡';
+  const genericBody =
+    lang === 'uk'
+      ? 'Твоя програма SPOT чекає на тебе. Зайди, щоб побачити цільові ваги та почати сесію! 💪'
+      : 'Your SPOT session is scheduled today. Open the app for your target weights and warm-up! 💪';
+
   for (const dayKey of trainingDays) {
-    const weekday = DAY_KEY_TO_EXPO_WEEKDAY[dayKey.toUpperCase()];
+    const upperKey = dayKey.toUpperCase();
+    const weekday = DAY_KEY_TO_EXPO_WEEKDAY[upperKey];
     if (!weekday) continue;
+
+    const useLiveSnapshot = upperKey === closestDayKey;
+    const title = useLiveSnapshot ? reminderContent.title : genericTitle;
+    const body = useLiveSnapshot ? reminderContent.body : genericBody;
 
     try {
       await Notifications.scheduleNotificationAsync({
         identifier: `${REMINDER_ID_PREFIX}${dayKey.toLowerCase()}`,
         content: {
-          title: reminderContent.title,
-          body: reminderContent.body,
+          title,
+          body,
           sound: true,
           data: {
             screen: '/(tabs)',
-            workoutName: reminderContent.workoutName,
+            workoutName: useLiveSnapshot ? reminderContent.workoutName : undefined,
           },
         },
         trigger: {

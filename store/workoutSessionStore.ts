@@ -222,35 +222,19 @@ function parseActiveWorkout(value: string | null): ActiveWorkoutStorage | null {
   }
 }
 
-let pendingSnapshot: ActiveWorkoutStorage | null | undefined = undefined;
-let isPersisting = false;
-
 function enqueueStorageWrite(task: () => Promise<void>): Promise<void> {
   persistenceQueue = persistenceQueue.then(task).catch(() => undefined);
   return persistenceQueue;
 }
 
-async function processPersistence() {
-  if (isPersisting || pendingSnapshot === undefined) return;
-  isPersisting = true;
-  const snapshotToSave = pendingSnapshot;
-  pendingSnapshot = undefined;
-  await enqueueStorageWrite(async () => {
-    if (!snapshotToSave) {
+function persistSnapshot(snapshot: ActiveWorkoutStorage | null) {
+  void enqueueStorageWrite(async () => {
+    if (!snapshot) {
       await AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
     } else {
-      await AsyncStorage.setItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY, JSON.stringify(snapshotToSave));
+      await AsyncStorage.setItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY, JSON.stringify(snapshot));
     }
   });
-  isPersisting = false;
-  if (pendingSnapshot !== undefined) {
-    void processPersistence();
-  }
-}
-
-function persistSnapshot(snapshot: ActiveWorkoutStorage | null) {
-  pendingSnapshot = snapshot;
-  void processPersistence();
 }
 
 function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history: CompletedWorkout[]): WorkoutExercise[] {
@@ -1131,7 +1115,6 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
 }));
 
 export async function clearPersistedActiveWorkout() {
-  pendingSnapshot = undefined;
   await enqueueStorageWrite(() => AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY));
 }
 
