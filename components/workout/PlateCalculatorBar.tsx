@@ -1,13 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
 import { hapticLight } from '@/lib/haptics';
 import {
-  BAR_WEIGHT_OPTIONS,
   calculateBarbellPlates,
   formatPlateSummary,
+  getBarWeightOptions,
   getDefaultBarWeight,
   type PlateUnit,
 } from '@/lib/plateCalculator';
@@ -17,31 +17,44 @@ interface PlateCalculatorBarProps {
   targetDisplayWeight: number;
   unit: PlateUnit;
   exerciseName?: string;
+  canonicalExerciseName?: string;
   isUk: boolean;
 }
 
 /**
  * Gym-floor Barbell Plate Visualizer with labeled IPF-colored plates on the sleeve,
- * selectable bar weight (20/15/10 kg or 45/35/25 lb), and scannable per-side badges.
+ * selectable bar weight (20/15 kg on heavy lifts; +10 kg EZ on arm lifts), and scannable per-side badges.
  */
 export function PlateCalculatorBar({
   targetDisplayWeight,
   unit,
   exerciseName,
+  canonicalExerciseName,
   isUk,
 }: PlateCalculatorBarProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [barWeight, setBarWeight] = useState<number>(() =>
-    getDefaultBarWeight(unit, exerciseName)
+  const detectionName = canonicalExerciseName || exerciseName;
+  const barOptions = useMemo(
+    () => getBarWeightOptions(unit, detectionName),
+    [unit, detectionName]
   );
+  const [barWeight, setBarWeight] = useState<number>(() =>
+    getDefaultBarWeight(unit, detectionName)
+  );
+
+  useEffect(() => {
+    const defaultBar = getDefaultBarWeight(unit, detectionName);
+    setBarWeight((prev) =>
+      barOptions.some((opt) => opt.weight === prev) ? prev : defaultBar
+    );
+  }, [unit, detectionName, barOptions]);
 
   const result = useMemo(
     () => calculateBarbellPlates(targetDisplayWeight, unit, barWeight),
     [targetDisplayWeight, unit, barWeight]
   );
 
-  const barOptions = BAR_WEIGHT_OPTIONS[unit];
   const summaryText = formatPlateSummary(result, isUk);
   const unitText = unit === 'lbs' ? 'lb' : isUk ? 'кг' : 'kg';
 

@@ -15,13 +15,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
+import { WorkoutKeypadSheet } from '@/components/workout/WorkoutKeypadSheet';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
+import { fonts } from '@/constants/typography';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { formatPersonalRecordLabel } from '@/lib/personalRecords';
 import { formatVolume } from '@/lib/progressCalculator';
-import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
+import { calculateSetVolumeKg, formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { useExerciseNotesStore } from '@/store/exerciseNotesStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { ExerciseDetailModal } from '@/components/program/ExerciseDetailModal';
@@ -45,6 +47,11 @@ export default function HistoryDetail() {
   const [isSharing, setIsSharing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draftExercises, setDraftExercises] = useState<CompletedExercise[]>([]);
+  const [keypadTarget, setKeypadTarget] = useState<{
+    exIdx: number;
+    setIdx: number;
+    field: 'weight' | 'reps';
+  } | null>(null);
   const [selectedGuideExercise, setSelectedGuideExercise] = useState<{
     name: string;
     muscleGroup?: string;
@@ -177,7 +184,7 @@ export default function HistoryDetail() {
   const handleUpdateDraftSet = (
     exIdx: number,
     setIdx: number,
-    patch: { weightKg?: number; reps?: number }
+    patch: { weightKg?: number; reps?: number; rir?: number | null }
   ) => {
     setDraftExercises((prev) =>
       prev.map((ex, i) => {
@@ -192,11 +199,19 @@ export default function HistoryDetail() {
                 : s.weight;
             const nextReps =
               patch.reps !== undefined ? Math.max(1, Math.round(patch.reps)) : s.reps;
+            const nextRir =
+              patch.rir === null ? undefined : patch.rir !== undefined ? patch.rir : s.rir;
             return {
               ...s,
               weight: nextWeight,
               reps: nextReps,
-              volume: s.setType === 'warmup' ? 0 : Math.round(nextWeight * nextReps * 100) / 100,
+              rir: nextRir,
+              volume: calculateSetVolumeKg({
+                weightKg: nextWeight,
+                reps: nextReps,
+                exerciseName: ex.exerciseName,
+                setType: s.setType ?? 'normal',
+              }),
             };
           }),
         };
@@ -747,29 +762,35 @@ export default function HistoryDetail() {
                             -
                           </Text>
                         </Pressable>
-                        <TextInput
-                          value={String(displayWeight)}
-                          onChangeText={(txt) => {
-                            const num = parseFloat(txt.replace(',', '.'));
-                            if (!isNaN(num) && num >= 0) {
-                              handleUpdateDraftSet(exIdx, index, { weightKg: toKg(num) });
-                            } else if (txt === '') {
-                              handleUpdateDraftSet(exIdx, index, { weightKg: 0 });
-                            }
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => {
+                            hapticLight();
+                            setKeypadTarget({ exIdx, setIdx: index, field: 'weight' });
                           }}
-                          keyboardType="decimal-pad"
                           style={{
                             flex: 1,
-                            color: colors.text,
-                            fontSize: 13.5,
-                            fontWeight: '800',
-                            textAlign: 'center',
-                            paddingVertical: 0,
+                            height: '100%',
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 3,
                           }}
-                        />
-                        <Text style={{ color: colors.muted, fontSize: 10, fontWeight: '700', marginRight: 2 }}>
-                          {unitLabel}
-                        </Text>
+                        >
+                          <Text
+                            style={{
+                              fontFamily: fonts.monoBold,
+                              color: colors.text,
+                              fontSize: 13.5,
+                              includeFontPadding: false,
+                            }}
+                          >
+                            {displayWeight}
+                          </Text>
+                          <Text style={{ color: colors.muted, fontSize: 10, fontWeight: '700' }}>
+                            {unitLabel}
+                          </Text>
+                        </Pressable>
                         <Pressable
                           onPress={() => {
                             hapticLight();
@@ -825,24 +846,30 @@ export default function HistoryDetail() {
                             -
                           </Text>
                         </Pressable>
-                        <TextInput
-                          value={String(set.reps)}
-                          onChangeText={(txt) => {
-                            const num = parseInt(txt, 10);
-                            if (!isNaN(num) && num >= 1) {
-                              handleUpdateDraftSet(exIdx, index, { reps: num });
-                            }
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => {
+                            hapticLight();
+                            setKeypadTarget({ exIdx, setIdx: index, field: 'reps' });
                           }}
-                          keyboardType="number-pad"
                           style={{
                             flex: 1,
-                            color: colors.text,
-                            fontSize: 13.5,
-                            fontWeight: '800',
-                            textAlign: 'center',
-                            paddingVertical: 0,
+                            height: '100%',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                           }}
-                        />
+                        >
+                          <Text
+                            style={{
+                              fontFamily: fonts.monoBold,
+                              color: colors.text,
+                              fontSize: 13.5,
+                              includeFontPadding: false,
+                            }}
+                          >
+                            {set.reps}
+                          </Text>
+                        </Pressable>
                         <Pressable
                           onPress={() => {
                             hapticLight();
@@ -1143,6 +1170,32 @@ export default function HistoryDetail() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+      {keypadTarget && draftExercises[keypadTarget.exIdx]?.sets[keypadTarget.setIdx] && (
+        <WorkoutKeypadSheet
+          visible={keypadTarget !== null}
+          exerciseName={te(draftExercises[keypadTarget.exIdx].exerciseName)}
+          canonicalExerciseName={draftExercises[keypadTarget.exIdx].exerciseName}
+          setNumber={keypadTarget.setIdx + 1}
+          totalSets={draftExercises[keypadTarget.exIdx].sets.length}
+          isCompleted={true}
+          initialWeightKg={draftExercises[keypadTarget.exIdx].sets[keypadTarget.setIdx].weight}
+          initialReps={draftExercises[keypadTarget.exIdx].sets[keypadTarget.setIdx].reps}
+          initialRir={draftExercises[keypadTarget.exIdx].sets[keypadTarget.setIdx].rir}
+          unitLabel={unitLabel}
+          unit={unit}
+          fromKg={fromKg}
+          initialFocusField={keypadTarget.field}
+          onClose={() => setKeypadTarget(null)}
+          onSave={({ weight, reps, rir }) => {
+            handleUpdateDraftSet(keypadTarget.exIdx, keypadTarget.setIdx, {
+              weightKg: weight,
+              reps,
+              rir,
+            });
+            setKeypadTarget(null);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

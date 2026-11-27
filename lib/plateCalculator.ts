@@ -61,16 +61,38 @@ export const STANDARD_PLATES: Record<PlateUnit, PlateSpec[]> = {
   ],
 };
 
-export function getDefaultBarWeight(unit: PlateUnit, exerciseName?: string): number {
+export function isEzBarEligible(exerciseName?: string): boolean {
   const lower = (exerciseName || '').toLowerCase();
-  if (
+  if (!lower) return false;
+  return (
     lower.includes('ez bar') ||
     lower.includes('ez-bar') ||
     lower.includes('curl') ||
     lower.includes('згинання') ||
     lower.includes('skullcrusher') ||
-    lower.includes('французьк')
-  ) {
+    lower.includes('французьк') ||
+    lower.includes('tricep') ||
+    lower.includes('трицепс') ||
+    lower.includes('preacher') ||
+    lower.includes('upright row') ||
+    lower.includes('протяжка')
+  );
+}
+
+export function getBarWeightOptions(
+  unit: PlateUnit,
+  exerciseName?: string
+): { weight: number; labelEn: string; labelUk: string }[] {
+  const all = BAR_WEIGHT_OPTIONS[unit];
+  if (isEzBarEligible(exerciseName)) {
+    return all;
+  }
+  const ezWeight = unit === 'lbs' ? 25 : 10;
+  return all.filter((opt) => opt.weight !== ezWeight);
+}
+
+export function getDefaultBarWeight(unit: PlateUnit, exerciseName?: string): number {
+  if (isEzBarEligible(exerciseName)) {
     return unit === 'lbs' ? 25 : 10;
   }
   return unit === 'lbs' ? 45 : 20;

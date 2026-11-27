@@ -707,6 +707,37 @@ let passed = 0;
     passed++;
   }
 
+  // ============================================================================
+  // TEST 12: Safe Barbell Bar Weight Options & Docked WorkoutKeypadSheet Contract (P1-08, P1-09)
+  // ============================================================================
+  {
+    const plateMod = loadTsModule('lib/plateCalculator.ts');
+    const fs = require('fs');
+    const path = require('path');
+
+    // Heavy main barbell lifts must NOT offer 10 kg EZ / 25 lb EZ
+    const squatBarsKg = plateMod.getBarWeightOptions('kg', 'Barbell Back Squat');
+    const benchBarsLbs = plateMod.getBarWeightOptions('lbs', 'Barbell Bench Press');
+    assert.ok(!squatBarsKg.some((b) => b.weight === 10), 'Squat must NOT show 10 kg EZ bar option');
+    assert.ok(!benchBarsLbs.some((b) => b.weight === 25), 'Bench Press must NOT show 25 lb EZ bar option');
+
+    // Arm / curl / skullcrusher lifts DO offer 10 kg EZ / 25 lb EZ and default to it
+    const curlBarsKg = plateMod.getBarWeightOptions('kg', 'EZ-Bar Curl');
+    assert.ok(curlBarsKg.some((b) => b.weight === 10), 'EZ-Bar Curl must include 10 kg EZ bar');
+    assert.strictEqual(plateMod.getDefaultBarWeight('kg', 'EZ-Bar Curl'), 10);
+    assert.strictEqual(plateMod.getDefaultBarWeight('kg', 'Barbell Back Squat'), 20);
+
+    // WorkoutKeypadSheet must contain zero OS TextInput components
+    const keypadSrc = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'workout', 'WorkoutKeypadSheet.tsx'),
+      'utf8'
+    );
+    assert.ok(!keypadSrc.includes('<TextInput'), 'WorkoutKeypadSheet must never summon OS keyboard via <TextInput>');
+
+    console.log('✅ TEST 12 PASSED (P1-08 & P1-09): Barbell EZ-bar safety guard & zero-OS-keyboard WorkoutKeypadSheet verified');
+    passed++;
+  }
+
   console.log(`\n🎉 ALL ${passed} GYM FLOOR PRO ENGINE TESTS PASSED!\n`);
 })().catch((err) => {
   console.error('❌ Async test failure in verify-gym-pro.js:', err);
