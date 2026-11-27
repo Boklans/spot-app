@@ -183,5 +183,35 @@ let passed = 0;
   passed++;
 }
 
+// TEST 8: Design System 2.0 Tokens & Typography v2 (P1-10, P1-11)
+{
+  const { loadTsModule } = require('./tsRunner');
+  const { darkColors, lightColors } = loadTsModule('constants/colors.ts');
+  const { fonts, typography } = loadTsModule('constants/typography.ts');
+
+  // Semantic Obsidian Cockpit & Daylight tokens
+  assert.strictEqual(darkColors.completedRowBg, '#0F1914', 'darkColors.completedRowBg must be Whisper-Emerald Carbon #0F1914');
+  assert.strictEqual(darkColors.restAccent, '#38BDF8', 'darkColors.restAccent must be Cryo Cyan #38BDF8');
+  assert.strictEqual(darkColors.superset, '#A855F7', 'darkColors.superset must be #A855F7');
+  assert.strictEqual(lightColors.completedRowBg, '#ECFDF5', 'lightColors.completedRowBg must be #ECFDF5');
+  assert.strictEqual(lightColors.restAccent, '#0284C7', 'lightColors.restAccent must be #0284C7');
+
+  // Canonical 2-family font stack (Inter + JetBrains Mono)
+  assert.strictEqual(fonts.monoSemiBold, 'JetBrainsMono_600SemiBold');
+  assert.strictEqual(fonts.monoBold, 'JetBrainsMono_700Bold');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'assets', 'fonts', 'JetBrainsMono-SemiBold.ttf')), 'JetBrainsMono-SemiBold.ttf must exist on disk');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'assets', 'fonts', 'JetBrainsMono-Bold.ttf')), 'JetBrainsMono-Bold.ttf must exist on disk');
+
+  // Zero co-declared fontWeight on typography tokens & >=11px legibility floor
+  for (const [variantName, spec] of Object.entries(typography)) {
+    assert.ok(!('fontWeight' in spec), `typography.${variantName} must not co-declare fontWeight alongside fontFamily`);
+    assert.ok(spec.fontSize >= 11, `typography.${variantName} fontSize (${spec.fontSize}) must respect the 11px gym legibility floor`);
+    assert.strictEqual(spec.includeFontPadding, false, `typography.${variantName} must set includeFontPadding: false`);
+  }
+
+  console.log('✅ TEST 8 PASSED (P1-10, P1-11): Design System 2.0 tokens, JetBrains Mono & Typography v2 verified');
+  passed++;
+}
+
 console.log(`\n🎉 ALL ${passed} THEME SYSTEM TESTS PASSED!\n`);
 

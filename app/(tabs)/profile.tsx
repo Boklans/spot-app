@@ -27,6 +27,7 @@ import { ProfileSettingsModal, type ProfilePickerType } from '@/components/profi
 import { ProPaywallModal } from '@/components/profile/ProPaywallModal';
 import { ReminderTimePickerModal } from '@/components/profile/ReminderTimePickerModal';
 import { RestTimePickerModal } from '@/components/profile/RestTimePickerModal';
+import { useWorkoutBarBottomInset } from '@/components/ui/Screen';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
@@ -79,6 +80,7 @@ export default function Profile() {
   const isUk = language === 'uk';
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const bottomBarInset = useWorkoutBarBottomInset(40);
   const { formatVolume } = useWeightUnit();
 
   const profile = useUserProfileStore((state) => state.profile);
@@ -460,7 +462,10 @@ export default function Profile() {
         </Pressable>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomBarInset }]}
+      >
         <View>
           {/* 1. Athlete Identity Hero Card + Key Telemetry Strip */}
           <View style={styles.heroCard}>

@@ -16,6 +16,7 @@ import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
 import { AnatomyPreview } from '@/components/progress/AnatomyPreview';
 import { WorkoutEditorModal } from '@/components/program/WorkoutEditorModal';
+import { useWorkoutBarBottomInset } from '@/components/ui/Screen';
 import { useUserProfileStore } from '@/store/userProfileStore';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
@@ -38,6 +39,7 @@ export default function Program() {
   const { t, tm, td, te, tw, language } = useI18n();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const bottomBarInset = useWorkoutBarBottomInset(40);
   const { formatWithUnit } = useWeightUnit();
   const program = useProgramStore((state) => state.program);
   const progress = useProgramProgressStore((state) => state.progress);
@@ -163,7 +165,7 @@ export default function Program() {
       {/* Routine Schedule */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.routineScroll}
+        contentContainerStyle={[styles.routineScroll, { paddingBottom: bottomBarInset }]}
       >
         {/* Clean Split Switcher */}
         <View style={styles.splitSwitcherWrap}>

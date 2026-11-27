@@ -1,131 +1,219 @@
 import { TextStyle } from 'react-native';
 
+/**
+ * SPOT 2.0 Canonical 2-Family Font System:
+ * - Inter (400..800): Full Ukrainian Cyrillic (Ґ, Є, І, Ї) & UI prose
+ * - JetBrains Mono (600, 700): Hardware-fixed tabular numerals for clocks, weights, reps & indices
+ *
+ * IMPORTANT: Never co-declare `fontWeight` alongside `fontFamily` on React Native —
+ * doing so causes Android to fall back to system Roboto or iOS to synthesize faux bold.
+ */
 export const fonts = {
   regular: 'Inter_400Regular',
   medium: 'Inter_500Medium',
   semiBold: 'Inter_600SemiBold',
   bold: 'Inter_700Bold',
   extraBold: 'Inter_800ExtraBold',
+  monoSemiBold: 'JetBrainsMono_600SemiBold',
+  monoBold: 'JetBrainsMono_700Bold',
 } as const;
 
 const tabularNums: TextStyle['fontVariant'] = ['tabular-nums'];
 
+const baseMetrics: Pick<TextStyle, 'includeFontPadding'> = {
+  includeFontPadding: false,
+};
+
 export const typography = {
-  // Display (large workout weight, rest timer)
+  // ─── Semantic v2 Tokens ────────────────────────────────────────────────────
+  timerHero: {
+    ...baseMetrics,
+    fontFamily: fonts.monoBold,
+    fontSize: 48,
+    lineHeight: 54,
+    letterSpacing: -1.0,
+    fontVariant: tabularNums,
+  },
+  metricHero: {
+    ...baseMetrics,
+    fontFamily: fonts.monoBold,
+    fontSize: 32,
+    lineHeight: 38,
+    letterSpacing: -0.6,
+    fontVariant: tabularNums,
+  },
+  screenTitle: {
+    ...baseMetrics,
+    fontFamily: fonts.bold,
+    fontSize: 26,
+    lineHeight: 32,
+    letterSpacing: -0.4,
+  },
+  cardTitle: {
+    ...baseMetrics,
+    fontFamily: fonts.bold,
+    fontSize: 20,
+    lineHeight: 26,
+    letterSpacing: -0.3,
+  },
+  sectionTitle: {
+    ...baseMetrics,
+    fontFamily: fonts.semiBold,
+    fontSize: 17,
+    lineHeight: 22,
+    letterSpacing: -0.2,
+  },
+  setNumeric: {
+    ...baseMetrics,
+    fontFamily: fonts.monoBold,
+    fontSize: 16,
+    lineHeight: 20,
+    letterSpacing: -0.2,
+    fontVariant: tabularNums,
+  },
+  body: {
+    ...baseMetrics,
+    fontFamily: fonts.regular,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  bodyMedium: {
+    ...baseMetrics,
+    fontFamily: fonts.medium,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  bodyStrong: {
+    ...baseMetrics,
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  buttonPrimary: {
+    ...baseMetrics,
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    lineHeight: 20,
+    letterSpacing: 0.2,
+  },
+  subhead: {
+    ...baseMetrics,
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  subheadMedium: {
+    ...baseMetrics,
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  subheadStrong: {
+    ...baseMetrics,
+    fontFamily: fonts.semiBold,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  telemetryCaption: {
+    ...baseMetrics,
+    fontFamily: fonts.monoSemiBold,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.1,
+    fontVariant: tabularNums,
+  },
+  eyebrow: {
+    ...baseMetrics,
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase' as const,
+  },
+
+  // ─── Backward-Compatible Aliases ───────────────────────────────────────────
   display: {
-    fontFamily: fonts.extraBold,
+    ...baseMetrics,
+    fontFamily: fonts.monoBold,
     fontSize: 36,
     lineHeight: 42,
-    fontWeight: '700' as const,
     letterSpacing: -0.6,
     fontVariant: tabularNums,
   },
   displaySmall: {
-    fontFamily: fonts.bold,
+    ...baseMetrics,
+    fontFamily: fonts.monoBold,
     fontSize: 30,
     lineHeight: 36,
-    fontWeight: '700' as const,
     letterSpacing: -0.4,
     fontVariant: tabularNums,
   },
-  // H1 (Screen Title: Good afternoon, Program, Analytics)
   h1: {
+    ...baseMetrics,
     fontFamily: fonts.bold,
     fontSize: 26,
     lineHeight: 32,
-    fontWeight: '700' as const,
     letterSpacing: -0.4,
   },
-  // H2 (Card Title, Exercise Name, Workout Complete)
   h2: {
+    ...baseMetrics,
     fontFamily: fonts.bold,
     fontSize: 20,
     lineHeight: 26,
-    fontWeight: '700' as const,
     letterSpacing: -0.3,
   },
-  // H3 (Section Title: Next Up, Current Exercise, This Week)
   h3: {
+    ...baseMetrics,
     fontFamily: fonts.semiBold,
     fontSize: 16,
     lineHeight: 22,
-    fontWeight: '600' as const,
     letterSpacing: -0.2,
   },
-  // Body (Descriptions, explanations, muscles)
-  body: {
-    fontFamily: fonts.regular,
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '400' as const,
-  },
-  bodyMedium: {
-    fontFamily: fonts.medium,
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '500' as const,
-  },
   bodyBold: {
+    ...baseMetrics,
     fontFamily: fonts.bold,
     fontSize: 15,
     lineHeight: 22,
-    fontWeight: '700' as const,
   },
-  // Secondary (Meta information, dates, small stats)
   secondary: {
+    ...baseMetrics,
     fontFamily: fonts.regular,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '400' as const,
   },
   secondaryMedium: {
+    ...baseMetrics,
     fontFamily: fonts.medium,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '500' as const,
   },
   secondaryBold: {
+    ...baseMetrics,
     fontFamily: fonts.semiBold,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '600' as const,
-  },
-  // Eyebrow / Label (Category kicker, badges, status)
-  eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: '700' as const,
-    letterSpacing: 1.0,
-    textTransform: 'uppercase' as const,
   },
   eyebrowMedium: {
+    ...baseMetrics,
     fontFamily: fonts.semiBold,
     fontSize: 11,
     lineHeight: 15,
-    fontWeight: '600' as const,
-    letterSpacing: 1.0,
+    letterSpacing: 0.6,
     textTransform: 'uppercase' as const,
   },
-  // Button
   button: {
+    ...baseMetrics,
     fontFamily: fonts.bold,
     fontSize: 15,
     lineHeight: 20,
-    fontWeight: '700' as const,
     letterSpacing: 0.2,
   },
   buttonSecondary: {
+    ...baseMetrics,
     fontFamily: fonts.semiBold,
     fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '600' as const,
-    letterSpacing: 0.2,
+    lineHeight: 19,
   },
-  // Numeric values (weight, reps, timer)
-  numeric: {
-    fontFamily: fonts.bold,
-    fontVariant: tabularNums,
-    fontWeight: '700' as const,
-  },
-};
+} as const;
+
+export type TypographyVariant = keyof typeof typography;

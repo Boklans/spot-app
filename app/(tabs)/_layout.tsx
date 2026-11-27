@@ -91,7 +91,6 @@ export default function TabsLayout() {
           tabBarLabelStyle: {
             fontFamily: fonts.semiBold,
             fontSize: 11,
-            fontWeight: '600',
             lineHeight: 14,
             marginTop: 2,
           },

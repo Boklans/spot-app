@@ -1,14 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticImpact } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -95,10 +94,8 @@ export function ReminderTimePickerModal({
   const { t, language } = useI18n();
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <SafeAreaView style={styles.sheetContainer}>
-          <View style={styles.header}>
+    <BottomSheet visible={visible} onClose={onClose} maxHeight="85%">
+      <View style={styles.header}>
             <View>
               <Text style={styles.headerTitle}>{t('reminderTime')}</Text>
               <Text style={styles.headerSubtitle}>
@@ -153,9 +150,7 @@ export function ReminderTimePickerModal({
               );
             })}
           </ScrollView>
-        </SafeAreaView>
-      </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 

@@ -105,6 +105,8 @@ export default function SpotAppRoot() {
       Inter_600SemiBold,
       Inter_700Bold,
       Inter_800ExtraBold,
+      JetBrainsMono_600SemiBold: require('../assets/fonts/JetBrainsMono-SemiBold.ttf'),
+      JetBrainsMono_700Bold: require('../assets/fonts/JetBrainsMono-Bold.ttf'),
     })
       .then(() => {
         if (Platform.OS === 'web' && typeof document !== 'undefined') {

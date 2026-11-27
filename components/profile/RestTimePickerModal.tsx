@@ -1,15 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo,  useState } from 'react';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticImpact, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -116,10 +114,8 @@ export function RestTimePickerModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <SafeAreaView style={styles.sheetContainer}>
-          <View style={styles.header}>
+    <BottomSheet visible={visible} onClose={onClose} maxHeight="86%">
+      <View style={styles.header}>
             <View>
               <Text style={styles.headerTitle}>{t('restTimerSetting')}</Text>
               <Text style={styles.headerSubtitle}>
@@ -265,9 +261,7 @@ export function RestTimePickerModal({
               </View>
             </View>
           </ScrollView>
-        </SafeAreaView>
-      </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 

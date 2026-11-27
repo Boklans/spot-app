@@ -22,6 +22,7 @@ import { BodyWeightGraph } from '@/components/progress/BodyWeightGraph';
 import { LogWeightModal } from '@/components/progress/LogWeightModal';
 import { MuscleHeatmap } from '@/components/progress/MuscleHeatmap';
 import { AnalyticsSkeleton } from '@/components/ui/Skeleton';
+import { useWorkoutBarBottomInset } from '@/components/ui/Screen';
 import { SlidingSegmentedControl } from '@/components/ui/SlidingSegmentedControl';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
@@ -54,6 +55,7 @@ export default function Progress() {
   const { t, tm, te, language } = useI18n();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const bottomBarInset = useWorkoutBarBottomInset(40);
   const reducedMotion = useReducedMotion();
   const { unit, unitLabel, formatVolume, fromKg } = useWeightUnit();
   const profile = useUserProfileStore((state) => state.profile);
@@ -553,7 +555,7 @@ export default function Progress() {
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomBarInset }]}
       >
         {!historyHydrated && history.length === 0 ? (
           <AnalyticsSkeleton />
