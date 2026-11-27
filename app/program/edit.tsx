@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useRef, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useMemo, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   Pressable,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { ExercisePickerModal } from '@/components/program/ExercisePickerModal';
+import { WorkoutDayEditor } from '@/components/program/WorkoutDayEditor';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import type { LibraryExercise } from '@/lib/exerciseLibrary';
@@ -283,35 +285,42 @@ export default function ProgramEdit() {
     }));
   };
 
-  const handleAddExercise = (workoutId: string, libExercise: LibraryExercise) => {
+  const handleAddExercisesBatch = (workoutId: string, libItems: LibraryExercise[]) => {
+    if (libItems.length === 0) return;
     isDirtyRef.current = true;
-    const newExercise: UserExercise = {
+    const mapped: UserExercise[] = libItems.map((libExercise) => ({
       id: generateUUID(),
       name: libExercise.name,
       muscleGroup: libExercise.muscleGroup,
       sets: libExercise.defaultSets ?? 3,
       recommendedWeight: libExercise.defaultWeight ?? 0,
-      targetRepRange: libExercise.defaultRepRange ?? '8-10',
+      targetRepRange: libExercise.defaultRepRange ?? '8-12',
       equipment: libExercise.equipment,
       weightIncrement: libExercise.weightIncrement ?? 2.5,
       restSeconds: 90,
-    };
+      customImageUri: libExercise.customImageUri,
+      isCustom: libExercise.isCustom,
+    }));
 
     setDraft((prev) => ({
       ...prev,
       workouts: prev.workouts.map((w) => {
         if (w.id !== workoutId) return w;
-        const updatedMuscles = w.muscleGroups.includes(libExercise.muscleGroup)
-          ? w.muscleGroups
-          : [...w.muscleGroups, libExercise.muscleGroup];
+        const nextExercises = [...w.exercises, ...mapped];
+        const updatedMuscles = [...new Set(nextExercises.map((e) => e.muscleGroup))];
         return {
           ...w,
           muscleGroups: updatedMuscles,
-          exercises: [...w.exercises, newExercise],
+          estimatedMinutes: Math.max(30, nextExercises.length * 9),
+          exercises: nextExercises,
         };
       }),
     }));
     hapticSuccess();
+  };
+
+  const handleAddExercise = (workoutId: string, libExercise: LibraryExercise) => {
+    handleAddExercisesBatch(workoutId, [libExercise]);
   };
 
   const handleUpdateExercise = (
@@ -348,10 +357,44 @@ export default function ProgramEdit() {
     handleUpdateExercise(workoutId, exercise.id, { recommendedWeight: toKg(nextDisplay) });
   };
 
-  // Top Level Save / Cancel Handlers
-  const handleCancel = () => {
-    router.back();
-  };
+  // Top Level Save / Cancel Handlers + Android BackHandler
+  const handleCancel = useCallback(() => {
+    if (!isDirtyRef.current) {
+      router.back();
+      return;
+    }
+    Alert.alert(
+      language === 'uk' ? 'Скасувати зміни?' : 'Discard Changes?',
+      language === 'uk'
+        ? 'Усі незбережені зміни програми буде втрачено.'
+        : 'All unsaved edits to your routine will be lost.',
+      [
+        { text: language === 'uk' ? 'Продовжити редагування' : 'Keep Editing', style: 'cancel' },
+        {
+          text: language === 'uk' ? 'Скасувати зміни' : 'Discard',
+          style: 'destructive',
+          onPress: () => router.back(),
+        },
+      ]
+    );
+  }, [language]);
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (isExercisePickerVisible) {
+        setIsExercisePickerVisible(false);
+        return true;
+      }
+      if (selectedWorkoutId) {
+        setSelectedWorkoutId(null);
+        return true;
+      }
+      handleCancel();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [isExercisePickerVisible, selectedWorkoutId, handleCancel]);
 
   const handleSave = async () => {
     const trimmed = draft.name.trim();
@@ -404,7 +447,7 @@ export default function ProgramEdit() {
     ? draft.workouts.find((w) => w.id === selectedWorkoutId)
     : null;
 
-  // Render Sub-View: Workout Editor
+  // Render Sub-View: Workout Editor (64pt Accordion via WorkoutDayEditor)
   if (selectedWorkoutId && selectedWorkout) {
     return (
       <Screen>
@@ -425,7 +468,7 @@ export default function ProgramEdit() {
               hitSlop={8}
               onPress={() => handleDeleteWorkout(selectedWorkout.id)}
             >
-              <Ionicons name="trash-outline" size={20} color="#FF453A" />
+              <Ionicons name="trash-outline" size={20} color={colors.danger} />
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -437,428 +480,39 @@ export default function ProgramEdit() {
           </View>
         </View>
 
-        {/* Workout Name Input */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>{t('workoutName')}</Text>
-          <TextInput
-            value={selectedWorkout.name}
-            onChangeText={(text) => handleWorkoutNameChange(selectedWorkout.id, text)}
-            placeholder="Workout Name"
-            placeholderTextColor={colors.muted}
-            style={styles.textInput}
-            autoCapitalize="words"
-          />
-          <Text style={styles.workoutSubFocus}>
-            {selectedWorkout.muscleGroups.map((m) => tm(m)).join(' • ')}
-          </Text>
-        </View>
-
-        {/* Workout Day Selector */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>{language === 'uk' ? 'ДЕНЬ ТИЖНЯ' : 'DAY OF THE WEEK'}</Text>
-          <View style={styles.weekdayChipRow}>
-            {ALL_WEEKDAYS.map((day) => {
-              const isSelected = selectedWorkout.dayLabel?.toUpperCase() === day;
-              return (
-                <Pressable
-                  key={day}
-                  accessibilityRole="button"
-                  accessibilityLabel={td(day)}
-                  onPress={() => {
-                    hapticLight();
-                    handleWorkoutDayLabelChange(selectedWorkout.id, day);
-                  }}
-                  style={[styles.weekdayChip, isSelected && styles.weekdayChipSelected]}
-                >
-                  <Text style={[styles.weekdayChipText, isSelected && styles.weekdayChipTextSelected]}>
-                    {td(day)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Exercises List */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionLabel}>
-              {t('exercises').toUpperCase()} ({selectedWorkout.exercises.length})
-            </Text>
-            <Text style={styles.subHelpText}>{t('reorderVariables')}</Text>
-          </View>
-
-          {selectedWorkout.exercises.map((exercise, exIndex) => {
-            const isFirst = exIndex === 0;
-            const isLast = exIndex === selectedWorkout.exercises.length - 1;
-            const isSupersetA1 = Boolean(exercise.supersetWithNext && !isLast);
-            const isSupersetA2 = Boolean(
-              exIndex > 0 && selectedWorkout.exercises[exIndex - 1]?.supersetWithNext
-            );
-            const weightDisplay =
-              rawWeightInputs[exercise.id] !== undefined
-                ? rawWeightInputs[exercise.id]
-                : formatWeight(fromKg(exercise.recommendedWeight ?? 0));
-            const incrementDisplay =
-              rawIncrementInputs[exercise.id] !== undefined
-                ? rawIncrementInputs[exercise.id]
-                : formatWeight(fromKg(exercise.weightIncrement ?? 0));
-
-            return (
-              <Card
-                key={exercise.id}
-                style={[
-                  styles.exerciseCard,
-                  (isSupersetA1 || isSupersetA2) && {
-                    borderColor: 'rgba(168, 85, 247, 0.45)',
-                    borderWidth: 1.5,
-                  },
-                ]}
-              >
-                {/* Exercise Header & Order Controls */}
-                <View style={styles.exerciseHeader}>
-                  <View style={styles.exerciseMetaCol}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      {(isSupersetA1 || isSupersetA2) && (
-                        <View
-                          style={{
-                            backgroundColor: 'rgba(168, 85, 247, 0.18)',
-                            borderWidth: 1,
-                            borderColor: 'rgba(168, 85, 247, 0.4)',
-                            borderRadius: 6,
-                            paddingHorizontal: 6,
-                            paddingVertical: 2,
-                          }}
-                        >
-                          <Text style={{ color: '#A855F7', fontSize: 10, fontWeight: '900' }}>
-                            {isSupersetA1 ? 'A1' : 'A2'}
-                          </Text>
-                        </View>
-                      )}
-                      <Text style={styles.exerciseTitle}>{te(exercise.name)}</Text>
-                    </View>
-                    <Text style={styles.exerciseMuscle}>
-                      {tm(exercise.muscleGroup)} · {tq(exercise.equipment)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.exerciseTopActions}>
-                    {!isLast && (
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() => handleToggleSuperset(selectedWorkout.id, exIndex)}
-                        style={({ pressed }) => [
-                          styles.miniIconButton,
-                          isSupersetA1 && {
-                            backgroundColor: 'rgba(168, 85, 247, 0.2)',
-                            borderColor: '#A855F7',
-                          },
-                          pressed && styles.buttonPressed,
-                        ]}
-                      >
-                        <Ionicons
-                          name={isSupersetA1 ? 'link' : 'link-outline'}
-                          size={14}
-                          color={isSupersetA1 ? '#A855F7' : colors.text}
-                        />
-                      </Pressable>
-                    )}
-
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => handleMoveExerciseUp(selectedWorkout.id, exIndex)}
-                      disabled={isFirst}
-                      style={({ pressed }) => [
-                        styles.miniIconButton,
-                        isFirst && styles.iconButtonDisabled,
-                        pressed && styles.buttonPressed,
-                      ]}
-                    >
-                      <Text style={[styles.miniIconText, isFirst && styles.iconTextDisabled]}>▲</Text>
-                    </Pressable>
-
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => handleMoveExerciseDown(selectedWorkout.id, exIndex)}
-                      disabled={isLast}
-                      style={({ pressed }) => [
-                        styles.miniIconButton,
-                        isLast && styles.iconButtonDisabled,
-                        pressed && styles.buttonPressed,
-                      ]}
-                    >
-                      <Text style={[styles.miniIconText, isLast && styles.iconTextDisabled]}>▼</Text>
-                    </Pressable>
-
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => handleDeleteExercise(selectedWorkout.id, exercise.id)}
-                      style={({ pressed }) => [
-                        styles.miniDeleteButton,
-                        pressed && styles.buttonPressed,
-                      ]}
-                    >
-                      <Text style={styles.miniDeleteText}>✕</Text>
-                    </Pressable>
-                  </View>
-                </View>
-
-                {/* Exercise Variables Grid */}
-                <View style={styles.variablesGrid}>
-                  {/* Sets Control */}
-                  <View style={styles.variableCol}>
-                    <View style={styles.variableLabelRow}>
-                      <Text style={styles.variableLabel}>{t('sets').toUpperCase()}</Text>
-                    </View>
-                    <View style={styles.stepperContainer}>
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() => handleSetsDelta(selectedWorkout.id, exercise, -1)}
-                        style={({ pressed }) => [
-                          styles.stepperButton,
-                          exercise.sets <= 1 && styles.iconButtonDisabled,
-                          pressed && styles.buttonPressed,
-                        ]}
-                      >
-                        <Text style={styles.stepperButtonText}>-</Text>
-                      </Pressable>
-
-                      <Text style={styles.stepperValueText}>{exercise.sets}</Text>
-
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() => handleSetsDelta(selectedWorkout.id, exercise, 1)}
-                        style={({ pressed }) => [
-                          styles.stepperButton,
-                          exercise.sets >= 15 && styles.iconButtonDisabled,
-                          pressed && styles.buttonPressed,
-                        ]}
-                      >
-                        <Text style={styles.stepperButtonText}>+</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-
-                  {/* Target Rep Range */}
-                  <View style={styles.variableCol}>
-                    <View style={styles.variableLabelRow}>
-                      <Text style={styles.variableLabel}>{t('reps').toUpperCase()}</Text>
-                    </View>
-                    <TextInput
-                      value={exercise.targetRepRange}
-                      onChangeText={(text) =>
-                        handleUpdateExercise(selectedWorkout.id, exercise.id, {
-                          targetRepRange: text,
-                        })
-                      }
-                      maxLength={10}
-                      placeholder="8-10"
-                      placeholderTextColor={colors.muted}
-                      style={styles.gridInput}
-                    />
-                  </View>
-                </View>
-
-                <View style={[styles.variablesGrid, { marginTop: spacing.md }]}>
-                  {/* Recommended Weight */}
-                  <View style={styles.variableCol}>
-                    <View style={styles.variableLabelRow}>
-                      <Text style={styles.variableLabel} numberOfLines={1}>
-                        {language === 'uk'
-                          ? `ВАГА (${unitLabel.toUpperCase()})`
-                          : `WEIGHT (${unitLabel.toUpperCase()})`}
-                      </Text>
-                    </View>
-                    <View style={styles.stepperContainer}>
-                      <Pressable
-                        onPress={() => handleWeightDelta(selectedWorkout.id, exercise, -weightStep)}
-                        style={styles.stepperButton}
-                      >
-                        <Text style={styles.stepperButtonText}>-</Text>
-                      </Pressable>
-                      <TextInput
-                        value={weightDisplay}
-                        onChangeText={(text) => {
-                          const num = parseFloat(text.replace(',', '.'));
-                          const sanitized = !isNaN(num) && num > 999 ? '999' : text;
-                          setRawWeightInputs((prev) => ({ ...prev, [exercise.id]: sanitized }));
-                          if (!isNaN(num) && num >= 0) {
-                            const clamped = Math.min(999, Math.round(num * 10) / 10);
-                            handleUpdateExercise(selectedWorkout.id, exercise.id, {
-                              recommendedWeight: toKg(clamped),
-                            });
-                          } else if (text.trim() === '') {
-                            handleUpdateExercise(selectedWorkout.id, exercise.id, {
-                              recommendedWeight: 0,
-                            });
-                          }
-                        }}
-                        maxLength={5}
-                        onBlur={() => {
-                          const num = parseFloat(weightDisplay);
-                          if (isNaN(num)) {
-                            setRawWeightInputs((prev) => ({
-                              ...prev,
-                              [exercise.id]: formatWeight(fromKg(exercise.recommendedWeight ?? 0)),
-                            }));
-                          }
-                        }}
-                        keyboardType="decimal-pad"
-                        placeholder="0"
-                        placeholderTextColor={colors.muted}
-                        style={[styles.gridInput, styles.stepperInputCenter]}
-                      />
-                      <Pressable
-                        onPress={() => handleWeightDelta(selectedWorkout.id, exercise, weightStep)}
-                        style={styles.stepperButton}
-                      >
-                        <Text style={styles.stepperButtonText}>+</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-
-                  {/* Weight Increment */}
-                  <View style={styles.variableCol}>
-                    <View style={styles.variableLabelRow}>
-                      <Text style={styles.variableLabel} numberOfLines={1}>
-                        {language === 'uk'
-                          ? `КРОК (${unitLabel.toUpperCase()})`
-                          : `${t('increment')} (${unitLabel.toUpperCase()})`}
-                      </Text>
-                    </View>
-                    <TextInput
-                      value={incrementDisplay}
-                      onChangeText={(text) => {
-                        const num = parseFloat(text.replace(',', '.'));
-                        const sanitized = !isNaN(num) && num > 50 ? '50' : text;
-                        setRawIncrementInputs((prev) => ({ ...prev, [exercise.id]: sanitized }));
-                        if (!isNaN(num) && num >= 0) {
-                          const clamped = Math.min(50, Math.round(num * 10) / 10);
-                          handleUpdateExercise(selectedWorkout.id, exercise.id, {
-                            weightIncrement: toKg(clamped),
-                          });
-                        }
-                      }}
-                      maxLength={4}
-                      onBlur={() => {
-                        const num = parseFloat(incrementDisplay);
-                        if (isNaN(num)) {
-                          setRawIncrementInputs((prev) => ({
-                            ...prev,
-                            [exercise.id]: formatWeight(fromKg(exercise.weightIncrement ?? 0)),
-                          }));
-                        }
-                      }}
-                      keyboardType="decimal-pad"
-                      placeholder="2.5"
-                      placeholderTextColor={colors.muted}
-                      style={styles.gridInput}
-                    />
-                  </View>
-                </View>
-
-                <View style={[styles.variablesGrid, { marginTop: spacing.md }]}>
-                  {/* Rest Duration */}
-                  <View style={styles.variableCol}>
-                    <View style={styles.variableLabelRow}>
-                      <Text style={styles.variableLabel} numberOfLines={1}>
-                        {language === 'uk' ? 'ВІДПОЧИНОК (СЕК)' : 'REST (SEC)'}
-                      </Text>
-                    </View>
-                    <TextInput
-                      value={String(exercise.restSeconds ?? 90)}
-                      onChangeText={(text) => {
-                        const num = parseInt(text, 10);
-                        if (!isNaN(num) && num >= 0 && num <= 600) {
-                          handleUpdateExercise(selectedWorkout.id, exercise.id, {
-                            restSeconds: num,
-                          });
-                        }
-                      }}
-                      keyboardType="number-pad"
-                      placeholder="90"
-                      placeholderTextColor={colors.muted}
-                      style={styles.gridInput}
-                    />
-                  </View>
-
-                  {/* Rest Presets */}
-                  <View style={styles.variableCol}>
-                    <View style={styles.variableLabelRow}>
-                      <Text style={styles.variableLabel} numberOfLines={1}>
-                        {language === 'uk' ? 'ПРЕСЕТИ ЧАСУ' : 'PRESETS'}
-                      </Text>
-                    </View>
-                    <View style={styles.presetsRow}>
-                      {[
-                        { sec: 0, label: '0s' },
-                        { sec: 15, label: '15s' },
-                        { sec: 60, label: '60s' },
-                        { sec: 90, label: '90s' },
-                      ].map(({ sec, label }) => {
-                        const isCurrent = (exercise.restSeconds ?? 90) === sec;
-                        return (
-                          <Pressable
-                            key={sec}
-                            onPress={() => {
-                              hapticLight();
-                              handleUpdateExercise(selectedWorkout.id, exercise.id, {
-                                restSeconds: sec,
-                              });
-                            }}
-                            style={[styles.presetBtn, isCurrent && styles.presetBtnActive]}
-                          >
-                            <Text
-                              style={[
-                                styles.presetBtnText,
-                                isCurrent && styles.presetBtnTextActive,
-                              ]}
-                            >
-                              {label}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
-                </View>
-              </Card>
-            );
-          })}
-
-          {selectedWorkout.exercises.length === 0 && (
-            <View style={styles.emptyWorkoutCard}>
-              <Ionicons name="barbell-outline" size={36} color="#6C7A8E" style={{ marginBottom: 8 }} />
-              <Text style={styles.emptyWorkoutTitle}>
-                {language === 'uk' ? 'У тренуванні ще немає вправ' : 'No exercises yet'}
-              </Text>
-              <Text style={styles.emptyWorkoutSubtitle}>
-                {language === 'uk'
-                  ? 'Натисніть кнопку нижче, щоб додати вправи з каталогу'
-                  : 'Tap the button below to add exercises from library'}
-              </Text>
-            </View>
-          )}
-
-          {/* Add Exercise Button */}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setIsExercisePickerVisible(true)}
-            style={({ pressed }) => [styles.addExerciseButton, pressed && styles.buttonPressed]}
-          >
-            <Text style={styles.addExerciseText}>+ {t('addExercise').toUpperCase()}</Text>
-          </Pressable>
-        </View>
+        <WorkoutDayEditor
+          workoutName={selectedWorkout.name}
+          dayLabel={selectedWorkout.dayLabel || 'MON'}
+          exercises={selectedWorkout.exercises}
+          onChangeWorkoutName={(text) => handleWorkoutNameChange(selectedWorkout.id, text)}
+          onChangeDayLabel={(day) => handleWorkoutDayLabelChange(selectedWorkout.id, day)}
+          onUpdateExercise={(index, patch) => {
+            const targetEx = selectedWorkout.exercises[index];
+            if (targetEx) {
+              handleUpdateExercise(selectedWorkout.id, targetEx.id, patch);
+            }
+          }}
+          onMoveExerciseUp={(index) => handleMoveExerciseUp(selectedWorkout.id, index)}
+          onMoveExerciseDown={(index) => handleMoveExerciseDown(selectedWorkout.id, index)}
+          onToggleSuperset={(index) => handleToggleSuperset(selectedWorkout.id, index)}
+          onRemoveExercise={(index) => {
+            const targetEx = selectedWorkout.exercises[index];
+            if (targetEx) {
+              handleDeleteExercise(selectedWorkout.id, targetEx.id);
+            }
+          }}
+          onOpenAddExercises={() => setIsExercisePickerVisible(true)}
+        />
 
         {/* Delete Workout Day Button */}
-        <View style={styles.section}>
+        <View style={[styles.section, { marginTop: 18 }]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Delete Workout Day"
             onPress={() => handleDeleteWorkout(selectedWorkout.id)}
             style={({ pressed }) => [styles.deleteWorkoutFullBtn, pressed && styles.buttonPressed]}
           >
-            <Ionicons name="trash-outline" size={16} color="#FF453A" />
+            <Ionicons name="trash-outline" size={16} color={colors.danger} />
             <Text style={styles.deleteWorkoutFullText}>
               {language === 'uk' ? 'Видалити цей день тренування' : 'Delete this workout day'}
             </Text>
@@ -870,11 +524,12 @@ export default function ProgramEdit() {
           <Button onPress={() => setSelectedWorkoutId(null)}>{t('done').toUpperCase()}</Button>
         </View>
 
-        {/* Exercise Picker Modal */}
+        {/* Unified Exercise Picker Modal (Supports Multi-Select Batch Adding!) */}
         <ExercisePickerModal
           visible={isExercisePickerVisible}
           onClose={() => setIsExercisePickerVisible(false)}
           onSelect={(libExercise) => handleAddExercise(selectedWorkout.id, libExercise)}
+          onSelectMultiple={(items) => handleAddExercisesBatch(selectedWorkout.id, items)}
         />
       </Screen>
     );

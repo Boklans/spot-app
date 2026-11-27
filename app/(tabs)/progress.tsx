@@ -19,6 +19,7 @@ import {
   type StrengthSessionPoint,
 } from '@/components/progress/RealStrengthGraph';
 import { BodyWeightGraph } from '@/components/progress/BodyWeightGraph';
+import { HistoryFeed } from '@/components/history/HistoryFeed';
 import { LogWeightModal } from '@/components/progress/LogWeightModal';
 import { MuscleHeatmap } from '@/components/progress/MuscleHeatmap';
 import { AnalyticsSkeleton } from '@/components/ui/Skeleton';
@@ -49,6 +50,7 @@ import { useProgramStore } from '@/store/programStore';
 import { useUserProfileStore } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 
+type ProgressSectionMode = 'analytics' | 'history';
 type ActiveViewTab = 'overview' | 'muscles' | 'weight' | 'prs';
 
 const CORE_MUSCLES = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core'];
@@ -69,17 +71,26 @@ export default function Progress() {
   const deleteBodyWeightEntry = useBodyWeightStore((state) => state.deleteEntry);
   const getBodyWeightStats = useBodyWeightStore((state) => state.getStats);
 
-  const params = useLocalSearchParams<{ tab?: string }>();
+  const params = useLocalSearchParams<{ tab?: string; view?: string }>();
+  const [sectionMode, setSectionMode] = useState<ProgressSectionMode>(
+    params.view === 'history' ? 'history' : 'analytics'
+  );
   const [period, setPeriod] = useState<ProgressPeriod>('30D');
   const [activeTab, setActiveTab] = useState<ActiveViewTab>(
     params.tab === 'muscles' || params.tab === 'weight' || params.tab === 'prs' ? params.tab : 'overview'
   );
 
   useEffect(() => {
+    if (params.view === 'history') {
+      setSectionMode('history');
+    } else if (params.view === 'analytics') {
+      setSectionMode('analytics');
+    }
     if (params.tab === 'muscles' || params.tab === 'weight' || params.tab === 'prs' || params.tab === 'overview') {
+      setSectionMode('analytics');
       setActiveTab(params.tab);
     }
-  }, [params.tab]);
+  }, [params.tab, params.view]);
   const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | 'ALL'>('1M');
   const [chartMetric, setChartMetric] = useState<StrengthChartMetric>('weight');
   const [selectedMuscle, setSelectedMuscle] = useState('Chest');
@@ -484,91 +495,106 @@ export default function Progress() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* 1. Header with Journal Link & Period Dropdown */}
+      {/* 1. Header with Period Dropdown */}
       <View style={styles.header}>
         <Text style={styles.title} numberOfLines={1}>
-          {t('analytics')}
+          {sectionMode === 'history'
+            ? t('workoutHistory')
+            : t('analytics')}
         </Text>
-        <View style={styles.headerActionsRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Workout History"
-            onPress={() => {
-              hapticLight();
-              router.push('/history');
-            }}
-            style={({ pressed }) => [styles.historyHeaderBtn, pressed && { opacity: 0.7 }]}
-          >
-            <Ionicons name="time-outline" size={14} color={colors.text} />
-            <Text style={styles.historyHeaderBtnText} numberOfLines={1}>
-              {language === 'uk' ? 'Журнал' : 'History'}
-              {history.length > 0 ? ` (${history.length})` : ''}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Select time period"
-            onPress={() => {
-              hapticLight();
-              setPeriodDropdownOpen(!periodDropdownOpen);
-            }}
-            style={styles.dropdownBtn}
-          >
-            <Text style={styles.dropdownBtnText} numberOfLines={1}>
-              {periodCompactLabels[period]}
-            </Text>
-            <Ionicons name="chevron-down" size={13} color={colors.secondary} />
-          </Pressable>
-        </View>
-      </View>
-
-      {/* Period Dropdown Menu */}
-      {periodDropdownOpen && (
-        <View style={styles.dropdownMenu}>
-          {(['7D', '30D', 'ALL'] as ProgressPeriod[]).map((p) => (
+        {sectionMode === 'analytics' && (
+          <View style={styles.headerActionsRow}>
             <Pressable
               accessibilityRole="button"
-              key={p}
+              accessibilityLabel="Select time period"
               onPress={() => {
                 hapticLight();
-                setPeriod(p);
-                setPeriodDropdownOpen(false);
+                setPeriodDropdownOpen(!periodDropdownOpen);
               }}
-              style={[styles.dropdownItem, period === p && styles.dropdownItemActive]}
+              style={styles.dropdownBtn}
             >
-              <Text
-                style={[
-                  styles.dropdownItemText,
-                  period === p && styles.dropdownItemTextActive,
-                ]}
-              >
-                {periodLabels[p]}
+              <Text style={styles.dropdownBtnText} numberOfLines={1}>
+                {periodCompactLabels[period]}
               </Text>
+              <Ionicons name="chevron-down" size={13} color={colors.secondary} />
             </Pressable>
-          ))}
-        </View>
-      )}
+          </View>
+        )}
+      </View>
 
-      {/* 2. Top Sliding Segment Switcher (Overview / Weight / Muscles / PRs) */}
-      <SlidingSegmentedControl<ActiveViewTab>
-        variant="bar"
-        value={activeTab}
-        onChange={setActiveTab}
-        style={{ marginHorizontal: 20, marginTop: 4, marginBottom: 14 }}
+      {/* Top-Level Promoted Toggle: Analytics | History (N) */}
+      <SlidingSegmentedControl<ProgressSectionMode>
+        variant="pill"
+        value={sectionMode}
+        onChange={(nextMode) => {
+          setPeriodDropdownOpen(false);
+          setSectionMode(nextMode);
+        }}
+        style={{ marginHorizontal: 20, marginBottom: 8 }}
         options={[
-          { key: 'overview', label: t('overview') },
-          { key: 'weight', label: language === 'uk' ? 'Вага' : 'Weight' },
-          { key: 'muscles', label: language === 'uk' ? 'Мʼязи' : 'Muscles' },
-          { key: 'prs', label: t('prs') },
+          { key: 'analytics', label: t('analytics') },
+          {
+            key: 'history',
+            label:
+              history.length > 0
+                ? `${language === 'uk' ? 'Історія' : 'History'} (${history.length})`
+                : language === 'uk'
+                  ? 'Історія'
+                  : 'History',
+          },
         ]}
       />
 
-      <ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomBarInset }]}
-      >
+      {sectionMode === 'history' ? (
+        <HistoryFeed bottomInset={bottomBarInset} />
+      ) : (
+        <>
+          {/* Period Dropdown Menu */}
+          {periodDropdownOpen && (
+            <View style={styles.dropdownMenu}>
+              {(['7D', '30D', 'ALL'] as ProgressPeriod[]).map((p) => (
+                <Pressable
+                  accessibilityRole="button"
+                  key={p}
+                  onPress={() => {
+                    hapticLight();
+                    setPeriod(p);
+                    setPeriodDropdownOpen(false);
+                  }}
+                  style={[styles.dropdownItem, period === p && styles.dropdownItemActive]}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownItemText,
+                      period === p && styles.dropdownItemTextActive,
+                    ]}
+                  >
+                    {periodLabels[p]}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          {/* 2. Analytics Sub-Tab Switcher (Overview / Weight / Muscles / PRs) */}
+          <SlidingSegmentedControl<ActiveViewTab>
+            variant="bar"
+            value={activeTab}
+            onChange={setActiveTab}
+            style={{ marginHorizontal: 20, marginTop: 2, marginBottom: 12 }}
+            options={[
+              { key: 'overview', label: t('overview') },
+              { key: 'weight', label: language === 'uk' ? 'Вага' : 'Weight' },
+              { key: 'muscles', label: language === 'uk' ? 'Мʼязи' : 'Muscles' },
+              { key: 'prs', label: t('prs') },
+            ]}
+          />
+
+          <ScrollView
+            ref={scrollRef}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomBarInset }]}
+          >
         {!historyHydrated && history.length === 0 ? (
           <AnalyticsSkeleton />
         ) : (
@@ -591,7 +617,7 @@ export default function Progress() {
                     accessibilityRole="button"
                     onPress={() => {
                       hapticLight();
-                      router.push('/history');
+                      setSectionMode('history');
                     }}
                     style={styles.statStripCol}
                   >
@@ -1501,7 +1527,9 @@ export default function Progress() {
         )}
         </Animated.View>
         )}
-      </ScrollView>
+          </ScrollView>
+        </>
+      )}
 
       <LogWeightModal
         visible={logWeightModalVisible}

@@ -738,6 +738,44 @@ let passed = 0;
     passed++;
   }
 
+  // ============================================================================
+  // TEST 13: Unified ExercisePicker, 64pt Accordion Editor & Virtualized HistoryFeed (P1-12, P1-13, P1-14)
+  // ============================================================================
+  {
+    const fs = require('fs');
+    const path = require('path');
+
+    const pickerSrc = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'program', 'ExercisePickerModal.tsx'),
+      'utf8'
+    );
+    assert.ok(pickerSrc.includes('EQUIPMENT_FILTERS'), 'ExercisePickerModal must provide equipment filtering');
+    assert.ok(pickerSrc.includes('onSelectMultiple'), 'ExercisePickerModal must support multi-select batch adding');
+    assert.ok(pickerSrc.includes('deleteCustomExercise'), 'ExercisePickerModal must support custom exercise deletion');
+
+    const accordionSrc = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'program', 'WorkoutDayEditor.tsx'),
+      'utf8'
+    );
+    assert.ok(accordionSrc.includes('minHeight: 64'), 'WorkoutDayEditor must render 64pt collapsed accordion rows');
+
+    const historyFeedSrc = fs.readFileSync(
+      path.join(__dirname, '..', 'components', 'history', 'HistoryFeed.tsx'),
+      'utf8'
+    );
+    assert.ok(historyFeedSrc.includes('<SectionList'), 'HistoryFeed must use virtualized <SectionList>');
+    assert.ok(!historyFeedSrc.includes('deleteWorkout('), 'HistoryFeed cards must not expose accidental 2-tap delete button');
+
+    const progressSrc = fs.readFileSync(
+      path.join(__dirname, '..', 'app', '(tabs)', 'progress.tsx'),
+      'utf8'
+    );
+    assert.ok(progressSrc.includes('<HistoryFeed'), 'Progress tab must promote virtualized HistoryFeed');
+
+    console.log('✅ TEST 13 PASSED (P1-12, P1-13, P1-14): Unified ExercisePicker, 64pt Accordion Editor & Virtualized HistoryFeed verified');
+    passed++;
+  }
+
   console.log(`\n🎉 ALL ${passed} GYM FLOOR PRO ENGINE TESTS PASSED!\n`);
 })().catch((err) => {
   console.error('❌ Async test failure in verify-gym-pro.js:', err);

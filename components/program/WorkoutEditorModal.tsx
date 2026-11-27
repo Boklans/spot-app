@@ -1,27 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
-import {
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ExerciseLibraryModal } from './ExerciseLibraryModal';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ExercisePickerModal } from '@/components/program/ExercisePickerModal';
+import { WorkoutDayEditor } from '@/components/program/WorkoutDayEditor';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { Button } from '@/components/ui/Button';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
-import { type CatalogExercise } from '@/lib/exerciseCatalog';
-import { getExerciseImage } from '@/lib/exerciseImages';
+import { radii } from '@/constants/radii';
+import { fonts } from '@/constants/typography';
+import type { LibraryExercise } from '@/lib/exerciseLibrary';
 import { hapticImpact, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
-import { ALL_WEEKDAYS } from '@/lib/programGenerator';
-import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
+import { generateUUID } from '@/lib/programMigration';
 import type { UserExercise, UserWorkout } from '@/types/userProgram';
 
 interface WorkoutEditorModalProps {
@@ -41,1092 +31,261 @@ export function WorkoutEditorModal({
 }: WorkoutEditorModalProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { t, tm, td, te, tw, tq, language } = useI18n();
-  const { unitLabel, step: weightStep, fromKg, toKg } = useWeightUnit();
+  const { t, td, tw, language } = useI18n();
+  const isUk = language === 'uk';
+
   const [workoutName, setWorkoutName] = useState(workout ? tw(workout.name) : '');
   const [dayLabel, setDayLabel] = useState(workout?.dayLabel || 'MON');
   const [exercises, setExercises] = useState<UserExercise[]>(workout?.exercises ?? []);
-  const [rawWeightInputs, setRawWeightInputs] = useState<Record<number, string>>({});
-  const [libraryVisible, setLibraryVisible] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (workout && visible) {
       setWorkoutName(tw(workout.name));
       setDayLabel(workout.dayLabel || 'MON');
       setExercises(workout.exercises);
-      setRawWeightInputs({});
-      setLibraryVisible(false);
+      setPickerVisible(false);
     }
   }, [workout?.id, visible]);
 
   if (!workout) return null;
 
-  const handleUpdateExercise = (index: number, patch: Partial<UserExercise>) => {
-    setExercises((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, ...patch } : item))
-    );
-  };
+  const mapLibraryToUserExercise = (item: LibraryExercise): UserExercise => ({
+    id: generateUUID(),
+    name: item.name,
+    muscleGroup: item.muscleGroup,
+    sets: item.defaultSets || 3,
+    recommendedWeight: item.defaultWeight || 0,
+    targetRepRange: item.defaultRepRange || '8-12',
+    equipment: item.equipment,
+    weightIncrement: item.weightIncrement || 2.5,
+    restSeconds: 90,
+    customImageUri: item.customImageUri,
+    isCustom: item.isCustom,
+  });
 
-  const handleMoveExerciseUp = (index: number) => {
-    if (index <= 0) return;
-    hapticLight();
-    setExercises((prev) => {
-      const next = [...prev];
-      const temp = next[index - 1];
-      next[index - 1] = next[index];
-      next[index] = temp;
-      return next.map((ex, i) =>
-        i === next.length - 1 ? { ...ex, supersetWithNext: false } : ex
-      );
-    });
-  };
-
-  const handleMoveExerciseDown = (index: number) => {
-    setExercises((prev) => {
-      if (index >= prev.length - 1) return prev;
-      hapticLight();
-      const next = [...prev];
-      const temp = next[index + 1];
-      next[index + 1] = next[index];
-      next[index] = temp;
-      return next.map((ex, i) =>
-        i === next.length - 1 ? { ...ex, supersetWithNext: false } : ex
-      );
-    });
-  };
-
-  const handleToggleSuperset = (index: number) => {
-    hapticMedium();
-    setExercises((prev) => {
-      if (index < 0 || index >= prev.length - 1) return prev;
-      const targetWillEnable = !prev[index].supersetWithNext;
-      return prev.map((ex, i) => {
-        if (i === index) {
-          return { ...ex, supersetWithNext: targetWillEnable };
-        }
-        if (targetWillEnable && (i === index - 1 || i === index + 1)) {
-          return { ...ex, supersetWithNext: false };
-        }
-        return ex;
-      });
-    });
-  };
-
-  const handleRemoveExercise = (index: number) => {
-    hapticImpact();
-    setExercises((prev) =>
-      prev
-        .filter((_, i) => i !== index)
-        .map((ex, i, arr) => (i === arr.length - 1 ? { ...ex, supersetWithNext: false } : ex))
-    );
-  };
-
-  const handleAddFromLibrary = (item: CatalogExercise) => {
-    const newEx: UserExercise = {
-      id: `custom-ex-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      name: item.name,
-      muscleGroup: item.muscleGroup,
-      sets: item.sets,
-      recommendedWeight: item.defaultWeight,
-      targetRepRange: item.targetRepRange,
-      equipment: item.equipment,
-      weightIncrement: 2.5,
-    };
-    setExercises((prev) => [...prev, newEx]);
+  const handleAddBatch = (items: LibraryExercise[]) => {
+    const mapped = items.map(mapLibraryToUserExercise);
+    setExercises((prev) => [...prev, ...mapped]);
   };
 
   const handleSave = () => {
     if (exercises.length === 0) {
       Alert.alert(
-        language === 'uk' ? 'Увага' : 'Notice',
-        language === 'uk' ? 'Додайте хоча б одну вправу перед збереженням' : 'Add at least one exercise before saving'
+        isUk ? 'Увага' : 'Notice',
+        isUk
+          ? 'Додайте хоча б одну вправу перед збереженням'
+          : 'Add at least one exercise before saving'
       );
       return;
     }
     hapticSuccess();
-    const uniqueMuscles = [
-      ...new Set(exercises.map((e) => e.muscleGroup)),
-    ];
-    const updated: UserWorkout = {
+    const uniqueMuscles = [...new Set(exercises.map((e) => e.muscleGroup))];
+    onSaveWorkout({
       ...workout,
       name: workoutName.trim() || workout.name,
       dayLabel,
       exercises,
       muscleGroups: uniqueMuscles,
       estimatedMinutes: Math.max(30, exercises.length * 9),
-    };
-    onSaveWorkout(updated);
+    });
     onClose();
   };
 
   return (
-    <Modal
+    <BottomSheet
       visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
+      onClose={onClose}
+      maxHeight="92%"
+      backgroundColor={colors.background}
     >
-      <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardWrap}
+      <View style={styles.sheetWrap}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>{t('customizeWorkout')}</Text>
+            <Text style={styles.headerSubtitle}>{td(dayLabel)}</Text>
+          </View>
+
+          <View style={styles.headerActions}>
+            {onDeleteWorkout && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete workout day"
+                hitSlop={10}
+                onPress={() => onDeleteWorkout(workout.id)}
+                style={styles.deleteDayBtn}
+              >
+                <Ionicons name="trash-outline" size={18} color={colors.danger} />
+              </Pressable>
+            )}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              hitSlop={10}
+              onPress={onClose}
+              style={styles.closeBtn}
+            >
+              <Ionicons name="close" size={20} color={colors.secondary} />
+            </Pressable>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <SafeAreaView style={styles.sheetContainer}>
-            {libraryVisible ? (
-              <ExerciseLibraryModal
-                visible={true}
-                embedded={true}
-                onSelectExercise={(item) => {
-                  handleAddFromLibrary(item);
-                  setLibraryVisible(false);
-                }}
-                onClose={() => setLibraryVisible(false)}
-              />
-            ) : (
-              <>
-                {/* Header */}
-                <View style={styles.header}>
-                  <View>
-                    <Text style={styles.headerTitle}>{t('customizeWorkout')}</Text>
-                    <Text style={styles.headerSubtitle}>{td(dayLabel)}</Text>
-                  </View>
-                  <View style={styles.headerActions}>
-                    {onDeleteWorkout && (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Delete workout day"
-                        hitSlop={12}
-                        onPress={() => workout && onDeleteWorkout(workout.id)}
-                        style={styles.headerDeleteBtn}
-                      >
-                        <Ionicons name="trash-outline" size={20} color="#FF453A" />
-                      </Pressable>
-                    )}
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Close"
-                      hitSlop={12}
-                      onPress={onClose}
-                      style={styles.closeBtn}
-                    >
-                      <Ionicons name="close" size={22} color={colors.text} />
-                    </Pressable>
-                  </View>
-                </View>
+          <WorkoutDayEditor
+            workoutName={workoutName}
+            dayLabel={dayLabel}
+            exercises={exercises}
+            onChangeWorkoutName={setWorkoutName}
+            onChangeDayLabel={setDayLabel}
+            onUpdateExercise={(index, patch) =>
+              setExercises((prev) =>
+                prev.map((item, i) => (i === index ? { ...item, ...patch } : item))
+              )
+            }
+            onMoveExerciseUp={(index) => {
+              if (index <= 0) return;
+              hapticLight();
+              setExercises((prev) => {
+                const next = [...prev];
+                const tmp = next[index - 1];
+                next[index - 1] = next[index];
+                next[index] = tmp;
+                return next.map((ex, i) =>
+                  i === next.length - 1 ? { ...ex, supersetWithNext: false } : ex
+                );
+              });
+            }}
+            onMoveExerciseDown={(index) => {
+              setExercises((prev) => {
+                if (index >= prev.length - 1) return prev;
+                hapticLight();
+                const next = [...prev];
+                const tmp = next[index + 1];
+                next[index + 1] = next[index];
+                next[index] = tmp;
+                return next.map((ex, i) =>
+                  i === next.length - 1 ? { ...ex, supersetWithNext: false } : ex
+                );
+              });
+            }}
+            onToggleSuperset={(index) => {
+              hapticMedium();
+              setExercises((prev) => {
+                if (index < 0 || index >= prev.length - 1) return prev;
+                const willEnable = !prev[index].supersetWithNext;
+                return prev.map((ex, i) => {
+                  if (i === index) return { ...ex, supersetWithNext: willEnable };
+                  if (willEnable && (i === index - 1 || i === index + 1)) {
+                    return { ...ex, supersetWithNext: false };
+                  }
+                  return ex;
+                });
+              });
+            }}
+            onRemoveExercise={(index) => {
+              hapticImpact();
+              setExercises((prev) =>
+                prev
+                  .filter((_, i) => i !== index)
+                  .map((ex, i, arr) =>
+                    i === arr.length - 1 ? { ...ex, supersetWithNext: false } : ex
+                  )
+              );
+            }}
+            onOpenAddExercises={() => setPickerVisible(true)}
+          />
+        </ScrollView>
 
-                <ScrollView
-                  style={styles.mainScrollView}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={styles.scrollContent}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {/* Workout Name Field */}
-                <Text style={styles.inputLabel}>{t('workoutName')}</Text>
-                <View style={styles.nameInputWrap}>
-                  <TextInput
-                    style={styles.nameInput}
-                    value={workoutName}
-                    onChangeText={setWorkoutName}
-                    placeholder="e.g., Chest & Triceps"
-                    placeholderTextColor="#64748B"
-                  />
-                </View>
+        <View style={styles.footer}>
+          <Button onPress={handleSave}>
+            {isUk ? 'Зберегти зміни' : 'Save Changes'}
+          </Button>
+        </View>
 
-                {/* Day of Week Selector */}
-                <Text style={styles.inputLabel}>{language === 'uk' ? 'ДЕНЬ ТИЖНЯ' : 'DAY OF THE WEEK'}</Text>
-                <View style={styles.weekdayRow}>
-                  {ALL_WEEKDAYS.map((d) => {
-                    const isSelected = dayLabel?.toUpperCase() === d;
-                    return (
-                      <Pressable
-                        key={d}
-                        accessibilityRole="button"
-                        accessibilityLabel={td(d)}
-                        onPress={() => {
-                          hapticLight();
-                          setDayLabel(d);
-                        }}
-                        style={[styles.weekdayChip, isSelected && styles.weekdayChipActive]}
-                      >
-                        <Text style={[styles.weekdayChipText, isSelected && styles.weekdayChipTextActive]}>
-                          {td(d)}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {/* Exercise List */}
-                <View style={styles.listHeaderRow}>
-                  <Text style={styles.inputLabel}>
-                    {t('exercises').toUpperCase()} ({exercises.length})
-                  </Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => {
-                      hapticMedium();
-                      setLibraryVisible(true);
-                    }}
-                    style={styles.addBtnSmall}
-                  >
-                    <Ionicons name="add" size={16} color="#0B0D0F" />
-                    <Text style={styles.addBtnSmallText}>{t('addExercise')}</Text>
-                  </Pressable>
-                </View>
-
-                {exercises.length === 0 ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => {
-                      hapticMedium();
-                      setLibraryVisible(true);
-                    }}
-                    style={styles.emptyCard}
-                  >
-                    <Ionicons name="barbell-outline" size={32} color="#8E9BAE" style={{ marginBottom: 6 }} />
-                    <Text style={styles.emptyTitle}>
-                      {language === 'uk' ? 'Вправи відсутні' : 'No exercises'}
-                    </Text>
-                    <Text style={styles.emptySub}>
-                      {language === 'uk'
-                        ? 'Натисніть сюди, щоб обрати вправи з каталогу'
-                        : 'Tap here to add exercises from catalog'}
-                    </Text>
-                  </Pressable>
-                ) : (
-                  <View style={styles.exercisesList}>
-                    {exercises.map((ex, index) => {
-                      const isFirst = index === 0;
-                      const isLast = index === exercises.length - 1;
-                      const isSupersetA1 = Boolean(ex.supersetWithNext && !isLast);
-                      const isSupersetA2 = Boolean(index > 0 && exercises[index - 1]?.supersetWithNext);
-
-                      return (
-                        <View
-                          key={ex.id || `${ex.name}-${index}`}
-                          style={[
-                            styles.exerciseCard,
-                            (isSupersetA1 || isSupersetA2) && {
-                              borderColor: 'rgba(168, 85, 247, 0.45)',
-                            },
-                          ]}
-                        >
-                          {/* Header Row: Number, Thumb, Name, Muscle, Reorder & Delete buttons */}
-                          <View style={styles.exerciseCardHeader}>
-                            <View style={styles.exerciseHeaderLeft}>
-                              <View
-                                style={[
-                                  styles.orderBadge,
-                                  (isSupersetA1 || isSupersetA2) && {
-                                    backgroundColor: 'rgba(168, 85, 247, 0.2)',
-                                  },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.orderBadgeText,
-                                    (isSupersetA1 || isSupersetA2) && { color: '#A855F7' },
-                                  ]}
-                                >
-                                  {isSupersetA1 ? 'A1' : isSupersetA2 ? 'A2' : index + 1}
-                                </Text>
-                              </View>
-                              <View style={styles.exerciseThumbWrap}>
-                                <Image
-                                  source={getExerciseImage(ex.name, ex.customImageUri)}
-                                  style={styles.exerciseThumb}
-                                  resizeMode="cover"
-                                />
-                              </View>
-                              <View style={styles.exerciseHeaderInfo}>
-                                <Text style={styles.exerciseRowName} numberOfLines={2}>
-                                  {te(ex.name)}
-                                </Text>
-                                <Text style={styles.exerciseRowMeta} numberOfLines={1}>
-                                  {tm(ex.muscleGroup)} · {tq(ex.equipment)}
-                                </Text>
-                              </View>
-                            </View>
-
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel="Move exercise up"
-                                disabled={isFirst}
-                                hitSlop={6}
-                                onPress={() => handleMoveExerciseUp(index)}
-                                style={[
-                                  styles.reorderIconBtn,
-                                  isFirst && { opacity: 0.3 },
-                                ]}
-                              >
-                                <Ionicons name="arrow-up" size={15} color={colors.text} />
-                              </Pressable>
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel="Move exercise down"
-                                disabled={isLast}
-                                hitSlop={6}
-                                onPress={() => handleMoveExerciseDown(index)}
-                                style={[
-                                  styles.reorderIconBtn,
-                                  isLast && { opacity: 0.3 },
-                                ]}
-                              >
-                                <Ionicons name="arrow-down" size={15} color={colors.text} />
-                              </Pressable>
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel="Remove exercise"
-                                hitSlop={8}
-                                onPress={() => handleRemoveExercise(index)}
-                                style={styles.deleteBtn}
-                              >
-                                <Ionicons
-                                  name="trash-outline"
-                                  size={17}
-                                  color="#F87171"
-                                />
-                              </Pressable>
-                            </View>
-                          </View>
-
-                          {/* Superset Link Action Bar (if not last exercise, or if A2 in superset) */}
-                          {(!isLast || isSupersetA2) && (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                              {!isLast ? (
-                                <Pressable
-                                  accessibilityRole="button"
-                                  onPress={() => handleToggleSuperset(index)}
-                                  style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    paddingHorizontal: 10,
-                                    paddingVertical: 6,
-                                    borderRadius: 10,
-                                    backgroundColor: isSupersetA1
-                                      ? 'rgba(168, 85, 247, 0.16)'
-                                      : colors.elevated,
-                                    borderWidth: 1,
-                                    borderColor: isSupersetA1
-                                      ? 'rgba(168, 85, 247, 0.45)'
-                                      : colors.border,
-                                  }}
-                                >
-                                  <Ionicons
-                                    name={isSupersetA1 ? 'link' : 'link-outline'}
-                                    size={14}
-                                    color={isSupersetA1 ? '#A855F7' : colors.secondary}
-                                  />
-                                  <Text
-                                    style={{
-                                      fontSize: 11.5,
-                                      fontWeight: '700',
-                                      color: isSupersetA1 ? '#A855F7' : colors.secondary,
-                                    }}
-                                  >
-                                    {isSupersetA1
-                                      ? language === 'uk'
-                                        ? `Суперсет A1+A2 з «${te(exercises[index + 1]?.name || '')}»`
-                                        : `Superset A1+A2 with "${te(exercises[index + 1]?.name || '')}"`
-                                      : language === 'uk'
-                                        ? '+ Зв’язати в суперсет із наступною (A1+A2)'
-                                        : '+ Link as Superset with next (A1+A2)'}
-                                  </Text>
-                                </Pressable>
-                              ) : (
-                                <View
-                                  style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 5,
-                                    paddingHorizontal: 10,
-                                    paddingVertical: 5,
-                                    borderRadius: 8,
-                                    backgroundColor: 'rgba(168, 85, 247, 0.14)',
-                                  }}
-                                >
-                                  <Ionicons name="link" size={13} color="#A855F7" />
-                                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#A855F7' }}>
-                                    {language === 'uk' ? 'Друга вправа суперсету (A2)' : 'Second exercise in Superset (A2)'}
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                          )}
-
-                        {/* Parameter Controls Grid */}
-                        <View style={styles.paramsGrid}>
-                          {/* Row 1: Sets (Підходи) and Reps (Повторення) */}
-                          <View style={styles.paramsRow}>
-                            {/* Sets Stepper */}
-                            <View style={styles.paramCol}>
-                              <View style={styles.paramLabelRow}>
-                                <Text style={styles.paramLabel}>
-                                  {language === 'uk' ? 'ПІДХОДИ' : 'SETS'}
-                                </Text>
-                              </View>
-                              <View style={styles.stepperWrap}>
-                                <Pressable
-                                  accessibilityRole="button"
-                                  accessibilityLabel="Decrease sets"
-                                  hitSlop={6}
-                                  onPress={() =>
-                                    handleUpdateExercise(index, { sets: Math.max(1, ex.sets - 1) })
-                                  }
-                                  style={styles.stepperBtn}
-                                >
-                                  <Text style={styles.stepperBtnText}>-</Text>
-                                </Pressable>
-                                <Text style={styles.stepperValue}>{ex.sets}</Text>
-                                <Pressable
-                                  accessibilityRole="button"
-                                  accessibilityLabel="Increase sets"
-                                  hitSlop={6}
-                                  onPress={() =>
-                                    handleUpdateExercise(index, { sets: Math.min(10, ex.sets + 1) })
-                                  }
-                                  style={styles.stepperBtn}
-                                >
-                                  <Text style={styles.stepperBtnText}>+</Text>
-                                </Pressable>
-                              </View>
-                            </View>
-
-                            {/* Reps Input */}
-                            <View style={styles.paramCol}>
-                              <View style={styles.paramLabelRow}>
-                                <Text style={styles.paramLabel}>
-                                  {language === 'uk' ? 'ПОВТОРЕННЯ' : 'REPS'}
-                                </Text>
-                              </View>
-                              <TextInput
-                                style={styles.paramInput}
-                                value={ex.targetRepRange}
-                                onChangeText={(text) =>
-                                  handleUpdateExercise(index, { targetRepRange: text })
-                                }
-                                placeholder="8-12"
-                                placeholderTextColor="#64748B"
-                              />
-                            </View>
-                          </View>
-
-                          {/* Row 2: Weight (Вага) and Rest (Відпочинок) */}
-                          <View style={styles.paramsRow}>
-                            {/* Weight Stepper */}
-                            <View style={styles.paramCol}>
-                              <View style={styles.paramLabelRow}>
-                                <Text style={styles.paramLabel}>
-                                  {language === 'uk'
-                                    ? `ВАГА (${unitLabel.toUpperCase()})`
-                                    : `WEIGHT (${unitLabel.toUpperCase()})`}
-                                </Text>
-                              </View>
-                              <View style={styles.stepperWrap}>
-                                <Pressable
-                                  accessibilityRole="button"
-                                  accessibilityLabel="Decrease weight"
-                                  hitSlop={6}
-                                  onPress={() => {
-                                    hapticImpact();
-                                    const currentDisplay = fromKg(ex.recommendedWeight || 0);
-                                    const nextDisplay = Math.max(
-                                      0,
-                                      Math.round((currentDisplay - weightStep) * 10) / 10
-                                    );
-                                    setRawWeightInputs((prev) => ({
-                                      ...prev,
-                                      [index]: formatWeight(nextDisplay),
-                                    }));
-                                    handleUpdateExercise(index, {
-                                      recommendedWeight: toKg(nextDisplay),
-                                    });
-                                  }}
-                                  style={styles.stepperBtn}
-                                >
-                                  <Text style={styles.stepperBtnText}>-</Text>
-                                </Pressable>
-                                <TextInput
-                                  style={styles.stepperInput}
-                                  value={
-                                    rawWeightInputs[index] !== undefined
-                                      ? rawWeightInputs[index]
-                                      : formatWeight(fromKg(ex.recommendedWeight ?? 0))
-                                  }
-                                  onChangeText={(text) => {
-                                    setRawWeightInputs((prev) => ({ ...prev, [index]: text }));
-                                    const num = parseFloat(text.replace(',', '.'));
-                                    if (!isNaN(num) && num >= 0) {
-                                      const clamped = Math.min(999, Math.round(num * 10) / 10);
-                                      handleUpdateExercise(index, {
-                                        recommendedWeight: toKg(clamped),
-                                      });
-                                    } else if (text.trim() === '') {
-                                      handleUpdateExercise(index, { recommendedWeight: 0 });
-                                    }
-                                  }}
-                                  onBlur={() => {
-                                    const currentText = rawWeightInputs[index];
-                                    if (currentText !== undefined && isNaN(parseFloat(currentText.replace(',', '.')))) {
-                                      setRawWeightInputs((prev) => {
-                                        const copy = { ...prev };
-                                        delete copy[index];
-                                        return copy;
-                                      });
-                                    }
-                                  }}
-                                  maxLength={5}
-                                  keyboardType="decimal-pad"
-                                  placeholder="0"
-                                  placeholderTextColor="#64748B"
-                                />
-                                <Pressable
-                                  accessibilityRole="button"
-                                  accessibilityLabel="Increase weight"
-                                  hitSlop={6}
-                                  onPress={() => {
-                                    hapticImpact();
-                                    const currentDisplay = fromKg(ex.recommendedWeight || 0);
-                                    const nextDisplay = Math.min(
-                                      999,
-                                      Math.round((currentDisplay + weightStep) * 10) / 10
-                                    );
-                                    setRawWeightInputs((prev) => ({
-                                      ...prev,
-                                      [index]: formatWeight(nextDisplay),
-                                    }));
-                                    handleUpdateExercise(index, {
-                                      recommendedWeight: toKg(nextDisplay),
-                                    });
-                                  }}
-                                  style={styles.stepperBtn}
-                                >
-                                  <Text style={styles.stepperBtnText}>+</Text>
-                                </Pressable>
-                              </View>
-                            </View>
-
-                            {/* Rest Stepper */}
-                            <View style={styles.paramCol}>
-                              <View style={styles.paramLabelRow}>
-                                <Text style={styles.paramLabel}>
-                                  {language === 'uk' ? 'ВІДПОЧИНОК' : 'REST'}
-                                </Text>
-                              </View>
-                              <View style={styles.stepperWrap}>
-                                <Pressable
-                                  accessibilityRole="button"
-                                  accessibilityLabel="Decrease rest"
-                                  hitSlop={6}
-                                  onPress={() => {
-                                    hapticImpact();
-                                    handleUpdateExercise(index, {
-                                      restSeconds: Math.max(0, (ex.restSeconds ?? 90) - 15),
-                                    });
-                                  }}
-                                  style={styles.stepperBtn}
-                                >
-                                  <Text style={styles.stepperBtnText}>-</Text>
-                                </Pressable>
-                                <Text style={styles.stepperValue} numberOfLines={1}>
-                                  {(ex.restSeconds ?? 90) === 0
-                                    ? (language === 'uk' ? '0с Супер.' : '0s Superset')
-                                    : language === 'uk'
-                                      ? `${ex.restSeconds ?? 90}с`
-                                      : `${ex.restSeconds ?? 90}s`}
-                                </Text>
-                                <Pressable
-                                  accessibilityRole="button"
-                                  accessibilityLabel="Increase rest"
-                                  hitSlop={6}
-                                  onPress={() => {
-                                    hapticImpact();
-                                    handleUpdateExercise(index, {
-                                      restSeconds: Math.min(300, (ex.restSeconds ?? 90) + 15),
-                                    });
-                                  }}
-                                  style={styles.stepperBtn}
-                                >
-                                  <Text style={styles.stepperBtnText}>+</Text>
-                                </Pressable>
-                              </View>
-                            </View>
-                          </View>
-
-                          {/* Quick Rest Presets (0с Суперсет, 15с, 60с, 90с, 120с) */}
-                          <View style={styles.quickRestRow}>
-                            {[
-                              { sec: 0, labelUk: '0с (Суперсет)', labelEn: '0s (Superset)' },
-                              { sec: 15, labelUk: '15с', labelEn: '15s' },
-                              { sec: 60, labelUk: '60с', labelEn: '60s' },
-                              { sec: 90, labelUk: '90с', labelEn: '90s' },
-                              { sec: 120, labelUk: '120с', labelEn: '120s' },
-                            ].map((preset) => {
-                              const isCurrent = (ex.restSeconds ?? 90) === preset.sec;
-                              return (
-                                <Pressable
-                                  key={preset.sec}
-                                  onPress={() => {
-                                    hapticLight();
-                                    handleUpdateExercise(index, { restSeconds: preset.sec });
-                                  }}
-                                  style={[
-                                    styles.quickRestChip,
-                                    isCurrent && styles.quickRestChipActive,
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.quickRestChipText,
-                                      isCurrent && styles.quickRestChipTextActive,
-                                    ]}
-                                  >
-                                    {language === 'uk' ? preset.labelUk : preset.labelEn}
-                                  </Text>
-                                </Pressable>
-                              );
-                            })}
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })}
-                  </View>
-                )}
-
-                {onDeleteWorkout && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Delete workout day"
-                    onPress={() => workout && onDeleteWorkout(workout.id)}
-                    style={styles.deleteWorkoutBtn}
-                  >
-                    <Ionicons name="trash-outline" size={16} color="#FF453A" />
-                    <Text style={styles.deleteWorkoutBtnText}>
-                      {language === 'uk' ? 'Видалити цей день тренування' : 'Delete this workout day'}
-                    </Text>
-                  </Pressable>
-                )}
-              </ScrollView>
-
-              {/* Bottom Actions */}
-              <View style={styles.bottomBar}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Save Workout"
-                  onPress={handleSave}
-                  style={({ pressed }) => [
-                    styles.saveBtn,
-                    pressed && styles.saveBtnPressed,
-                  ]}
-                >
-                  <Text style={styles.saveBtnText}>{t('saveWorkout')}</Text>
-                </Pressable>
-              </View>
-            </>
-          )}
-        </SafeAreaView>
-      </KeyboardAvoidingView>
-    </View>
-  </Modal>
+        <ExercisePickerModal
+          visible={pickerVisible}
+          onClose={() => setPickerVisible(false)}
+          onSelect={(item) => handleAddBatch([item])}
+          onSelectMultiple={handleAddBatch}
+        />
+      </View>
+    </BottomSheet>
   );
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'flex-end',
-  },
-  keyboardWrap: {
-    height: '92%',
-    width: '100%',
-  },
-  sheetContainer: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    height: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  mainScrollView: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: colors.text,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.primaryText,
-    marginTop: 2,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  headerDeleteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 69, 58, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.elevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteWorkoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 28,
-    marginBottom: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 69, 58, 0.3)',
-    backgroundColor: 'rgba(255, 69, 58, 0.06)',
-  },
-  deleteWorkoutBtnText: {
-    color: '#FF453A',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 24,
-  },
-  inputLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.secondary,
-    letterSpacing: 1.2,
-    marginBottom: 8,
-  },
-  nameInputWrap: {
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 20,
-  },
-  weekdayRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 20,
-    justifyContent: 'space-between',
-  },
-  weekdayChip: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  weekdayChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  weekdayChipText: {
-    color: colors.secondary,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  weekdayChipTextActive: {
-    color: colors.onPrimary,
-    fontWeight: '900',
-  },
-  nameInput: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  listHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  addBtnSmall: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  addBtnSmallText: {
-    color: colors.onPrimary,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  exercisesList: {
-    gap: 12,
-  },
-  exerciseCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-    gap: 12,
-  },
-  exerciseCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  exerciseHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-    paddingRight: 8,
-  },
-  exerciseHeaderInfo: {
-    flex: 1,
-  },
-  orderBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: colors.elevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orderBadgeText: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  exerciseThumbWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: colors.elevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  exerciseThumb: {
-    width: '100%',
-    height: '100%',
-  },
-  exerciseRowName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: colors.text,
-    lineHeight: 19,
-  },
-  exerciseRowMeta: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.secondary,
-    marginTop: 2,
-  },
-  reorderIconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: colors.elevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(248, 113, 113, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  paramsGrid: {
-    gap: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-  },
-  paramsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  paramCol: {
-    flex: 1,
-  },
-  paramLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 20,
-    marginBottom: 6,
-  },
-  paramLabel: {
-    color: colors.secondary,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  paramInput: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 10,
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '700',
-    paddingHorizontal: 12,
-    height: 42,
-  },
-  stepperWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 10,
-    height: 42,
-    paddingHorizontal: 4,
-  },
-  stepperBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperBtnText: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '800',
-    lineHeight: 20,
-  },
-  stepperValue: {
-    flex: 1,
-    textAlign: 'center',
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '800',
-    paddingHorizontal: 2,
-  },
-  stepperInput: {
-    flex: 1,
-    textAlign: 'center',
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '800',
-    paddingHorizontal: 2,
-    height: 42,
-  },
-  quickRestRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 4,
-  },
-  quickRestChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  quickRestChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  quickRestChipText: {
-    color: colors.secondary,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  quickRestChipTextActive: {
-    color: colors.onPrimary,
-    fontWeight: '900',
-  },
-  bottomBar: {
-    paddingHorizontal: 20,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 20,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-    backgroundColor: colors.surface,
-    flexShrink: 0,
-  },
-  saveBtn: {
-    backgroundColor: colors.primary,
-    height: 54,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveBtnPressed: {
-    opacity: 0.85,
-  },
-  saveBtnText: {
-    color: colors.onPrimary,
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  emptyCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  emptyTitle: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  emptySub: {
-    color: colors.secondary,
-    fontSize: 12,
-    textAlign: 'center',
-  },
-});
-
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    sheetWrap: {
+      height: 620,
+      maxHeight: '100%',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 18,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+      gap: 10,
+    },
+    headerTitle: {
+      fontFamily: fonts.bold,
+      fontSize: 19,
+      color: colors.text,
+      letterSpacing: -0.3,
+      includeFontPadding: false,
+    },
+    headerSubtitle: {
+      fontFamily: fonts.medium,
+      fontSize: 12.5,
+      color: colors.secondary,
+      marginTop: 2,
+      includeFontPadding: false,
+    },
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    deleteDayBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: 'rgba(239, 68, 68, 0.12)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    closeBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: 18,
+      paddingTop: 14,
+      paddingBottom: 24,
+    },
+    footer: {
+      paddingHorizontal: 18,
+      paddingTop: 10,
+      paddingBottom: 14,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+      backgroundColor: colors.background,
+    },
+  });
