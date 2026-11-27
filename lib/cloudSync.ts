@@ -324,8 +324,13 @@ export async function syncUp(): Promise<{ success: boolean; error?: string }> {
       .getState()
       .entries.filter((e) => e && !deletedWeightSet.has(e.id));
 
-    // 1. Sync Profile
-    const { error: profileErr } = await supabase.from('profiles').upsert({
+    const exerciseNotes = await useExerciseNotesStore.getState().loadNotes();
+    const customExercises = useCustomExercisesStore.getState().hydrated
+      ? useCustomExercisesStore.getState().customExercises
+      : await useCustomExercisesStore.getState().loadCustomExercises();
+
+    // 1. Sync Profile (P3-03 normalized columns with graceful fallback for un-migrated instances)
+    const baseProfilePayload = {
       id: user.id,
       name: profile.name,
       avatar: profile.avatar,
@@ -339,7 +344,31 @@ export async function syncUp(): Promise<{ success: boolean; error?: string }> {
       default_rest_seconds: profile.defaultRestSeconds,
       language: profile.language,
       updated_at: new Date().toISOString(),
-    });
+    };
+    const extendedProfilePayload = {
+      ...baseProfilePayload,
+      sex: profile.sex,
+      age: profile.age ?? null,
+      theme: profile.theme,
+      notifications: profile.notifications,
+      notification_time: profile.notificationTime,
+      sound_enabled: profile.soundEnabled,
+      haptics_enabled: profile.hapticsEnabled,
+      baseline_lifts: profile.baselineLifts ?? null,
+      exercise_notes: exerciseNotes,
+      custom_exercises: customExercises,
+    };
+
+    let { error: profileErr } = await supabase.from('profiles').upsert(extendedProfilePayload);
+    if (
+      profileErr &&
+      (profileErr.code === '42703' ||
+        profileErr.code === 'PGRST204' ||
+        /column/i.test(profileErr.message || ''))
+    ) {
+      const fallbackRes = await supabase.from('profiles').upsert(baseProfilePayload);
+      profileErr = fallbackRes.error;
+    }
     if (profileErr) throw profileErr;
 
     // 2. Sync Program, Exercise Notes, Custom Exercises & Extended Profile Meta
@@ -450,10 +479,23 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
         ...existingProfile,
         name: cleanName,
         avatar: profileRow.avatar || existingProfile?.avatar || 'gorilla',
-        sex: profileMeta?.sex || existingProfile?.sex || 'male',
-        age: typeof profileMeta?.age === 'number' ? profileMeta.age : existingProfile?.age,
-        theme: profileMeta?.theme || existingProfile?.theme || 'dark',
-        baselineLifts: profileMeta?.baselineLifts || existingProfile?.baselineLifts,
+        sex:
+          (profileRow.sex === 'male' || profileRow.sex === 'female' ? profileRow.sex : undefined) ||
+          (profileMeta?.sex === 'male' || profileMeta?.sex === 'female' ? profileMeta.sex : undefined) ||
+          existingProfile?.sex ||
+          'male',
+        age:
+          typeof profileRow.age === 'number'
+            ? profileRow.age
+            : typeof profileMeta?.age === 'number'
+              ? profileMeta.age
+              : existingProfile?.age,
+        theme:
+          (profileRow.theme === 'dark' || profileRow.theme === 'light' ? profileRow.theme : undefined) ||
+          profileMeta?.theme ||
+          existingProfile?.theme ||
+          'dark',
+        baselineLifts: profileRow.baseline_lifts || profileMeta?.baselineLifts || existingProfile?.baselineLifts,
         weightKg: Number(profileRow.weight_kg) || existingProfile?.weightKg || 78,
         heightCm: Number(profileRow.height_cm) || existingProfile?.heightCm || 180,
         goal: profileRow.goal || existingProfile?.goal || 'Build Muscle',
@@ -463,9 +505,22 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
         heightUnit: profileRow.height_unit || existingProfile?.heightUnit || 'cm',
         defaultRestSeconds: Number(profileRow.default_rest_seconds) || existingProfile?.defaultRestSeconds || 90,
         language: profileRow.language || existingProfile?.language || 'uk',
-        notifications: existingProfile?.notifications ?? true,
-        notificationTime: existingProfile?.notificationTime || '09:00',
-        soundEnabled: existingProfile?.soundEnabled ?? true,
+        notifications:
+          typeof profileRow.notifications === 'boolean'
+            ? profileRow.notifications
+            : (existingProfile?.notifications ?? true),
+        notificationTime:
+          typeof profileRow.notification_time === 'string' && /^\d{1,2}:\d{2}$/.test(profileRow.notification_time)
+            ? profileRow.notification_time
+            : existingProfile?.notificationTime || '09:00',
+        soundEnabled:
+          typeof profileRow.sound_enabled === 'boolean'
+            ? profileRow.sound_enabled
+            : (existingProfile?.soundEnabled ?? true),
+        hapticsEnabled:
+          typeof profileRow.haptics_enabled === 'boolean'
+            ? profileRow.haptics_enabled
+            : (existingProfile?.hapticsEnabled ?? true),
       };
 
       useUserProfileStore.setState({ profile: mergedProfile, hydrated: true });
@@ -499,6 +554,14 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
       });
     }
 
+    const normalizedCloudNotes =
+      profileRow?.exercise_notes && typeof profileRow.exercise_notes === 'object'
+        ? (profileRow.exercise_notes as Record<string, unknown>)
+        : null;
+    const normalizedCloudCustom = Array.isArray(profileRow?.custom_exercises)
+      ? (profileRow.custom_exercises as CustomExercise[])
+      : null;
+
     if (programRow && programRow.program_data) {
       useProgramStore.setState({ program: programRow.program_data, hydrated: true });
       await AsyncStorage.setItem(USER_PROGRAM_STORAGE_KEY, JSON.stringify(programRow.program_data));
@@ -506,14 +569,15 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
 
       if (programRow.progress_data) {
         const {
-          exerciseNotes: cloudExerciseNotes,
-          customExercises: cloudCustomExercises,
+          exerciseNotes: legacyExerciseNotes,
+          customExercises: legacyCustomExercises,
           profileMeta: _pm,
           ...cleanProgress
         } = programRow.progress_data;
         useProgramProgressStore.setState({ progress: cleanProgress, hydrated: true });
         await AsyncStorage.setItem('spot-program-progress', JSON.stringify(cleanProgress));
 
+        const cloudExerciseNotes = normalizedCloudNotes || legacyExerciseNotes;
         if (cloudExerciseNotes && typeof cloudExerciseNotes === 'object') {
           const currentNotes = await useExerciseNotesStore.getState().loadNotes();
           const mergedNotes: Record<string, string> = {};
@@ -534,6 +598,7 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
           await AsyncStorage.setItem(EXERCISE_NOTES_STORAGE_KEY, JSON.stringify(mergedNotes));
         }
 
+        const cloudCustomExercises = normalizedCloudCustom || legacyCustomExercises;
         if (Array.isArray(cloudCustomExercises)) {
           const localCustom = useCustomExercisesStore.getState().hydrated
             ? useCustomExercisesStore.getState().customExercises
@@ -551,6 +616,43 @@ export async function syncDown(): Promise<{ success: boolean; error?: string }> 
           }
           await useCustomExercisesStore.getState().replaceCustomExercises(Array.from(customById.values()));
         }
+      }
+    } else if (normalizedCloudNotes || normalizedCloudCustom) {
+      if (normalizedCloudNotes) {
+        const currentNotes = await useExerciseNotesStore.getState().loadNotes();
+        const mergedNotes: Record<string, string> = {};
+        for (const [rawKey, val] of Object.entries(normalizedCloudNotes)) {
+          if (typeof val === 'string' && val.trim().length > 0) {
+            const normKey = normalizeExerciseNoteKey(rawKey) || rawKey.trim().toLowerCase();
+            if (!deletedNotesSet.has(normKey)) {
+              mergedNotes[normKey] = val.trim();
+            }
+          }
+        }
+        for (const [localKey, val] of Object.entries(currentNotes)) {
+          if (typeof val === 'string' && val.trim().length > 0 && !deletedNotesSet.has(localKey)) {
+            mergedNotes[localKey] = val.trim();
+          }
+        }
+        useExerciseNotesStore.setState({ notes: mergedNotes, hydrated: true });
+        await AsyncStorage.setItem(EXERCISE_NOTES_STORAGE_KEY, JSON.stringify(mergedNotes));
+      }
+      if (normalizedCloudCustom) {
+        const localCustom = useCustomExercisesStore.getState().hydrated
+          ? useCustomExercisesStore.getState().customExercises
+          : await useCustomExercisesStore.getState().loadCustomExercises();
+        const customById = new Map<string, CustomExercise>();
+        for (const ce of normalizedCloudCustom) {
+          if (ce?.id && !deletedCustomExSet.has(ce.id)) {
+            customById.set(ce.id, ce);
+          }
+        }
+        for (const le of localCustom) {
+          if (le?.id && !deletedCustomExSet.has(le.id)) {
+            customById.set(le.id, le);
+          }
+        }
+        await useCustomExercisesStore.getState().replaceCustomExercises(Array.from(customById.values()));
       }
     }
 
