@@ -550,4 +550,39 @@ const benchPress = {
   passed++;
 }
 
+// TEST 16 (P2-06): RIR-aware progression consolidates 0-RIR grinders at top of rep range
+{
+  const bench = {
+    id: 'barbell-bench-press',
+    name: 'Barbell Bench Press',
+    muscleGroup: 'Chest',
+    equipment: 'barbell',
+    sets: 3,
+    targetRepRange: '8-10',
+    recommendedWeight: 80,
+    weightIncrement: 2.5,
+  };
+
+  // All sets hit top rep (10) at RIR 0 (true failure grinder) -> consolidate 1 session before adding load
+  const grinderRec = recommendWeight(bench, [
+    { weight: 80, reps: 10, rir: 0 },
+    { weight: 80, reps: 10, rir: 0 },
+    { weight: 80, reps: 10, rir: 0 },
+  ]);
+  assert.strictEqual(grinderRec.recommendedWeight, 80, '0-RIR failure grinder must consolidate at 80 kg');
+  assert.strictEqual(grinderRec.recommendationReason, 'maintain');
+
+  // Same reps with RIR 2+ -> clean weight progression
+  const strongRec = recommendWeight(bench, [
+    { weight: 80, reps: 10, rir: 2 },
+    { weight: 80, reps: 10, rir: 2 },
+    { weight: 80, reps: 10, rir: 3 },
+  ]);
+  assert.strictEqual(strongRec.recommendedWeight, 82.5, 'Top reps with RIR >= 2 must progress to 82.5 kg');
+  assert.strictEqual(strongRec.recommendationReason, 'increase');
+
+  console.log('✅ TEST 16 PASSED (P2-06): RIR-aware progression consolidates 0-RIR grinders and progresses confident RIR 2+ sets');
+  passed++;
+}
+
 console.log(`\n🎉 ALL ${passed} REAL-MODULE ADAPTIVE PROGRESSION ENGINE TESTS PASSED!\n`);

@@ -8,7 +8,7 @@
  * - lib/adaptiveProgression.ts (isPerHandExercise / isBarbellExercise)
  */
 const assert = require('assert');
-const { loadTsModule } = require('./tsRunner');
+const { loadTsModule, dumpMemoryStorage, resetMemoryStorage } = require('./tsRunner');
 
 console.log('\n--- Running SPOT 2.0 Gym Floor Pro Verification Suite ---\n');
 
@@ -783,6 +783,125 @@ let passed = 0;
     assert.ok(progressSrc.includes('<HistoryFeed'), 'Progress tab must promote virtualized HistoryFeed');
 
     console.log('✅ TEST 13 PASSED (P1-12, P1-13, P1-14): Unified ExercisePicker, 64pt Accordion Editor & Virtualized HistoryFeed verified');
+    passed++;
+  }
+
+  // ============================================================================
+  // TEST 14: Phase 3 Core Engines — Unified Recovery, Yearly History Sharding, e1RM Strength Delta & Haptics Guard
+  // ============================================================================
+  {
+    const recoveryMod = loadTsModule('lib/recoveryEngine.ts');
+    const calcMod = loadTsModule('lib/progressCalculator.ts');
+    const historyMod = loadTsModule('store/workoutHistoryStore.ts');
+    const bodyAIMod = loadTsModule('lib/bodyCompositionAI.ts');
+    const hapticsMod = loadTsModule('lib/haptics.ts');
+    const profileMod = loadTsModule('store/userProfileStore.ts');
+
+    // 1. P2-01: calculateMuscleRecovery() matches calculateMuscleRecoveryStats() 100% (ignoring warmup sets)
+    const nowIso = new Date().toISOString();
+    const recHistory = [
+      {
+        id: 'rec-w1',
+        workoutName: 'Chest Test',
+        startedAt: nowIso,
+        completedAt: nowIso,
+        durationSeconds: 1800,
+        totalVolume: 2400,
+        exercises: [
+          {
+            exerciseId: 'barbell-bench-press',
+            exerciseName: 'Barbell Bench Press',
+            muscleGroup: 'Chest',
+            sets: [
+              { weight: 40, reps: 10, volume: 400, completedAt: nowIso, setType: 'warmup' },
+              { weight: 80, reps: 10, volume: 800, completedAt: nowIso },
+              { weight: 80, reps: 10, volume: 800, completedAt: nowIso },
+            ],
+          },
+        ],
+      },
+    ];
+    const unifiedRec = recoveryMod.calculateMuscleRecovery(recHistory);
+    const statsRec = calcMod.calculateMuscleRecoveryStats(recHistory);
+    const chestUnified = unifiedRec.find((m) => m.muscleGroup === 'Chest');
+    const chestStats = statsRec.Chest;
+    assert.ok(chestUnified && chestStats);
+    assert.strictEqual(chestUnified.readinessPercentage, chestStats.recoveryPercent);
+    assert.strictEqual(chestStats.weeklySets, 2, 'Warmup sets must be excluded from weekly working sets');
+
+    // 2. P2-03: Yearly AsyncStorage sharding transparently migrates legacy key & writes only target year shard
+    const legacyWorkouts = [
+      { id: 'w-2026', programWorkoutId: 'upper-a', workoutName: 'W26', startedAt: '2026-06-01T10:00:00Z', completedAt: '2026-06-01T11:00:00Z', durationSeconds: 3600, totalSets: 0, totalVolume: 1000, exercises: [], personalRecords: [] },
+      { id: 'w-2025', programWorkoutId: 'upper-a', workoutName: 'W25', startedAt: '2025-05-01T10:00:00Z', completedAt: '2025-05-01T11:00:00Z', durationSeconds: 3600, totalSets: 0, totalVolume: 1000, exercises: [], personalRecords: [] },
+      { id: 'w-2024', programWorkoutId: 'upper-a', workoutName: 'W24', startedAt: '2024-04-01T10:00:00Z', completedAt: '2024-04-01T11:00:00Z', durationSeconds: 3600, totalSets: 0, totalVolume: 1000, exercises: [], personalRecords: [] },
+    ];
+    resetMemoryStorage({
+      [historyMod.WORKOUT_HISTORY_STORAGE_KEY]: legacyWorkouts,
+    });
+    historyMod.useWorkoutHistoryStore.setState({ workouts: [], hydrated: false });
+    const migrated = await historyMod.useWorkoutHistoryStore.getState().loadHistory();
+    assert.strictEqual(migrated.length, 3);
+    const snapAfterMigrate = dumpMemoryStorage();
+    assert.strictEqual(snapAfterMigrate[historyMod.WORKOUT_HISTORY_STORAGE_KEY], undefined, 'Legacy monolithic history key must be removed after sharding migration');
+    const shardIndex = JSON.parse(snapAfterMigrate[historyMod.WORKOUT_HISTORY_INDEX_KEY]);
+    assert.deepStrictEqual(shardIndex.years, [2026, 2025, 2024]);
+    const shard2024Before = snapAfterMigrate['spot-workout-history-2024'];
+    await historyMod.useWorkoutHistoryStore.getState().addCompletedWorkout({
+      id: 'w-2026-2',
+      programWorkoutId: 'upper-a',
+      workoutName: 'W26-2',
+      startedAt: '2026-07-01T10:00:00Z',
+      completedAt: '2026-07-01T11:00:00Z',
+      durationSeconds: 3600,
+      totalSets: 0,
+      totalVolume: 1200,
+      exercises: [],
+      personalRecords: [],
+    });
+    const snapAfterAdd = dumpMemoryStorage();
+    const shard2024After = snapAfterAdd['spot-workout-history-2024'];
+    const shard2026After = JSON.parse(snapAfterAdd['spot-workout-history-2026']);
+    assert.strictEqual(shard2024After, shard2024Before, '2024 shard must remain untouched when adding 2026 workout');
+    assert.strictEqual(shard2026After.length, 2);
+
+    // 3. P2-07: Strength delta compares per-exercise e1RM (halved frequency at same strength = 0%, not -50%)
+    const nowMs = Date.now();
+    const mkSess = (daysAgo) => {
+      const iso = new Date(nowMs - daysAgo * 86400000).toISOString();
+      return {
+        id: `sd-${daysAgo}`,
+        workoutName: 'Bench',
+        startedAt: iso,
+        completedAt: iso,
+        durationSeconds: 1800,
+        totalVolume: 2400,
+        exercises: [
+          {
+            exerciseId: 'barbell-bench-press',
+            exerciseName: 'Barbell Bench Press',
+            muscleGroup: 'Chest',
+            sets: [{ weight: 100, reps: 8, volume: 800, completedAt: iso }],
+          },
+        ],
+      };
+    };
+    const freqDropHistory = [mkSess(2), mkSess(6), mkSess(18), mkSess(21), mkSess(24), mkSess(27)];
+    const deltaPct = bodyAIMod.calculateAverageStrengthDeltaPercent(freqDropHistory, 14);
+    assert.strictEqual(deltaPct, 0, 'Dropping from 4 to 2 sessions at identical 100kgx8 strength must yield 0% delta');
+
+    // 4. P3-01: Haptics master switch obeys profile.hapticsEnabled
+    profileMod.useUserProfileStore.setState({
+      profile: { ...profileMod.useUserProfileStore.getState().profile, hapticsEnabled: false },
+      hydrated: true,
+    });
+    assert.strictEqual(hapticsMod.isHapticsEnabled(), false);
+    profileMod.useUserProfileStore.setState({
+      profile: { ...profileMod.useUserProfileStore.getState().profile, hapticsEnabled: true },
+      hydrated: true,
+    });
+    assert.strictEqual(hapticsMod.isHapticsEnabled(), true);
+
+    console.log('✅ TEST 14 PASSED (P2-01, P2-03, P2-07, P3-01): Unified recovery, yearly history sharding, e1RM strength delta & haptics toggle verified');
     passed++;
   }
 

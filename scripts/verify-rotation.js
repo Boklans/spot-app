@@ -169,6 +169,31 @@ async function setupScenario(progressState, historyItems = []) {
     check(duplicateCall.completedWorkoutCount === 1, 'completedWorkoutCount did not increment twice');
   }
 
+  // Test 5 (P2-06): Out-of-order workout preserves uncompleted scheduled nextWorkoutId
+  console.log('\nTest 5: Out-of-order workout preserves uncompleted scheduled nextWorkoutId');
+  {
+    await setupScenario(
+      {
+        programId: 'prog-1',
+        nextWorkoutId: 'upper-a',
+        completedWorkoutCount: 0,
+        lastCompletedWorkoutId: null,
+        lastCompletedSessionId: null,
+      },
+      []
+    );
+    const updated = await useProgramProgressStore.getState().advanceProgress(
+      mockProgram,
+      'lower-a',
+      'sess-lower-out-of-order',
+      '2026-09-26T18:00:00Z'
+    );
+    check(
+      updated.nextWorkoutId === 'upper-a',
+      `Completing Lower A out of order keeps uncompleted Upper A as nextWorkoutId (got '${updated.nextWorkoutId}')`
+    );
+  }
+
   console.log(`\n========================================`);
   console.log(`Results: ${passed} PASSED, 0 FAILED (100% Real TS Execution)`);
   console.log(`========================================\n`);
