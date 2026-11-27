@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -83,7 +83,7 @@ export function ProfileSettingsModal({
                 style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
               >
                 <View style={styles.rowLeft}>
-                  <MaterialCommunityIcons name="weight-kilogram" size={20} color={colors.secondary} />
+                  <Ionicons name="barbell-outline" size={20} color={colors.secondary} />
                   <View>
                     <Text style={styles.rowTitle}>{t('weightUnit')}</Text>
                     <Text style={styles.rowSubtitle}>
@@ -130,7 +130,7 @@ export function ProfileSettingsModal({
                 style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
               >
                 <View style={styles.rowLeft}>
-                  <MaterialCommunityIcons name="ruler" size={20} color={colors.secondary} />
+                  <Ionicons name="resize-outline" size={20} color={colors.secondary} />
                   <View>
                     <Text style={styles.rowTitle}>{t('heightUnit')}</Text>
                     <Text style={styles.rowSubtitle}>
@@ -177,7 +177,7 @@ export function ProfileSettingsModal({
                 style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
               >
                 <View style={styles.rowLeft}>
-                  <MaterialCommunityIcons name="timer-outline" size={20} color={colors.secondary} />
+                  <Ionicons name="timer-outline" size={20} color={colors.secondary} />
                   <View>
                     <Text style={styles.rowTitle}>{t('restTimerSetting')}</Text>
                     <Text style={styles.rowSubtitle}>
@@ -346,7 +346,7 @@ export function ProfileSettingsModal({
                 style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
               >
                 <View style={styles.rowLeft}>
-                  <MaterialCommunityIcons name="volume-high" size={20} color={colors.secondary} />
+                  <Ionicons name="volume-high-outline" size={20} color={colors.secondary} />
                   <Text style={styles.rowTitle}>{t('soundEffects')}</Text>
                 </View>
                 <Switch

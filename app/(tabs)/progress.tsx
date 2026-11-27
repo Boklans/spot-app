@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -199,7 +199,7 @@ export default function Progress() {
         subDetail,
         date: dateLabel,
         isNewPr: rec.isNewPr,
-        icon: (rec.isNewPr ? 'trophy' : 'dumbbell') as 'trophy' | 'dumbbell',
+        icon: (rec.isNewPr ? 'trophy' : 'barbell') as 'trophy' | 'barbell',
         standardEval,
       };
     });
@@ -774,10 +774,10 @@ export default function Progress() {
                     </>
                   ) : (
                     <View style={styles.chartEmptyWrap}>
-                      <MaterialCommunityIcons
-                        name="chart-line"
+                      <Ionicons
+                        name="analytics-outline"
                         size={32}
-                        color="#4B5565"
+                        color={colors.muted}
                         style={{ marginBottom: 8 }}
                       />
                       <Text style={styles.chartEmptyTitle}>
@@ -900,7 +900,7 @@ export default function Progress() {
               <View style={styles.emptyCard}>
                 <View style={styles.emptyGlowRing}>
                   <View style={styles.emptyIconBadge}>
-                    <MaterialCommunityIcons name="lightning-bolt" size={36} color={colors.primary} />
+                    <Ionicons name="flash" size={36} color={colors.primaryText} />
                   </View>
                 </View>
 
@@ -1068,7 +1068,7 @@ export default function Progress() {
               <View style={styles.emptyCard}>
                 <View style={styles.emptyGlowRing}>
                   <View style={styles.emptyIconBadge}>
-                    <MaterialCommunityIcons name="arm-flex" size={34} color={colors.primary} />
+                    <Ionicons name="fitness" size={34} color={colors.primaryText} />
                   </View>
                 </View>
 
@@ -1267,10 +1267,10 @@ export default function Progress() {
                     ]}
                   >
                     <View style={styles.weighInDateWrap}>
-                      <MaterialCommunityIcons
-                        name="calendar-check"
+                      <Ionicons
+                        name="calendar-outline"
                         size={18}
-                        color="#8E9BAE"
+                        color={colors.secondary}
                         style={{ marginRight: 10 }}
                       />
                       <View>
@@ -1405,7 +1405,7 @@ export default function Progress() {
                         item.isNewPr && { backgroundColor: 'rgba(255, 209, 48, 0.14)' },
                       ]}
                     >
-                      <MaterialCommunityIcons
+                      <Ionicons
                         name={item.icon}
                         size={20}
                         color={item.isNewPr ? '#D97706' : colors.primaryText}
@@ -1450,7 +1450,7 @@ export default function Progress() {
               <View style={styles.emptyCard}>
                 <View style={styles.emptyGlowRing}>
                   <View style={styles.emptyIconBadge}>
-                    <MaterialCommunityIcons name="trophy-outline" size={34} color={colors.primary} />
+                    <Ionicons name="trophy-outline" size={34} color={colors.primaryText} />
                   </View>
                 </View>
 

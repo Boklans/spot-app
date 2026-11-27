@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -43,15 +43,6 @@ import { ExerciseDetailModal } from '@/components/program/ExerciseDetailModal';
 import { WorkoutEditorModal } from '@/components/program/WorkoutEditorModal';
 import type { LibraryExercise } from '@/lib/exerciseLibrary';
 import { generateUUID } from '@/lib/programMigration';
-
-function getExerciseIcon(name: string): keyof typeof MaterialCommunityIcons.glyphMap {
-  const lower = name.toLowerCase();
-  if (lower.includes('bench') || lower.includes('chest')) return 'dumbbell';
-  if (lower.includes('squat') || lower.includes('leg') || lower.includes('press')) return 'dumbbell';
-  if (lower.includes('row') || lower.includes('pulldown') || lower.includes('pull')) return 'arm-flex';
-  if (lower.includes('curl') || lower.includes('tricep') || lower.includes('arm')) return 'dumbbell';
-  return 'dumbbell';
-}
 
 export default function WorkoutPreview() {
   const colors = useThemeColors();

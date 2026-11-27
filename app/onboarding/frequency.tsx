@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -28,7 +28,7 @@ interface DurationChoice {
   subtitleEn: string;
   badgeUk?: string;
   badgeEn?: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  icon: keyof typeof Ionicons.glyphMap;
 }
 
 const DURATION_CHOICES: DurationChoice[] = [
@@ -40,7 +40,7 @@ const DURATION_CHOICES: DurationChoice[] = [
     subtitleEn: 'Short & intense session without long rest periods (~4 exercises)',
     badgeUk: 'EXPRESS',
     badgeEn: 'EXPRESS',
-    icon: 'lightning-bolt',
+    icon: 'flash-outline',
   },
   {
     minutes: 45,
@@ -50,7 +50,7 @@ const DURATION_CHOICES: DurationChoice[] = [
     subtitleEn: 'Perfect balance of strength, volume and recovery (~5–6 exercises)',
     badgeUk: 'РЕКОМЕНДОВАНО',
     badgeEn: 'RECOMMENDED',
-    icon: 'timer-sand',
+    icon: 'timer-outline',
   },
   {
     minutes: 60,
@@ -60,7 +60,7 @@ const DURATION_CHOICES: DurationChoice[] = [
     subtitleEn: 'Deep muscle stimulation and full rest intervals (~6–7 exercises)',
     badgeUk: 'POWER',
     badgeEn: 'POWER',
-    icon: 'weight-lifter',
+    icon: 'barbell-outline',
   },
 ];
 
@@ -275,7 +275,7 @@ export default function Frequency() {
                         isSelected && styles.durationIconWrapSelected,
                       ]}
                     >
-                      <MaterialCommunityIcons
+                      <Ionicons
                         name={choice.icon}
                         size={22}
                         color={isSelected ? colors.primaryText : colors.secondary}

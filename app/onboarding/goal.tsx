@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -42,31 +42,31 @@ export default function Goal() {
     value: OnboardingGoal;
     label: string;
     detail: string;
-    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+    icon: keyof typeof Ionicons.glyphMap;
   }> = [
     {
       value: 'build_muscle',
       label: isUk ? 'Набір мʼязової маси' : 'Build Muscle',
       detail: isUk ? 'Гіпертрофія, 8–12 повторень, оптимальний обʼєм' : 'Hypertrophy focus, 8–12 reps, progressive volume',
-      icon: 'dumbbell',
+      icon: 'barbell-outline',
     },
     {
       value: 'lose_fat',
       label: isUk ? 'Зниження ваги та тонус' : 'Lose Fat & Tone',
       detail: isUk ? 'Вища щільність, 10–15 повторень, коротший відпочинок' : 'Higher density, 10–15 reps, shorter rest intervals',
-      icon: 'fire',
+      icon: 'flame-outline',
     },
     {
       value: 'get_stronger',
       label: isUk ? 'Розвиток сили' : 'Get Stronger',
       detail: isUk ? 'Базові вправи, 5–8 повторень, вищі робочі ваги' : 'Compound lifts, 5–8 reps, heavier working loads',
-      icon: 'arm-flex',
+      icon: 'fitness-outline',
     },
     {
       value: 'recomposition',
       label: isUk ? 'Рекомпозиція тіла' : 'Body Recomposition',
       detail: isUk ? 'Зменшення жиру зі збереженням мʼязів, 8–12 повторень' : 'Build lean muscle while losing fat, 8–12 reps',
-      icon: 'scale-balance',
+      icon: 'scale-outline',
     },
   ];
 
@@ -74,31 +74,31 @@ export default function Goal() {
     value: PriorityMuscleFocus;
     label: string;
     detail: string;
-    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+    icon: keyof typeof Ionicons.glyphMap;
   }> = [
     {
       value: 'balanced',
       label: isUk ? 'Все тіло збалансовано' : 'Balanced Full Body',
       detail: isUk ? 'Рівномірний розвиток верху та низу тіла' : 'Even volume across upper and lower body',
-      icon: 'human',
+      icon: 'body-outline',
     },
     {
       value: 'lower_glutes',
       label: isUk ? 'Акцент: ноги та сідниці' : 'Focus: Legs & Glutes',
       detail: isUk ? 'Більше сідничних мостів, випадів, тяг і присідань' : 'Extra volume for glutes, hamstrings and quads',
-      icon: 'run-fast',
+      icon: 'walk-outline',
     },
     {
       value: 'upper_push',
       label: isUk ? 'Акцент: груди, плечі та руки' : 'Focus: Chest, Shoulders & Arms',
       detail: isUk ? 'Додатковий обʼєм на жими, дельти, біцепс і трицепс' : 'Extra sets for chest, delts, biceps and triceps',
-      icon: 'arm-flex-outline',
+      icon: 'fitness-outline',
     },
     {
       value: 'back_core',
       label: isUk ? 'Акцент: спина, постава та кор' : 'Focus: Back, Posture & Core',
       detail: isUk ? 'Тяги, широкі мʼязи спини, задня дельта та прес' : 'Priority on rows, lats, rear delts and core',
-      icon: 'shield-check-outline',
+      icon: 'shield-checkmark-outline',
     },
   ];
 
@@ -166,7 +166,7 @@ export default function Goal() {
                 ]}
               >
                 <View style={[styles.iconWrap, isSelected && styles.iconWrapSelected]}>
-                  <MaterialCommunityIcons
+                  <Ionicons
                     name={opt.icon}
                     size={22}
                     color={isSelected ? colors.primaryText : colors.secondary}
@@ -215,7 +215,7 @@ export default function Goal() {
                 ]}
               >
                 <View style={[styles.iconWrap, isSelected && styles.iconWrapSelected]}>
-                  <MaterialCommunityIcons
+                  <Ionicons
                     name={opt.icon}
                     size={22}
                     color={isSelected ? colors.primaryText : colors.secondary}

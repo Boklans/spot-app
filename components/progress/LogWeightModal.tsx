@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   KeyboardAvoidingView,
@@ -79,8 +79,8 @@ export function LogWeightModal({ visible, onClose, onSaved }: LogWeightModalProp
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.headerTitleWrap}>
-                <MaterialCommunityIcons
-                  name="scale-bathroom"
+                <Ionicons
+                  name="scale-outline"
                   size={22}
                   color={colors.primaryText}
                   style={{ marginRight: 8 }}

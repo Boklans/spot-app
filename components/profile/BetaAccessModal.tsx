@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import {
   Linking,
@@ -72,7 +72,7 @@ export function BetaAccessModal({ visible, onClose }: BetaAccessModalProps) {
           {/* Hero Card */}
           <View style={styles.heroCard}>
             <View style={styles.iconWrap}>
-              <MaterialCommunityIcons name="rocket-launch" size={32} color={colors.primaryText} />
+              <Ionicons name="rocket-outline" size={32} color={colors.primaryText} />
             </View>
             <View style={styles.betaBadge}>
               <Text style={styles.betaBadgeText}>
@@ -128,7 +128,7 @@ export function BetaAccessModal({ visible, onClose }: BetaAccessModalProps) {
             onPress={handleOpenTelegram}
             style={({ pressed }) => [styles.telegramBtn, pressed && { opacity: 0.85 }]}
           >
-            <MaterialCommunityIcons name="send" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Ionicons name="paper-plane" size={19} color="#FFFFFF" style={{ marginRight: 8 }} />
             <Text style={styles.telegramBtnText}>
               {isUk ? 'Написати відгук у Telegram' : 'Send Feedback in Telegram'}
             </Text>

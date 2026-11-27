@@ -104,7 +104,6 @@ let passed = 0;
     'app/workout/active.tsx',
     'app/workout/complete.tsx',
     'app/workout/quick-log.tsx',
-    'app/workout/rest.tsx',
     'components/auth/AuthModal.tsx',
     'app/program/edit.tsx',
     'app/history/index.tsx',

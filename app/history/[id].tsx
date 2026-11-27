@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -359,7 +359,7 @@ export default function HistoryDetail() {
         {prs.length > 0 && (
           <View style={styles.prsCard}>
             <View style={styles.prHeader}>
-              <MaterialCommunityIcons
+              <Ionicons
                 name="trophy"
                 size={16}
                 color="#FFD130"
@@ -1077,7 +1077,7 @@ export default function HistoryDetail() {
               {prs.length > 0 && (
                 <View style={styles.storyPrBox}>
                   <View style={styles.storyPrTitleRow}>
-                    <MaterialCommunityIcons name="trophy" size={15} color="#FFD130" />
+                    <Ionicons name="trophy" size={15} color="#FFD130" />
                     <Text style={styles.storyPrTitleText}>
                       {language === 'uk' ? 'НОВІ ОСОБИСТІ РЕКОРДИ' : 'NEW PERSONAL RECORDS'}
                     </Text>

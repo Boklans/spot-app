@@ -14,7 +14,6 @@ import {
   Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useAuthStore } from '@/store/authStore';
 import { useCustomExercisesStore } from '@/store/customExercisesStore';
 import { useProgramStore } from '@/store/programStore';
@@ -101,7 +100,6 @@ export default function SpotAppRoot() {
 
     const fontPromise = loadAsync({
       ...Ionicons.font,
-      ...MaterialCommunityIcons.font,
       Inter_400Regular,
       Inter_500Medium,
       Inter_600SemiBold,

@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -217,7 +217,7 @@ export default function History() {
         <View style={styles.emptyCard}>
           <View style={styles.emptyGlowRing}>
             <View style={styles.emptyIconBadge}>
-              <MaterialCommunityIcons name="history" size={34} color={colors.primary} />
+              <Ionicons name="time-outline" size={34} color={colors.primaryText} />
             </View>
           </View>
 

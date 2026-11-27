@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo,  useState } from 'react';
 import {
   ActivityIndicator,
@@ -175,7 +175,7 @@ export function ProPaywallModal({
           {/* Hero Card */}
           <View style={styles.heroCard}>
             <View style={styles.brainWrap}>
-              <MaterialCommunityIcons name="lightning-bolt" size={32} color={colors.primaryText} />
+              <Ionicons name="flash" size={32} color={colors.primaryText} />
             </View>
             <Text style={styles.kicker}>SPOT PRO</Text>
             <Text style={styles.heroTitle}>

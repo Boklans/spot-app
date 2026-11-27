@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -404,7 +404,7 @@ export default function Complete() {
         {prs.length > 0 && (
           <View style={styles.prsCard}>
             <View style={styles.prHeader}>
-              <MaterialCommunityIcons
+              <Ionicons
                 name="trophy"
                 size={15}
                 color="#FFD130"
@@ -437,7 +437,7 @@ export default function Complete() {
                 </View>
 
                 <View style={styles.prTrophyBadge}>
-                  <MaterialCommunityIcons name="trophy" size={12} color="#FFD130" />
+                  <Ionicons name="trophy" size={12} color="#FFD130" />
                   <Text style={styles.prTrophyBadgeText}>PR</Text>
                 </View>
               </View>

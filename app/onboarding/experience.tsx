@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -93,19 +93,19 @@ export default function Experience() {
     value: OnboardingExperience;
     label: string;
     detail: string;
-    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+    icon: keyof typeof Ionicons.glyphMap;
   }> = [
     {
       value: 'beginner',
       label: isUk ? 'Новачок' : 'Beginner',
       detail: isUk ? 'Починаю з нуля або повертаюсь після перерви' : 'Starting fresh or returning after a break',
-      icon: 'account-outline',
+      icon: 'person-outline',
     },
     {
       value: 'intermediate',
       label: isUk ? 'Середній рівень' : 'Intermediate',
       detail: isUk ? 'Регулярно тренуюсь від 6 місяців, знаю техніку' : 'Train consistently for 6+ months, know my working weights',
-      icon: 'weight-lifter',
+      icon: 'barbell-outline',
     },
     {
       value: 'advanced',
@@ -235,7 +235,7 @@ export default function Experience() {
                   ]}
                 >
                   <View style={styles.iconWrap}>
-                    <MaterialCommunityIcons
+                    <Ionicons
                       name={opt.icon}
                       size={22}
                       color={isSelected ? colors.primaryText : colors.secondary}

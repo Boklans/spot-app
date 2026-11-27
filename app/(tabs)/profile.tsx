@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
@@ -546,7 +546,7 @@ export default function Profile() {
             >
               <View style={styles.quickHubTopRow}>
                 <View style={styles.quickHubIconWrap}>
-                  <MaterialCommunityIcons name="history" size={18} color={colors.text} />
+                  <Ionicons name="time-outline" size={18} color={colors.text} />
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.muted} />
               </View>

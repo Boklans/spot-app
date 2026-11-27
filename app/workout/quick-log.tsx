@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -797,7 +797,7 @@ export default function QuickLogScreen() {
             </View>
 
             <View style={styles.summaryMetaItem}>
-              <MaterialCommunityIcons name="dumbbell" size={15} color="#8E9BAE" />
+              <Ionicons name="barbell-outline" size={15} color={colors.secondary} />
               <Text style={styles.summaryMetaText}>
                 {formatVolume(totalVolumeKg)}
               </Text>

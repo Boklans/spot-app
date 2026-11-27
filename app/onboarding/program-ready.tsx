@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -45,7 +45,7 @@ interface SplitChoice {
   labelEn: string;
   subUk: string;
   subEn: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  icon: keyof typeof Ionicons.glyphMap;
 }
 
 const PRESET_SPLITS: SplitChoice[] = [
@@ -55,7 +55,7 @@ const PRESET_SPLITS: SplitChoice[] = [
     labelEn: 'Full Body',
     subUk: 'Все тіло',
     subEn: 'Full Body',
-    icon: 'human',
+    icon: 'body-outline',
   },
   {
     id: 'upper_lower',
@@ -63,7 +63,7 @@ const PRESET_SPLITS: SplitChoice[] = [
     labelEn: 'Upper / Lower',
     subUk: 'Баланс сил',
     subEn: 'Balanced',
-    icon: 'weight-lifter',
+    icon: 'barbell-outline',
   },
   {
     id: 'push_pull_legs',
@@ -71,7 +71,7 @@ const PRESET_SPLITS: SplitChoice[] = [
     labelEn: 'Split (PPL)',
     subUk: 'Жим / Тяга / Ноги',
     subEn: 'Push / Pull / Legs',
-    icon: 'arm-flex',
+    icon: 'fitness-outline',
   },
 ];
 
@@ -424,7 +424,7 @@ export default function ProgramReady() {
                   ]}
                 >
                   <View style={[styles.splitPresetIconWrap, isActive && styles.splitPresetIconWrapActive]}>
-                    <MaterialCommunityIcons
+                    <Ionicons
                       name={split.icon}
                       size={20}
                       color={isActive ? colors.activeChipText : colors.primaryText}
@@ -456,8 +456,8 @@ export default function ProgramReady() {
           >
             <View style={styles.customSelectLeft}>
               <View style={[styles.customSelectIconWrap, isCustom && styles.customSelectIconWrapActive]}>
-                <MaterialCommunityIcons
-                  name="tune-vertical"
+                <Ionicons
+                  name="options-outline"
                   size={20}
                   color={isCustom ? colors.onPrimary : colors.primaryText}
                 />
@@ -493,7 +493,7 @@ export default function ProgramReady() {
           <View style={styles.customBanner}>
             <View style={styles.customBannerHeader}>
               <View style={styles.customBannerIconWrap}>
-                <MaterialCommunityIcons name="tune-vertical" size={20} color={colors.primaryText} />
+                <Ionicons name="options-outline" size={20} color={colors.primaryText} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.customBannerTitle}>
