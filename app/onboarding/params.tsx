@@ -68,7 +68,7 @@ export default function ParamsSetup() {
     }, [fromKg, name, weight, height])
   );
 
-  const isNameValid = name.trim().length >= 2;
+  const isNameValid = true;
 
   const handleToggleUnit = (nextUnit: 'kg' | 'lbs') => {
     if (unit === nextUnit) return;
@@ -94,17 +94,10 @@ export default function ParamsSetup() {
   ];
 
   const handleContinue = async () => {
-    if (!isNameValid) {
-      hapticLight();
-      setNameError(true);
-      nameRef.current?.focus();
-      return;
-    }
-
     hapticMedium();
     setNameError(false);
 
-    const effectiveName = name.trim().slice(0, 20);
+    const effectiveName = (name.trim() || (isUk ? 'Атлет' : 'Athlete')).slice(0, 20);
 
     const parsedAge = parseInt(age.trim(), 10);
     const effectiveAge = !isNaN(parsedAge) && parsedAge >= 14 && parsedAge <= 95
@@ -173,8 +166,9 @@ export default function ParamsSetup() {
             {/* Name */}
             <View style={styles.inputGroup}>
               <View style={styles.inputLabelRow}>
-                <Text style={styles.inputLabel}>{isUk ? "Ваше ім'я" : 'Your Name'}</Text>
-                <Text style={styles.requiredStar}>*</Text>
+                <Text style={styles.inputLabel}>
+                  {isUk ? "Ваше ім'я (необовʼязково)" : 'Your Name (optional)'}
+                </Text>
               </View>
               <Pressable
                 onPress={() => nameRef.current?.focus()}

@@ -15,7 +15,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { darkColors, type ThemeColors } from '@/constants/colors';
+import { useThemeColors, type ThemeColors } from '@/constants/colors';
+import { fonts } from '@/constants/typography';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -29,7 +30,7 @@ import { useProgramStore } from '@/store/programStore';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function Welcome() {
-  const colors = darkColors;
+  const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const reducedMotion = useReducedMotion();
   const { t, language } = useI18n();
@@ -454,26 +455,20 @@ const createStyles = (colors: ThemeColors) =>
       marginBottom: 16,
     },
     logoPrimaryText: {
+      fontFamily: fonts.extraBold,
       color: colors.text,
-      fontSize: 96,
-      fontWeight: '900',
-      fontStyle: 'italic',
-      letterSpacing: 2,
+      fontSize: 72,
+      lineHeight: 80,
+      letterSpacing: 5,
+      includeFontPadding: false,
     },
     logoLime: {
-      color: colors.isDark ? colors.primary : '#16A34A',
-      fontSize: 96,
-      fontWeight: '900',
-      fontStyle: 'italic',
-      letterSpacing: 2,
-      paddingHorizontal: 28,
-      marginHorizontal: -28,
-      paddingVertical: 18,
-      marginVertical: -18,
-      textAlign: 'center',
-      textShadowColor: colors.isDark ? 'rgba(200, 255, 61, 0.45)' : 'rgba(22, 163, 74, 0.25)',
-      textShadowOffset: { width: 0, height: 0 },
-      textShadowRadius: 18,
+      fontFamily: fonts.extraBold,
+      color: colors.accentLine,
+      fontSize: 72,
+      lineHeight: 80,
+      letterSpacing: 5,
+      includeFontPadding: false,
     },
     tagline: {
       color: colors.text,

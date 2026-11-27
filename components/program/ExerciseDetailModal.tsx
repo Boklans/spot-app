@@ -4,18 +4,20 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { AnatomyPreview } from '@/components/progress/AnatomyPreview';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { SlidingSegmentedControl } from '@/components/ui/SlidingSegmentedControl';
+import { ExerciseNoteModal } from '@/components/workout/ExerciseNoteModal';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
 import { isPerHandExercise } from '@/lib/adaptiveProgression';
 import { getExerciseDetails } from '@/lib/exerciseDetails';
-import { areExercisesEquivalent } from '@/lib/exercises';
+import { areExercisesEquivalent, resolveCanonicalExerciseId } from '@/lib/exercises';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { calculateEstimated1RM } from '@/lib/personalRecords';
 import { evaluateLiftStandard } from '@/lib/strengthStandards';
 import { calculateSetVolumeKg, formatWeight, useWeightUnit } from '@/lib/weightUtils';
+import { useExerciseNotesStore } from '@/store/exerciseNotesStore';
 import { useUserProfileStore } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 
@@ -47,8 +49,17 @@ export function ExerciseDetailModal({
   const isUk = language === 'uk';
 
   const [activeTab, setActiveTab] = useState<DetailTab>('guide');
+  const [noteModalVisible, setNoteModalVisible] = useState(false);
   const workouts = useWorkoutHistoryStore((state) => state.workouts);
   const profile = useUserProfileStore((state) => state.profile);
+  const notes = useExerciseNotesStore((state) => state.notes);
+  const saveNote = useExerciseNotesStore((state) => state.setNote);
+
+  const personalNote = useMemo(() => {
+    const cid = resolveCanonicalExerciseId(exerciseName);
+    if (cid && notes[cid]) return notes[cid];
+    return notes[exerciseName.trim().toLowerCase()] || '';
+  }, [notes, exerciseName]);
 
   useEffect(() => {
     if (visible) {
@@ -246,7 +257,7 @@ export function ExerciseDetailModal({
       >
         {activeTab === 'guide' ? (
           <>
-            {/* 1. Split Hero Visual: 3D Exercise Render + Target Anatomy */}
+            {/* 1. Compact Split Hero Visual: 3D Exercise Render + Target Anatomy (P2-08) */}
             <View style={styles.heroRow}>
               <View style={styles.heroImageCard}>
                 <Image
@@ -263,64 +274,56 @@ export function ExerciseDetailModal({
                 <AnatomyPreview
                   muscles={anatomyMuscles}
                   sex={profile.sex}
-                  height={132}
+                  height={108}
                   showBack
                 />
               </View>
             </View>
 
-            {/* 2. Target Muscles Breakdown */}
-            <View style={styles.sectionCard}>
-              <View style={styles.anatomyGroup}>
-                <View style={styles.anatomyBadgeRow}>
-                  <Text style={styles.primaryBadgeLabel}>
-                    {isUk ? 'Основні м’язи' : 'Primary'}
-                  </Text>
-                  <Text style={styles.anatomyText}>
-                    {isUk ? details.primaryMusclesUk : details.primaryMusclesEn}
-                  </Text>
-                </View>
-
-                {Boolean(details.secondaryMusclesUk || details.secondaryMusclesEn) && (
-                  <View style={[styles.anatomyBadgeRow, styles.anatomyRowDivider]}>
-                    <Text style={styles.secondaryBadgeLabel}>
-                      {isUk ? 'Допоміжні' : 'Secondary'}
-                    </Text>
-                    <Text style={styles.anatomyTextSecondary}>
-                      {isUk ? details.secondaryMusclesUk : details.secondaryMusclesEn}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {/* 3. Dedicated Lyfta-Inspired PHYSIO TIP Callout */}
-            {Boolean(details.safetyUk || details.safetyEn) && (
-              <View
-                style={[
-                  styles.safetyCard,
-                  { backgroundColor: physioBg, borderColor: physioBorder },
-                ]}
-              >
-                <View style={[styles.physioAccentBar, { backgroundColor: physioAccent }]} />
-                <View style={styles.physioHeaderRow}>
-                  <Ionicons name="shield-checkmark-outline" size={16} color={physioAccent} />
-                  <Text style={[styles.physioEyebrow, { color: physioAccent }]}>
-                    {isUk ? 'ПОРАДА ФІЗІОТЕРАПЕВТА · БЕЗПЕКА СУГЛОБІВ' : 'PHYSIO TIP · JOINT SAFETY'}
-                  </Text>
-                </View>
-                <Text style={styles.physioBody}>
-                  {isUk ? details.safetyUk : details.safetyEn}
+            {/* 2. Personal Setup Note (Editable inline — P2-08) */}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                hapticLight();
+                setNoteModalVisible(true);
+              }}
+              style={({ pressed }) => [
+                styles.sectionCard,
+                {
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 10,
+                  paddingVertical: 11,
+                },
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                <Ionicons
+                  name={personalNote ? 'bookmark' : 'bookmark-outline'}
+                  size={16}
+                  color={personalNote ? colors.primaryText : colors.muted}
+                />
+                <Text
+                  numberOfLines={2}
+                  style={{
+                    fontFamily: personalNote ? fonts.semiBold : fonts.medium,
+                    fontSize: 13,
+                    color: personalNote ? colors.text : colors.secondary,
+                    flex: 1,
+                  }}
+                >
+                  {personalNote ||
+                    (isUk
+                      ? 'Додати особисту нотатку (сидіння, хват, лавка)...'
+                      : 'Add personal setup note (seat, grip, bench angle)...')}
                 </Text>
-                {Boolean(details.movementSummaryUk || details.movementSummaryEn) && (
-                  <Text style={styles.movementSummaryText}>
-                    {isUk ? details.movementSummaryUk : details.movementSummaryEn}
-                  </Text>
-                )}
               </View>
-            )}
+              <Ionicons name="create-outline" size={15} color={colors.muted} />
+            </Pressable>
 
-            {/* 4. Step-by-Step Technique */}
+            {/* 3. Step-by-Step Execution Guide ABOVE THE FOLD (P2-08) */}
             <View style={styles.sectionCard}>
               <Text style={styles.sectionHeaderTitle}>
                 {isUk ? 'Техніка виконання' : 'Execution Guide'}
@@ -379,6 +382,57 @@ export function ExerciseDetailModal({
                 </View>
               </View>
             </View>
+
+            {/* 4. Target Muscles Breakdown */}
+            <View style={styles.sectionCard}>
+              <View style={styles.anatomyGroup}>
+                <View style={styles.anatomyBadgeRow}>
+                  <Text style={styles.primaryBadgeLabel}>
+                    {isUk ? 'Основні м’язи' : 'Primary'}
+                  </Text>
+                  <Text style={styles.anatomyText}>
+                    {isUk ? details.primaryMusclesUk : details.primaryMusclesEn}
+                  </Text>
+                </View>
+
+                {Boolean(details.secondaryMusclesUk || details.secondaryMusclesEn) && (
+                  <View style={[styles.anatomyBadgeRow, styles.anatomyRowDivider]}>
+                    <Text style={styles.secondaryBadgeLabel}>
+                      {isUk ? 'Допоміжні' : 'Secondary'}
+                    </Text>
+                    <Text style={styles.anatomyTextSecondary}>
+                      {isUk ? details.secondaryMusclesUk : details.secondaryMusclesEn}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* 5. Dedicated PHYSIO TIP Callout (below Execution Steps) */}
+            {Boolean(details.safetyUk || details.safetyEn) && (
+              <View
+                style={[
+                  styles.safetyCard,
+                  { backgroundColor: physioBg, borderColor: physioBorder },
+                ]}
+              >
+                <View style={[styles.physioAccentBar, { backgroundColor: physioAccent }]} />
+                <View style={styles.physioHeaderRow}>
+                  <Ionicons name="shield-checkmark-outline" size={16} color={physioAccent} />
+                  <Text style={[styles.physioEyebrow, { color: physioAccent }]}>
+                    {isUk ? 'ПОРАДА ФІЗІОТЕРАПЕВТА · БЕЗПЕКА СУГЛОБІВ' : 'PHYSIO TIP · JOINT SAFETY'}
+                  </Text>
+                </View>
+                <Text style={styles.physioBody}>
+                  {isUk ? details.safetyUk : details.safetyEn}
+                </Text>
+                {Boolean(details.movementSummaryUk || details.movementSummaryEn) && (
+                  <Text style={styles.movementSummaryText}>
+                    {isUk ? details.movementSummaryUk : details.movementSummaryEn}
+                  </Text>
+                )}
+              </View>
+            )}
 
             {/* 5. Common Mistakes */}
             {mistakesList.length > 0 && (
@@ -520,9 +574,9 @@ export function ExerciseDetailModal({
         )}
       </ScrollView>
 
-      {/* Bottom Action Bar */}
-      <View style={styles.bottomBar}>
-        {onConfigure ? (
+      {/* Optional Configure Action Bar (Passive Got It footer removed in P2-08; dismiss via [x] or swipe) */}
+      {onConfigure ? (
+        <View style={styles.bottomBar}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Configure exercise"
@@ -531,27 +585,24 @@ export function ExerciseDetailModal({
               onClose();
               onConfigure();
             }}
-            style={({ pressed }) => [styles.configureBtn, pressed && { opacity: 0.8 }]}
+            style={({ pressed }) => [styles.configureBtn, { flex: 1 }, pressed && { opacity: 0.8 }]}
           >
             <Ionicons name="options-outline" size={18} color={colors.text} style={{ marginRight: 6 }} />
             <Text style={styles.configureBtnText}>
-              {isUk ? 'Налаштувати' : 'Configure'}
+              {isUk ? 'Налаштувати підходи та вагу' : 'Configure Sets & Weight'}
             </Text>
           </Pressable>
-        ) : null}
+        </View>
+      ) : null}
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Got it, back to workout"
-          onPress={() => {
-            hapticMedium();
-            onClose();
-          }}
-          style={({ pressed }) => [styles.gotItBtn, pressed && { opacity: 0.88 }]}
-        >
-          <Text style={styles.gotItBtnText}>{isUk ? 'Зрозуміло' : 'Got It'}</Text>
-        </Pressable>
-      </View>
+      <ExerciseNoteModal
+        visible={noteModalVisible}
+        exerciseName={te(exerciseName)}
+        initialNote={personalNote}
+        language={language}
+        onClose={() => setNoteModalVisible(false)}
+        onSave={(newNote) => saveNote(exerciseName, newNote)}
+      />
     </BottomSheet>
   );
 }
