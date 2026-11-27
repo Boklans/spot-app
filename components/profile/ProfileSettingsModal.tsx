@@ -23,6 +23,7 @@ interface ProfileSettingsModalProps {
   onUpdateProfile: (updates: Partial<UserProfile>) => void;
   onToggleNotifications: (enabled: boolean) => void;
   onOpenRestPicker: () => void;
+  onOpenReminderTimePicker?: () => void;
   onOpenPicker: (picker: ProfilePickerType) => void;
   onOpenPrivacy: () => void;
   onContactSupport: () => void;
@@ -42,6 +43,7 @@ export function ProfileSettingsModal({
   onUpdateProfile,
   onToggleNotifications,
   onOpenRestPicker,
+  onOpenReminderTimePicker,
   onOpenPicker,
   onOpenPrivacy,
   onContactSupport,
@@ -335,6 +337,33 @@ export function ProfileSettingsModal({
                   value={profile.notifications}
                 />
               </Pressable>
+
+              {/* Reminder Time (indented row when notifications are enabled — P2-05) */}
+              {profile.notifications && onOpenReminderTimePicker && (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    hapticLight();
+                    onOpenReminderTimePicker();
+                  }}
+                  style={({ pressed }) => [
+                    styles.row,
+                    { paddingLeft: 42 },
+                    pressed && styles.rowPressed,
+                  ]}
+                >
+                  <View style={styles.rowLeft}>
+                    <Ionicons name="time-outline" size={18} color={colors.secondary} />
+                    <Text style={styles.rowTitle}>
+                      {isUk ? 'Час нагадувань' : 'Reminder Time'}
+                    </Text>
+                  </View>
+                  <View style={styles.valueRow}>
+                    <Text style={styles.valuePill}>{profile.notificationTime || '09:00'}</Text>
+                    <Ionicons name="chevron-forward" size={17} color={colors.muted} />
+                  </View>
+                </Pressable>
+              )}
 
               {/* Sound Effects */}
               <Pressable

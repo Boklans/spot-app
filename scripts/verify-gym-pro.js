@@ -197,7 +197,7 @@ let passed = 0;
   assert.strictEqual(hevyRes.importedSetsCount, 4);
   const hw = hevyRes.workouts[0];
   assert.strictEqual(hw.workoutName, 'Upper A, Heavy');
-  assert.strictEqual(hw.exercises[0].exerciseName, 'Bench Press');
+  assert.strictEqual(hw.exercises[0].exerciseName, 'Barbell Bench Press');
   assert.strictEqual(hw.exercises[0].muscleGroup, 'Chest');
   assert.strictEqual(hw.exercises[0].sets[0].setType, 'warmup');
   assert.strictEqual(hw.exercises[0].sets[1].rir, 2); // RPE 8 -> 2 RIR
@@ -217,6 +217,16 @@ let passed = 0;
   assert.strictEqual(strongRes.importedWorkoutsCount, 1);
   assert.strictEqual(strongRes.workouts[0].durationSeconds, 3900);
   assert.strictEqual(strongRes.workouts[0].totalVolume, 100 * 5 + 90 * 8);
+
+  // European semicolon-delimited Strong CSV export (P2-05)
+  const euStrongCsv = [
+    'Date;Workout Name;Duration;Exercise Name;Set Order;Weight;Reps;Distance;Seconds;Notes;Workout Notes;RPE',
+    '2026-11-19 11:00:00;Upper EU;45m;Bench Press (Barbell);1;85;8;;;;;8',
+  ].join('\n');
+  const euRes = csvImporter.parseWorkoutHistoryCsv(euStrongCsv, 'kg');
+  assert.strictEqual(euRes.success, true);
+  assert.strictEqual(euRes.workouts[0].exercises[0].exerciseName, 'Barbell Bench Press');
+  assert.strictEqual(euRes.workouts[0].totalVolume, 85 * 8);
 
   // Deduplication prevents double-importing the same workout
   const merge1 = csvImporter.mergeImportedWorkouts([], hevyRes.workouts);

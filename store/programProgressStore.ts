@@ -271,13 +271,23 @@ export const useProgramProgressStore = create<ProgramProgressState>((set, get) =
       // If history check fails, proceed with standard progression
     }
 
-    // 4. Standard forward progression:
+    // 4. Standard forward progression (P2-06: preserve uncompleted scheduled workout on out-of-order execution):
     const currentIndex = workouts.findIndex((workout) => workout.id === current.nextWorkoutId);
-    const baseIndex = completedIndex >= 0 ? completedIndex : (currentIndex >= 0 ? currentIndex : 0);
-    const nextIndex = (baseIndex + 1) % workouts.length;
+    const isScheduledWorkout =
+      currentIndex >= 0 && completedWorkoutId === current.nextWorkoutId;
 
-    const nextWorkout = workouts[nextIndex] ?? workouts[0];
-    const nextWorkoutId = nextWorkout?.id ?? workouts[0].id;
+    let nextWorkoutId: string;
+    if (isScheduledWorkout) {
+      const nextIndex = (currentIndex + 1) % workouts.length;
+      nextWorkoutId = workouts[nextIndex]?.id ?? workouts[0].id;
+    } else if (currentIndex >= 0) {
+      // Athlete performed a different split day out of order — keep the scheduled day queued next!
+      nextWorkoutId = current.nextWorkoutId;
+    } else {
+      const baseIndex = completedIndex >= 0 ? completedIndex : 0;
+      const nextIndex = (baseIndex + 1) % workouts.length;
+      nextWorkoutId = workouts[nextIndex]?.id ?? workouts[0].id;
+    }
 
     const next: ProgramProgress = {
       programId: program.id,

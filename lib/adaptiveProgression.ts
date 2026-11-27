@@ -388,18 +388,47 @@ export function recommendWeight(
   }
 
   // 1. All prescribed sets completed at working weight and hit/exceeded top of rep range -> Progress weight, reset target reps to minimum
+  // (P2-06 RIR integration: if every logged set at top-of-range was an all-out 0 RIR grinder, consolidate 1 session before jumping weight)
   if (completedAllSets && allSetsAtWorkingWeight && reps.every((value) => value >= maximum)) {
+    const loggedRirs = validSets
+      .map((s) => s.rir)
+      .filter((r): r is number => typeof r === 'number' && Number.isFinite(r));
+    const avgRir =
+      loggedRirs.length > 0
+        ? loggedRirs.reduce((sum, r) => sum + r, 0) / loggedRirs.length
+        : null;
+
+    if (loggedRirs.length >= Math.ceil(validSets.length / 2) && avgRir !== null && avgRir <= 0.25) {
+      return {
+        recommendedWeight: normalizeWeight(weight),
+        recommendedReps: maximum,
+        recommendationReason: 'maintain',
+        source: 'history',
+        explanation: `You hit ${reps.join('/')} at ${formatWeight(weight)} kg at 0 RIR (true failure). Consolidate 1 more crisp session with 1–2 RIR before adding weight.`,
+        explanationUk: `Ви виконали ${reps.join('/')} × ${formatWeight(weight)} кг на 0 RIR (до повної відмови). Закріпіть ще 1 чисту сесію із запасом 1–2 RIR перед переходом на більшу вагу.`,
+      };
+    }
+
+    const easyRirSuffixEn =
+      loggedRirs.length >= Math.ceil(validSets.length / 2) && avgRir !== null && avgRir >= 3
+        ? ' (3+ RIR reserve — ready for a strong jump)'
+        : '';
+    const easyRirSuffixUk =
+      loggedRirs.length >= Math.ceil(validSets.length / 2) && avgRir !== null && avgRir >= 3
+        ? ' (запас 3+ RIR — тіло готове до впевненого росту)'
+        : '';
+
     return {
       recommendedWeight: progressedWeight,
       recommendedReps: minimum,
       recommendationReason: 'increase',
       source: 'history',
       explanation: isAssisted
-        ? `You hit ${reps.join('/')} with ${formatWeight(weight)} kg assistance (top of ${minimum}-${maximum}). Reduce assistance to ${formatWeight(progressedWeight)} kg × ${minimum} reps today.`
-        : `You hit ${reps.join('/')} at ${formatWeight(weight)} kg last time (top of ${minimum}-${maximum}). Try ${formatWeight(progressedWeight)} kg × ${minimum} reps today.`,
+        ? `You hit ${reps.join('/')} with ${formatWeight(weight)} kg assistance (top of ${minimum}-${maximum})${easyRirSuffixEn}. Reduce assistance to ${formatWeight(progressedWeight)} kg × ${minimum} reps today.`
+        : `You hit ${reps.join('/')} at ${formatWeight(weight)} kg last time (top of ${minimum}-${maximum})${easyRirSuffixEn}. Try ${formatWeight(progressedWeight)} kg × ${minimum} reps today.`,
       explanationUk: isAssisted
-        ? `Минулого разу: ${reps.join('/')} з противагою ${formatWeight(weight)} кг (верхня межа ${minimum}–${maximum}). Зменшуємо противагу до ${formatWeight(progressedWeight)} кг × ${minimum} повт (менша противага = важче).`
-        : `Минулого разу ви виконали ${reps.join('/')} × ${formatWeight(weight)} кг (верхня межа ${minimum}–${maximum}). Переходимо на ${formatWeight(progressedWeight)} кг × ${minimum} повт.`,
+        ? `Минулого разу: ${reps.join('/')} з противагою ${formatWeight(weight)} кг (верхня межа ${minimum}–${maximum})${easyRirSuffixUk}. Зменшуємо противагу до ${formatWeight(progressedWeight)} кг × ${minimum} повт (менша противага = важче).`
+        : `Минулого разу ви виконали ${reps.join('/')} × ${formatWeight(weight)} кг (верхня межа ${minimum}–${maximum})${easyRirSuffixUk}. Переходимо на ${formatWeight(progressedWeight)} кг × ${minimum} повт.`,
     };
   }
 

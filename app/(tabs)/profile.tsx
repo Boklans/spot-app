@@ -765,6 +765,7 @@ export default function Profile() {
         onUpdateProfile={(u) => updateProfile(u)}
         onToggleNotifications={handleToggleNotifications}
         onOpenRestPicker={() => setRestModalVisible(true)}
+        onOpenReminderTimePicker={() => setReminderModalVisible(true)}
         onOpenPicker={(p) => {
           hapticLight();
           setActivePicker(p);

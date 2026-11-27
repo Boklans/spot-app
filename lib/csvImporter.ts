@@ -17,13 +17,37 @@ export interface CsvImportResult {
 const LBS_TO_KG = 0.45359237;
 
 /**
- * RFC-4180 compliant CSV parser supporting quoted fields, embedded commas,
+ * Auto-detects comma vs semicolon CSV delimiter from the header line (outside quotes),
+ * supporting both US/UK `,` and European `;` Strong/Hevy CSV exports.
+ */
+function detectCsvDelimiter(text: string): ',' | ';' {
+  let commas = 0;
+  let semicolons = 0;
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+    if (!inQuotes) {
+      if (ch === '\n' || ch === '\r') break;
+      if (ch === ',') commas++;
+      else if (ch === ';') semicolons++;
+    }
+  }
+  return semicolons > commas ? ';' : ',';
+}
+
+/**
+ * RFC-4180 compliant CSV parser supporting `,` and `;` delimiters, quoted fields,
  * escaped quotes (""), CRLF/LF newlines, and UTF-8 BOM.
  */
 export function parseCsvRows(rawText: string): string[][] {
   const text = (rawText || '').replace(/^\uFEFF/, '');
   if (!text.trim()) return [];
 
+  const delimiter = detectCsvDelimiter(text);
   const rows: string[][] = [];
   let row: string[] = [];
   let field = '';
@@ -47,7 +71,7 @@ export function parseCsvRows(rawText: string): string[][] {
 
     if (ch === '"') {
       inQuotes = true;
-    } else if (ch === ',') {
+    } else if (ch === delimiter) {
       row.push(field.trim());
       field = '';
     } else if (ch === '\r' && next === '\n') {
@@ -156,11 +180,20 @@ function mapSetType(raw: string): SetType {
 }
 
 function cleanExerciseName(raw: string): string {
-  // Strip noisy equipment suffixes like "Bench Press (Barbell)" -> "Bench Press" where helpful,
-  // while keeping "(Dumbbell)" or "(Cable)" distinguishable
   const trimmed = raw.trim();
-  if (/\(Barbell\)$/i.test(trimmed)) {
-    return trimmed.replace(/\s*\(Barbell\)$/i, '').trim();
+  const directCanonical = findCanonicalExercise(trimmed);
+  if (directCanonical) return directCanonical.nameEn;
+
+  // Map Strong/Hevy "(Barbell)" / "(Dumbbell)" / "(Cable)" / "(Machine)" suffixes to canonical names
+  const equipMatch = trimmed.match(/^(.+?)\s*\((Barbell|Dumbbell|Cable|Machine|Bodyweight)\)$/i);
+  if (equipMatch) {
+    const base = equipMatch[1].trim();
+    const equip = equipMatch[2].trim();
+    const withPrefix = findCanonicalExercise(`${equip} ${base}`);
+    if (withPrefix) return withPrefix.nameEn;
+    const baseOnly = findCanonicalExercise(base);
+    if (baseOnly) return baseOnly.nameEn;
+    if (/^Barbell$/i.test(equip)) return base;
   }
   return trimmed;
 }
