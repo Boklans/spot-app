@@ -18,6 +18,7 @@ import { AnatomyPreview } from '@/components/progress/AnatomyPreview';
 import { WorkoutEditorModal } from '@/components/program/WorkoutEditorModal';
 import { useWorkoutBarBottomInset } from '@/components/ui/Screen';
 import { useUserProfileStore } from '@/store/userProfileStore';
+import { findLatestExerciseSets, inferEquipmentFromName, recommendWeight } from '@/lib/adaptiveProgression';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -26,6 +27,8 @@ import { getNextAvailableWeekday, getWorkoutDayLabel } from '@/lib/programGenera
 import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
+import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
+import { getSupersetBadgeLabel } from '@/store/workoutSessionStore';
 import {
   defaultOnboarding,
   loadOnboarding,
@@ -42,6 +45,8 @@ export default function Program() {
   const bottomBarInset = useWorkoutBarBottomInset(40);
   const { formatWithUnit } = useWeightUnit();
   const program = useProgramStore((state) => state.program);
+  const deloadActive = useProgramStore((state) => state.deloadActive);
+  const history = useWorkoutHistoryStore((state) => state.workouts);
   const progress = useProgramProgressStore((state) => state.progress);
   const profileSex = useUserProfileStore((state) => state.profile.sex);
   const [editingWorkout, setEditingWorkout] = useState<UserWorkout | null>(null);
@@ -49,6 +54,7 @@ export default function Program() {
 
   const syncProgramAndOnboarding = useCallback(() => {
     useProgramStore.getState().getOrLoadProgram();
+    useWorkoutHistoryStore.getState().loadHistory();
     loadOnboarding().then((data) => setOnboarding(data));
   }, []);
 
@@ -332,12 +338,16 @@ export default function Program() {
                 style={styles.exerciseList}
               >
                 {workout.exercises.map((exercise, exIndex) => {
-                  const isSupersetA1 = Boolean(
-                    exercise.supersetWithNext && exIndex < workout.exercises.length - 1
-                  );
-                  const isSupersetA2 = Boolean(
-                    exIndex > 0 && workout.exercises[exIndex - 1]?.supersetWithNext
-                  );
+                  const supersetLabel = getSupersetBadgeLabel(workout.exercises, exIndex);
+                  const equipment = (exercise as any).equipment || inferEquipmentFromName(exercise.name);
+                  const exWithEquip = { ...exercise, equipment } as any;
+                  const prevSets = findLatestExerciseSets(history, exWithEquip);
+                  const rec = recommendWeight(exWithEquip, prevSets, { deloadActive });
+                  const effectiveWeight = rec.source === 'history'
+                    ? rec.recommendedWeight
+                    : (typeof exercise.recommendedWeight === 'number' && exercise.recommendedWeight > 0
+                      ? exercise.recommendedWeight
+                      : rec.recommendedWeight);
 
                   return (
                     <View key={`${exercise.name}-${exIndex}`} style={styles.exerciseRow}>
@@ -349,13 +359,13 @@ export default function Program() {
                             resizeMode="cover"
                           />
                         </View>
-                        {(isSupersetA1 || isSupersetA2) && (
+                        {supersetLabel && (
                           <View
                             style={{
                               flexDirection: 'row',
                               alignItems: 'center',
                               gap: 2,
-                              backgroundColor: 'rgba(168, 85, 247, 0.16)',
+                              backgroundColor: colors.supersetMuted,
                               borderWidth: 1,
                               borderColor: 'rgba(168, 85, 247, 0.35)',
                               borderRadius: 5,
@@ -363,9 +373,9 @@ export default function Program() {
                               paddingVertical: 1.5,
                             }}
                           >
-                            <Ionicons name="link" size={9} color="#A855F7" />
-                            <Text style={{ color: '#A855F7', fontSize: 9.5, fontWeight: '800' }}>
-                              {isSupersetA1 ? 'A1' : 'A2'}
+                            <Ionicons name="link" size={9} color={colors.superset} />
+                            <Text style={{ fontFamily: fonts.monoBold, color: colors.superset, fontSize: 10 }}>
+                              {supersetLabel}
                             </Text>
                           </View>
                         )}
@@ -374,7 +384,7 @@ export default function Program() {
                         </Text>
                       </View>
                       <Text style={styles.exerciseMetaText}>
-                        {exercise.sets} × {exercise.targetRepRange}
+                        {exercise.sets} × {effectiveWeight > 0 ? formatWithUnit(effectiveWeight) : (language === 'uk' ? 'ВТ' : 'BW')} × {exercise.targetRepRange}
                       </Text>
                     </View>
                   );
@@ -663,11 +673,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
   },
   exerciseMetaText: {
-    fontFamily: fonts.semiBold,
+    fontFamily: fonts.monoSemiBold,
     color: colors.secondary,
-    fontSize: 12.5,
-    fontWeight: '600',
+    fontSize: 12,
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
   },
   addCustomWorkoutBtn: {
     flexDirection: 'row',

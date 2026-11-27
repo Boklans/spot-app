@@ -325,6 +325,8 @@ const benchPress = {
   const notifSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'notificationService.ts'), 'utf8');
 
   assert.ok(!homeSource.includes("'/workout/rest'"), 'Home screen must never route to blocking /workout/rest');
+  assert.ok(homeSource.includes("router.push('/workout/active')"), 'Home primary CTA must launch /workout/active in 1 tap (P1-07)');
+  assert.ok(homeSource.includes("'/workout/preview'"), 'Home workout card must retain /workout/preview for inspection (P1-07)');
   assert.ok(!previewSource.includes("'/workout/rest'"), 'Preview screen must never route to blocking /workout/rest');
   assert.ok(notifSource.includes("screen: '/workout/active'"), 'Rest timer notification must route to /workout/active');
 

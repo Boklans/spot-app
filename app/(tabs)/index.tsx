@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { SpotCoachCard } from '@/components/home/SpotCoachCard';
 import { AnatomyPreview } from '@/components/progress/AnatomyPreview';
@@ -40,6 +41,7 @@ export default function Home() {
   const restoreFromDeload = useProgramStore((state) => state.restoreFromDeload);
   const programHydrated = useProgramStore((state) => state.hydrated);
   const activeSession = useWorkoutSessionStore((state) => state.session);
+  const initializeSession = useWorkoutSessionStore((state) => state.initializeSession);
   const discardSession = useWorkoutSessionStore((state) => state.discardSession);
   const progress = useProgramProgressStore((state) => state.progress);
   const setNextWorkout = useProgramProgressStore((state) => state.setNextWorkout);
@@ -47,6 +49,7 @@ export default function Home() {
   const historyHydrated = useWorkoutHistoryStore((state) => state.hydrated);
   const [switchModalVisible, setSwitchModalVisible] = useState(false);
   const [switchModalMode, setSwitchModalMode] = useState<'switch' | 'start'>('switch');
+  const [startingWorkout, setStartingWorkout] = useState(false);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -294,6 +297,17 @@ export default function Home() {
     }
   };
 
+  const handleOneTapStartWorkout = useCallback(async () => {
+    if (!nextWorkout || startingWorkout) return;
+    setStartingWorkout(true);
+    try {
+      await initializeSession(nextWorkout);
+      router.push('/workout/active');
+    } finally {
+      setStartingWorkout(false);
+    }
+  }, [initializeSession, nextWorkout, startingWorkout]);
+
   const greetingText = userGreetingName
     ? `${greetingPrefix}, ${userGreetingName}`
     : greetingPrefix;
@@ -514,37 +528,45 @@ export default function Home() {
                         {te(ex.name)}
                       </Text>
                       <Text style={styles.previewExSets}>
-                        {ex.sets} × {effectiveWeight ? formatWithUnit(effectiveWeight) : (language === 'uk' ? 'ВТ' : 'BW')}
+                        {ex.sets} × {effectiveWeight ? formatWithUnit(effectiveWeight) : (language === 'uk' ? 'ВТ' : 'BW')} × {ex.targetRepRange || '8-12'}
                       </Text>
                     </View>
                   );
                 })}
-                {nextWorkout.exercises.length > 4 && (() => {
-                  const rem = nextWorkout.exercises.length - 4;
-                  const label =
-                    language === 'uk'
-                      ? rem === 1
-                        ? '+ ще 1 вправа'
-                        : rem < 5
-                        ? `+ ще ${rem} вправи`
-                        : `+ ще ${rem} вправ`
-                      : `+ ${rem} more ${rem === 1 ? 'exercise' : 'exercises'}`;
-                  return (
-                    <Text style={styles.previewMoreText}>
-                      {label}
+                <View style={styles.previewFooterRow}>
+                  {nextWorkout.exercises.length > 4 ? (() => {
+                    const rem = nextWorkout.exercises.length - 4;
+                    const label =
+                      language === 'uk'
+                        ? rem === 1
+                          ? '+ ще 1 вправа'
+                          : rem < 5
+                          ? `+ ще ${rem} вправи`
+                          : `+ ще ${rem} вправ`
+                        : `+ ${rem} more ${rem === 1 ? 'exercise' : 'exercises'}`;
+                    return (
+                      <Text style={styles.previewMoreText}>
+                        {label}
+                      </Text>
+                    );
+                  })() : <View />}
+
+                  <View style={styles.previewInspectLink}>
+                    <Text style={styles.previewInspectLinkText}>
+                      {language === 'uk' ? 'Перегляд і зміна' : 'Preview & Edit'}
                     </Text>
-                  );
-                })()}
+                    <Ionicons name="chevron-forward" size={13} color={colors.secondary} />
+                  </View>
+                </View>
               </Pressable>
             )}
           </View>
 
-          {/* Primary CTA — the single high-contrast accent on screen */}
+          {/* Primary 1-Tap CTA — launches Active Workout directly with zero friction */}
           <Button
             style={styles.ctaButton}
-            onPress={() => {
-              router.push({ pathname: '/workout/preview', params: { workoutId: nextWorkout.id } });
-            }}
+            loading={startingWorkout}
+            onPress={handleOneTapStartWorkout}
           >
             {t('startWorkout')}
           </Button>
@@ -741,20 +763,19 @@ export default function Home() {
           </View>
 
           <Button
-            style={[styles.ctaButton, { marginBottom: 20 }]}
+            variant="secondary"
+            style={styles.completedSummaryBtn}
             onPress={() => {
               if (completedSummaryData.isLiveSession) {
                 router.push('/workout/complete');
               } else if (completedSummaryData.id) {
                 router.push({ pathname: '/history/[id]', params: { id: completedSummaryData.id } });
               } else {
-                router.push('/history');
+                router.push({ pathname: '/(tabs)/progress', params: { view: 'history' } });
               }
             }}
           >
-            <View style={styles.btnContentRow}>
-              <Text style={styles.ctaButtonText}>{t('viewSummary')}</Text>
-            </View>
+            {t('viewSummary')}
           </Button>
 
           {/* NEXT UP Card with Mini Target Anatomy */}
@@ -805,14 +826,25 @@ export default function Home() {
         </>
       )}
 
-      {/* This Week Tracker */}
+      {/* This Week Tracker (1-tap access to Workout History) */}
       {homeState !== 'IN_PROGRESS' && (
-        <View style={styles.weekSection}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={language === 'uk' ? 'Відкрити історію тренувань' : 'Open workout history'}
+          onPress={() => {
+            hapticLight();
+            router.push({ pathname: '/(tabs)/progress', params: { view: 'history' } });
+          }}
+          style={({ pressed }) => [styles.weekSection, pressed && { opacity: 0.88 }]}
+        >
           <View style={styles.weekHeader}>
             <Text style={styles.weekLabel}>{t('thisWeek')}</Text>
-            <Text style={styles.weekCounter}>
-              {completedWorkoutsThisWeek} / {targetWorkouts} {language === 'uk' ? 'тренувань' : 'workouts'}
-            </Text>
+            <View style={styles.weekHeaderRight}>
+              <Text style={styles.weekCounter}>
+                {completedWorkoutsThisWeek} / {targetWorkouts} {language === 'uk' ? 'трен.' : 'sessions'}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.muted} />
+            </View>
           </View>
           <View style={styles.weekRow}>
             {weekDayStatuses.map((item, idx) => (
@@ -820,7 +852,7 @@ export default function Home() {
                 <View style={styles.weekSlot}>
                   {item.completed ? (
                     <View style={styles.indicatorCompleted}>
-                      <Ionicons name="checkmark" size={14} color="#0B0D0F" />
+                      <Ionicons name="checkmark" size={14} color={colors.onPrimary} />
                     </View>
                   ) : item.isToday ? (
                     <View style={styles.indicatorToday}>
@@ -842,7 +874,7 @@ export default function Home() {
               </View>
             ))}
           </View>
-        </View>
+        </Pressable>
       )}
 
       {/* SPOT Coach: Weekly Insights & 1-Tap Deload */}
@@ -850,91 +882,75 @@ export default function Home() {
         <SpotCoachCard insight={coachInsight} onAction={handleCoachAction} />
       ) : null}
 
-      {/* Workout Switch Modal */}
-      <Modal
+      {/* Workout Switch BottomSheet */}
+      <BottomSheet
         visible={switchModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSwitchModalVisible(false)}
+        onClose={() => setSwitchModalVisible(false)}
+        title={
+          switchModalMode === 'start'
+            ? (language === 'uk' ? 'Почати інше тренування' : 'Start Another Workout')
+            : (language === 'uk' ? 'Вибрати тренування' : 'Select Workout')
+        }
+        subtitle={
+          switchModalMode === 'start'
+            ? (language === 'uk' ? 'Оберіть тренування для швидкого старту' : 'Select a workout to start')
+            : (language === 'uk' ? 'Оберіть заплановане тренування' : 'Choose your scheduled workout')
+        }
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setSwitchModalVisible(false)}
+        <ScrollView
+          style={{ maxHeight: 380 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 16 }}
+          showsVerticalScrollIndicator={false}
         >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>
-                  {switchModalMode === 'start'
-                    ? (language === 'uk' ? 'Почати інше тренування' : 'Start Another Workout')
-                    : (language === 'uk' ? 'Вибрати тренування' : 'Select Workout')}
-                </Text>
-                <Text style={styles.modalSubtitle}>
-                  {switchModalMode === 'start'
-                    ? (language === 'uk' ? 'Оберіть тренування для перегляду та старту' : 'Select a workout to preview & start')
-                    : (language === 'uk' ? 'Оберіть заплановане тренування' : 'Choose your scheduled workout')}
-                </Text>
-              </View>
+          {program.workouts.map((w, idx) => {
+            const isSelected = w.id === nextWorkout.id;
+            const muscles = w.muscleGroups?.slice(0, 3).map((m) => tm(m)).join(' • ') || '';
+            return (
               <Pressable
-                onPress={() => setSwitchModalVisible(false)}
-                hitSlop={10}
-                style={styles.modalCloseBtn}
+                key={w.id}
+                style={[styles.switchItem, isSelected && styles.switchItemActive]}
+                onPress={async () => {
+                  hapticMedium();
+                  await setNextWorkout(w.id);
+                  setSwitchModalVisible(false);
+                  if (switchModalMode === 'start') {
+                    await initializeSession(w);
+                    router.push('/workout/active');
+                  }
+                }}
               >
-                <Ionicons name="close" size={22} color="#8E959F" />
+                <View style={styles.switchItemLeft}>
+                  <View style={[styles.switchItemBadge, isSelected && styles.switchItemBadgeActive]}>
+                    <Text style={[styles.switchItemBadgeText, isSelected && styles.switchItemBadgeTextActive]}>
+                      {String.fromCharCode(65 + idx)}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.switchItemName, isSelected && styles.switchItemNameActive]}>
+                      {tw(w.name)}
+                    </Text>
+                    {muscles ? (
+                      <Text style={styles.switchItemMuscles}>{muscles}</Text>
+                    ) : null}
+                  </View>
+                </View>
+                {switchModalMode === 'start' ? (
+                  <View style={styles.switchItemStartBadge}>
+                    <Ionicons name="play" size={11} color={colors.onPrimary} style={{ marginRight: 3 }} />
+                    <Text style={styles.switchItemStartBadgeText}>
+                      {language === 'uk' ? 'СТАРТ' : 'START'}
+                    </Text>
+                  </View>
+                ) : isSelected ? (
+                  <Ionicons name="checkmark-circle" size={22} color={colors.primaryText} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+                )}
               </Pressable>
-            </View>
-
-            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-              {program.workouts.map((w, idx) => {
-                const isSelected = w.id === nextWorkout.id;
-                const muscles = w.muscleGroups?.slice(0, 3).map((m) => tm(m)).join(' • ') || '';
-                return (
-                  <Pressable
-                    key={w.id}
-                    style={[styles.switchItem, isSelected && styles.switchItemActive]}
-                    onPress={async () => {
-                      hapticMedium();
-                      await setNextWorkout(w.id);
-                      setSwitchModalVisible(false);
-                      if (switchModalMode === 'start') {
-                        router.push({ pathname: '/workout/preview', params: { workoutId: w.id } });
-                      }
-                    }}
-                  >
-                    <View style={styles.switchItemLeft}>
-                      <View style={[styles.switchItemBadge, isSelected && styles.switchItemBadgeActive]}>
-                        <Text style={[styles.switchItemBadgeText, isSelected && styles.switchItemBadgeTextActive]}>
-                          {String.fromCharCode(65 + idx)}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.switchItemName, isSelected && styles.switchItemNameActive]}>
-                          {tw(w.name)}
-                        </Text>
-                        {muscles ? (
-                          <Text style={styles.switchItemMuscles}>{muscles}</Text>
-                        ) : null}
-                      </View>
-                    </View>
-                    {switchModalMode === 'start' ? (
-                      <View style={styles.switchItemStartBadge}>
-                        <Ionicons name="play" size={11} color="#0B0D0F" style={{ marginRight: 3 }} />
-                        <Text style={styles.switchItemStartBadgeText}>
-                          {language === 'uk' ? 'СТАРТ' : 'START'}
-                        </Text>
-                      </View>
-                    ) : isSelected ? (
-                      <Ionicons name="checkmark-circle" size={22} color={colors.primaryText} />
-                    ) : (
-                      <Ionicons name="chevron-forward" size={18} color="#6C7685" />
-                    )}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+            );
+          })}
+        </ScrollView>
+      </BottomSheet>
     </Screen>
   );
 }
@@ -993,11 +1009,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 4,
   },
   weeklyGoalText: {
-    fontFamily: fonts.bold,
+    fontFamily: fonts.monoBold,
     fontSize: 13,
-    fontWeight: '700',
     color: colors.text,
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
   },
   weeklyGoalSub: {
     fontFamily: fonts.medium,
@@ -1131,34 +1147,51 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderTopColor: colors.divider,
   },
   previewExIndex: {
-    fontFamily: fonts.semiBold,
-    width: 20,
+    fontFamily: fonts.monoSemiBold,
+    width: 22,
     fontSize: 11.5,
-    fontWeight: '600',
     color: colors.muted,
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
   },
   previewExName: {
     fontFamily: fonts.medium,
     flex: 1,
     fontSize: 14,
-    fontWeight: '500',
     color: colors.text,
+    includeFontPadding: false,
   },
   previewExSets: {
-    fontFamily: fonts.semiBold,
-    fontSize: 13,
-    fontWeight: '600',
+    fontFamily: fonts.monoSemiBold,
+    fontSize: 12.5,
     color: colors.secondary,
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
+  },
+  previewFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 6,
   },
   previewMoreText: {
     fontFamily: fonts.semiBold,
     fontSize: 12,
-    fontWeight: '600',
     color: colors.secondary,
-    marginTop: 4,
-    paddingLeft: 30,
+    paddingLeft: 32,
+    includeFontPadding: false,
+  },
+  previewInspectLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  previewInspectLinkText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 12,
+    color: colors.secondary,
+    includeFontPadding: false,
   },
   workoutMainRow: {
     flexDirection: 'row',
@@ -1211,12 +1244,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textTransform: 'uppercase',
     color: colors.muted,
   },
+  weekHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   weekCounter: {
-    fontFamily: fonts.bold,
+    fontFamily: fonts.monoBold,
     fontSize: 13,
-    fontWeight: '700',
     color: colors.text,
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
   },
   weekRow: {
     flexDirection: 'row',
@@ -1389,10 +1427,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.primaryText,
   },
   progressCounterText: {
+    fontFamily: fonts.monoBold,
     fontSize: 14,
-    fontWeight: '700',
     color: colors.text,
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
   },
   progressBarTrack: {
     height: 4,
@@ -1432,10 +1471,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
   },
   currentExTarget: {
-    fontSize: 14,
+    fontFamily: fonts.monoSemiBold,
+    fontSize: 13.5,
     color: colors.text,
-    fontWeight: '600',
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
   },
   completedBadge: {
     flexDirection: 'row',
@@ -1468,10 +1508,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 2,
   },
   completedStatVal: {
+    fontFamily: fonts.monoBold,
     fontSize: 17,
-    fontWeight: '700',
     color: colors.text,
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
+  },
+  completedSummaryBtn: {
+    width: '100%',
+    marginBottom: 18,
   },
   completedStatLbl: {
     fontSize: 11,

@@ -8,19 +8,24 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  Text,
   useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { radii } from '@/constants/radii';
+import { fonts } from '@/constants/typography';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { hapticLight } from '@/lib/haptics';
 
 interface BottomSheetProps {
   visible: boolean;
   onClose: () => void;
+  title?: string;
+  subtitle?: string;
   /** Optional override for sheet surface background (default: colors.surface) */
   backgroundColor?: string;
   maxHeight?: ViewStyle['maxHeight'];
@@ -36,6 +41,8 @@ interface BottomSheetProps {
 export function BottomSheet({
   visible,
   onClose,
+  title,
+  subtitle,
   backgroundColor,
   maxHeight = '88%',
   showHandle = true,
@@ -153,6 +160,23 @@ export function BottomSheet({
             <View style={styles.handle} />
           </View>
         ) : null}
+        {title ? (
+          <View style={styles.headerRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle}>{title}</Text>
+              {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              hitSlop={10}
+              onPress={onClose}
+              style={styles.headerCloseBtn}
+            >
+              <Ionicons name="close" size={20} color={colors.secondary} />
+            </Pressable>
+          </View>
+        ) : null}
         {children}
       </SafeAreaView>
     </Animated.View>
@@ -222,5 +246,40 @@ const createStyles = (colors: ThemeColors) =>
       height: 4,
       borderRadius: 2,
       backgroundColor: colors.border,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingTop: 4,
+      paddingBottom: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+      gap: 12,
+    },
+    headerTitle: {
+      fontFamily: fonts.bold,
+      fontSize: 18,
+      lineHeight: 23,
+      color: colors.text,
+      letterSpacing: -0.3,
+      includeFontPadding: false,
+    },
+    headerSubtitle: {
+      fontFamily: fonts.medium,
+      fontSize: 12.5,
+      lineHeight: 17,
+      color: colors.secondary,
+      marginTop: 2,
+      includeFontPadding: false,
+    },
+    headerCloseBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: colors.elevated,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
   });
