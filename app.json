@@ -2,7 +2,7 @@
   "expo": {
     "name": "SPOT",
     "slug": "spot-app",
-    "version": "1.0.4",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "spot",
@@ -61,6 +61,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.vanzalabs.spot",
+      "buildNumber": "6",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "Allow SPOT to access your photo library to set a custom profile or exercise photo. / Дозвольте SPOT доступ до галереї для встановлення фото профілю або власної вправи.",
@@ -69,7 +70,7 @@
     },
     "android": {
       "package": "com.vanzalabs.spot",
-      "versionCode": 5,
+      "versionCode": 6,
       "permissions": [
         "POST_NOTIFICATIONS",
         "VIBRATE",
