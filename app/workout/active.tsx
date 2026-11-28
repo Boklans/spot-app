@@ -195,23 +195,30 @@ export default function Active() {
   }, []);
 
   const confirmDiscardWorkout = useCallback(() => {
-    Alert.alert(
-      isUk ? 'Скасувати тренування?' : 'Discard Workout?',
-      isUk
-        ? 'Усі підходи поточної сесії буде скасовано без збереження в історію.'
-        : 'All sets in this session will be discarded without saving to your workout history.',
-      [
-        { text: isUk ? 'Продовжити тренування' : 'Keep Training', style: 'cancel' },
-        {
-          text: isUk ? 'Скасувати тренування' : 'Discard Workout',
-          style: 'destructive',
-          onPress: async () => {
-            await discardSession();
-            exitWorkout();
-          },
+    const title = isUk ? 'Скасувати тренування?' : 'Discard Workout?';
+    const message = isUk
+      ? 'Усі підходи поточної сесії буде скасовано без збереження в історію.'
+      : 'All sets in this session will be discarded without saving to your workout history.';
+
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' ? window.confirm(`${title}\n\n${message}`) : true;
+      if (confirmed) {
+        void discardSession().then(() => exitWorkout());
+      }
+      return;
+    }
+
+    Alert.alert(title, message, [
+      { text: isUk ? 'Продовжити тренування' : 'Keep Training', style: 'cancel' },
+      {
+        text: isUk ? 'Скасувати тренування' : 'Discard Workout',
+        style: 'destructive',
+        onPress: async () => {
+          await discardSession();
+          exitWorkout();
         },
-      ]
-    );
+      },
+    ]);
   }, [discardSession, exitWorkout, isUk]);
 
   const handleFinishSessionNow = useCallback(async () => {
@@ -229,6 +236,21 @@ export default function Active() {
   const handleClose = useCallback(() => {
     if (!session) {
       exitWorkout();
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      const promptMsg =
+        progress.completedSets === 0
+          ? isUk
+            ? 'Поставити тренування на паузу та повернутися на головну?'
+            : 'Pause this workout and return to Home?'
+          : isUk
+            ? `Виконано ${progress.completedSets} із ${progress.totalSets} підходів. Поставити тренування на паузу та повернутися на головну?`
+            : `You completed ${progress.completedSets} of ${progress.totalSets} sets. Pause this workout and return to Home?`;
+      if (typeof window === 'undefined' || window.confirm(promptMsg)) {
+        exitWorkout();
+      }
       return;
     }
 

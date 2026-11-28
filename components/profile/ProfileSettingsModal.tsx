@@ -332,6 +332,7 @@ export function ProfileSettingsModal({
                 <Switch
                   trackColor={{ false: colors.elevated, true: colors.accentLine }}
                   thumbColor="#FFFFFF"
+                  {...({ activeThumbColor: colors.onPrimary } as any)}
                   ios_backgroundColor={colors.elevated}
                   onValueChange={onToggleNotifications}
                   value={profile.notifications}
@@ -381,6 +382,7 @@ export function ProfileSettingsModal({
                 <Switch
                   trackColor={{ false: colors.elevated, true: colors.accentLine }}
                   thumbColor="#FFFFFF"
+                  {...({ activeThumbColor: colors.onPrimary } as any)}
                   ios_backgroundColor={colors.elevated}
                   onValueChange={(val) => {
                     hapticLight();
@@ -407,6 +409,7 @@ export function ProfileSettingsModal({
                 <Switch
                   trackColor={{ false: colors.elevated, true: colors.accentLine }}
                   thumbColor="#FFFFFF"
+                  {...({ activeThumbColor: colors.onPrimary } as any)}
                   ios_backgroundColor={colors.elevated}
                   onValueChange={(val) => {
                     onUpdateProfile({ hapticsEnabled: val });

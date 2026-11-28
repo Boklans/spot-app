@@ -720,6 +720,7 @@ export default function WorkoutPreview() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               style={styles.configBody}
+              contentContainerStyle={{ paddingBottom: 12 }}
               keyboardShouldPersistTaps="handled"
             >
               {/* 1. Sets Stepper */}
@@ -1385,20 +1386,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 28,
+    paddingTop: 18,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 20,
     borderWidth: 1,
     borderColor: colors.border,
-    maxHeight: '85%',
+    maxHeight: '92%',
   },
   configHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingBottom: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   configThumbWrap: {
     width: 46,
@@ -1439,7 +1440,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexShrink: 1,
   },
   configSection: {
-    marginBottom: 18,
+    marginBottom: 14,
   },
   configSectionLabel: {
     fontSize: 11,

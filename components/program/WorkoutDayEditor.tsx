@@ -163,17 +163,13 @@ export function WorkoutDayEditor({
                   isExpanded && styles.itemCardExpanded,
                 ]}
               >
-                {/* Collapsed 64pt Header Row */}
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => toggleExpand(exKey)}
-                  style={styles.collapsedRow}
-                >
+                {/* Collapsed 64pt Header Row (sibling Pressables prevent nested <button> on web) */}
+                <View style={styles.collapsedRow}>
                   <Pressable
                     accessibilityRole="button"
+                    accessibilityLabel={te(ex.name)}
                     hitSlop={4}
-                    onPress={(e) => {
-                      e.stopPropagation();
+                    onPress={() => {
                       hapticLight();
                       setDetailExercise(ex);
                     }}
@@ -186,7 +182,11 @@ export function WorkoutDayEditor({
                     />
                   </Pressable>
 
-                  <View style={styles.titleCol}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => toggleExpand(exKey)}
+                    style={styles.titleCol}
+                  >
                     <View style={styles.titleTopLine}>
                       {supersetLabel && (
                         <View style={styles.supersetPill}>
@@ -202,17 +202,14 @@ export function WorkoutDayEditor({
                       {ex.sets} × {weightStr} × {ex.targetRepRange || '8-12'} · {restVal}
                       {isUk ? 'с' : 's'}
                     </Text>
-                  </View>
+                  </Pressable>
 
                   <View style={styles.quickReorderCol}>
                     <Pressable
                       accessibilityRole="button"
                       disabled={isFirst}
                       hitSlop={6}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        onMoveExerciseUp(idx);
-                      }}
+                      onPress={() => onMoveExerciseUp(idx)}
                       style={[styles.reorderBtn, isFirst && { opacity: 0.25 }]}
                     >
                       <Ionicons name="chevron-up" size={14} color={colors.secondary} />
@@ -221,22 +218,25 @@ export function WorkoutDayEditor({
                       accessibilityRole="button"
                       disabled={isLast}
                       hitSlop={6}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        onMoveExerciseDown(idx);
-                      }}
+                      onPress={() => onMoveExerciseDown(idx)}
                       style={[styles.reorderBtn, isLast && { opacity: 0.25 }]}
                     >
                       <Ionicons name="chevron-down" size={14} color={colors.secondary} />
                     </Pressable>
                   </View>
 
-                  <Ionicons
-                    name={isExpanded ? 'chevron-up-circle' : 'options-outline'}
-                    size={19}
-                    color={isExpanded ? colors.primaryText : colors.muted}
-                  />
-                </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    hitSlop={6}
+                    onPress={() => toggleExpand(exKey)}
+                  >
+                    <Ionicons
+                      name={isExpanded ? 'chevron-up-circle' : 'options-outline'}
+                      size={19}
+                      color={isExpanded ? colors.primaryText : colors.muted}
+                    />
+                  </Pressable>
+                </View>
 
                 {/* Expanded Inline Controls */}
                 {isExpanded && (
@@ -681,10 +681,12 @@ const createStyles = (colors: ThemeColors) =>
       borderRadius: 6,
       alignItems: 'center',
       justifyContent: 'center',
+      flexShrink: 0,
     },
     stepValueMono: {
       fontFamily: fonts.monoBold,
       flex: 1,
+      minWidth: 0,
       textAlign: 'center',
       fontSize: 14,
       color: colors.text,
@@ -693,6 +695,8 @@ const createStyles = (colors: ThemeColors) =>
     stepInputMono: {
       fontFamily: fonts.monoBold,
       flex: 1,
+      minWidth: 0,
+      width: '100%',
       textAlign: 'center',
       fontSize: 14,
       color: colors.text,
@@ -700,6 +704,8 @@ const createStyles = (colors: ThemeColors) =>
     },
     monoInput: {
       fontFamily: fonts.monoBold,
+      minWidth: 0,
+      width: '100%',
       height: 38,
       borderRadius: radii.xs + 2,
       backgroundColor: colors.elevated,

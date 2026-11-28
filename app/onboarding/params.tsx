@@ -486,6 +486,8 @@ const createStyles = (colors: ThemeColors) =>
     },
     textInput: {
       flex: 1,
+      minWidth: 0,
+      width: '100%',
       color: colors.text,
       fontSize: 16,
       fontWeight: '700',
@@ -495,7 +497,8 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.muted,
       fontSize: 11,
       fontWeight: '800',
-      marginLeft: 6,
+      marginLeft: 4,
+      flexShrink: 0,
     },
     sexRow: {
       flexDirection: 'row',
@@ -539,6 +542,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     metricCol: {
       flex: 1,
+      minWidth: 0,
       gap: 8,
     },
     metricInputWrap: {
@@ -548,8 +552,9 @@ const createStyles = (colors: ThemeColors) =>
       borderRadius: 16,
       borderWidth: 1.5,
       borderColor: colors.border,
-      paddingHorizontal: 12,
+      paddingHorizontal: 10,
       height: 54,
+      overflow: 'hidden',
     },
     bottomBar: {
       width: '100%',

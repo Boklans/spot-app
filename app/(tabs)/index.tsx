@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { SpotCoachCard } from '@/components/home/SpotCoachCard';
@@ -703,22 +703,27 @@ export default function Home() {
             accessibilityLabel="Discard workout"
             onPress={() => {
               hapticLight();
-              Alert.alert(
-                language === 'uk' ? 'Скасувати тренування?' : 'Discard Workout?',
+              const title = language === 'uk' ? 'Скасувати тренування?' : 'Discard Workout?';
+              const msg =
                 language === 'uk'
                   ? 'Активну сесію буде закрито без збереження в історію.'
-                  : 'This active session will be closed without saving to your workout history.',
-                [
-                  { text: language === 'uk' ? 'Залишити' : 'Keep Session', style: 'cancel' },
-                  {
-                    text: language === 'uk' ? 'Скасувати тренування' : 'Discard Workout',
-                    style: 'destructive',
-                    onPress: () => {
-                      void discardSession();
-                    },
+                  : 'This active session will be closed without saving to your workout history.';
+              if (Platform.OS === 'web') {
+                if (typeof window === 'undefined' || window.confirm(`${title}\n\n${msg}`)) {
+                  void discardSession();
+                }
+                return;
+              }
+              Alert.alert(title, msg, [
+                { text: language === 'uk' ? 'Залишити' : 'Keep Session', style: 'cancel' },
+                {
+                  text: language === 'uk' ? 'Скасувати тренування' : 'Discard Workout',
+                  style: 'destructive',
+                  onPress: () => {
+                    void discardSession();
                   },
-                ]
-              );
+                },
+              ]);
             }}
             style={({ pressed }) => [
               styles.quickLogSecondaryBtn,

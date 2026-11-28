@@ -567,27 +567,34 @@ export default function ProgramReady() {
             const isExpanded = expandedWorkouts[workout.id] ?? (index === 0);
 
             return (
-              <Pressable
+              <View
                 key={workout.id}
-                accessibilityRole="button"
-                accessibilityLabel={`${rawDayLabel}: ${workout.name}`}
-                onPress={() => toggleWorkout(workout.id)}
                 style={[styles.workoutCard, isExpanded && styles.workoutCardExpanded]}
               >
                 <View style={styles.cardHeader}>
-                  <View style={styles.dayBadge}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${rawDayLabel}: ${workout.name}`}
+                    onPress={() => toggleWorkout(workout.id)}
+                    style={styles.dayBadge}
+                  >
                     <Text style={styles.dayBadgeText}>{td(rawDayLabel)}</Text>
-                  </View>
+                  </Pressable>
                   <View style={styles.cardHeaderRight}>
-                    <Text style={styles.exerciseCount}>
-                      ~{workout.estimatedMinutes ?? program.estimatedWorkoutMinutes} {language === 'uk' ? 'хв' : 'min'} · {workout.exercises.length} {language === 'uk' ? 'вправ' : 'exercises'}
-                    </Text>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Редагувати тренування"
+                      onPress={() => toggleWorkout(workout.id)}
+                      style={{ flexDirection: 'row', alignItems: 'center' }}
+                    >
+                      <Text style={styles.exerciseCount}>
+                        ~{workout.estimatedMinutes ?? program.estimatedWorkoutMinutes} {language === 'uk' ? 'хв' : 'min'} · {workout.exercises.length} {language === 'uk' ? 'вправ' : 'exercises'}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={language === 'uk' ? 'Редагувати тренування' : 'Edit workout'}
                       hitSlop={8}
-                      onPress={(e) => {
-                        e.stopPropagation();
+                      onPress={() => {
                         hapticLight();
                         setEditingWorkout(workout as unknown as UserWorkout);
                       }}
@@ -598,29 +605,41 @@ export default function ProgramReady() {
                         {language === 'uk' ? 'Редагувати' : 'Edit'}
                       </Text>
                     </Pressable>
-                    <Ionicons
-                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                      size={18}
-                      color={colors.secondary}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={isExpanded ? (language === 'uk' ? 'Згорнути' : 'Collapse') : (language === 'uk' ? 'Розгорнути' : 'Expand')}
+                      hitSlop={8}
+                      onPress={() => toggleWorkout(workout.id)}
                       style={{ marginLeft: 2 }}
-                    />
+                    >
+                      <Ionicons
+                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color={colors.secondary}
+                      />
+                    </Pressable>
                   </View>
                 </View>
 
-                <Text style={styles.workoutName}>{tw(workout.name)}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => toggleWorkout(workout.id)}
+                >
+                  <Text style={styles.workoutName}>{tw(workout.name)}</Text>
 
-                <View style={styles.muscleRow}>
-                  {workout.muscleGroups.map((muscle) => (
-                    <View key={muscle} style={styles.musclePill}>
-                      <Text style={styles.musclePillText}>{tm(muscle)}</Text>
-                    </View>
-                  ))}
-                </View>
+                  <View style={styles.muscleRow}>
+                    {workout.muscleGroups.map((muscle) => (
+                      <View key={muscle} style={styles.musclePill}>
+                        <Text style={styles.musclePillText}>{tm(muscle)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </Pressable>
 
                 {workout.exercises.length === 0 ? (
                   <Pressable
-                    onPress={(e) => {
-                      e.stopPropagation();
+                    accessibilityRole="button"
+                    onPress={() => {
                       hapticLight();
                       setEditingWorkout(workout as unknown as UserWorkout);
                     }}
@@ -634,7 +653,11 @@ export default function ProgramReady() {
                     </Text>
                   </Pressable>
                 ) : !isExpanded ? (
-                  <View style={styles.collapsedPreviewRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => toggleWorkout(workout.id)}
+                    style={styles.collapsedPreviewRow}
+                  >
                     <Text style={styles.collapsedPreviewText} numberOfLines={2}>
                       {language === 'uk'
                         ? `Вправи: ${workout.exercises.slice(0, 3).map((e) => te(e.name)).join(', ')}${workout.exercises.length > 3 ? '...' : ''}`
@@ -646,7 +669,7 @@ export default function ProgramReady() {
                       </Text>
                       <Ionicons name="chevron-down" size={14} color={colors.primaryText} />
                     </View>
-                  </View>
+                  </Pressable>
                 ) : (
                   <View style={styles.fullExerciseList}>
                     {workout.exercises.map((ex, exIdx) => {
@@ -697,10 +720,7 @@ export default function ProgramReady() {
 
                     <Pressable
                       accessibilityRole="button"
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        toggleWorkout(workout.id);
-                      }}
+                      onPress={() => toggleWorkout(workout.id)}
                       style={styles.collapseCardBtn}
                     >
                       <Text style={styles.collapseCardBtnText}>
@@ -710,7 +730,7 @@ export default function ProgramReady() {
                     </Pressable>
                   </View>
                 )}
-              </Pressable>
+              </View>
             );
           })}
         </View>
