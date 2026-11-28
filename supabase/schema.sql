@@ -134,3 +134,19 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.delete_user_account() TO authenticated;
+
+-- ==============================================================================
+-- SPOT 2.0 Schema Normalization (P3-03): First-class profile & metadata columns
+-- Idempotent additive migration; older clients continue reading progress_data.
+-- ==============================================================================
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS sex TEXT DEFAULT 'male',
+  ADD COLUMN IF NOT EXISTS age INT,
+  ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'dark',
+  ADD COLUMN IF NOT EXISTS notifications BOOLEAN DEFAULT true,
+  ADD COLUMN IF NOT EXISTS notification_time TEXT DEFAULT '09:00',
+  ADD COLUMN IF NOT EXISTS sound_enabled BOOLEAN DEFAULT true,
+  ADD COLUMN IF NOT EXISTS haptics_enabled BOOLEAN DEFAULT true,
+  ADD COLUMN IF NOT EXISTS baseline_lifts JSONB,
+  ADD COLUMN IF NOT EXISTS exercise_notes JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS custom_exercises JSONB DEFAULT '[]'::jsonb;

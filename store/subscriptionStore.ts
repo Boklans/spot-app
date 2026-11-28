@@ -7,8 +7,11 @@ import {
   initPurchases,
   purchasePackage as apiPurchasePackage,
   restorePurchases as apiRestorePurchases,
+  subscribeCustomerInfoUpdates,
   syncPurchasesUser,
 } from '@/lib/purchases';
+
+let customerListenerRegistered = false;
 
 interface SubscriptionState {
   isPro: boolean;
@@ -40,6 +43,16 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
         return;
       }
 
+      if (!customerListenerRegistered) {
+        customerListenerRegistered = true;
+        subscribeCustomerInfoUpdates((updatedInfo) => {
+          set({
+            isPro: hasProEntitlement(updatedInfo),
+            customerInfo: updatedInfo,
+          });
+        });
+      }
+
       const [customerInfo, offering] = await Promise.all([
         getCustomerInfo(),
         getOfferings(),
@@ -60,6 +73,16 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
 
   refresh: async () => {
     try {
+      if (!customerListenerRegistered) {
+        customerListenerRegistered = true;
+        subscribeCustomerInfoUpdates((updatedInfo) => {
+          set({
+            isPro: hasProEntitlement(updatedInfo),
+            customerInfo: updatedInfo,
+          });
+        });
+      }
+
       const [customerInfo, offering] = await Promise.all([
         getCustomerInfo(),
         getOfferings(),

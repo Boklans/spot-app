@@ -87,6 +87,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (data.session?.user?.id) {
         useSubscriptionStore.getState().syncUser(data.session.user.id);
+        import('@/lib/cloudSync')
+          .then(({ syncDown }) => syncDown())
+          .catch(() => undefined);
       }
 
       // Listen to auth state changes
@@ -181,14 +184,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    if (!isSupabaseConfigured()) {
-      set({ user: null, session: null });
-      return;
-    }
-
     set({ loading: true });
     try {
-      await supabase.auth.signOut();
+      if (isSupabaseConfigured()) {
+        await supabase.auth.signOut().catch(() => undefined);
+      }
+      const { clearLocalDataOnSignOut } = await import('@/lib/cloudSync');
+      await clearLocalDataOnSignOut();
       useSubscriptionStore.getState().syncUser(null);
       set({ user: null, session: null, loading: false, error: null });
     } catch {

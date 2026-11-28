@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -20,7 +20,7 @@ interface EquipmentOption {
   value: string;
   label: string;
   detail: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  icon: keyof typeof Ionicons.glyphMap;
 }
 
 export default function Equipment() {
@@ -43,19 +43,19 @@ export default function Equipment() {
       value: 'full_gym',
       label: isUk ? 'Повноцінний зал' : 'Full Gym',
       detail: isUk ? 'Штанги, гантелі, тренажери та блочні станції' : 'Barbells, dumbbells, cables & machines',
-      icon: 'weight-lifter',
+      icon: 'fitness-outline',
     },
     {
       value: 'dumbbells',
       label: isUk ? 'Гантелі (дім або зал)' : 'Dumbbells',
       detail: isUk ? 'Набірні або фіксовані гантелі' : 'Adjustable or fixed weight pairs',
-      icon: 'dumbbell',
+      icon: 'barbell-outline',
     },
     {
       value: 'barbell',
       label: isUk ? 'Штанга та стійка' : 'Barbell & Rack',
       detail: isUk ? 'Олімпійський гриф, силова рама та лава' : 'Olympic bar, squat rack & bench',
-      icon: 'dumbbell',
+      icon: 'barbell',
     },
     {
       value: 'machines',
@@ -67,7 +67,7 @@ export default function Equipment() {
       value: 'bodyweight',
       label: isUk ? 'Власна вага (без заліза)' : 'Bodyweight Only',
       detail: isUk ? 'Тренування вдома або на майданчику (турнік, бруси)' : 'Home or calisthenics park (pull-up bar, dips)',
-      icon: 'human-handsup',
+      icon: 'body-outline',
     },
   ];
 
@@ -136,7 +136,7 @@ export default function Equipment() {
                     isSelected && styles.iconWrapSelected,
                   ]}
                 >
-                  <MaterialCommunityIcons
+                  <Ionicons
                     name={opt.icon}
                     size={24}
                     color={isSelected ? colors.primaryText : colors.secondary}

@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -195,9 +195,6 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
       weightKg: Math.round(finalWeightKg * 10) / 10,
       heightCm: finalHeightCm,
     }).catch(() => undefined);
-
-    // Refresh program generator with new body metrics
-    await useProgramStore.getState().refreshProgram();
 
     onClose();
   };
@@ -432,8 +429,8 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                     {language === 'uk' ? 'ВАГА ТІЛА' : 'BODY WEIGHT'} ({profile.weightUnit.toUpperCase()})
                   </Text>
                   <View style={styles.inputBox}>
-                    <MaterialCommunityIcons
-                      name="weight-kilogram"
+                    <Ionicons
+                      name="barbell-outline"
                       size={18}
                       color={colors.secondary}
                       style={styles.inputIcon}
@@ -454,8 +451,8 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                     {language === 'uk' ? 'ЗРІСТ' : 'HEIGHT'} ({profile.heightUnit.toUpperCase()})
                   </Text>
                   <View style={styles.inputBox}>
-                    <MaterialCommunityIcons
-                      name="ruler"
+                    <Ionicons
+                      name="resize-outline"
                       size={18}
                       color={colors.secondary}
                       style={styles.inputIcon}
@@ -475,7 +472,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
               <View style={styles.aiCard}>
                 <View style={styles.aiCardHeader}>
                   <View style={styles.aiIconWrap}>
-                    <MaterialCommunityIcons name="scale-bathroom" size={17} color={colors.primaryText} />
+                    <Ionicons name="scale-outline" size={17} color={colors.primaryText} />
                   </View>
                   <Text style={styles.aiCardTitle}>
                     {language === 'uk' ? 'КАЛІБРУВАННЯ РОБОЧИХ ВАГ' : 'LOAD CALIBRATION'}

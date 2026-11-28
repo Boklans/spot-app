@@ -12,7 +12,8 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://mnxyrrfgiioovrwwpqll.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_uPUIJ76KTa9J0lFyyS9p2w_Y23YkRd4",
-        "EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY": "goog_xxHTIYpdvQpswBTmuIEaPlFKzAE"
+        "EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY": "goog_xxHTIYpdvQpswBTmuIEaPlFKzAE",
+        "EXPO_PUBLIC_REVENUECAT_APPLE_KEY": ""
       },
       "android": {
         "buildType": "apk"
@@ -22,7 +23,8 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://mnxyrrfgiioovrwwpqll.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_uPUIJ76KTa9J0lFyyS9p2w_Y23YkRd4",
-        "EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY": "goog_xxHTIYpdvQpswBTmuIEaPlFKzAE"
+        "EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY": "goog_xxHTIYpdvQpswBTmuIEaPlFKzAE",
+        "EXPO_PUBLIC_REVENUECAT_APPLE_KEY": ""
       },
       "android": {
         "buildType": "app-bundle"

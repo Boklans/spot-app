@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
 import {
-  Modal,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { hapticSelection } from '@/lib/haptics';
@@ -65,28 +65,10 @@ export function PreferencePickerModal<T extends string | number>({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        {/* Backdrop dismiss */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close picker"
-          style={styles.backdrop}
-          onPress={onClose}
-        />
-
-        {/* Bottom Sheet Content */}
-        <View style={styles.sheetContainer}>
-          {/* Grab Handle Indicator */}
-          <View style={styles.handleBar} />
-
-          {/* Header */}
-          <View style={styles.header}>
+    <BottomSheet visible={visible} onClose={onClose}>
+      <View style={styles.sheetContainer}>
+        {/* Header */}
+        <View style={styles.header}>
             <Text style={styles.title}>{title}</Text>
             <Pressable
               accessibilityRole="button"
@@ -125,9 +107,8 @@ export function PreferencePickerModal<T extends string | number>({
               );
             })}
           </View>
-        </View>
       </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 
@@ -178,7 +159,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   closeText: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -197,8 +178,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: 'transparent',
   },
   optionRowSelected: {
-    borderColor: 'rgba(200, 255, 61, 0.4)',
-    backgroundColor: 'rgba(200, 255, 61, 0.08)',
+    borderColor: colors.accentLine,
+    backgroundColor: colors.primaryMuted,
   },
   optionText: {
     color: colors.text,
@@ -206,11 +187,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
   },
   optionTextSelected: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontWeight: '800',
   },
   checkmark: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontSize: 16,
     fontWeight: '900',
   },

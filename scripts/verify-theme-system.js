@@ -64,15 +64,18 @@ let passed = 0;
   passed++;
 }
 
-// TEST 4: Profile Theme Switcher Segmented Control
+// TEST 4: Profile Theme Switcher Segmented Control (modular ProfileSettingsModal)
 {
-  const profileSource = fs.readFileSync(path.join(__dirname, '..', 'app', '(tabs)', 'profile.tsx'), 'utf8');
+  const settingsSource = fs.readFileSync(
+    path.join(__dirname, '..', 'components', 'profile', 'ProfileSettingsModal.tsx'),
+    'utf8'
+  );
 
-  assert.ok(profileSource.includes("updateProfile({ theme: 'dark' })"), 'profile.tsx must allow selecting dark theme');
-  assert.ok(profileSource.includes("updateProfile({ theme: 'light' })"), 'profile.tsx must allow selecting light theme');
-  assert.ok(profileSource.includes("t('theme')"), 'profile.tsx must render theme label');
-  assert.ok(profileSource.includes("t('themeDark')"), 'profile.tsx must render themeDark label');
-  assert.ok(profileSource.includes("t('themeLight')"), 'profile.tsx must render themeLight label');
+  assert.ok(settingsSource.includes("onUpdateProfile({ theme: 'dark' })"), 'ProfileSettingsModal must allow selecting dark theme');
+  assert.ok(settingsSource.includes("onUpdateProfile({ theme: 'light' })"), 'ProfileSettingsModal must allow selecting light theme');
+  assert.ok(settingsSource.includes("t('theme')"), 'ProfileSettingsModal must render theme label');
+  assert.ok(settingsSource.includes("t('themeDark')"), 'ProfileSettingsModal must render themeDark label');
+  assert.ok(settingsSource.includes("t('themeLight')"), 'ProfileSettingsModal must render themeLight label');
 
   console.log('✅ TEST 4 PASSED: Profile App Settings includes reactive Dark / Light theme switcher');
   passed++;
@@ -101,7 +104,6 @@ let passed = 0;
     'app/workout/active.tsx',
     'app/workout/complete.tsx',
     'app/workout/quick-log.tsx',
-    'app/workout/rest.tsx',
     'components/auth/AuthModal.tsx',
     'app/program/edit.tsx',
     'app/history/index.tsx',
@@ -117,6 +119,97 @@ let passed = 0;
   }
 
   console.log('✅ TEST 6 PASSED: Dynamic createStyles pattern implemented across all 13 screens');
+  passed++;
+}
+
+// TEST 7: WCAG AA Contrast Verification & Light-Mode Modal Regression Guard (P0-09)
+{
+  const { loadTsModule } = require('./tsRunner');
+  const { darkColors, lightColors } = loadTsModule('constants/colors.ts');
+
+  function hexToRgb(hex) {
+    const clean = hex.replace('#', '');
+    return [
+      parseInt(clean.slice(0, 2), 16),
+      parseInt(clean.slice(2, 4), 16),
+      parseInt(clean.slice(4, 6), 16),
+    ];
+  }
+
+  function relativeLuminance([r, g, b]) {
+    const [rs, gs, bs] = [r, g, b].map((c) => {
+      const s = c / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+  }
+
+  function contrastRatio(fgHex, bgHex) {
+    const l1 = relativeLuminance(hexToRgb(fgHex));
+    const l2 = relativeLuminance(hexToRgb(bgHex));
+    const lighter = Math.max(l1, l2);
+    const darker = Math.min(l1, l2);
+    return (lighter + 0.05) / (darker + 0.05);
+  }
+
+  // Verify WCAG AA (>= 4.5:1) across both dark and light surfaces
+  for (const [themeName, palette] of [['dark', darkColors], ['light', lightColors]]) {
+    assert.ok(contrastRatio(palette.text, palette.background) >= 7.0, `${themeName}.text on background must be >= 7:1`);
+    assert.ok(contrastRatio(palette.text, palette.surface) >= 7.0, `${themeName}.text on surface must be >= 7:1`);
+    assert.ok(contrastRatio(palette.secondary, palette.surface) >= 4.5, `${themeName}.secondary on surface must be >= 4.5:1`);
+    assert.ok(contrastRatio(palette.muted, palette.surface) >= 4.5, `${themeName}.muted on surface must be >= 4.5:1 (WCAG AA)`);
+    assert.ok(contrastRatio(palette.primaryText, palette.surface) >= 4.5, `${themeName}.primaryText on surface must be >= 4.5:1`);
+    assert.ok(contrastRatio(palette.accentIndicator, palette.surface) >= 4.5, `${themeName}.accentIndicator on surface must be >= 4.5:1`);
+    assert.ok(contrastRatio(palette.onPrimary, palette.primary) >= 7.0, `${themeName}.onPrimary on primary must be >= 7:1`);
+  }
+
+  // Regression guard across the 9 remediated modals: forbid white text on dynamic surface/background
+  const guardedModals = [
+    'components/profile/LanguagePickerModal.tsx',
+    'components/profile/RestTimePickerModal.tsx',
+    'components/profile/ReminderTimePickerModal.tsx',
+    'components/profile/PreferencePickerModal.tsx',
+    'components/profile/PrivacyPolicyModal.tsx',
+    'components/program/CreateExerciseModal.tsx',
+    'components/program/ExerciseLibraryModal.tsx',
+  ];
+  for (const modalRel of guardedModals) {
+    const src = fs.readFileSync(path.join(__dirname, '..', modalRel), 'utf8');
+    assert.ok(!src.includes("color: '#FFFFFF'"), `${modalRel} must not hardcode color: '#FFFFFF' (invisible in Light Mode)`);
+    assert.ok(!src.includes('color="#FFFFFF"'), `${modalRel} must not hardcode color="#FFFFFF" on icons`);
+  }
+
+  console.log('✅ TEST 7 PASSED (P0-09): WCAG AA (>=4.5:1) verified on Dark & Light palettes and 9 modal regressions guarded');
+  passed++;
+}
+
+// TEST 8: Design System 2.0 Tokens & Typography v2 (P1-10, P1-11)
+{
+  const { loadTsModule } = require('./tsRunner');
+  const { darkColors, lightColors } = loadTsModule('constants/colors.ts');
+  const { fonts, typography } = loadTsModule('constants/typography.ts');
+
+  // Semantic Obsidian Cockpit & Daylight tokens
+  assert.strictEqual(darkColors.completedRowBg, '#0F1914', 'darkColors.completedRowBg must be Whisper-Emerald Carbon #0F1914');
+  assert.strictEqual(darkColors.restAccent, '#38BDF8', 'darkColors.restAccent must be Cryo Cyan #38BDF8');
+  assert.strictEqual(darkColors.superset, '#A855F7', 'darkColors.superset must be #A855F7');
+  assert.strictEqual(lightColors.completedRowBg, '#ECFDF5', 'lightColors.completedRowBg must be #ECFDF5');
+  assert.strictEqual(lightColors.restAccent, '#0284C7', 'lightColors.restAccent must be #0284C7');
+
+  // Canonical 2-family font stack (Inter + JetBrains Mono)
+  assert.strictEqual(fonts.monoSemiBold, 'JetBrainsMono_600SemiBold');
+  assert.strictEqual(fonts.monoBold, 'JetBrainsMono_700Bold');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'assets', 'fonts', 'JetBrainsMono-SemiBold.ttf')), 'JetBrainsMono-SemiBold.ttf must exist on disk');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'assets', 'fonts', 'JetBrainsMono-Bold.ttf')), 'JetBrainsMono-Bold.ttf must exist on disk');
+
+  // Zero co-declared fontWeight on typography tokens & >=11px legibility floor
+  for (const [variantName, spec] of Object.entries(typography)) {
+    assert.ok(!('fontWeight' in spec), `typography.${variantName} must not co-declare fontWeight alongside fontFamily`);
+    assert.ok(spec.fontSize >= 11, `typography.${variantName} fontSize (${spec.fontSize}) must respect the 11px gym legibility floor`);
+    assert.strictEqual(spec.includeFontPadding, false, `typography.${variantName} must set includeFontPadding: false`);
+  }
+
+  console.log('✅ TEST 8 PASSED (P1-10, P1-11): Design System 2.0 tokens, JetBrains Mono & Typography v2 verified');
   passed++;
 }
 

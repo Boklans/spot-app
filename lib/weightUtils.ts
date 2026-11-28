@@ -1,5 +1,8 @@
 import { useCallback } from 'react';
+import { getExerciseLoadType } from '@/lib/exercises';
+import type { EquipmentId } from '@/lib/programGenerator';
 import { useUserProfileStore, type WeightUnit } from '@/store/userProfileStore';
+import type { SetType } from '@/types/workout';
 
 export function normalizeWeight(value: number): number {
   return Math.round(value * 100) / 100;
@@ -50,6 +53,30 @@ export function convertVolumeToActiveUnit(volumeInKg: number, unit?: WeightUnit)
   return Math.round(volumeInKg);
 }
 
+/**
+ * Resolves the stored kg weight from an edit modal input without introducing
+ * kg -> lbs -> kg rounding drift (`20 kg -> 44 lb -> 19.96 kg`) when the user
+ * did not modify the weight field (e.g. only edited reps or RIR).
+ */
+export function resolveSavedSetWeightKg(params: {
+  initialWeightKg: number;
+  weightText: string;
+  weightDirty: boolean;
+  unit?: WeightUnit;
+}): number {
+  const { initialWeightKg, weightText, weightDirty, unit } = params;
+  const active = unit ?? getActiveWeightUnit();
+  if (!weightDirty) {
+    return normalizeWeight(Math.max(0, Number.isFinite(initialWeightKg) ? initialWeightKg : 0));
+  }
+  const parsedW = parseFloat((weightText || '').replace(',', '.'));
+  if (!Number.isFinite(parsedW) || parsedW < 0) {
+    return normalizeWeight(Math.max(0, Number.isFinite(initialWeightKg) ? initialWeightKg : 0));
+  }
+  const clampedDisplay = Math.min(999.5, parsedW);
+  return normalizeWeight(convertWeightFromActiveUnit(clampedDisplay, active));
+}
+
 export function formatWeightWithUnit(weightInKg: number, unit?: WeightUnit): string {
   const active = unit ?? getActiveWeightUnit();
   const converted = convertWeightToActiveUnit(weightInKg, active);
@@ -62,9 +89,41 @@ export function formatVolumeWithUnit(volumeInKg: number, unit?: WeightUnit): str
   return `${converted.toLocaleString()} ${active.toUpperCase()}`;
 }
 
+/**
+ * Returns `2` strictly for bilateral per-hand dumbbell movements (where two dumbbells
+ * are lifted simultaneously while the user enters 1-hand weight), and `1` for unilateral
+ * exercises, barbells, machines, single shared-dumbbell lifts, and bodyweight.
+ */
+export function getExerciseVolumeMultiplier(exerciseName?: string, equipment?: EquipmentId): 1 | 2 {
+  const loadType = getExerciseLoadType(exerciseName, equipment);
+  return loadType === 'bilateral_per_hand' ? 2 : 1;
+}
+
+/**
+ * Canonical single source of truth for working set volume (in kg).
+ * - Warm-up sets always contribute `0` working volume.
+ * - Bilateral per-hand dumbbell exercises multiply `weightKg × 2 × reps`.
+ * - Unilateral exercises (`Single-Arm Row`, `Bulgarian Split Squat`, etc.) multiply `weightKg × 1 × reps`.
+ */
+export function calculateSetVolumeKg(params: {
+  weightKg: number;
+  reps: number;
+  exerciseName?: string;
+  equipment?: EquipmentId;
+  setType?: SetType | string;
+}): number {
+  const { weightKg, reps, exerciseName, equipment, setType } = params;
+  if (setType === 'warmup') return 0;
+  if (!Number.isFinite(weightKg) || weightKg <= 0) return 0;
+  if (!Number.isFinite(reps) || reps <= 0) return 0;
+  const multiplier = getExerciseVolumeMultiplier(exerciseName, equipment);
+  return Math.round(weightKg * multiplier * reps * 100) / 100;
+}
+
 export function useWeightUnit() {
   const unit = useUserProfileStore((s) => s.profile.weightUnit) ?? 'kg';
-  const unitLabel = unit.toUpperCase();
+  const language = useUserProfileStore((s) => s.profile.language) ?? 'en';
+  const unitLabel = unit === 'lbs' ? 'lb' : language === 'uk' ? 'кг' : 'kg';
 
   const format = useCallback((weightInKg: number) => {
     const val = convertWeightToActiveUnit(weightInKg, unit);

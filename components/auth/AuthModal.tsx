@@ -116,9 +116,10 @@ export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess 
           return;
         }
 
-        // Successfully signed in -> Sync data
+        // Successfully signed in -> Sync data safely (isolated per account) and push any anonymous pre-login logs
         hapticSuccess();
         await syncDown();
+        await syncUp();
         setLoading(false);
         setSuccessState('signin');
       } else {
@@ -142,8 +143,10 @@ export function AuthModal({ visible, onClose, initialMode = 'signin', onSuccess 
         if (name.trim()) {
           void useUserProfileStore.getState().updateProfile({ name: name.trim() });
         }
-        // Upload initial local data to newly registered cloud account
-        await syncUp();
+        // Only upload initial local data when an active authenticated session exists (guards unconfirmed email signups)
+        if (useAuthStore.getState().session) {
+          await syncUp();
+        }
         setLoading(false);
         setSuccessState('signup');
       }

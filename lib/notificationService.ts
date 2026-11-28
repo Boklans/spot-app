@@ -4,7 +4,7 @@ import { AppState, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { translateExercise, translateWorkoutName } from '@/lib/i18n';
 import { calculateMuscleRecovery, normalizeMuscleGroup } from '@/lib/recoveryEngine';
-import { formatWeight } from '@/lib/weightUtils';
+import { convertWeightToActiveUnit, formatWeight } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { getScheduledWorkout } from '@/store/programProgressStore';
 import { useProgramProgressStore } from '@/store/programProgressStore';
@@ -126,8 +126,22 @@ export async function setupNotificationCategories(lang: AppLanguage = 'uk'): Pro
   }
 }
 
-async function handleNotificationAction(actionIdentifier: string, data?: Record<string, any>): Promise<void> {
+export async function handleNotificationAction(
+  actionIdentifier: string,
+  data?: Record<string, any>
+): Promise<void> {
   try {
+    // Ensure stores are hydrated from AsyncStorage first so cold-start killed-process taps never drop!
+    if (!useUserProfileStore.getState().hydrated) {
+      await useUserProfileStore.getState().loadProfile().catch(() => undefined);
+    }
+    if (!useWorkoutSessionStore.getState().hydrated) {
+      await useWorkoutSessionStore.getState().hydrateSession().catch(() => undefined);
+    }
+    if (!useProgramStore.getState().hydrated) {
+      await useProgramStore.getState().loadProgram().catch(() => undefined);
+    }
+
     if (actionIdentifier === ACTION_SUB_15S) {
       useWorkoutSessionStore.getState().addRestTime(-15);
       await syncActiveWorkoutNotification(true);
@@ -506,7 +520,9 @@ export function buildWorkoutReminderContent(
 /**
  * Schedule weekly notifications for all configured workout days.
  */
-export async function scheduleWorkoutDayReminders(): Promise<void> {
+export async function scheduleWorkoutDayReminders(options?: {
+  promptIfNeeded?: boolean;
+}): Promise<void> {
   if (Platform.OS === 'web') return;
 
   await initNotifications();
@@ -517,7 +533,17 @@ export async function scheduleWorkoutDayReminders(): Promise<void> {
     return;
   }
 
-  const hasPermission = await requestNotificationPermissions();
+  let hasPermission = false;
+  if (options?.promptIfNeeded) {
+    hasPermission = await requestNotificationPermissions();
+  } else {
+    try {
+      const existing = await Notifications.getPermissionsAsync();
+      hasPermission = existing.status === 'granted';
+    } catch {
+      hasPermission = false;
+    }
+  }
   if (!hasPermission) {
     return;
   }
@@ -546,20 +572,49 @@ export async function scheduleWorkoutDayReminders(): Promise<void> {
   const hour = parseInt(hourStr || '9', 10);
   const minute = parseInt(minStr || '0', 10);
 
+  // Determine the immediate upcoming training day so ONLY that day uses the live nextWorkout
+  // snapshot, while other repeating weekly days use timeless copy (preventing stale "Upper A"
+  // notifications from repeating on Lower days forever).
+  const todayJsDay = new Date().getDay(); // 0=Sun..6=Sat
+  const todayExpoWeekday = todayJsDay + 1; // 1=Sun..7=Sat
+  let closestDayKey: string | null = null;
+  let closestDelta = 99;
+  for (const dk of trainingDays) {
+    const wd = DAY_KEY_TO_EXPO_WEEKDAY[dk.toUpperCase()];
+    if (!wd) continue;
+    const delta = (wd - todayExpoWeekday + 7) % 7;
+    if (delta < closestDelta) {
+      closestDelta = delta;
+      closestDayKey = dk.toUpperCase();
+    }
+  }
+
+  const genericTitle =
+    lang === 'uk' ? 'Сьогодні день тренування! ⚡' : 'Training Day Today! ⚡';
+  const genericBody =
+    lang === 'uk'
+      ? 'Твоя програма SPOT чекає на тебе. Зайди, щоб побачити цільові ваги та почати сесію! 💪'
+      : 'Your SPOT session is scheduled today. Open the app for your target weights and warm-up! 💪';
+
   for (const dayKey of trainingDays) {
-    const weekday = DAY_KEY_TO_EXPO_WEEKDAY[dayKey.toUpperCase()];
+    const upperKey = dayKey.toUpperCase();
+    const weekday = DAY_KEY_TO_EXPO_WEEKDAY[upperKey];
     if (!weekday) continue;
+
+    const useLiveSnapshot = upperKey === closestDayKey;
+    const title = useLiveSnapshot ? reminderContent.title : genericTitle;
+    const body = useLiveSnapshot ? reminderContent.body : genericBody;
 
     try {
       await Notifications.scheduleNotificationAsync({
         identifier: `${REMINDER_ID_PREFIX}${dayKey.toLowerCase()}`,
         content: {
-          title: reminderContent.title,
-          body: reminderContent.body,
+          title,
+          body,
           sound: true,
           data: {
             screen: '/(tabs)',
-            workoutName: reminderContent.workoutName,
+            workoutName: useLiveSnapshot ? reminderContent.workoutName : undefined,
           },
         },
         trigger: {
@@ -709,9 +764,10 @@ export function getLiveShadeNotificationSnapshot(nowMs: number = Date.now()): Li
   const progressPercent = Math.round(progress.percentage);
 
   const weightKg = currentSet?.weight ?? 0;
+  const displayWeight = convertWeightToActiveUnit(weightKg, unit);
   const weightText =
     weightKg > 0
-      ? `${formatWeight(weightKg)} ${unitLabel}`
+      ? `${formatWeight(displayWeight)} ${unitLabel}`
       : lang === 'uk'
       ? 'Власна вага'
       : 'Bodyweight';

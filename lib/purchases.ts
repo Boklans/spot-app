@@ -32,9 +32,9 @@ export async function initPurchases(userId?: string): Promise<boolean> {
     return false;
   }
 
-  const apiKey = Platform.OS === 'ios' ? APPLE_API_KEY : GOOGLE_API_KEY;
+  const apiKey = (Platform.OS === 'ios' ? APPLE_API_KEY : GOOGLE_API_KEY).trim();
 
-  if (!apiKey) {
+  if (!apiKey || apiKey.includes('placeholder')) {
     if (__DEV__) {
       console.warn('[Purchases] No RevenueCat API key provided for platform:', Platform.OS);
     }
@@ -160,6 +160,29 @@ export async function restorePurchases(): Promise<{
     return { success: true, customerInfo, isPro };
   } catch (err: any) {
     return { success: false, isPro: false, error: err?.message || 'Restore failed' };
+  }
+}
+
+/**
+ * Subscribe to real-time RevenueCat entitlement updates (renewals, promo codes, family sharing).
+ */
+export function subscribeCustomerInfoUpdates(
+  onUpdate: (customerInfo: CustomerInfo) => void
+): () => void {
+  if (!isPurchasesSupported() || !isInitialized) {
+    return () => {};
+  }
+  try {
+    Purchases.addCustomerInfoUpdateListener(onUpdate);
+    return () => {
+      try {
+        (Purchases as any).removeCustomerInfoUpdateListener?.(onUpdate);
+      } catch {
+        // Ignore listener removal errors
+      }
+    };
+  } catch {
+    return () => {};
   }
 }
 

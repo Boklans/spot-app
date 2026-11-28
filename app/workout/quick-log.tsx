@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -25,9 +25,10 @@ import {
   type WeightRecommendation,
 } from '@/lib/adaptiveProgression';
 import { hapticImpact, hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
+import { toLocalDateKey } from '@/lib/dateUtils';
 import { useI18n } from '@/lib/i18n';
 import { resolveRestSeconds, type EquipmentId, type GeneratedExercise } from '@/lib/programGenerator';
-import { convertWeightToActiveUnit, formatWeight, useWeightUnit } from '@/lib/weightUtils';
+import { calculateSetVolumeKg, convertWeightToActiveUnit, formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { finalizeWorkoutSession } from '@/lib/workoutFinalizer';
 import { getScheduledWorkout, useProgramProgressStore } from '@/store/programProgressStore';
 import { useProgramStore } from '@/store/programStore';
@@ -41,6 +42,7 @@ import {
 
 type QuickSet = {
   id: string;
+  weight?: number;
   reps: number;
   repsText: string;
   targetReps: string;
@@ -76,10 +78,11 @@ export default function QuickLogScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, tm, te, tw, language } = useI18n();
-  const { unit, unitLabel, fromKg, toKg } = useWeightUnit();
+  const { unit, unitLabel, formatVolume, fromKg, toKg } = useWeightUnit();
   const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
 
   const program = useProgramStore((state) => state.program);
+  const deloadActive = useProgramStore((state) => state.deloadActive);
   const progress = useProgramProgressStore((state) => state.progress);
   const activeSession = useWorkoutSessionStore((state) => state.session);
   const history = useWorkoutHistoryStore((state) => state.workouts);
@@ -123,6 +126,7 @@ export default function QuickLogScreen() {
           restSeconds: ex.restSeconds || 90,
           sets: ex.sets.map((s) => ({
             id: s.id,
+            weight: typeof s.weight === 'number' ? s.weight : weightKg,
             reps: s.completed ? s.reps : 0,
             repsText: s.completed && s.reps > 0 ? s.reps.toString() : '',
             targetReps: s.targetReps || '8-12',
@@ -151,7 +155,7 @@ export default function QuickLogScreen() {
         const equipment = (ex as any).equipment || inferEquipmentFromName(ex.name);
         const exWithEquip = { ...ex, equipment, sets: setsCount, targetRepRange: repRange } as GeneratedExercise;
         const previousSets = findLatestExerciseSets(history, exWithEquip);
-        const recommendation = recommendWeight(exWithEquip, previousSets);
+        const recommendation = recommendWeight(exWithEquip, previousSets, { deloadActive });
         const recWeightKg = recommendation.source === 'history'
           ? recommendation.recommendedWeight
           : (typeof ex.recommendedWeight === 'number' && ex.recommendedWeight > 0
@@ -206,6 +210,7 @@ export default function QuickLogScreen() {
           weightText: formatWeight(displayW),
           sets: ex.sets.map((s) => ({
             ...s,
+            weight: weightKg,
             reps: targetRep,
             repsText: targetRep.toString(),
             completed: true,
@@ -230,6 +235,7 @@ export default function QuickLogScreen() {
           ...ex,
           weight: nextKg,
           weightText: formatWeight(nextDisplay),
+          sets: ex.sets.map((s) => ({ ...s, weight: nextKg })),
         };
       })
     );
@@ -246,6 +252,7 @@ export default function QuickLogScreen() {
           ...ex,
           weight: nextKg,
           weightText: text,
+          sets: ex.sets.map((s) => ({ ...s, weight: nextKg })),
         };
       })
     );
@@ -285,6 +292,7 @@ export default function QuickLogScreen() {
           ...ex,
           sets: ex.sets.map((s) => ({
             ...s,
+            weight: s.weight ?? ex.weight,
             reps: targetRep,
             repsText: targetRep.toString(),
             completed: true,
@@ -304,6 +312,7 @@ export default function QuickLogScreen() {
         const fallbackRep = ex.recommendedReps || parseTargetReps(ex.targetRepRange);
         const newSet: QuickSet = {
           id: `set-${exIdx}-${Date.now()}`,
+          weight: lastSet?.weight ?? ex.weight,
           reps: lastSet?.reps ?? fallbackRep,
           repsText: lastSet?.repsText || fallbackRep.toString(),
           targetReps: ex.targetRepRange,
@@ -351,7 +360,7 @@ export default function QuickLogScreen() {
       restSeconds: 90,
     };
     const previousSets = findLatestExerciseSets(history, generatedEx);
-    const recommendation = recommendWeight(generatedEx, previousSets);
+    const recommendation = recommendWeight(generatedEx, previousSets, { deloadActive });
     const recWeight = recommendation.source === 'history'
       ? recommendation.recommendedWeight
       : (libEx.defaultWeight || 0);
@@ -380,7 +389,7 @@ export default function QuickLogScreen() {
     };
     setExercises((prev) => [...prev, newEx]);
     setIsAddPickerVisible(false);
-  }, [fromKg, history]);
+  }, [deloadActive, fromKg, history]);
 
   // Overall Live Stats
   const { totalCompletedSets, totalVolumeKg } = useMemo(() => {
@@ -390,7 +399,13 @@ export default function QuickLogScreen() {
       for (const s of ex.sets) {
         if (s.reps > 0) {
           completedSets++;
-          volumeKg += ex.weight * s.reps;
+          volumeKg += calculateSetVolumeKg({
+            weightKg: s.weight ?? ex.weight,
+            reps: s.reps,
+            exerciseName: ex.name,
+            equipment: ex.equipment,
+            setType: 'normal',
+          });
         }
       }
     }
@@ -425,13 +440,13 @@ export default function QuickLogScreen() {
       const startedAtMs = completedAtMs - durationMinutes * 60 * 1000;
       const startedAt = new Date(startedAtMs).toISOString();
       const completedAt = new Date(completedAtMs).toISOString();
-      const workoutDate = new Date(completedAtMs).toISOString().slice(0, 10);
+      const workoutDate = toLocalDateKey(completedAtMs);
 
       // Convert QuickExercise[] to standard WorkoutExercise[]
       const canonicalExercises: WorkoutExercise[] = exercises.map((ex, exIdx) => {
         const canonicalSets: WorkoutSet[] = ex.sets.map((s, sIdx) => ({
           id: s.id || `quick-set-${exIdx}-${sIdx}`,
-          weight: Math.round(ex.weight * 100) / 100,
+          weight: Math.round((s.weight ?? ex.weight) * 100) / 100,
           reps: s.reps > 0 ? s.reps : 0,
           targetReps: s.targetReps || ex.targetRepRange,
           completed: s.reps > 0,
@@ -593,6 +608,29 @@ export default function QuickLogScreen() {
                       >
                         <Text style={[styles.whenPillText, isSelected && styles.whenPillTextActive]}>
                           {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <Text style={[styles.timeLabel, { marginTop: 6 }]}>
+                  {language === 'uk' ? 'Тривалість сесії' : 'Session duration'}
+                </Text>
+                <View style={styles.whenPillsRow}>
+                  {[30, 45, 60, 75].map((mins) => {
+                    const isSelected = durationMinutes === mins;
+                    return (
+                      <Pressable
+                        key={mins}
+                        onPress={() => {
+                          hapticLight();
+                          setDurationMinutes(mins);
+                        }}
+                        style={[styles.whenPill, isSelected && styles.whenPillActive]}
+                      >
+                        <Text style={[styles.whenPillText, isSelected && styles.whenPillTextActive]}>
+                          {mins} {language === 'uk' ? 'хв' : 'min'}
                         </Text>
                       </Pressable>
                     );
@@ -790,9 +828,9 @@ export default function QuickLogScreen() {
             </View>
 
             <View style={styles.summaryMetaItem}>
-              <MaterialCommunityIcons name="dumbbell" size={15} color="#8E9BAE" />
+              <Ionicons name="barbell-outline" size={15} color={colors.secondary} />
               <Text style={styles.summaryMetaText}>
-                {Math.round(totalVolumeKg)} {unitLabel}
+                {formatVolume(totalVolumeKg)}
               </Text>
             </View>
           </View>

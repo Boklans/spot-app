@@ -1,6 +1,8 @@
 import type { CompletedWorkout, PersonalRecord } from '@/types/workout';
 import { isAssistedExercise } from '@/lib/adaptiveProgression';
-import { formatWeight } from '@/lib/weightUtils';
+import { areExercisesEquivalent, resolveCanonicalExerciseId } from '@/lib/exercises';
+import { convertWeightToActiveUnit, formatWeight } from '@/lib/weightUtils';
+import type { AppLanguage, WeightUnit } from '@/store/userProfileStore';
 
 export type BaselineLiftsInput = {
   benchPressKg?: number;
@@ -35,12 +37,7 @@ function isSameExercise(
   a: { exerciseId?: string; exerciseName?: string },
   b: { exerciseId?: string; exerciseName?: string }
 ): boolean {
-  const nameA = normalizeExerciseName(a.exerciseName || '');
-  const nameB = normalizeExerciseName(b.exerciseName || '');
-  if (nameA && nameB) {
-    return nameA === nameB;
-  }
-  return Boolean(a.exerciseId && b.exerciseId && a.exerciseId === b.exerciseId);
+  return areExercisesEquivalent(a, b);
 }
 
 function getBaselineWeightForExercise(
@@ -48,42 +45,23 @@ function getBaselineWeightForExercise(
   baselineLifts?: BaselineLiftsInput
 ): number {
   if (!baselineLifts) return 0;
-  const lower = normalizeExerciseName(exerciseName);
-  if (
-    lower === 'bench press' ||
-    lower === 'barbell bench press' ||
-    lower === 'жим штанги лежачи'
-  ) {
+  const canonicalId = resolveCanonicalExerciseId(exerciseName);
+  if (canonicalId === 'barbell-bench-press') {
     return baselineLifts.benchPressKg && baselineLifts.benchPressKg > 0
       ? baselineLifts.benchPressKg
       : 0;
   }
-  if (
-    lower === 'barbell squat' ||
-    lower === 'squat' ||
-    lower === 'back squat' ||
-    lower === 'присідання зі штангою'
-  ) {
+  if (canonicalId === 'barbell-back-squat') {
     return baselineLifts.squatKg && baselineLifts.squatKg > 0
       ? baselineLifts.squatKg
       : 0;
   }
-  if (
-    lower === 'deadlift' ||
-    lower === 'barbell deadlift' ||
-    lower === 'conventional deadlift' ||
-    lower === 'станова тяга'
-  ) {
+  if (canonicalId === 'conventional-deadlift') {
     return baselineLifts.deadliftKg && baselineLifts.deadliftKg > 0
       ? baselineLifts.deadliftKg
       : 0;
   }
-  if (
-    lower === 'overhead press' ||
-    lower === 'barbell overhead press' ||
-    lower === 'standing overhead press' ||
-    lower === 'жим штанги стоячи'
-  ) {
+  if (canonicalId === 'overhead-barbell-press') {
     return baselineLifts.overheadPressKg && baselineLifts.overheadPressKg > 0
       ? baselineLifts.overheadPressKg
       : 0;
@@ -147,6 +125,8 @@ export function detectPersonalRecords(
           exerciseId: exercise.exerciseId,
           exerciseName: exercise.exerciseName,
           value: currentMaxReps,
+          reps: currentMaxReps,
+          isBodyweight: true,
           label: `${currentMaxReps} reps`,
         });
       }
@@ -172,6 +152,9 @@ export function detectPersonalRecords(
           exerciseId: exercise.exerciseId,
           exerciseName: exercise.exerciseName,
           value: currentMinAssist,
+          weightKg: currentMinAssist,
+          reps: bestCurrentAtMin,
+          isAssisted: true,
           label: `-${formatWeight(currentMinAssist)} kg × ${bestCurrentAtMin}`,
         });
       } else if (Math.abs(currentMinAssist - historicalMinAssist) < 0.01) {
@@ -185,6 +168,9 @@ export function detectPersonalRecords(
             exerciseId: exercise.exerciseId,
             exerciseName: exercise.exerciseName,
             value: currentMinAssist,
+            weightKg: currentMinAssist,
+            reps: bestCurrentAtMin,
+            isAssisted: true,
             label: `-${formatWeight(currentMinAssist)} kg × ${bestCurrentAtMin}`,
           });
         }
@@ -211,6 +197,8 @@ export function detectPersonalRecords(
         exerciseId: exercise.exerciseId,
         exerciseName: exercise.exerciseName,
         value: currentMaxWeight,
+        weightKg: currentMaxWeight,
+        reps: bestSetAtMaxWeight?.reps,
         label: `${formatWeight(currentMaxWeight)} kg${repsLabel}`,
       });
     } else {
@@ -234,6 +222,9 @@ export function detectPersonalRecords(
           exerciseId: exercise.exerciseId,
           exerciseName: exercise.exerciseName,
           value: currentBest1RM,
+          weightKg: currentBestSet.weight,
+          reps: currentBestSet.reps,
+          oneRepMaxKg: currentBest1RM,
           label: `${formatWeight(currentBestSet.weight)} kg × ${currentBestSet.reps} (1RM ${formatWeight(currentBest1RM)} kg)`,
         });
       }
@@ -241,6 +232,52 @@ export function detectPersonalRecords(
   }
 
   return records;
+}
+
+/**
+ * Dynamically formats a PersonalRecord in the user's active unit (`kg` or `lbs`)
+ * and language (`en` or `uk`), including graceful conversion of legacy stored `kg` labels.
+ */
+export function formatPersonalRecordLabel(
+  record: PersonalRecord,
+  unit: WeightUnit = 'kg',
+  lang: AppLanguage = 'en'
+): string {
+  const uLabel = unit === 'lbs' ? 'lb' : lang === 'uk' ? 'кг' : 'kg';
+  const repsWord = lang === 'uk' ? 'повт.' : 'reps';
+
+  if (record.isBodyweight || /^\d+\s*reps$/i.test((record.label || '').trim())) {
+    const repsVal = record.reps ?? Math.round(record.value);
+    return `${repsVal} ${repsWord}`;
+  }
+
+  if (record.isAssisted || isAssistedExercise(record.exerciseName)) {
+    const assistKg = record.weightKg ?? record.value;
+    const disp = formatWeight(convertWeightToActiveUnit(assistKg, unit));
+    if (record.reps) {
+      return `-${disp} ${uLabel} × ${record.reps}`;
+    }
+    const legacyRepsMatch = (record.label || '').match(/×\s*(\d+)/);
+    return legacyRepsMatch ? `-${disp} ${uLabel} × ${legacyRepsMatch[1]}` : `-${disp} ${uLabel}`;
+  }
+
+  if (typeof record.weightKg === 'number' && record.weightKg > 0) {
+    const dispW = formatWeight(convertWeightToActiveUnit(record.weightKg, unit));
+    if (typeof record.oneRepMaxKg === 'number' && record.oneRepMaxKg > 0 && record.reps) {
+      const disp1RM = formatWeight(convertWeightToActiveUnit(record.oneRepMaxKg, unit));
+      return `${dispW} ${uLabel} × ${record.reps} (1RM ${disp1RM} ${uLabel})`;
+    }
+    return record.reps ? `${dispW} ${uLabel} × ${record.reps}` : `${dispW} ${uLabel}`;
+  }
+
+  // Legacy stored label parser: e.g. "100 kg × 8 (1RM 126.7 kg)" or "100 kg × 5"
+  const raw = record.label || '';
+  const converted = raw.replace(/(-?\d+(?:\.\d+)?)\s*kg\b/gi, (_m, numStr) => {
+    const kgNum = parseFloat(numStr);
+    if (!Number.isFinite(kgNum)) return _m;
+    return `${formatWeight(convertWeightToActiveUnit(Math.abs(kgNum), unit))} ${uLabel}`;
+  });
+  return converted;
 }
 
 /**
@@ -275,7 +312,7 @@ export function getAllTimePersonalRecords(
       );
       if (validSets.length === 0) continue;
 
-      const key = normalizeExerciseName(exercise.exerciseName) || exercise.exerciseId;
+      const key = resolveCanonicalExerciseId(exercise.exerciseName) || exercise.exerciseId;
       if (!key) continue;
 
       const prevSeen = seenCount.get(key) ?? 0;
@@ -357,7 +394,7 @@ export function getAllTimePersonalRecords(
 
   for (const item of baselineEntries) {
     if (typeof item.weightKg !== 'number' || item.weightKg <= 0) continue;
-    const key = normalizeExerciseName(item.name);
+    const key = resolveCanonicalExerciseId(item.name);
     const existing = byExercise.get(key);
     if (!existing) {
       byExercise.set(key, {

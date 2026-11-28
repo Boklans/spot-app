@@ -1,5 +1,6 @@
 import type { CompletedWorkout } from '@/types/workout';
 import type { EquipmentId, GeneratedExercise } from '@/lib/programGenerator';
+import { areExercisesEquivalent, findCanonicalExercise, getExerciseLoadType } from '@/lib/exercises';
 import { addWeight, formatWeight, normalizeWeight, subtractWeight } from '@/lib/weightUtils';
 
 export type ProgressionReason = 'increase' | 'maintain' | 'reduce' | 'program_default';
@@ -14,14 +15,79 @@ export type WeightRecommendation = {
   explanationUk?: string;
 };
 
-export type HistoricalSet = { weight: number; reps: number };
+export type HistoricalSet = { weight: number; reps: number; setType?: string; rir?: number };
+
+export type RecommendWeightOptions = {
+  deloadActive?: boolean;
+};
 
 export function isAssistedExercise(name: string): boolean {
   const lower = (name || '').toLowerCase();
   return lower.includes('assisted') || lower.includes('гравітрон') || lower.includes('gravitron');
 }
 
+/**
+ * Identifies unilateral / dumbbell exercises where lifters enter the weight of ONE hand/dumbbell.
+ */
+export function isPerHandExercise(name: string, equipment?: EquipmentId): boolean {
+  const loadType = getExerciseLoadType(name, equipment);
+  return loadType === 'bilateral_per_hand' || loadType === 'unilateral_per_side';
+}
+
+/**
+ * Identifies barbell / plate-loaded lifts where a Barbell Plate Calculator is genuinely helpful.
+ */
+export function isBarbellExercise(name: string, equipment?: EquipmentId): boolean {
+  const lower = (name || '').toLowerCase();
+  if (isAssistedExercise(lower)) return false;
+  if (
+    lower.includes('dumbbell') ||
+    lower.includes('db ') ||
+    lower.includes('гантел') ||
+    lower.includes('cable') ||
+    lower.includes('блок') ||
+    lower.includes('machine') ||
+    lower.includes('тренажер') ||
+    lower.includes('pulldown') ||
+    lower.includes('pushdown') ||
+    lower.includes('bodyweight') ||
+    lower.includes('push-up') ||
+    lower.includes('pull-up') ||
+    lower.includes('dip') ||
+    lower.includes('plank')
+  ) {
+    return false;
+  }
+  if (
+    lower.includes('barbell') ||
+    lower.includes('штанг') ||
+    lower.includes('bench press') ||
+    lower.includes('жим лежачи') ||
+    lower.includes('squat') ||
+    lower.includes('присідан') ||
+    lower.includes('deadlift') ||
+    lower.includes('станова') ||
+    lower.includes('румунська') ||
+    lower.includes('overhead press') ||
+    lower.includes('military press') ||
+    lower.includes('hip thrust') ||
+    lower.includes('ez bar') ||
+    lower.includes('ez-bar') ||
+    lower.includes('leg press') ||
+    lower.includes('жим ногами') ||
+    lower.includes('hack squat')
+  ) {
+    return true;
+  }
+  const resolved = equipment || inferEquipmentFromName(name);
+  return resolved === 'barbell';
+}
+
 export function inferEquipmentFromName(name: string, fallback: EquipmentId = 'barbell'): EquipmentId {
+  const canonical = findCanonicalExercise(name);
+  if (canonical) {
+    return canonical.equipment;
+  }
   const lower = (name || '').toLowerCase();
   if (isAssistedExercise(lower)) {
     return 'machines';
@@ -36,17 +102,32 @@ export function inferEquipmentFromName(name: string, fallback: EquipmentId = 'ba
     lower.includes('plank') ||
     lower.includes('bodyweight') ||
     lower.includes('hanging knee') ||
+    lower.includes('відтискан') ||
+    lower.includes('підтягуван') ||
+    lower.includes('планк') ||
+    lower.includes('власною вагою') ||
     (lower.includes('dip') && !lower.includes('machine')) ||
+    (lower.includes('брус') && !lower.includes('гравітрон')) ||
     (lower.includes('crunch') && !lower.includes('cable') && !lower.includes('machine'))
   ) {
     return 'bodyweight';
   }
-  if (lower.includes('dumbbell') || lower.includes('db ') || lower.includes('lateral raise') || lower.includes('hammer curl')) {
+  if (
+    lower.includes('dumbbell') ||
+    lower.includes('db ') ||
+    lower.includes('гантел') ||
+    lower.includes('lateral raise') ||
+    lower.includes('hammer curl') ||
+    lower.includes('молотки')
+  ) {
     return 'dumbbells';
   }
   if (
     lower.includes('machine') ||
     lower.includes('cable') ||
+    lower.includes('тренажер') ||
+    lower.includes('блок') ||
+    lower.includes('кросовер') ||
     lower.includes('pulldown') ||
     lower.includes('pushdown') ||
     lower.includes('leg press') ||
@@ -62,52 +143,87 @@ export function inferEquipmentFromName(name: string, fallback: EquipmentId = 'ba
 }
 
 export function findLatestExerciseSets(history: CompletedWorkout[], exercise: GeneratedExercise): HistoricalSet[] {
-  const targetName = (exercise.name || '').trim().toLowerCase();
   const matches = history
     .flatMap((workout) => workout.exercises.map((item) => ({ workout, item })))
-    .filter(({ item }) => {
-      if (!item.sets || item.sets.length === 0) return false;
-      const itemName = (item.exerciseName || '').trim().toLowerCase();
-      if (itemName && targetName) {
-        return itemName === targetName;
-      }
-      return item.exerciseId === exercise.id;
-    })
+    .map(({ workout, item }) => ({
+      workout,
+      workingSets: (item.sets || []).filter(
+        (set) => set.setType !== 'warmup' && typeof set.reps === 'number' && set.reps > 0
+      ),
+      matchesTarget: areExercisesEquivalent(item, exercise),
+    }))
+    .filter(({ matchesTarget, workingSets }) => matchesTarget && workingSets.length > 0)
     .sort((left, right) => new Date(right.workout.completedAt).getTime() - new Date(left.workout.completedAt).getTime());
-  return matches[0]?.item.sets.map((set) => ({ weight: set.weight, reps: set.reps })) ?? [];
+
+  return (
+    matches[0]?.workingSets.map((set) => ({
+      weight: set.weight,
+      reps: set.reps,
+      setType: set.setType,
+      rir: set.rir,
+    })) ?? []
+  );
 }
 
-export function parseRepRange(value: string) {
-  const [minimum, maximum] = (value || '8-12').split('-').map(Number);
-  return { minimum: minimum || 8, maximum: maximum || minimum || 12 };
+export function parseRepRange(value: string): {
+  minimum: number;
+  maximum: number;
+  isTimed: boolean;
+} {
+  const raw = (value || '8-12').toLowerCase().trim();
+  const isTimed = /\b(sec|secs|second|seconds|сек|с)\b|\d+\s*s\b/.test(raw);
+  const nums = raw.match(/\d+/g)?.map(Number).filter((n) => Number.isFinite(n) && n > 0) ?? [];
+  if (nums.length >= 2) {
+    const lo = Math.min(nums[0], nums[1]);
+    const hi = Math.max(nums[0], nums[1]);
+    return { minimum: lo, maximum: hi, isTimed };
+  }
+  if (nums.length === 1) {
+    return { minimum: nums[0], maximum: nums[0], isTimed };
+  }
+  return { minimum: 8, maximum: 12, isTimed: false };
 }
 
 export function practicalIncrement(equipment: EquipmentId, weight: number) {
-  if (equipment === 'bodyweight') return 0;
+  if (equipment === 'bodyweight') return weight > 0 ? 2.5 : 0;
   if (equipment === 'dumbbells') return weight >= 30 ? 2 : 1;
   if (equipment === 'machines') return weight >= 50 ? 5 : 2.5;
   return 2.5;
 }
 
 export function roundPracticalWeight(value: number, equipment: EquipmentId) {
-  if (equipment === 'bodyweight') return 0;
+  if (equipment === 'bodyweight' && value <= 0) return 0;
   const increment = practicalIncrement(equipment, value);
+  if (increment <= 0) return 0;
   return Math.max(0, Math.round(value / increment) * increment);
 }
 
-export function recommendWeight(exercise: GeneratedExercise, previousSets: HistoricalSet[]): WeightRecommendation {
-  const { minimum, maximum } = parseRepRange(exercise.targetRepRange);
+export function recommendWeight(
+  exercise: GeneratedExercise,
+  previousSets: HistoricalSet[],
+  options?: RecommendWeightOptions
+): WeightRecommendation {
+  const deloadActive = Boolean(options?.deloadActive);
+  const { minimum, maximum, isTimed } = parseRepRange(exercise.targetRepRange);
   const equipment = exercise.equipment || inferEquipmentFromName(exercise.name);
   const requiredSets = Math.max(1, exercise.sets || 3);
-  const validSets = previousSets.filter((s) => typeof s.reps === 'number' && s.reps > 0);
+  const validSets = previousSets.filter(
+    (s) => s.setType !== 'warmup' && typeof s.reps === 'number' && s.reps > 0
+  );
   const completedAllSets = validSets.length >= requiredSets;
+  const hasWeightedBodyweightLoad =
+    equipment === 'bodyweight' &&
+    (validSets.some((s) => s.weight > 0) || (exercise.recommendedWeight || 0) > 0);
 
-  if (equipment === 'bodyweight') {
+  if (equipment === 'bodyweight' && !hasWeightedBodyweightLoad) {
+    const unitEn = isTimed ? 'sec' : 'reps';
+    const unitUk = isTimed ? 'сек' : 'повт.';
     if (validSets.length > 0) {
       const reps = validSets.map((s) => s.reps);
       const minHit = Math.min(...reps);
+      const step = isTimed ? 5 : 1;
       const nextReps = completedAllSets && minHit >= minimum
-        ? Math.min(maximum, minHit + 1)
+        ? Math.min(maximum, minHit + step)
         : Math.min(maximum, Math.max(minimum, minHit));
       return {
         recommendedWeight: 0,
@@ -115,11 +231,11 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
         recommendationReason: 'maintain',
         source: 'history',
         explanation: completedAllSets
-          ? `Last time: ${reps.join('/')} reps. Aim for ${nextReps} controlled reps today.`
-          : `Last time: ${reps.join('/')} (${validSets.length}/${requiredSets} sets). Complete all ${requiredSets} sets of ${nextReps} reps today.`,
+          ? `Last time: ${reps.join('/')} ${unitEn}. Aim for ${nextReps} controlled ${unitEn} today.`
+          : `Last time: ${reps.join('/')} (${validSets.length}/${requiredSets} sets). Complete all ${requiredSets} sets of ${nextReps} ${unitEn} today.`,
         explanationUk: completedAllSets
-          ? `Минулого разу: ${reps.join('/')} повт. Ціль сьогодні — ${nextReps} підконтрольних повторень.`
-          : `Минулого разу: ${reps.join('/')} (${validSets.length}/${requiredSets} підх.). Закріпіть усі ${requiredSets} підходи по ${nextReps} повт.`,
+          ? `Минулого разу: ${reps.join('/')} ${unitUk} Ціль сьогодні — ${nextReps} ${unitUk}`
+          : `Минулого разу: ${reps.join('/')} (${validSets.length}/${requiredSets} підх.). Закріпіть усі ${requiredSets} підходи по ${nextReps} ${unitUk}`,
       };
     }
     return {
@@ -127,8 +243,12 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
       recommendedReps: minimum,
       recommendationReason: 'program_default',
       source: 'program_default',
-      explanation: 'Use your bodyweight and focus on controlled reps.',
-      explanationUk: 'Виконуйте з власною вагою під повним контролем.',
+      explanation: isTimed
+        ? `Hold strict form for ${minimum} seconds per set.`
+        : 'Use your bodyweight and focus on controlled reps.',
+      explanationUk: isTimed
+        ? `Утримуйте технічне положення ${minimum} сек у кожному підході.`
+        : 'Виконуйте з власною вагою під повним контролем.',
     };
   }
 
@@ -141,8 +261,21 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
   const weight = workingPrevWeight > 0 ? workingPrevWeight : (exercise.recommendedWeight || 0);
 
   if (validSets.length === 0 || weight <= 0) {
+    const baseDefaultWeight = Math.max(0, exercise.recommendedWeight || 0);
+    if (deloadActive && baseDefaultWeight > 0) {
+      // Note: exercise.recommendedWeight on the program template is already reduced by applyDeloadWeek(),
+      // so do NOT multiply by 0.85 a second time when source === 'program_default'.
+      return {
+        recommendedWeight: baseDefaultWeight,
+        recommendedReps: minimum,
+        recommendationReason: 'reduce',
+        source: 'program_default',
+        explanation: `Deload week active (-15%): focus on crisp technique at ${formatWeight(baseDefaultWeight)} kg × ${minimum} reps.`,
+        explanationUk: `Тиждень розвантаження (-15%): фокус на чистій техніці з вагою ${formatWeight(baseDefaultWeight)} кг × ${minimum} повт.`,
+      };
+    }
     return {
-      recommendedWeight: Math.max(0, exercise.recommendedWeight || 0),
+      recommendedWeight: baseDefaultWeight,
       recommendedReps: minimum,
       recommendationReason: 'program_default',
       source: 'program_default',
@@ -155,13 +288,47 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
     };
   }
 
-  const reps = validSets.map((set) => set.reps);
-  const minRepsHit = Math.min(...reps);
-  const maxRepsHit = Math.max(...reps);
   const equipIncrement = practicalIncrement(equipment, weight);
   const increment = typeof exercise.weightIncrement === 'number' && exercise.weightIncrement > 0
     ? Math.max(exercise.weightIncrement, equipIncrement)
     : equipIncrement;
+
+  // Active Deload Week (-15% from historical working weight; +15% counterweight for assisted lifts)
+  if (deloadActive) {
+    if (isAssisted) {
+      const rawEasier = weight * 1.15;
+      const stepped = roundPracticalWeight(rawEasier, equipment);
+      const deloadAssist = stepped > weight ? stepped : addWeight(weight, increment);
+      return {
+        recommendedWeight: deloadAssist,
+        recommendedReps: minimum,
+        recommendationReason: 'reduce',
+        source: 'history',
+        explanation: `Deload week (-15% load): assistance increased from ${formatWeight(weight)} kg to ${formatWeight(deloadAssist)} kg × ${minimum} reps for joint & CNS recovery.`,
+        explanationUk: `Тиждень розвантаження (-15% навантаження): противагу збільшено з ${formatWeight(weight)} кг до ${formatWeight(deloadAssist)} кг × ${minimum} повт для відновлення.`,
+      };
+    }
+
+    const rawDeload = weight * 0.85;
+    const roundedDeload = roundPracticalWeight(rawDeload, equipment);
+    const candidateDeload = roundedDeload > 0 ? roundedDeload : equipIncrement;
+    const deloadWeight = candidateDeload < weight
+      ? candidateDeload
+      : Math.max(equipIncrement, subtractWeight(weight, increment));
+
+    return {
+      recommendedWeight: normalizeWeight(deloadWeight),
+      recommendedReps: minimum,
+      recommendationReason: 'reduce',
+      source: 'history',
+      explanation: `Deload week (-15% from ${formatWeight(weight)} kg): perform ${requiredSets} smooth sets at ${formatWeight(deloadWeight)} kg × ${minimum} reps to shed fatigue.`,
+      explanationUk: `Тиждень розвантаження (-15% від ${formatWeight(weight)} кг): виконайте ${requiredSets} спокійні підходи по ${formatWeight(deloadWeight)} кг × ${minimum} повт для відновлення.`,
+    };
+  }
+
+  const reps = validSets.map((set) => set.reps);
+  const minRepsHit = Math.min(...reps);
+  const maxRepsHit = Math.max(...reps);
   // For assisted exercises (gravitron), progression means LESS counterweight; for standard exercises, MORE weight.
   const progressedWeight = isAssisted
     ? Math.max(0, subtractWeight(weight, increment))
@@ -221,18 +388,47 @@ export function recommendWeight(exercise: GeneratedExercise, previousSets: Histo
   }
 
   // 1. All prescribed sets completed at working weight and hit/exceeded top of rep range -> Progress weight, reset target reps to minimum
+  // (P2-06 RIR integration: if every logged set at top-of-range was an all-out 0 RIR grinder, consolidate 1 session before jumping weight)
   if (completedAllSets && allSetsAtWorkingWeight && reps.every((value) => value >= maximum)) {
+    const loggedRirs = validSets
+      .map((s) => s.rir)
+      .filter((r): r is number => typeof r === 'number' && Number.isFinite(r));
+    const avgRir =
+      loggedRirs.length > 0
+        ? loggedRirs.reduce((sum, r) => sum + r, 0) / loggedRirs.length
+        : null;
+
+    if (loggedRirs.length >= Math.ceil(validSets.length / 2) && avgRir !== null && avgRir <= 0.25) {
+      return {
+        recommendedWeight: normalizeWeight(weight),
+        recommendedReps: maximum,
+        recommendationReason: 'maintain',
+        source: 'history',
+        explanation: `You hit ${reps.join('/')} at ${formatWeight(weight)} kg at 0 RIR (true failure). Consolidate 1 more crisp session with 1–2 RIR before adding weight.`,
+        explanationUk: `Ви виконали ${reps.join('/')} × ${formatWeight(weight)} кг на 0 RIR (до повної відмови). Закріпіть ще 1 чисту сесію із запасом 1–2 RIR перед переходом на більшу вагу.`,
+      };
+    }
+
+    const easyRirSuffixEn =
+      loggedRirs.length >= Math.ceil(validSets.length / 2) && avgRir !== null && avgRir >= 3
+        ? ' (3+ RIR reserve — ready for a strong jump)'
+        : '';
+    const easyRirSuffixUk =
+      loggedRirs.length >= Math.ceil(validSets.length / 2) && avgRir !== null && avgRir >= 3
+        ? ' (запас 3+ RIR — тіло готове до впевненого росту)'
+        : '';
+
     return {
       recommendedWeight: progressedWeight,
       recommendedReps: minimum,
       recommendationReason: 'increase',
       source: 'history',
       explanation: isAssisted
-        ? `You hit ${reps.join('/')} with ${formatWeight(weight)} kg assistance (top of ${minimum}-${maximum}). Reduce assistance to ${formatWeight(progressedWeight)} kg × ${minimum} reps today.`
-        : `You hit ${reps.join('/')} at ${formatWeight(weight)} kg last time (top of ${minimum}-${maximum}). Try ${formatWeight(progressedWeight)} kg × ${minimum} reps today.`,
+        ? `You hit ${reps.join('/')} with ${formatWeight(weight)} kg assistance (top of ${minimum}-${maximum})${easyRirSuffixEn}. Reduce assistance to ${formatWeight(progressedWeight)} kg × ${minimum} reps today.`
+        : `You hit ${reps.join('/')} at ${formatWeight(weight)} kg last time (top of ${minimum}-${maximum})${easyRirSuffixEn}. Try ${formatWeight(progressedWeight)} kg × ${minimum} reps today.`,
       explanationUk: isAssisted
-        ? `Минулого разу: ${reps.join('/')} з противагою ${formatWeight(weight)} кг (верхня межа ${minimum}–${maximum}). Зменшуємо противагу до ${formatWeight(progressedWeight)} кг × ${minimum} повт (менша противага = важче).`
-        : `Минулого разу ви виконали ${reps.join('/')} × ${formatWeight(weight)} кг (верхня межа ${minimum}–${maximum}). Переходимо на ${formatWeight(progressedWeight)} кг × ${minimum} повт.`,
+        ? `Минулого разу: ${reps.join('/')} з противагою ${formatWeight(weight)} кг (верхня межа ${minimum}–${maximum})${easyRirSuffixUk}. Зменшуємо противагу до ${formatWeight(progressedWeight)} кг × ${minimum} повт (менша противага = важче).`
+        : `Минулого разу ви виконали ${reps.join('/')} × ${formatWeight(weight)} кг (верхня межа ${minimum}–${maximum})${easyRirSuffixUk}. Переходимо на ${formatWeight(progressedWeight)} кг × ${minimum} повт.`,
     };
   }
 

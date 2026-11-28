@@ -44,6 +44,19 @@ export function getCachedOnboarding(): OnboardingData | null {
   return cachedOnboarding;
 }
 
+export function clearOnboardingCache(): void {
+  cachedOnboarding = null;
+}
+
+export function syncOnboardingCacheFromRaw(raw: Record<string, unknown> | null): OnboardingData | null {
+  if (!raw) {
+    cachedOnboarding = null;
+    return null;
+  }
+  cachedOnboarding = normalizeOnboarding(raw);
+  return cachedOnboarding;
+}
+
 export const defaultOnboarding: OnboardingData = {
   name: '',
   avatar: 'gorilla',
@@ -118,6 +131,9 @@ function normalizeSplitPreference(value: unknown): WorkoutSplitPreference | unde
 function normalizeSex(value: unknown): OnboardingSex {
   if (value === 'female') {
     return 'female';
+  }
+  if (value === 'unspecified') {
+    return 'unspecified';
   }
   return 'male';
 }

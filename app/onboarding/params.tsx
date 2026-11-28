@@ -68,7 +68,7 @@ export default function ParamsSetup() {
     }, [fromKg, name, weight, height])
   );
 
-  const isNameValid = name.trim().length >= 2;
+  const isNameValid = true;
 
   const handleToggleUnit = (nextUnit: 'kg' | 'lbs') => {
     if (unit === nextUnit) return;
@@ -93,18 +93,11 @@ export default function ParamsSetup() {
     { value: 'female', label: isUk ? 'Жіноча' : 'Female', icon: 'female-outline' },
   ];
 
-  const handleContinue = () => {
-    if (!isNameValid) {
-      hapticLight();
-      setNameError(true);
-      nameRef.current?.focus();
-      return;
-    }
-
+  const handleContinue = async () => {
     hapticMedium();
     setNameError(false);
 
-    const effectiveName = name.trim().slice(0, 20);
+    const effectiveName = (name.trim() || (isUk ? 'Атлет' : 'Athlete')).slice(0, 20);
 
     const parsedAge = parseInt(age.trim(), 10);
     const effectiveAge = !isNaN(parsedAge) && parsedAge >= 14 && parsedAge <= 95
@@ -122,23 +115,21 @@ export default function ParamsSetup() {
       ? Math.round(parsedHeight)
       : (initialProfile.heightCm || 172);
 
-    Promise.all([
-      useUserProfileStore.getState().updateProfile({
-        name: effectiveName,
-        age: effectiveAge,
-        sex,
-        weightKg: effectiveWeightKg,
-        heightCm: effectiveHeightCm,
-      }),
-      useBodyWeightStore.getState().syncBaselineWeight(effectiveWeightKg),
-      saveOnboarding({
-        name: effectiveName,
-        age: effectiveAge,
-        sex,
-        weightKg: effectiveWeightKg,
-        heightCm: effectiveHeightCm,
-      }),
-    ]).catch((err) => console.warn('Non-blocking onboarding save error:', err));
+    await useUserProfileStore.getState().updateProfile({
+      name: effectiveName,
+      age: effectiveAge,
+      sex,
+      weightKg: effectiveWeightKg,
+      heightCm: effectiveHeightCm,
+    });
+    await useBodyWeightStore.getState().syncBaselineWeight(effectiveWeightKg);
+    await saveOnboarding({
+      name: effectiveName,
+      age: effectiveAge,
+      sex,
+      weightKg: effectiveWeightKg,
+      heightCm: effectiveHeightCm,
+    }).catch(() => undefined);
 
     router.push('/onboarding/goal');
   };
@@ -175,8 +166,9 @@ export default function ParamsSetup() {
             {/* Name */}
             <View style={styles.inputGroup}>
               <View style={styles.inputLabelRow}>
-                <Text style={styles.inputLabel}>{isUk ? "Ваше ім'я" : 'Your Name'}</Text>
-                <Text style={styles.requiredStar}>*</Text>
+                <Text style={styles.inputLabel}>
+                  {isUk ? "Ваше ім'я (необовʼязково)" : 'Your Name (optional)'}
+                </Text>
               </View>
               <Pressable
                 onPress={() => nameRef.current?.focus()}
@@ -494,6 +486,8 @@ const createStyles = (colors: ThemeColors) =>
     },
     textInput: {
       flex: 1,
+      minWidth: 0,
+      width: '100%',
       color: colors.text,
       fontSize: 16,
       fontWeight: '700',
@@ -503,7 +497,8 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.muted,
       fontSize: 11,
       fontWeight: '800',
-      marginLeft: 6,
+      marginLeft: 4,
+      flexShrink: 0,
     },
     sexRow: {
       flexDirection: 'row',
@@ -547,6 +542,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     metricCol: {
       flex: 1,
+      minWidth: 0,
       gap: 8,
     },
     metricInputWrap: {
@@ -556,8 +552,9 @@ const createStyles = (colors: ThemeColors) =>
       borderRadius: 16,
       borderWidth: 1.5,
       borderColor: colors.border,
-      paddingHorizontal: 12,
+      paddingHorizontal: 10,
       height: 54,
+      overflow: 'hidden',
     },
     bottomBar: {
       width: '100%',

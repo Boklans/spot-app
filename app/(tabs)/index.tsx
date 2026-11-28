@@ -1,13 +1,17 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { SpotCoachCard } from '@/components/home/SpotCoachCard';
+import { AnatomyPreview } from '@/components/progress/AnatomyPreview';
 import { Screen } from '@/components/ui/Screen';
 import { HomeSkeleton } from '@/components/ui/Skeleton';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
+import { radii } from '@/constants/radii';
 import { fonts } from '@/constants/typography';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { generateCoachInsight } from '@/lib/coachEngine';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { countWorkoutsThisWeek, getStartOfWeek } from '@/lib/progressCalculator';
@@ -25,6 +29,7 @@ export default function Home() {
   const { t, tm, te, tw, language } = useI18n();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const reducedMotion = useReducedMotion();
   const { formatVolume, formatWithUnit } = useWeightUnit();
   const [name, setName] = useState('');
   const [focusKey, setFocusKey] = useState(0);
@@ -36,30 +41,42 @@ export default function Home() {
   const restoreFromDeload = useProgramStore((state) => state.restoreFromDeload);
   const programHydrated = useProgramStore((state) => state.hydrated);
   const activeSession = useWorkoutSessionStore((state) => state.session);
+  const initializeSession = useWorkoutSessionStore((state) => state.initializeSession);
+  const discardSession = useWorkoutSessionStore((state) => state.discardSession);
   const progress = useProgramProgressStore((state) => state.progress);
   const setNextWorkout = useProgramProgressStore((state) => state.setNextWorkout);
   const history = useWorkoutHistoryStore((state) => state.workouts);
   const historyHydrated = useWorkoutHistoryStore((state) => state.hydrated);
   const [switchModalVisible, setSwitchModalVisible] = useState(false);
   const [switchModalMode, setSwitchModalMode] = useState<'switch' | 'start'>('switch');
+  const [startingWorkout, setStartingWorkout] = useState(false);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
-  const entryFadeAnim = useRef(new Animated.Value(0)).current;
-  const entrySlideAnim = useRef(new Animated.Value(8)).current;
+  const [progressTrackWidth, setProgressTrackWidth] = useState(0);
 
-  // Focus synchronization (also runs on initial mount)
+  // Focus synchronization (skips redundant AsyncStorage re-reads once stores are hydrated — P2-04)
   useFocusEffect(
     useCallback(() => {
       setFocusKey((k) => k + 1);
-      loadOnboarding().then((data) => {
-        if (data?.name) setName(data.name);
-      });
-      useWorkoutSessionStore.getState().hydrateSession();
-      useUserProfileStore.getState().loadProfile();
-      useProgramStore.getState().getOrLoadProgram();
-      useWorkoutHistoryStore.getState().loadHistory();
-    }, [])
+      if (!name) {
+        loadOnboarding().then((data) => {
+          if (data?.name) setName(data.name);
+        });
+      }
+      if (!useWorkoutSessionStore.getState().hydrated) {
+        void useWorkoutSessionStore.getState().hydrateSession();
+      }
+      if (!useUserProfileStore.getState().hydrated) {
+        void useUserProfileStore.getState().loadProfile();
+      }
+      if (!useProgramStore.getState().hydrated) {
+        void useProgramStore.getState().getOrLoadProgram();
+      }
+      if (!useWorkoutHistoryStore.getState().hydrated) {
+        void useWorkoutHistoryStore.getState().loadHistory();
+      }
+    }, [name])
   );
 
   const nextWorkout = program && program.workouts?.length ? getScheduledWorkout(program, progress) : null;
@@ -242,6 +259,29 @@ export default function Home() {
     return language === 'uk' ? 'Все тіло' : 'Full Body';
   }, [nextWorkout, tm, language]);
 
+  const targetAnatomyMuscles = useMemo(() => {
+    if (!nextWorkout) return [];
+    const list: string[] = [];
+    if (nextWorkout.muscleGroups?.length) list.push(...nextWorkout.muscleGroups);
+    if (nextWorkout.exercises?.length) {
+      for (const ex of nextWorkout.exercises) {
+        if (ex.muscleGroup) list.push(ex.muscleGroup);
+      }
+    }
+    return Array.from(new Set(list));
+  }, [nextWorkout]);
+
+  const todayDateKicker = useMemo(() => {
+    const now = new Date();
+    return now
+      .toLocaleDateString(language === 'uk' ? 'uk-UA' : 'en-US', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+      })
+      .toUpperCase();
+  }, [language]);
+
   const rawGreetingName = (profile?.name && profile.name.trim().length > 0 ? profile.name.trim() : name) || '';
   const userGreetingName = rawGreetingName.slice(0, 20);
   const coachInsight = useMemo(
@@ -267,41 +307,26 @@ export default function Home() {
     }
   };
 
+  const handleOneTapStartWorkout = useCallback(async () => {
+    if (!nextWorkout || startingWorkout) return;
+    setStartingWorkout(true);
+    try {
+      await initializeSession(nextWorkout);
+      router.push('/workout/active');
+    } finally {
+      setStartingWorkout(false);
+    }
+  }, [initializeSession, nextWorkout, startingWorkout]);
+
   const greetingText = userGreetingName
     ? `${greetingPrefix}, ${userGreetingName}`
     : greetingPrefix;
 
-  const triggerEntryAnim = useCallback(() => {
-    entryFadeAnim.setValue(0);
-    entrySlideAnim.setValue(18);
-    Animated.parallel([
-      Animated.timing(entryFadeAnim, {
-        toValue: 1,
-        duration: 320,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.spring(entrySlideAnim, {
-        toValue: 0,
-        friction: 7,
-        tension: 70,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [entryFadeAnim, entrySlideAnim]);
-
-  useFocusEffect(
-    useCallback(() => {
-      triggerEntryAnim();
-    }, [triggerEntryAnim])
-  );
-
   useEffect(() => {
-    triggerEntryAnim();
-  }, [homeState, triggerEntryAnim]);
-
-  useEffect(() => {
-    if (homeState !== 'IN_PROGRESS') return;
+    if (homeState !== 'IN_PROGRESS' || reducedMotion) {
+      pulseAnim.setValue(1);
+      return;
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -320,21 +345,25 @@ export default function Home() {
     );
     loop.start();
     return () => loop.stop();
-  }, [homeState, pulseAnim]);
+  }, [homeState, reducedMotion, pulseAnim]);
 
   useEffect(() => {
     const targetPct = inProgressData?.percent ?? 0;
+    if (reducedMotion) {
+      progressAnim.setValue(targetPct);
+      return;
+    }
     Animated.spring(progressAnim, {
       toValue: targetPct,
-      useNativeDriver: false,
-      speed: 16,
-      bounciness: 5,
+      useNativeDriver: true,
+      speed: 18,
+      bounciness: 4,
     }).start();
-  }, [inProgressData?.percent, progressAnim]);
+  }, [inProgressData?.percent, reducedMotion, progressAnim]);
 
-  const animatedProgressWidth = progressAnim.interpolate({
+  const animatedProgressTranslateX = progressAnim.interpolate({
     inputRange: [0, 100],
-    outputRange: ['0%', '100%'],
+    outputRange: [-Math.max(1, progressTrackWidth), 0],
     extrapolate: 'clamp',
   });
 
@@ -353,20 +382,37 @@ export default function Home() {
 
   return (
     <Screen style={styles.screenContent}>
-      {/* 1. Header */}
+      {/* 1. Athletic Cockpit Header */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
+          <Text style={styles.dateKicker}>{todayDateKicker}</Text>
           <Text numberOfLines={1} ellipsizeMode="tail" style={styles.greetingTitle}>
             {greetingText}
           </Text>
-          <Text style={styles.headerSubtitle}>
-            {homeState === 'IN_PROGRESS'
-              ? (language === 'uk' ? 'Активна сесія триває' : 'Active session in progress')
-              : homeState === 'COMPLETED_TODAY'
-              ? (language === 'uk' ? 'Тренування за сьогодні виконано' : 'Today’s workout completed')
-              : (language === 'uk' ? `Сьогодні за планом — ${tw(nextWorkout.name)}` : `Scheduled today — ${tw(nextWorkout.name)}`)}
-          </Text>
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Weekly progress"
+          onPress={() => {
+            hapticLight();
+            router.push('/(tabs)/progress');
+          }}
+          style={({ pressed }) => [styles.weeklyGoalPill, pressed && { opacity: 0.75 }]}
+        >
+          <View
+            style={[
+              styles.weeklyGoalDot,
+              {
+                backgroundColor:
+                  completedWorkoutsThisWeek >= targetWorkouts ? colors.primary : colors.accentLine,
+              },
+            ]}
+          />
+          <Text style={styles.weeklyGoalText}>
+            {completedWorkoutsThisWeek}/{targetWorkouts}
+          </Text>
+          <Text style={styles.weeklyGoalSub}>{language === 'uk' ? 'тижд.' : 'wk'}</Text>
+        </Pressable>
       </View>
 
       {/* STATE A: Ready to Train */}
@@ -383,22 +429,25 @@ export default function Home() {
               }
               style={styles.partialSavedBanner}
             >
-              <Ionicons name="bookmark-outline" size={16} color="#F59E0B" />
+              <Ionicons name="bookmark-outline" size={16} color={colors.warning} />
               <Text style={styles.partialSavedBannerText} numberOfLines={1}>
                 {language === 'uk'
                   ? `Сьогодні збережено частково: ${todayPartialHistoryWorkout.totalSets}/${todayPartialHistoryWorkout.plannedSets || todayPartialHistoryWorkout.totalSets} підх.`
                   : `Partial workout saved today: ${todayPartialHistoryWorkout.totalSets}/${todayPartialHistoryWorkout.plannedSets || todayPartialHistoryWorkout.totalSets} sets`}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color="#8E959F" />
+              <Ionicons name="chevron-forward" size={16} color={colors.muted} />
             </Pressable>
           )}
 
-          {/* 2. Today's Workout Card */}
+          {/* 2. Hero Today's Workout Card with Mini Target Anatomy */}
           <View style={styles.workoutCard}>
             <View style={styles.workoutCardHeaderRow}>
-              <Text style={styles.workoutCardLabel}>
-                {language === 'uk' ? 'За розкладом' : 'Up next'}
-              </Text>
+              <View style={styles.upNextPill}>
+                <View style={styles.upNextPillDot} />
+                <Text style={styles.workoutCardLabel}>
+                  {language === 'uk' ? 'СЬОГОДНІ ЗА ПЛАНОМ' : 'UP NEXT'}
+                </Text>
+              </View>
               {program.workouts && program.workouts.length > 1 && (
                 <Pressable
                   accessibilityRole="button"
@@ -411,7 +460,7 @@ export default function Home() {
                   hitSlop={8}
                   style={({ pressed }) => [styles.switchWorkoutBtn, pressed && { opacity: 0.7 }]}
                 >
-                  <Ionicons name="swap-horizontal" size={13} color="#A0A8B4" />
+                  <Ionicons name="swap-horizontal" size={13} color={colors.secondary} />
                   <Text style={styles.switchWorkoutBtnText}>
                     {language === 'uk' ? 'Змінити день' : 'Change day'}
                   </Text>
@@ -424,15 +473,40 @@ export default function Home() {
               onPress={() =>
                 router.push({ pathname: '/workout/preview', params: { workoutId: nextWorkout.id } })
               }
-              style={styles.workoutMainRow}
+              style={styles.heroSplitRow}
             >
-              <Text style={styles.workoutName}>{tw(nextWorkout.name)}</Text>
-              <Ionicons name="chevron-forward" size={20} color="#6C7685" />
-            </Pressable>
+              <View style={styles.heroTextCol}>
+                <Text style={styles.workoutName} numberOfLines={2}>
+                  {tw(nextWorkout.name)}
+                </Text>
+                <Text style={styles.workoutMuscles} numberOfLines={2}>
+                  {displayMuscles}
+                </Text>
+                <View style={styles.heroMetaPills}>
+                  <View style={styles.heroMetaBadge}>
+                    <Ionicons name="barbell-outline" size={12} color={colors.secondary} />
+                    <Text style={styles.heroMetaText}>
+                      {nextWorkout.exercises.length} {t('exercises').toLowerCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.heroMetaBadge}>
+                    <Ionicons name="time-outline" size={12} color={colors.secondary} />
+                    <Text style={styles.heroMetaText}>
+                      ~{nextWorkout.estimatedMinutes} {t('min')}
+                    </Text>
+                  </View>
+                </View>
+              </View>
 
-            <Text style={styles.workoutMuscles}>
-              {displayMuscles}  ·  {nextWorkout.exercises.length} {t('exercises').toLowerCase()}  ·  ~{nextWorkout.estimatedMinutes} {t('min')}
-            </Text>
+              <View style={styles.heroAnatomyWrap}>
+                <AnatomyPreview
+                  muscles={targetAnatomyMuscles}
+                  sex={profile.sex}
+                  height={98}
+                  showBack
+                />
+              </View>
+            </Pressable>
 
             {/* Clean Exercise List directly on card surface (no nested box) */}
             {nextWorkout.exercises && nextWorkout.exercises.length > 0 && (
@@ -446,7 +520,7 @@ export default function Home() {
                   const equipment = (ex as any).equipment || inferEquipmentFromName(ex.name);
                   const exWithEquip = { ...ex, equipment } as any;
                   const prevSets = findLatestExerciseSets(history, exWithEquip);
-                  const rec = recommendWeight(exWithEquip, prevSets);
+                  const rec = recommendWeight(exWithEquip, prevSets, { deloadActive });
                   const effectiveWeight = rec.source === 'history'
                     ? rec.recommendedWeight
                     : (typeof ex.recommendedWeight === 'number' && ex.recommendedWeight > 0
@@ -464,37 +538,45 @@ export default function Home() {
                         {te(ex.name)}
                       </Text>
                       <Text style={styles.previewExSets}>
-                        {ex.sets} × {effectiveWeight ? formatWithUnit(effectiveWeight) : (language === 'uk' ? 'ВТ' : 'BW')}
+                        {ex.sets} × {effectiveWeight ? formatWithUnit(effectiveWeight) : (language === 'uk' ? 'ВТ' : 'BW')} × {ex.targetRepRange || '8-12'}
                       </Text>
                     </View>
                   );
                 })}
-                {nextWorkout.exercises.length > 4 && (() => {
-                  const rem = nextWorkout.exercises.length - 4;
-                  const label =
-                    language === 'uk'
-                      ? rem === 1
-                        ? '+ ще 1 вправа'
-                        : rem < 5
-                        ? `+ ще ${rem} вправи`
-                        : `+ ще ${rem} вправ`
-                      : `+ ${rem} more ${rem === 1 ? 'exercise' : 'exercises'}`;
-                  return (
-                    <Text style={styles.previewMoreText}>
-                      {label}
+                <View style={styles.previewFooterRow}>
+                  {nextWorkout.exercises.length > 4 ? (() => {
+                    const rem = nextWorkout.exercises.length - 4;
+                    const label =
+                      language === 'uk'
+                        ? rem === 1
+                          ? '+ ще 1 вправа'
+                          : rem < 5
+                          ? `+ ще ${rem} вправи`
+                          : `+ ще ${rem} вправ`
+                        : `+ ${rem} more ${rem === 1 ? 'exercise' : 'exercises'}`;
+                    return (
+                      <Text style={styles.previewMoreText}>
+                        {label}
+                      </Text>
+                    );
+                  })() : <View />}
+
+                  <View style={styles.previewInspectLink}>
+                    <Text style={styles.previewInspectLinkText}>
+                      {language === 'uk' ? 'Перегляд і зміна' : 'Preview & Edit'}
                     </Text>
-                  );
-                })()}
+                    <Ionicons name="chevron-forward" size={13} color={colors.secondary} />
+                  </View>
+                </View>
               </Pressable>
             )}
           </View>
 
-          {/* Primary CTA — the single high-contrast accent on screen */}
+          {/* Primary 1-Tap CTA — launches Active Workout directly with zero friction */}
           <Button
             style={styles.ctaButton}
-            onPress={() => {
-              router.push({ pathname: '/workout/preview', params: { workoutId: nextWorkout.id } });
-            }}
+            loading={startingWorkout}
+            onPress={handleOneTapStartWorkout}
           >
             {t('startWorkout')}
           </Button>
@@ -521,12 +603,7 @@ export default function Home() {
 
       {/* STATE B: Workout in Progress */}
       {homeState === 'IN_PROGRESS' && inProgressData && (
-        <Animated.View
-          style={{
-            opacity: entryFadeAnim,
-            transform: [{ translateY: entrySlideAnim }],
-          }}
-        >
+        <View>
           <View style={styles.stateCard}>
             <View style={styles.stateCardHeaderRow}>
               <View style={styles.inProgressBadge}>
@@ -549,9 +626,27 @@ export default function Home() {
               {inProgressData.progressText}  ·  {inProgressData.completedSets} / {inProgressData.totalSets} {t('sets').toLowerCase()}
             </Text>
 
-            {/* Progress Bar Track */}
-            <View style={styles.progressBarTrack}>
-              <Animated.View style={[styles.progressBarFill, { width: animatedProgressWidth }]} />
+            {/* Progress Bar Track (60fps native driver) */}
+            <View
+              style={styles.progressBarTrack}
+              onLayout={(e) => {
+                const w = e.nativeEvent.layout.width;
+                if (w > 0 && w !== progressTrackWidth) setProgressTrackWidth(w);
+              }}
+            >
+              <Animated.View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    width: '100%',
+                    transform: [
+                      {
+                        translateX: progressTrackWidth > 0 ? animatedProgressTranslateX : -9999,
+                      },
+                    ],
+                  },
+                ]}
+              />
             </View>
 
             {/* Current Active Exercise Info */}
@@ -602,7 +697,46 @@ export default function Home() {
               {language === 'uk' ? 'Швидкий запис списком' : 'Switch to Quick Log'}
             </Text>
           </Pressable>
-        </Animated.View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Discard workout"
+            onPress={() => {
+              hapticLight();
+              const title = language === 'uk' ? 'Скасувати тренування?' : 'Discard Workout?';
+              const msg =
+                language === 'uk'
+                  ? 'Активну сесію буде закрито без збереження в історію.'
+                  : 'This active session will be closed without saving to your workout history.';
+              if (Platform.OS === 'web') {
+                if (typeof window === 'undefined' || window.confirm(`${title}\n\n${msg}`)) {
+                  void discardSession();
+                }
+                return;
+              }
+              Alert.alert(title, msg, [
+                { text: language === 'uk' ? 'Залишити' : 'Keep Session', style: 'cancel' },
+                {
+                  text: language === 'uk' ? 'Скасувати тренування' : 'Discard Workout',
+                  style: 'destructive',
+                  onPress: () => {
+                    void discardSession();
+                  },
+                },
+              ]);
+            }}
+            style={({ pressed }) => [
+              styles.quickLogSecondaryBtn,
+              { marginTop: 8 },
+              pressed && styles.quickLogSecondaryBtnPressed,
+            ]}
+          >
+            <Ionicons name="trash-outline" size={15} color={colors.danger} />
+            <Text style={[styles.quickLogSecondaryBtnText, { color: colors.danger }]}>
+              {language === 'uk' ? 'Скасувати тренування' : 'Discard Workout'}
+            </Text>
+          </Pressable>
+        </View>
       )}
 
       {/* STATE C: Workout Completed Today */}
@@ -644,23 +778,22 @@ export default function Home() {
           </View>
 
           <Button
-            style={[styles.ctaButton, { marginBottom: 20 }]}
+            variant="secondary"
+            style={styles.completedSummaryBtn}
             onPress={() => {
               if (completedSummaryData.isLiveSession) {
                 router.push('/workout/complete');
               } else if (completedSummaryData.id) {
                 router.push({ pathname: '/history/[id]', params: { id: completedSummaryData.id } });
               } else {
-                router.push('/history');
+                router.push({ pathname: '/(tabs)/progress', params: { view: 'history' } });
               }
             }}
           >
-            <View style={styles.btnContentRow}>
-              <Text style={styles.ctaButtonText}>{t('viewSummary')}</Text>
-            </View>
+            {t('viewSummary')}
           </Button>
 
-          {/* NEXT UP Card */}
+          {/* NEXT UP Card with Mini Target Anatomy */}
           {nextWorkout && (
             <Pressable
               accessibilityRole="button"
@@ -673,36 +806,60 @@ export default function Home() {
             >
               <View style={styles.nextUpHeaderRow}>
                 <Text style={styles.nextUpKickerText}>
-                  {language === 'uk' ? 'Далі за планом' : 'Next up'}
+                  {language === 'uk' ? 'ДАЛІ ЗА ПЛАНОМ' : 'NEXT UP'}
                 </Text>
                 <Text style={styles.nextUpDayText}>
                   {nextWorkout.dayLabel || (language === 'uk' ? 'За розкладом' : 'Scheduled')}
                 </Text>
               </View>
 
-              <View style={styles.nextUpTitleRow}>
-                <Text numberOfLines={1} style={styles.nextUpWorkoutName}>
-                  {tw(nextWorkout.name)}
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color="#6C7685" />
-              </View>
+              <View style={styles.heroSplitRow}>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <View style={styles.nextUpTitleRow}>
+                    <Text numberOfLines={1} style={styles.nextUpWorkoutName}>
+                      {tw(nextWorkout.name)}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+                  </View>
 
-              <Text numberOfLines={1} style={styles.nextUpMuscles}>
-                {displayMuscles}  ·  {nextWorkout.exercises.length} {t('exercises').toLowerCase()}  ·  ~{nextWorkout.estimatedMinutes} {t('min')}
-              </Text>
+                  <Text numberOfLines={2} style={styles.nextUpMuscles}>
+                    {displayMuscles}  ·  {nextWorkout.exercises.length} {t('exercises').toLowerCase()}  ·  ~{nextWorkout.estimatedMinutes} {t('min')}
+                  </Text>
+                </View>
+
+                <View style={styles.heroAnatomyWrap}>
+                  <AnatomyPreview
+                    muscles={targetAnatomyMuscles}
+                    sex={profile.sex}
+                    height={72}
+                    showBack
+                  />
+                </View>
+              </View>
             </Pressable>
           )}
         </>
       )}
 
-      {/* This Week Tracker */}
+      {/* This Week Tracker (1-tap access to Workout History) */}
       {homeState !== 'IN_PROGRESS' && (
-        <View style={styles.weekSection}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={language === 'uk' ? 'Відкрити історію тренувань' : 'Open workout history'}
+          onPress={() => {
+            hapticLight();
+            router.push({ pathname: '/(tabs)/progress', params: { view: 'history' } });
+          }}
+          style={({ pressed }) => [styles.weekSection, pressed && { opacity: 0.88 }]}
+        >
           <View style={styles.weekHeader}>
             <Text style={styles.weekLabel}>{t('thisWeek')}</Text>
-            <Text style={styles.weekCounter}>
-              {completedWorkoutsThisWeek} / {targetWorkouts} {language === 'uk' ? 'тренувань' : 'workouts'}
-            </Text>
+            <View style={styles.weekHeaderRight}>
+              <Text style={styles.weekCounter}>
+                {completedWorkoutsThisWeek} / {targetWorkouts} {language === 'uk' ? 'трен.' : 'sessions'}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.muted} />
+            </View>
           </View>
           <View style={styles.weekRow}>
             {weekDayStatuses.map((item, idx) => (
@@ -710,7 +867,7 @@ export default function Home() {
                 <View style={styles.weekSlot}>
                   {item.completed ? (
                     <View style={styles.indicatorCompleted}>
-                      <Ionicons name="checkmark" size={14} color="#0B0D0F" />
+                      <Ionicons name="checkmark" size={14} color={colors.onPrimary} />
                     </View>
                   ) : item.isToday ? (
                     <View style={styles.indicatorToday}>
@@ -732,7 +889,7 @@ export default function Home() {
               </View>
             ))}
           </View>
-        </View>
+        </Pressable>
       )}
 
       {/* SPOT Coach: Weekly Insights & 1-Tap Deload */}
@@ -740,91 +897,75 @@ export default function Home() {
         <SpotCoachCard insight={coachInsight} onAction={handleCoachAction} />
       ) : null}
 
-      {/* Workout Switch Modal */}
-      <Modal
+      {/* Workout Switch BottomSheet */}
+      <BottomSheet
         visible={switchModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSwitchModalVisible(false)}
+        onClose={() => setSwitchModalVisible(false)}
+        title={
+          switchModalMode === 'start'
+            ? (language === 'uk' ? 'Почати інше тренування' : 'Start Another Workout')
+            : (language === 'uk' ? 'Вибрати тренування' : 'Select Workout')
+        }
+        subtitle={
+          switchModalMode === 'start'
+            ? (language === 'uk' ? 'Оберіть тренування для швидкого старту' : 'Select a workout to start')
+            : (language === 'uk' ? 'Оберіть заплановане тренування' : 'Choose your scheduled workout')
+        }
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setSwitchModalVisible(false)}
+        <ScrollView
+          style={{ maxHeight: 380 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 16 }}
+          showsVerticalScrollIndicator={false}
         >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>
-                  {switchModalMode === 'start'
-                    ? (language === 'uk' ? 'Почати інше тренування' : 'Start Another Workout')
-                    : (language === 'uk' ? 'Вибрати тренування' : 'Select Workout')}
-                </Text>
-                <Text style={styles.modalSubtitle}>
-                  {switchModalMode === 'start'
-                    ? (language === 'uk' ? 'Оберіть тренування для перегляду та старту' : 'Select a workout to preview & start')
-                    : (language === 'uk' ? 'Оберіть заплановане тренування' : 'Choose your scheduled workout')}
-                </Text>
-              </View>
+          {program.workouts.map((w, idx) => {
+            const isSelected = w.id === nextWorkout.id;
+            const muscles = w.muscleGroups?.slice(0, 3).map((m) => tm(m)).join(' • ') || '';
+            return (
               <Pressable
-                onPress={() => setSwitchModalVisible(false)}
-                hitSlop={10}
-                style={styles.modalCloseBtn}
+                key={w.id}
+                style={[styles.switchItem, isSelected && styles.switchItemActive]}
+                onPress={async () => {
+                  hapticMedium();
+                  await setNextWorkout(w.id);
+                  setSwitchModalVisible(false);
+                  if (switchModalMode === 'start') {
+                    await initializeSession(w);
+                    router.push('/workout/active');
+                  }
+                }}
               >
-                <Ionicons name="close" size={22} color="#8E959F" />
+                <View style={styles.switchItemLeft}>
+                  <View style={[styles.switchItemBadge, isSelected && styles.switchItemBadgeActive]}>
+                    <Text style={[styles.switchItemBadgeText, isSelected && styles.switchItemBadgeTextActive]}>
+                      {String.fromCharCode(65 + idx)}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.switchItemName, isSelected && styles.switchItemNameActive]}>
+                      {tw(w.name)}
+                    </Text>
+                    {muscles ? (
+                      <Text style={styles.switchItemMuscles}>{muscles}</Text>
+                    ) : null}
+                  </View>
+                </View>
+                {switchModalMode === 'start' ? (
+                  <View style={styles.switchItemStartBadge}>
+                    <Ionicons name="play" size={11} color={colors.onPrimary} style={{ marginRight: 3 }} />
+                    <Text style={styles.switchItemStartBadgeText}>
+                      {language === 'uk' ? 'СТАРТ' : 'START'}
+                    </Text>
+                  </View>
+                ) : isSelected ? (
+                  <Ionicons name="checkmark-circle" size={22} color={colors.primaryText} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+                )}
               </Pressable>
-            </View>
-
-            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-              {program.workouts.map((w, idx) => {
-                const isSelected = w.id === nextWorkout.id;
-                const muscles = w.muscleGroups?.slice(0, 3).map((m) => tm(m)).join(' • ') || '';
-                return (
-                  <Pressable
-                    key={w.id}
-                    style={[styles.switchItem, isSelected && styles.switchItemActive]}
-                    onPress={async () => {
-                      hapticMedium();
-                      await setNextWorkout(w.id);
-                      setSwitchModalVisible(false);
-                      if (switchModalMode === 'start') {
-                        router.push({ pathname: '/workout/preview', params: { workoutId: w.id } });
-                      }
-                    }}
-                  >
-                    <View style={styles.switchItemLeft}>
-                      <View style={[styles.switchItemBadge, isSelected && styles.switchItemBadgeActive]}>
-                        <Text style={[styles.switchItemBadgeText, isSelected && styles.switchItemBadgeTextActive]}>
-                          {String.fromCharCode(65 + idx)}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.switchItemName, isSelected && styles.switchItemNameActive]}>
-                          {tw(w.name)}
-                        </Text>
-                        {muscles ? (
-                          <Text style={styles.switchItemMuscles}>{muscles}</Text>
-                        ) : null}
-                      </View>
-                    </View>
-                    {switchModalMode === 'start' ? (
-                      <View style={styles.switchItemStartBadge}>
-                        <Ionicons name="play" size={11} color="#0B0D0F" style={{ marginRight: 3 }} />
-                        <Text style={styles.switchItemStartBadgeText}>
-                          {language === 'uk' ? 'СТАРТ' : 'START'}
-                        </Text>
-                      </View>
-                    ) : isSelected ? (
-                      <Ionicons name="checkmark-circle" size={22} color={colors.primaryText} />
-                    ) : (
-                      <Ionicons name="chevron-forward" size={18} color="#6C7685" />
-                    )}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+            );
+          })}
+        </ScrollView>
+      </BottomSheet>
     </Screen>
   );
 }
@@ -832,29 +973,68 @@ export default function Home() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screenContent: {
     paddingTop: 6,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-    marginTop: 0,
+    marginTop: 2,
     gap: 12,
   },
+  dateKicker: {
+    fontFamily: fonts.bold,
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '700',
+    color: colors.muted,
+    letterSpacing: 1.1,
+    marginBottom: 2,
+  },
   greetingTitle: {
-    fontSize: 22,
+    fontFamily: fonts.bold,
+    fontSize: 23,
     lineHeight: 28,
     fontWeight: '700',
     color: colors.text,
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
+    fontFamily: fonts.medium,
     fontSize: 13,
     lineHeight: 18,
     color: colors.secondary,
     marginTop: 2,
     fontWeight: '500',
+  },
+  weeklyGoalPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    ...cardElevation(colors),
+  },
+  weeklyGoalDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  weeklyGoalText: {
+    fontFamily: fonts.monoBold,
+    fontSize: 13,
+    color: colors.text,
+    fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
+  },
+  weeklyGoalSub: {
+    fontFamily: fonts.medium,
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: colors.muted,
   },
   partialSavedBanner: {
     flexDirection: 'row',
@@ -863,12 +1043,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(217, 119, 6, 0.10)',
     borderWidth: 1,
     borderColor: 'rgba(245, 158, 11, 0.3)',
-    borderRadius: 14,
+    borderRadius: radii.sm + 2,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 14,
   },
   partialSavedBannerText: {
+    fontFamily: fonts.semiBold,
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
@@ -876,21 +1057,34 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   workoutCard: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: radii.lg,
+    padding: 18,
     marginBottom: 14,
     ...cardElevation(colors),
   },
+  upNextPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  upNextPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accentLine,
+  },
   workoutCardLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.secondary,
+    fontFamily: fonts.bold,
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 1.0,
+    color: colors.primaryText,
   },
   workoutCardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   switchWorkoutBtn: {
     flexDirection: 'row',
@@ -899,12 +1093,57 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.elevated,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 8,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   switchWorkoutBtnText: {
-    fontSize: 12,
+    fontFamily: fonts.semiBold,
+    fontSize: 11.5,
     fontWeight: '600',
     color: colors.secondary,
+  },
+  heroSplitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  heroTextCol: {
+    flex: 1,
+    gap: 6,
+  },
+  heroMetaPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  heroMetaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radii.xs,
+    backgroundColor: colors.elevated,
+  },
+  heroMetaText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: colors.secondary,
+    fontVariant: ['tabular-nums'],
+  },
+  heroAnatomyWrap: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: radii.sm + 2,
+    backgroundColor: colors.elevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   exercisePreviewWrap: {
     marginTop: 14,
@@ -923,30 +1162,51 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderTopColor: colors.divider,
   },
   previewExIndex: {
-    width: 20,
-    fontSize: 12,
-    fontWeight: '600',
+    fontFamily: fonts.monoSemiBold,
+    width: 22,
+    fontSize: 11.5,
     color: colors.muted,
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
   },
   previewExName: {
+    fontFamily: fonts.medium,
     flex: 1,
     fontSize: 14,
-    fontWeight: '500',
     color: colors.text,
+    includeFontPadding: false,
   },
   previewExSets: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontFamily: fonts.monoSemiBold,
+    fontSize: 12.5,
     color: colors.secondary,
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
+  },
+  previewFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 6,
   },
   previewMoreText: {
+    fontFamily: fonts.semiBold,
     fontSize: 12,
-    fontWeight: '600',
     color: colors.secondary,
-    marginTop: 4,
-    paddingLeft: 30,
+    paddingLeft: 32,
+    includeFontPadding: false,
+  },
+  previewInspectLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  previewInspectLinkText: {
+    fontFamily: fonts.semiBold,
+    fontSize: 12,
+    color: colors.secondary,
+    includeFontPadding: false,
   },
   workoutMainRow: {
     flexDirection: 'row',
@@ -954,32 +1214,35 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
   },
   workoutName: {
-    fontSize: 23,
+    fontFamily: fonts.bold,
+    fontSize: 22,
+    lineHeight: 27,
     fontWeight: '700',
     color: colors.text,
     letterSpacing: -0.4,
   },
   workoutMuscles: {
+    fontFamily: fonts.medium,
     fontSize: 13,
+    lineHeight: 18,
     color: colors.secondary,
-    marginTop: 4,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
   },
   ctaButton: {
     width: '100%',
     minHeight: 54,
-    borderRadius: 16,
+    borderRadius: radii.md,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   weekSection: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: radii.lg,
     padding: 18,
-    marginBottom: 24,
+    marginBottom: 4,
     ...cardElevation(colors),
   },
   weekHeader: {
@@ -989,15 +1252,24 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 14,
   },
   weekLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.secondary,
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    color: colors.muted,
+  },
+  weekHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   weekCounter: {
+    fontFamily: fonts.monoBold,
     fontSize: 13,
-    fontWeight: '600',
     color: colors.text,
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
   },
   weekRow: {
     flexDirection: 'row',
@@ -1170,10 +1442,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.primaryText,
   },
   progressCounterText: {
+    fontFamily: fonts.monoBold,
     fontSize: 14,
-    fontWeight: '700',
     color: colors.text,
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
   },
   progressBarTrack: {
     height: 4,
@@ -1213,10 +1486,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
   },
   currentExTarget: {
-    fontSize: 14,
+    fontFamily: fonts.monoSemiBold,
+    fontSize: 13.5,
     color: colors.text,
-    fontWeight: '600',
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
   },
   completedBadge: {
     flexDirection: 'row',
@@ -1249,10 +1523,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 2,
   },
   completedStatVal: {
+    fontFamily: fonts.monoBold,
     fontSize: 17,
-    fontWeight: '700',
     color: colors.text,
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
+  },
+  completedSummaryBtn: {
+    width: '100%',
+    marginBottom: 18,
   },
   completedStatLbl: {
     fontSize: 11,

@@ -1,6 +1,48 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Animated, Easing, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+
+// Single shared native-driven pulse loop for ALL visible Skeleton blocks
+// instead of spawning 25+ parallel Animated.loop timers simultaneously.
+const sharedPulseAnim = new Animated.Value(0.45);
+let activeSkeletonSubscribers = 0;
+let sharedPulseLoop: Animated.CompositeAnimation | null = null;
+
+function subscribeSharedPulse(disabled: boolean) {
+  if (disabled) {
+    sharedPulseAnim.setValue(0.65);
+    return () => undefined;
+  }
+  activeSkeletonSubscribers += 1;
+  if (activeSkeletonSubscribers === 1 && !sharedPulseLoop) {
+    sharedPulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sharedPulseAnim, {
+          toValue: 0.88,
+          duration: 750,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(sharedPulseAnim, {
+          toValue: 0.42,
+          duration: 750,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    sharedPulseLoop.start();
+  }
+  return () => {
+    activeSkeletonSubscribers = Math.max(0, activeSkeletonSubscribers - 1);
+    if (activeSkeletonSubscribers === 0 && sharedPulseLoop) {
+      sharedPulseLoop.stop();
+      sharedPulseLoop = null;
+      sharedPulseAnim.setValue(0.45);
+    }
+  };
+}
 
 type SkeletonProps = {
   width?: number | `${number}%`;
@@ -16,28 +58,11 @@ export function Skeleton({
   style,
 }: SkeletonProps) {
   const colors = useThemeColors();
-  const pulseAnim = useRef(new Animated.Value(0.42)).current;
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 0.88,
-          duration: 750,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.42,
-          duration: 750,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulseAnim]);
+    return subscribeSharedPulse(reducedMotion);
+  }, [reducedMotion]);
 
   const baseColor = colors.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.07)';
 
@@ -49,7 +74,7 @@ export function Skeleton({
           height,
           borderRadius,
           backgroundColor: baseColor,
-          opacity: pulseAnim,
+          opacity: reducedMotion ? 0.65 : sharedPulseAnim,
         },
         style,
       ]}

@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -19,14 +19,27 @@ import {
   type StrengthSessionPoint,
 } from '@/components/progress/RealStrengthGraph';
 import { BodyWeightGraph } from '@/components/progress/BodyWeightGraph';
+import { HistoryFeed } from '@/components/history/HistoryFeed';
 import { LogWeightModal } from '@/components/progress/LogWeightModal';
 import { MuscleHeatmap } from '@/components/progress/MuscleHeatmap';
+import { SectionErrorBoundary } from '@/components/ui/SectionErrorBoundary';
 import { AnalyticsSkeleton } from '@/components/ui/Skeleton';
+import { useWorkoutBarBottomInset } from '@/components/ui/Screen';
+import { SlidingSegmentedControl } from '@/components/ui/SlidingSegmentedControl';
 import { cardElevation, useThemeColors, type ThemeColors } from '@/constants/colors';
-import { analyzeBodyAndStrength } from '@/lib/bodyCompositionAI';
+import { radii } from '@/constants/radii';
+import { fonts } from '@/constants/typography';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { isAssistedExercise } from '@/lib/adaptiveProgression';
+import {
+  analyzeBodyAndStrength,
+  calculateAverageStrengthDeltaPercent,
+} from '@/lib/bodyCompositionAI';
+import { parseLocalDateKey, toLocalDateKey } from '@/lib/dateUtils';
 import { hapticLight } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
 import { getAllTimePersonalRecords } from '@/lib/personalRecords';
+import { evaluateLiftStandard, evaluateStrengthProfile } from '@/lib/strengthStandards';
 import {
   calculateMuscleProgress,
   calculateMuscleRecoveryStats,
@@ -41,6 +54,7 @@ import { useProgramStore } from '@/store/programStore';
 import { useUserProfileStore } from '@/store/userProfileStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 
+type ProgressSectionMode = 'analytics' | 'history';
 type ActiveViewTab = 'overview' | 'muscles' | 'weight' | 'prs';
 
 const CORE_MUSCLES = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core'];
@@ -49,6 +63,8 @@ export default function Progress() {
   const { t, tm, te, language } = useI18n();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const bottomBarInset = useWorkoutBarBottomInset(40);
+  const reducedMotion = useReducedMotion();
   const { unit, unitLabel, formatVolume, fromKg } = useWeightUnit();
   const profile = useUserProfileStore((state) => state.profile);
   const history = useWorkoutHistoryStore((state) => state.workouts);
@@ -59,17 +75,26 @@ export default function Progress() {
   const deleteBodyWeightEntry = useBodyWeightStore((state) => state.deleteEntry);
   const getBodyWeightStats = useBodyWeightStore((state) => state.getStats);
 
-  const params = useLocalSearchParams<{ tab?: string }>();
+  const params = useLocalSearchParams<{ tab?: string; view?: string }>();
+  const [sectionMode, setSectionMode] = useState<ProgressSectionMode>(
+    params.view === 'history' ? 'history' : 'analytics'
+  );
   const [period, setPeriod] = useState<ProgressPeriod>('30D');
   const [activeTab, setActiveTab] = useState<ActiveViewTab>(
     params.tab === 'muscles' || params.tab === 'weight' || params.tab === 'prs' ? params.tab : 'overview'
   );
 
   useEffect(() => {
+    if (params.view === 'history') {
+      setSectionMode('history');
+    } else if (params.view === 'analytics') {
+      setSectionMode('analytics');
+    }
     if (params.tab === 'muscles' || params.tab === 'weight' || params.tab === 'prs' || params.tab === 'overview') {
+      setSectionMode('analytics');
       setActiveTab(params.tab);
     }
-  }, [params.tab]);
+  }, [params.tab, params.view]);
   const [timeRange, setTimeRange] = useState<'1M' | '3M' | '6M' | 'ALL'>('1M');
   const [chartMetric, setChartMetric] = useState<StrengthChartMetric>('weight');
   const [selectedMuscle, setSelectedMuscle] = useState('Chest');
@@ -83,23 +108,28 @@ export default function Progress() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
+    if (reducedMotion) {
+      tabFadeAnim.setValue(1);
+      tabSlideAnim.setValue(0);
+      return;
+    }
     tabFadeAnim.setValue(0.35);
     tabSlideAnim.setValue(6);
     Animated.parallel([
       Animated.timing(tabFadeAnim, {
         toValue: 1,
-        duration: 220,
+        duration: 210,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(tabSlideAnim, {
         toValue: 0,
-        duration: 220,
+        duration: 210,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
     ]).start();
-  }, [activeTab, period, tabFadeAnim, tabSlideAnim]);
+  }, [activeTab, period, reducedMotion, tabFadeAnim, tabSlideAnim]);
 
   // Reload history and bodyweight entries whenever Analytics tab gains focus
   useFocusEffect(
@@ -113,7 +143,10 @@ export default function Progress() {
   const chartWidth = Math.min(screenWidth - 80, 320);
 
   const hasHistory = history.length > 0;
-  const realSummary = calculateProgressSummary(history, period);
+  const realSummary = React.useMemo(
+    () => calculateProgressSummary(history, period),
+    [history, period]
+  );
 
   const workoutsCount = hasHistory ? realSummary.workouts : 0;
   const periodFilteredWorkouts = React.useMemo(() => {
@@ -123,15 +156,24 @@ export default function Progress() {
     return history.filter((w) => new Date(w.completedAt || w.startedAt).getTime() >= cutoff);
   }, [history, period]);
 
-  const totalCompletedSets = periodFilteredWorkouts.reduce(
-    (sum, w) => sum + (w.totalSets || w.exercises.reduce((exSum, e) => exSum + e.sets.length, 0)),
-    0
+  const totalCompletedSets = React.useMemo(
+    () =>
+      periodFilteredWorkouts.reduce(
+        (sum, w) => sum + (w.totalSets || w.exercises.reduce((exSum, e) => exSum + e.sets.length, 0)),
+        0
+      ),
+    [periodFilteredWorkouts]
   );
 
   // Deduplicated all-time Personal Records per exercise across workout history + baseline lifts
   const allTimeRecords = React.useMemo(
     () => getAllTimePersonalRecords(history, profile.baselineLifts),
     [history, profile.baselineLifts]
+  );
+
+  const strengthProfile = React.useMemo(
+    () => evaluateStrengthProfile(allTimeRecords, profile.weightKg, profile.sex),
+    [allTimeRecords, profile.weightKg, profile.sex]
   );
 
   const allHistoryPrs = React.useMemo(() => {
@@ -165,6 +207,16 @@ export default function Progress() {
           ? 'Базовий показник'
           : 'Baseline';
 
+      const standardEval =
+        !rec.isBodyweight && !rec.isAssisted
+          ? evaluateLiftStandard({
+              exerciseName: rec.exerciseName,
+              estimated1RMKg: rec.estimated1RMKg,
+              bodyweightKg: profile.weightKg,
+              sex: profile.sex,
+            })
+          : null;
+
       return {
         id: rec.id,
         exerciseId: rec.exerciseId,
@@ -173,10 +225,11 @@ export default function Progress() {
         subDetail,
         date: dateLabel,
         isNewPr: rec.isNewPr,
-        icon: (rec.isNewPr ? 'trophy' : 'dumbbell') as 'trophy' | 'dumbbell',
+        icon: (rec.isNewPr ? 'trophy' : 'barbell') as 'trophy' | 'barbell',
+        standardEval,
       };
     });
-  }, [allTimeRecords, fromKg, unitLabel, language]);
+  }, [allTimeRecords, fromKg, unitLabel, language, profile.weightKg, profile.sex]);
 
   const prsCount = hasHistory
     ? realSummary.personalRecords > 0
@@ -184,61 +237,43 @@ export default function Progress() {
       : allHistoryPrs.length
     : allHistoryPrs.length;
 
-  // Real muscle group calculation (normalized across Quads/Hamstrings/Glutes -> Legs, Biceps/Triceps -> Arms)
-  const realMuscles = calculateMuscleProgress(history, period);
-  const displayMuscles = CORE_MUSCLES.map((muscleName) => {
-    const found = realMuscles.find(
-      (m) => m.name.toLowerCase() === muscleName.toLowerCase()
-    );
-    return {
-      name: muscleName,
-      volume: found?.volume ?? 0,
-      changePercent: found?.changePercent ?? 0,
-    };
-  });
+  // Real muscle group calculation (memoized — P2-04)
+  const realMuscles = React.useMemo(
+    () => calculateMuscleProgress(history, period),
+    [history, period]
+  );
+  const displayMuscles = React.useMemo(
+    () =>
+      CORE_MUSCLES.map((muscleName) => {
+        const found = realMuscles.find(
+          (m) => m.name.toLowerCase() === muscleName.toLowerCase()
+        );
+        return {
+          name: muscleName,
+          volume: found?.volume ?? 0,
+          changePercent: found?.changePercent ?? 0,
+        };
+      }),
+    [realMuscles]
+  );
 
   const muscleRecoveryStats = React.useMemo(
     () => calculateMuscleRecoveryStats(history),
     [history]
   );
 
-  // Calculate detailed stats for selected muscle using normalized muscle categories (excluding warmup sets)
-  const selectedMuscleWorkouts = periodFilteredWorkouts.filter((w) =>
-    w.exercises.some(
-      (e) =>
-        normalizeMuscleCategory(e.muscleGroup).toLowerCase() === selectedMuscle.toLowerCase() &&
-        e.sets.some((s) => s.setType !== 'warmup')
-    )
-  );
-  const selectedMuscleSets = selectedMuscleWorkouts.reduce(
-    (total, w) =>
-      total +
-      w.exercises
-        .filter(
-          (e) => normalizeMuscleCategory(e.muscleGroup).toLowerCase() === selectedMuscle.toLowerCase()
-        )
-        .reduce((sum, e) => sum + e.sets.filter((s) => s.setType !== 'warmup').length, 0),
-    0
-  );
-  const selectedMuscleVolume = selectedMuscleWorkouts.reduce(
-    (total, w) =>
-      total +
-      w.exercises
-        .filter(
-          (e) => normalizeMuscleCategory(e.muscleGroup).toLowerCase() === selectedMuscle.toLowerCase()
-        )
-        .reduce(
-          (sum, e) =>
-            sum +
-            e.sets
-              .filter((s) => s.setType !== 'warmup')
-              .reduce((sSum, s) => sSum + s.volume, 0),
-          0
-        ),
-    0
+  const weeklyMuscleVolumes = React.useMemo(
+    () =>
+      Object.fromEntries(
+        CORE_MUSCLES.map((m) => [m, muscleRecoveryStats[m]?.weeklyVolume ?? 0])
+      ),
+    [muscleRecoveryStats]
   );
 
-  const availableExercises = getAvailableExercisesForProgress(program, history);
+  const availableExercises = React.useMemo(
+    () => getAvailableExercisesForProgress(program, history),
+    [program, history]
+  );
 
   const selectedExercise =
     availableExercises.find(
@@ -301,7 +336,8 @@ export default function Progress() {
       const workingSets = allSets.filter((s) => s.setType !== 'warmup');
       const sets = workingSets.length > 0 ? workingSets : allSets;
       const isBw = sets.length > 0 && sets.every((s) => (s.weight || 0) === 0);
-      let bestWeight = 0;
+      const isAssisted = isAssistedExercise(exerciseName);
+      let bestWeight = isAssisted ? Number.POSITIVE_INFINITY : 0;
       let bestReps = 0;
       let totalVol = 0;
 
@@ -311,11 +347,17 @@ export default function Progress() {
         totalVol += sw * sr;
         if (isBw) {
           if (sr > bestReps) bestReps = sr;
+        } else if (isAssisted) {
+          if (sw > 0 && (sw < bestWeight || (sw === bestWeight && sr > bestReps))) {
+            bestWeight = sw;
+            bestReps = sr;
+          }
         } else if (sw > bestWeight || (sw === bestWeight && sr > bestReps)) {
           bestWeight = sw;
           bestReps = sr;
         }
       }
+      if (!Number.isFinite(bestWeight)) bestWeight = 0;
 
       const d = new Date(w.completedAt || w.startedAt);
       const isToday = new Date().toDateString() === d.toDateString();
@@ -330,7 +372,10 @@ export default function Progress() {
             })
           : `W${index + 1}`;
 
-      const est1RM = isBw ? bestReps : Math.round(bestWeight * (1 + bestReps / 30));
+      const effective1RmBaseKg = isAssisted
+        ? Math.max(5, (profile.weightKg || 75) - bestWeight)
+        : bestWeight;
+      const est1RM = isBw ? bestReps : Math.round(effective1RmBaseKg * (1 + bestReps / 30));
 
       return {
         date: w.completedAt || w.startedAt,
@@ -404,19 +449,24 @@ export default function Progress() {
     ALL: language === 'uk' ? 'За весь час' : 'All time',
   };
 
+  const periodCompactLabels: Record<ProgressPeriod, string> = {
+    '7D': language === 'uk' ? '7 дн.' : '7D',
+    '30D': language === 'uk' ? '30 дн.' : '30D',
+    ALL: language === 'uk' ? 'Весь час' : 'All',
+  };
+
   const daysMap: Record<ProgressPeriod, number> = { '7D': 7, '30D': 30, ALL: 365 };
-  const bodyStats = getBodyWeightStats(daysMap[period] ?? 30);
-  const avgMuscleChange =
-    realMuscles.length > 0
-      ? Math.round(
-          realMuscles.reduce((sum, m) => sum + (m.changePercent || 0), 0) / realMuscles.length
-        )
-      : 0;
-  const aiAnalysis = analyzeBodyAndStrength(
-    profile.goal,
-    bodyStats,
-    avgMuscleChange,
-    language
+  const bodyStats = React.useMemo(
+    () => getBodyWeightStats(daysMap[period] ?? 30),
+    [getBodyWeightStats, bodyWeightEntries, period]
+  );
+  const strengthDeltaPercent = React.useMemo(
+    () => calculateAverageStrengthDeltaPercent(history, daysMap[period] ?? 30, profile.weightKg || 80),
+    [history, period, profile.weightKg]
+  );
+  const aiAnalysis = React.useMemo(
+    () => analyzeBodyAndStrength(profile.goal, bodyStats, strengthDeltaPercent, language),
+    [profile.goal, bodyStats, strengthDeltaPercent, language]
   );
 
   const effectiveWeightEntries = React.useMemo(() => {
@@ -427,7 +477,7 @@ export default function Progress() {
     return [
       {
         id: 'baseline-today',
-        date: new Date().toISOString().split('T')[0],
+        date: toLocalDateKey(),
         timestamp: Date.now(),
         weightKg: w,
         note: 'Baseline',
@@ -437,148 +487,106 @@ export default function Progress() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* 1. Header with Journal Link & Period Dropdown */}
+      {/* 1. Header with Period Dropdown */}
       <View style={styles.header}>
-        <Text style={styles.title}>{t('analytics')}</Text>
-        <View style={styles.headerActionsRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Workout History"
-            onPress={() => {
-              hapticLight();
-              router.push('/history');
-            }}
-            style={({ pressed }) => [styles.historyHeaderBtn, pressed && { opacity: 0.7 }]}
-          >
-            <Ionicons name="time-outline" size={15} color={colors.text} />
-            <Text style={styles.historyHeaderBtnText}>
-              {language === 'uk' ? 'Журнал' : 'History'}
-              {history.length > 0 ? ` (${history.length})` : ''}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Select time period"
-            onPress={() => {
-              hapticLight();
-              setPeriodDropdownOpen(!periodDropdownOpen);
-            }}
-            style={styles.dropdownBtn}
-          >
-            <Text style={styles.dropdownBtnText}>{periodLabels[period]}</Text>
-            <Ionicons name="chevron-down" size={13} color="#8E959F" style={{ marginLeft: 4 }} />
-          </Pressable>
-        </View>
-      </View>
-
-      {/* Period Dropdown Menu */}
-      {periodDropdownOpen && (
-        <View style={styles.dropdownMenu}>
-          {(['7D', '30D', 'ALL'] as ProgressPeriod[]).map((p) => (
+        <Text style={styles.title} numberOfLines={1}>
+          {sectionMode === 'history'
+            ? t('workoutHistory')
+            : t('analytics')}
+        </Text>
+        {sectionMode === 'analytics' && (
+          <View style={styles.headerActionsRow}>
             <Pressable
               accessibilityRole="button"
-              key={p}
+              accessibilityLabel="Select time period"
               onPress={() => {
                 hapticLight();
-                setPeriod(p);
-                setPeriodDropdownOpen(false);
+                setPeriodDropdownOpen(!periodDropdownOpen);
               }}
-              style={[styles.dropdownItem, period === p && styles.dropdownItemActive]}
+              style={styles.dropdownBtn}
             >
-              <Text
-                style={[
-                  styles.dropdownItemText,
-                  period === p && styles.dropdownItemTextActive,
-                ]}
-              >
-                {periodLabels[p]}
+              <Text style={styles.dropdownBtnText} numberOfLines={1}>
+                {periodCompactLabels[period]}
               </Text>
+              <Ionicons name="chevron-down" size={13} color={colors.secondary} />
             </Pressable>
-          ))}
-        </View>
-      )}
-
-      {/* 2. Top Segment Switcher (Overview / Weight / Muscles / PRs) */}
-      <View style={styles.segmentBar}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            hapticLight();
-            setActiveTab('overview');
-          }}
-          style={[styles.segmentBtn, activeTab === 'overview' && styles.segmentBtnActive]}
-        >
-          <Text
-            style={[
-              styles.segmentBtnText,
-              activeTab === 'overview' && styles.segmentBtnTextActive,
-            ]}
-          >
-            {t('overview')}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            hapticLight();
-            setActiveTab('weight');
-          }}
-          style={[styles.segmentBtn, activeTab === 'weight' && styles.segmentBtnActive]}
-        >
-          <Text
-            style={[
-              styles.segmentBtnText,
-              activeTab === 'weight' && styles.segmentBtnTextActive,
-            ]}
-          >
-            {language === 'uk' ? 'Вага' : 'Weight'}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            hapticLight();
-            setActiveTab('muscles');
-          }}
-          style={[styles.segmentBtn, activeTab === 'muscles' && styles.segmentBtnActive]}
-        >
-          <Text
-            style={[
-              styles.segmentBtnText,
-              activeTab === 'muscles' && styles.segmentBtnTextActive,
-            ]}
-          >
-            {language === 'uk' ? 'Мʼязи' : 'Muscles'}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            hapticLight();
-            setActiveTab('prs');
-          }}
-          style={[styles.segmentBtn, activeTab === 'prs' && styles.segmentBtnActive]}
-        >
-          <Text
-            style={[
-              styles.segmentBtnText,
-              activeTab === 'prs' && styles.segmentBtnTextActive,
-            ]}
-          >
-            {t('prs')}
-          </Text>
-        </Pressable>
+          </View>
+        )}
       </View>
 
-      <ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+      {/* Top-Level Promoted Toggle: Analytics | History (N) */}
+      <SlidingSegmentedControl<ProgressSectionMode>
+        variant="pill"
+        value={sectionMode}
+        onChange={(nextMode) => {
+          setPeriodDropdownOpen(false);
+          setSectionMode(nextMode);
+        }}
+        style={{ marginHorizontal: 20, marginBottom: 8 }}
+        options={[
+          { key: 'analytics', label: t('analytics') },
+          {
+            key: 'history',
+            label:
+              history.length > 0
+                ? `${language === 'uk' ? 'Історія' : 'History'} (${history.length})`
+                : language === 'uk'
+                  ? 'Історія'
+                  : 'History',
+          },
+        ]}
+      />
+
+      {sectionMode === 'history' ? (
+        <HistoryFeed bottomInset={bottomBarInset} />
+      ) : (
+        <>
+          {/* Period Dropdown Menu */}
+          {periodDropdownOpen && (
+            <View style={styles.dropdownMenu}>
+              {(['7D', '30D', 'ALL'] as ProgressPeriod[]).map((p) => (
+                <Pressable
+                  accessibilityRole="button"
+                  key={p}
+                  onPress={() => {
+                    hapticLight();
+                    setPeriod(p);
+                    setPeriodDropdownOpen(false);
+                  }}
+                  style={[styles.dropdownItem, period === p && styles.dropdownItemActive]}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownItemText,
+                      period === p && styles.dropdownItemTextActive,
+                    ]}
+                  >
+                    {periodLabels[p]}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          {/* 2. Analytics Sub-Tab Switcher (Overview / Weight / Muscles / PRs) */}
+          <SlidingSegmentedControl<ActiveViewTab>
+            variant="bar"
+            value={activeTab}
+            onChange={setActiveTab}
+            style={{ marginHorizontal: 20, marginTop: 2, marginBottom: 12 }}
+            options={[
+              { key: 'overview', label: t('overview') },
+              { key: 'weight', label: language === 'uk' ? 'Вага' : 'Weight' },
+              { key: 'muscles', label: language === 'uk' ? 'Мʼязи' : 'Muscles' },
+              { key: 'prs', label: t('prs') },
+            ]}
+          />
+
+          <ScrollView
+            ref={scrollRef}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomBarInset }]}
+          >
         {!historyHydrated && history.length === 0 ? (
           <AnalyticsSkeleton />
         ) : (
@@ -601,7 +609,7 @@ export default function Progress() {
                     accessibilityRole="button"
                     onPress={() => {
                       hapticLight();
-                      router.push('/history');
+                      setSectionMode('history');
                     }}
                     style={styles.statStripCol}
                   >
@@ -753,19 +761,21 @@ export default function Progress() {
                   {sessionPoints.length > 0 ? (
                     <>
                       <View style={styles.chartWrap}>
-                        <RealStrengthGraph
-                          data={sessionPoints}
-                          width={chartWidth}
-                          height={165}
-                          metric={isSelectedExerciseBw ? 'weight' : chartMetric}
-                          unit={
-                            isSelectedExerciseBw
-                              ? language === 'uk'
-                                ? 'ПОВТ'
-                                : 'REPS'
-                              : unitLabel
-                          }
-                        />
+                        <SectionErrorBoundary>
+                          <RealStrengthGraph
+                            data={sessionPoints}
+                            width={chartWidth}
+                            height={165}
+                            metric={isSelectedExerciseBw ? 'weight' : chartMetric}
+                            unit={
+                              isSelectedExerciseBw
+                                ? language === 'uk'
+                                  ? 'ПОВТ'
+                                  : 'REPS'
+                                : unitLabel
+                            }
+                          />
+                        </SectionErrorBoundary>
                       </View>
 
                       <View style={styles.chartFooter}>
@@ -798,10 +808,10 @@ export default function Progress() {
                     </>
                   ) : (
                     <View style={styles.chartEmptyWrap}>
-                      <MaterialCommunityIcons
-                        name="chart-line"
+                      <Ionicons
+                        name="analytics-outline"
                         size={32}
-                        color="#4B5565"
+                        color={colors.muted}
                         style={{ marginBottom: 8 }}
                       />
                       <Text style={styles.chartEmptyTitle}>
@@ -924,7 +934,7 @@ export default function Progress() {
               <View style={styles.emptyCard}>
                 <View style={styles.emptyGlowRing}>
                   <View style={styles.emptyIconBadge}>
-                    <MaterialCommunityIcons name="lightning-bolt" size={36} color={colors.primary} />
+                    <Ionicons name="flash" size={36} color={colors.primaryText} />
                   </View>
                 </View>
 
@@ -988,111 +998,60 @@ export default function Progress() {
         )}
 
         {/* ========================================================================= */}
-        {/* VIEW 2: MUSCLE PROGRESS                                                   */}
+        {/* VIEW 2: MUSCLE PROGRESS (Unified Rolling 7-Day Microcycle — P2-07)        */}
         {/* ========================================================================= */}
         {activeTab === 'muscles' && (
           <View style={styles.tabContainer}>
-            <MuscleHeatmap
-              stats={muscleRecoveryStats}
-              volumes={Object.fromEntries(displayMuscles.map((m) => [m.name, m.volume]))}
-              selectedMuscle={selectedMuscle}
-              onSelectMuscle={(m) => setSelectedMuscle(m)}
-              sex={profile.sex}
-              formatVolume={formatVolume}
-            />
-            {hasHistory ? (
-              <>
-                <View style={styles.muscleListCard}>
-                  {displayMuscles.map((muscle) => {
-                    const isSelected = selectedMuscle === muscle.name;
-                    const hasVolume = muscle.volume > 0;
-                    const maxVol = Math.max(1, ...displayMuscles.map((m) => m.volume));
-                    const barFillPercent = hasVolume
-                      ? Math.max(15, Math.min(95, (muscle.volume / maxVol) * 100))
-                      : 0;
-                    const recStat = muscleRecoveryStats[muscle.name];
-
-                    return (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`${muscle.name} progress`}
-                        key={muscle.name}
-                        onPress={() => {
-                          hapticLight();
-                          setSelectedMuscle(muscle.name);
-                        }}
-                        style={[styles.muscleRow, isSelected && styles.muscleRowSelected]}
-                      >
-                        <View style={styles.muscleRowTop}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Text style={styles.muscleName}>{tm(muscle.name)}</Text>
-                            {recStat && (
-                              <Text style={styles.muscleWeeklySetsTag}>
-                                {recStat.weeklySets}/{recStat.targetSets}{' '}
-                                {language === 'uk' ? 'сетів (7д)' : 'sets (7d)'}
-                              </Text>
-                            )}
-                          </View>
-                          <Text
-                            style={[
-                              styles.muscleDelta,
-                              { color: hasVolume ? colors.primaryText : '#6C7A8E' },
-                            ]}
-                          >
-                            {hasVolume
-                              ? formatVolume(muscle.volume)
-                              : language === 'uk'
-                                ? 'Не треновано'
-                                : 'Not trained'}
-                          </Text>
-                        </View>
-
-                        {/* Progress Bar */}
-                        <View style={styles.progressBarTrack}>
-                          <View
-                            style={[
-                              styles.progressBarFill,
-                              {
-                                width: `${barFillPercent}%`,
-                                backgroundColor: colors.accentLine,
-                              },
-                            ]}
-                          />
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {/* Bottom Muscle Summary Card */}
+            <SectionErrorBoundary>
+              <MuscleHeatmap
+                stats={muscleRecoveryStats}
+                volumes={weeklyMuscleVolumes}
+                selectedMuscle={selectedMuscle}
+                onSelectMuscle={(m) => setSelectedMuscle(m)}
+                sex={profile.sex}
+                formatVolume={formatVolume}
+              />
+            </SectionErrorBoundary>
+            {hasHistory ? (() => {
+              const selectedStat = muscleRecoveryStats[selectedMuscle];
+              const weeklySets = selectedStat?.weeklySets ?? 0;
+              const targetSets = selectedStat?.targetSets ?? 12;
+              const weeklyVol = selectedStat?.weeklyVolume ?? 0;
+              const readiness = selectedStat?.recoveryPercent ?? 100;
+              return (
                 <View style={styles.muscleSummaryCard}>
-                  <Text style={styles.summaryMuscleTitle}>{tm(selectedMuscle)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <Text style={styles.summaryMuscleTitle}>{tm(selectedMuscle)}</Text>
+                    <Text style={styles.muscleWeeklySetsTag}>
+                      {language === 'uk' ? `Відновлення: ${readiness}%` : `Readiness: ${readiness}%`}
+                    </Text>
+                  </View>
                   <View style={styles.summaryGrid}>
                     <View style={styles.summaryCol}>
                       <Text style={styles.summaryMainVal}>
-                        {selectedMuscleSets} {t('sets').toLowerCase()}
+                        {weeklySets} / {targetSets} {t('sets').toLowerCase()}
                       </Text>
                       <Text style={styles.summarySubVal}>
-                        {selectedMuscleWorkouts.length} {t('workouts').toLowerCase()}
+                        {language === 'uk' ? 'Мікроцикл 7 днів' : 'Rolling 7-day target'}
                       </Text>
                     </View>
 
                     <View style={styles.summaryColRight}>
                       <Text style={styles.summaryMainVal}>
-                        {formatVolume(selectedMuscleVolume)} {t('volume').toLowerCase()}
+                        {formatVolume(weeklyVol)}
                       </Text>
                       <Text style={styles.summarySubVal}>
-                        {periodLabels[period]}
+                        {language === 'uk' ? 'Тоннаж за 7 днів' : '7-day working volume'}
                       </Text>
                     </View>
                   </View>
                 </View>
-              </>
-            ) : (
+              );
+            })() : (
               <View style={styles.emptyCard}>
                 <View style={styles.emptyGlowRing}>
                   <View style={styles.emptyIconBadge}>
-                    <MaterialCommunityIcons name="arm-flex" size={34} color={colors.primary} />
+                    <Ionicons name="fitness" size={34} color={colors.primaryText} />
                   </View>
                 </View>
 
@@ -1153,7 +1112,9 @@ export default function Progress() {
                     },
                   ]}
                 >
-                  {bodyStats.deltaWeight > 0 ? `+${bodyStats.deltaWeight}` : bodyStats.deltaWeight}
+                  {bodyStats.deltaWeight > 0
+                    ? `+${formatWeight(fromKg(bodyStats.deltaWeight))}`
+                    : formatWeight(fromKg(bodyStats.deltaWeight))}
                 </Text>
                 <Text style={styles.statLabel}>
                   {language === 'uk' ? 'Динаміка' : 'Change'} ({period})
@@ -1215,13 +1176,15 @@ export default function Progress() {
               </View>
 
               <View style={styles.chartWrap}>
-                <BodyWeightGraph
-                  entries={effectiveWeightEntries}
-                  width={chartWidth + 20}
-                  height={175}
-                  unit={unitLabel}
-                  fromKg={fromKg}
-                />
+                <SectionErrorBoundary>
+                  <BodyWeightGraph
+                    entries={effectiveWeightEntries}
+                    width={chartWidth + 20}
+                    height={175}
+                    unit={unitLabel}
+                    fromKg={fromKg}
+                  />
+                </SectionErrorBoundary>
               </View>
             </View>
 
@@ -1289,10 +1252,10 @@ export default function Progress() {
                     ]}
                   >
                     <View style={styles.weighInDateWrap}>
-                      <MaterialCommunityIcons
-                        name="calendar-check"
+                      <Ionicons
+                        name="calendar-outline"
                         size={18}
-                        color="#8E9BAE"
+                        color={colors.secondary}
                         style={{ marginRight: 10 }}
                       />
                       <View>
@@ -1340,9 +1303,76 @@ export default function Progress() {
         {/* ========================================================================= */}
         {activeTab === 'prs' && (
           <View style={styles.tabContainer}>
+            {/* Strength Standards Summary Card */}
+            {strengthProfile && (
+              <View style={styles.strengthRankCard}>
+                <View style={styles.strengthRankHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.strengthRankEyebrow}>
+                      {language === 'uk' ? 'СТАНДАРТИ СИЛИ' : 'STRENGTH STANDARDS'}
+                    </Text>
+                    <Text style={styles.strengthRankTitle}>
+                      {language === 'uk'
+                        ? strengthProfile.overallRank.labelUk
+                        : strengthProfile.overallRank.labelEn}
+                    </Text>
+                  </View>
+                  <View style={styles.strengthScorePill}>
+                    <Text style={styles.strengthScoreNum}>{strengthProfile.overallScore}</Text>
+                    <Text style={styles.strengthScoreMax}>/100</Text>
+                  </View>
+                </View>
+
+                <View style={styles.strengthRankList}>
+                  {strengthProfile.evaluatedLifts.slice(0, 4).map((lift) => {
+                    const rankColor = colors.isDark
+                      ? lift.rank.colorDark
+                      : lift.rank.colorLight;
+                    return (
+                      <View key={lift.standardId} style={styles.strengthLiftRow}>
+                        <View style={styles.strengthLiftTop}>
+                          <Text style={styles.strengthLiftName} numberOfLines={1}>
+                            {te(lift.exerciseName)}
+                          </Text>
+                          <Text style={[styles.strengthLiftRank, { color: rankColor }]}>
+                            {language === 'uk' ? lift.rank.labelUk : lift.rank.labelEn} · {lift.bodyweightRatio}×
+                          </Text>
+                        </View>
+                        <View style={styles.strengthLiftTrack}>
+                          <View
+                            style={[
+                              styles.strengthLiftFill,
+                              {
+                                width: `${Math.max(10, Math.round(lift.progressToNext * 100))}%`,
+                                backgroundColor: rankColor,
+                              },
+                            ]}
+                          />
+                        </View>
+                        {lift.nextRank && lift.kgToNextRank > 0 && (
+                          <Text style={styles.strengthLiftNext}>
+                            +{formatWeight(fromKg(lift.kgToNextRank))} {unitLabel}{' '}
+                            {language === 'uk'
+                              ? `до «${lift.nextRank.labelUk}»`
+                              : `to ${lift.nextRank.labelEn}`}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
             {allHistoryPrs.length > 0 ? (
               <View style={styles.prsList}>
-                {allHistoryPrs.map((item) => (
+                {allHistoryPrs.map((item) => {
+                  const rankColor = item.standardEval
+                    ? colors.isDark
+                      ? item.standardEval.rank.colorDark
+                      : item.standardEval.rank.colorLight
+                    : null;
+                  return (
                   <Pressable
                     key={item.id}
                     accessibilityRole="button"
@@ -1360,7 +1390,7 @@ export default function Progress() {
                         item.isNewPr && { backgroundColor: 'rgba(255, 209, 48, 0.14)' },
                       ]}
                     >
-                      <MaterialCommunityIcons
+                      <Ionicons
                         name={item.icon}
                         size={20}
                         color={item.isNewPr ? '#D97706' : colors.primaryText}
@@ -1368,13 +1398,22 @@ export default function Progress() {
                     </View>
 
                     <View style={styles.prCardBody}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <Text numberOfLines={1} style={styles.prCardName}>
                           {te(item.name)}
                         </Text>
                         {item.isNewPr && (
                           <View style={styles.prBadge}>
                             <Text style={styles.prBadgeText}>PR</Text>
+                          </View>
+                        )}
+                        {item.standardEval && rankColor && (
+                          <View style={[styles.prRankPill, { borderColor: rankColor }]}>
+                            <Text style={[styles.prRankPillText, { color: rankColor }]}>
+                              {language === 'uk'
+                                ? item.standardEval.rank.labelUk
+                                : item.standardEval.rank.labelEn}
+                            </Text>
                           </View>
                         )}
                       </View>
@@ -1389,13 +1428,14 @@ export default function Progress() {
                       <Ionicons name="chevron-forward" size={16} color="#6C7A8E" />
                     </View>
                   </Pressable>
-                ))}
+                  );
+                })}
               </View>
             ) : (
               <View style={styles.emptyCard}>
                 <View style={styles.emptyGlowRing}>
                   <View style={styles.emptyIconBadge}>
-                    <MaterialCommunityIcons name="trophy-outline" size={34} color={colors.primary} />
+                    <Ionicons name="trophy-outline" size={34} color={colors.primaryText} />
                   </View>
                 </View>
 
@@ -1432,7 +1472,9 @@ export default function Progress() {
         )}
         </Animated.View>
         )}
-      </ScrollView>
+          </ScrollView>
+        </>
+      )}
 
       <LogWeightModal
         visible={logWeightModalVisible}
@@ -1451,49 +1493,56 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
+    gap: 10,
+    paddingHorizontal: 20,
     paddingTop: 6,
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   headerActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexShrink: 0,
   },
   historyHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 11,
+    paddingHorizontal: 10,
     paddingVertical: 7,
-    borderRadius: 12,
+    borderRadius: radii.sm,
     backgroundColor: colors.surface,
-    borderWidth: colors.isDark ? 0 : 1,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   historyHeaderBtnText: {
+    fontFamily: fonts.semiBold,
     color: colors.text,
     fontSize: 12,
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   title: {
+    fontFamily: fonts.bold,
     color: colors.text,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
-    letterSpacing: -0.4,
+    letterSpacing: -0.45,
+    flexShrink: 1,
   },
   dropdownBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 7,
-    borderRadius: 12,
+    borderRadius: radii.sm,
     backgroundColor: colors.surface,
-    borderWidth: colors.isDark ? 0 : 1,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   dropdownBtnText: {
+    fontFamily: fonts.semiBold,
     color: colors.secondary,
     fontSize: 12,
     fontWeight: '600',
@@ -1501,10 +1550,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   dropdownMenu: {
     position: 'absolute',
     top: 56,
-    right: 24,
+    right: 20,
     zIndex: 100,
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: radii.sm + 2,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
@@ -1517,34 +1566,39 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.elevated,
   },
   dropdownItemText: {
+    fontFamily: fonts.medium,
     color: colors.secondary,
     fontSize: 13,
     fontWeight: '500',
   },
   dropdownItemTextActive: {
+    fontFamily: fonts.bold,
     color: colors.text,
     fontWeight: '700',
   },
   segmentBar: {
     flexDirection: 'row',
     backgroundColor: colors.isDark ? colors.surface : colors.elevated,
-    borderRadius: 14,
-    marginHorizontal: 24,
-    marginTop: 6,
-    marginBottom: 16,
+    borderRadius: radii.sm + 2,
+    marginHorizontal: 20,
+    marginTop: 4,
+    marginBottom: 14,
     padding: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   segmentBtn: {
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
+    borderRadius: radii.xs + 3,
   },
   segmentBtnActive: {
-    backgroundColor: colors.isDark ? '#202630' : colors.surface,
+    backgroundColor: colors.isDark ? colors.elevated : colors.surface,
   },
   segmentBtnText: {
+    fontFamily: fonts.semiBold,
     color: colors.secondary,
     fontSize: 12.5,
     fontWeight: '600',
@@ -1552,21 +1606,132 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     includeFontPadding: false,
   },
   segmentBtnTextActive: {
+    fontFamily: fonts.bold,
     color: colors.text,
     fontWeight: '700',
   },
   scrollContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 32,
   },
   tabContainer: {
     width: '100%',
   },
+  strengthRankCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: 16,
+    marginBottom: 14,
+    gap: 14,
+    ...cardElevation(colors),
+  },
+  strengthRankHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  strengthRankEyebrow: {
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.0,
+    color: colors.primaryText,
+    marginBottom: 2,
+  },
+  strengthRankTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: -0.35,
+  },
+  strengthScorePill: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    backgroundColor: colors.elevated,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  strengthScoreNum: {
+    fontFamily: fonts.extraBold,
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.primaryText,
+    fontVariant: ['tabular-nums'],
+  },
+  strengthScoreMax: {
+    fontFamily: fonts.medium,
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: colors.muted,
+    marginLeft: 1,
+    fontVariant: ['tabular-nums'],
+  },
+  strengthRankList: {
+    gap: 11,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  strengthLiftRow: {
+    gap: 5,
+  },
+  strengthLiftTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  strengthLiftName: {
+    fontFamily: fonts.semiBold,
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: colors.text,
+    flex: 1,
+  },
+  strengthLiftRank: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  strengthLiftTrack: {
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.elevated,
+    overflow: 'hidden',
+  },
+  strengthLiftFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  strengthLiftNext: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.muted,
+    fontVariant: ['tabular-nums'],
+  },
+  prRankPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+  },
+  prRankPillText: {
+    fontFamily: fonts.bold,
+    fontSize: 9.5,
+    fontWeight: '700',
+  },
   statsSummaryStrip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 18,
+    borderRadius: radii.lg,
     paddingVertical: 16,
     paddingHorizontal: 12,
     marginBottom: 14,
@@ -1590,7 +1755,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 18,
+    borderRadius: radii.lg,
     minHeight: 78,
     paddingVertical: 14,
     paddingHorizontal: 12,
@@ -1599,13 +1764,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     ...cardElevation(colors),
   },
   statNumber: {
+    fontFamily: fonts.bold,
     color: colors.text,
     fontSize: 21,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
-    letterSpacing: -0.3,
+    letterSpacing: -0.35,
   },
   statLabel: {
+    fontFamily: fonts.medium,
     color: colors.secondary,
     fontSize: 12,
     fontWeight: '500',
@@ -1621,9 +1788,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   exercisePill: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderRadius: radii.pill,
     backgroundColor: colors.surface,
-    borderWidth: colors.isDark ? 0 : 1,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   exercisePillActive: {
@@ -1631,17 +1798,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.activeChipBg,
   },
   exercisePillText: {
+    fontFamily: fonts.semiBold,
     color: colors.secondary,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
   },
   exercisePillTextActive: {
+    fontFamily: fonts.bold,
     color: colors.activeChipText,
     fontWeight: '700',
   },
   strengthCard: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: radii.lg,
     padding: 18,
     marginBottom: 14,
     ...cardElevation(colors),
@@ -1653,25 +1822,31 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 12,
   },
   strengthKicker: {
-    color: colors.secondary,
-    fontSize: 11,
-    fontWeight: '600',
+    fontFamily: fonts.bold,
+    color: colors.muted,
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
     marginBottom: 4,
   },
   strengthExerciseName: {
+    fontFamily: fonts.bold,
     color: colors.text,
     fontSize: 17,
     fontWeight: '700',
-    letterSpacing: -0.2,
+    letterSpacing: -0.25,
   },
   strengthBigWeight: {
+    fontFamily: fonts.extraBold,
     color: colors.text,
     fontSize: 26,
     fontWeight: '700',
-    letterSpacing: -0.4,
+    letterSpacing: -0.45,
     fontVariant: ['tabular-nums'],
   },
   strengthSubBest: {
+    fontFamily: fonts.medium,
     color: colors.secondary,
     fontSize: 12.5,
     fontWeight: '500',
@@ -1679,6 +1854,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   strengthEst1RM: {
+    fontFamily: fonts.medium,
     color: colors.secondary,
     fontSize: 11.5,
     fontWeight: '500',

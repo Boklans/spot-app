@@ -65,6 +65,7 @@ export type UserProfile = {
   notifications: boolean;
   notificationTime: string;
   soundEnabled: boolean;
+  hapticsEnabled: boolean;
   baselineLifts?: BaselineLifts;
   trialStartedAt?: string;
 };
@@ -88,6 +89,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   notifications: true,
   notificationTime: '09:00',
   soundEnabled: true,
+  hapticsEnabled: true,
   baselineLifts: undefined,
   trialStartedAt: undefined,
 };
@@ -157,6 +159,7 @@ function normalizeLoadedProfile(parsed: unknown): UserProfile {
         ? p.notificationTime
         : DEFAULT_USER_PROFILE.notificationTime,
     soundEnabled: typeof p.soundEnabled === 'boolean' ? p.soundEnabled : true,
+    hapticsEnabled: typeof p.hapticsEnabled === 'boolean' ? p.hapticsEnabled : true,
     baselineLifts,
     trialStartedAt: typeof p.trialStartedAt === 'string' ? p.trialStartedAt : new Date().toISOString(),
   };
@@ -278,13 +281,27 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
       // Continue
     }
 
-    // Synchronize updates back to onboarding storage as well
+    // Synchronize updates back to onboarding storage AND in-memory onboarding cache
     try {
       const onboardingRaw = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
       const existing = onboardingRaw ? (JSON.parse(onboardingRaw) as Record<string, unknown>) : {};
-      const nextOnboarding = {
+      const goalToOnboarding: Record<UserGoal, string> = {
+        'Build Muscle': 'build_muscle',
+        'Get Stronger': 'get_stronger',
+        'Lose Fat': 'lose_fat',
+        Recomposition: 'recomposition',
+      };
+      const expToOnboarding: Record<UserExperience, string> = {
+        Beginner: 'beginner',
+        Intermediate: 'intermediate',
+        Advanced: 'advanced',
+      };
+      const nextOnboarding: Record<string, unknown> = {
         ...existing,
         name: updated.name,
+        age: updated.age,
+        goal: goalToOnboarding[updated.goal] || existing.goal || 'build_muscle',
+        experience: expToOnboarding[updated.experience] || existing.experience || 'intermediate',
         trainingFrequency: updated.workoutsPerWeek,
         weightKg: updated.weightKg,
         heightCm: updated.heightCm,
@@ -294,6 +311,8 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         baselineLifts: updated.baselineLifts,
       };
       await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(nextOnboarding));
+      const { syncOnboardingCacheFromRaw } = await import('./workoutStore');
+      syncOnboardingCacheFromRaw(nextOnboarding);
     } catch {
       // Continue
     }
@@ -359,6 +378,8 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
     set({ profile: DEFAULT_USER_PROFILE });
     try {
       await AsyncStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(DEFAULT_USER_PROFILE));
+      const { clearOnboardingCache } = await import('./workoutStore');
+      clearOnboardingCache();
     } catch {
       // Continue
     }

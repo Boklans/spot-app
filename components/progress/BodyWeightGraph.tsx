@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
+  PanResponder,
   Pressable,
   StyleSheet,
   Text,
@@ -8,7 +9,9 @@ import {
 } from 'react-native';
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 import { useThemeColors, ThemeColors } from '@/constants/colors';
-import { hapticLight } from '@/lib/haptics';
+import { parseLocalDateKey } from '@/lib/dateUtils';
+import { hapticLight, hapticSelection } from '@/lib/haptics';
+import { useI18n } from '@/lib/i18n';
 import { BodyWeightEntry } from '@/store/bodyWeightStore';
 
 interface BodyWeightGraphProps {
@@ -27,12 +30,65 @@ export function BodyWeightGraph({
   fromKg = (kg) => kg,
 }: BodyWeightGraphProps) {
   const colors = useThemeColors();
+  const { language } = useI18n();
+  const isUk = language === 'uk';
   const styles = useMemo(() => createStyles(colors), [colors]);
   const screenWidth = Dimensions.get('window').width;
   const chartWidth = width ?? Math.min(screenWidth - 48, 340);
 
   const [selectedIdx, setSelectedIdx] = useState<number>(
     entries.length > 0 ? entries.length - 1 : 0
+  );
+  const selectedIdxRef = useRef(selectedIdx);
+  selectedIdxRef.current = selectedIdx;
+  const coordsRef = useRef<Array<{ idx: number; x: number }>>([]);
+
+  const scrubPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => coordsRef.current.length > 1,
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          coordsRef.current.length > 1 && Math.abs(gesture.dx) > Math.abs(gesture.dy) && Math.abs(gesture.dx) > 4,
+        onPanResponderGrant: (evt) => {
+          const touchX = evt.nativeEvent.locationX;
+          const pts = coordsRef.current;
+          if (pts.length === 0) return;
+          let nearest = pts[0];
+          let minDist = Math.abs(pts[0].x - touchX);
+          for (let i = 1; i < pts.length; i++) {
+            const d = Math.abs(pts[i].x - touchX);
+            if (d < minDist) {
+              minDist = d;
+              nearest = pts[i];
+            }
+          }
+          if (nearest.idx !== selectedIdxRef.current) {
+            selectedIdxRef.current = nearest.idx;
+            setSelectedIdx(nearest.idx);
+            void hapticSelection();
+          }
+        },
+        onPanResponderMove: (evt) => {
+          const touchX = evt.nativeEvent.locationX;
+          const pts = coordsRef.current;
+          if (pts.length === 0) return;
+          let nearest = pts[0];
+          let minDist = Math.abs(pts[0].x - touchX);
+          for (let i = 1; i < pts.length; i++) {
+            const d = Math.abs(pts[i].x - touchX);
+            if (d < minDist) {
+              minDist = d;
+              nearest = pts[i];
+            }
+          }
+          if (nearest.idx !== selectedIdxRef.current) {
+            selectedIdxRef.current = nearest.idx;
+            setSelectedIdx(nearest.idx);
+            void hapticSelection();
+          }
+        },
+      }),
+    []
   );
 
   useEffect(() => {
@@ -90,6 +146,8 @@ export function BodyWeightGraph({
     return { x, y, ...p };
   });
 
+  coordsRef.current = coords.map((c, i) => ({ idx: i, x: c.x }));
+
   const avgNorm = (avgWeight - minY) / rangeY;
   const avgY = padTop + plotH - avgNorm * plotH;
 
@@ -144,7 +202,7 @@ export function BodyWeightGraph({
             )}
           </View>
           <Text style={styles.calloutDate}>
-            {new Date(selectedPoint.date).toLocaleDateString('en-US', {
+            {parseLocalDateKey(selectedPoint.date).toLocaleDateString(isUk ? 'uk-UA' : 'en-US', {
               month: 'short',
               day: 'numeric',
               year: 'numeric',
@@ -154,16 +212,16 @@ export function BodyWeightGraph({
 
         <View style={styles.calloutMeta}>
           <Text style={styles.avgText}>
-            AVG {avgWeight} {unit}
+            {isUk ? 'СЕР.' : 'AVG'} {avgWeight} {unit}
           </Text>
           <Text style={styles.rangeText}>
-            Min {minWeight} • Max {maxWeight}
+            {isUk ? 'Мін' : 'Min'} {minWeight} • {isUk ? 'Макс' : 'Max'} {maxWeight}
           </Text>
         </View>
       </View>
 
       {/* SVG Chart */}
-      <View style={{ width: chartWidth, height }}>
+      <View style={{ width: chartWidth, height }} {...scrubPanResponder.panHandlers}>
         <Svg width={chartWidth} height={height}>
           <Defs>
             <LinearGradient id="bwGrad" x1="0" y1="0" x2="0" y2="1">

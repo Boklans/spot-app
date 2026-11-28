@@ -1,14 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { hapticImpact } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
@@ -95,10 +94,8 @@ export function ReminderTimePickerModal({
   const { t, language } = useI18n();
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <SafeAreaView style={styles.sheetContainer}>
-          <View style={styles.header}>
+    <BottomSheet visible={visible} onClose={onClose} maxHeight="85%">
+      <View style={styles.header}>
             <View>
               <Text style={styles.headerTitle}>{t('reminderTime')}</Text>
               <Text style={styles.headerSubtitle}>
@@ -114,7 +111,7 @@ export function ReminderTimePickerModal({
               onPress={onClose}
               style={styles.closeBtn}
             >
-              <Ionicons name="close" size={22} color="#FFFFFF" />
+              <Ionicons name="close" size={22} color={colors.text} />
             </Pressable>
           </View>
 
@@ -153,9 +150,7 @@ export function ReminderTimePickerModal({
               );
             })}
           </ScrollView>
-        </SafeAreaView>
-      </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 
@@ -166,11 +161,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: '#11161B',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '85%',
     paddingBottom: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -180,10 +177,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1A212B',
+    borderBottomColor: colors.border,
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -196,7 +193,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1A212B',
+    backgroundColor: colors.elevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -208,15 +205,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#161C24',
+    backgroundColor: colors.elevated,
     borderWidth: 1,
-    borderColor: '#1F2833',
+    borderColor: colors.border,
     borderRadius: 14,
     padding: 16,
   },
   optionCardActive: {
-    borderColor: colors.primary,
-    backgroundColor: '#1A241F',
+    borderColor: colors.accentLine,
+    backgroundColor: colors.primaryMuted,
   },
   cardPressed: {
     opacity: 0.8,
@@ -226,13 +223,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginRight: 12,
   },
   optionLabel: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 17,
     fontWeight: '700',
     marginBottom: 4,
   },
   optionLabelActive: {
-    color: colors.primary,
+    color: colors.primaryText,
   },
   optionSub: {
     color: colors.secondary,

@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -15,12 +15,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
+import { WorkoutKeypadSheet } from '@/components/workout/WorkoutKeypadSheet';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
+import { fonts } from '@/constants/typography';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { formatPersonalRecordLabel } from '@/lib/personalRecords';
 import { formatVolume } from '@/lib/progressCalculator';
-import { formatWeight, useWeightUnit } from '@/lib/weightUtils';
+import { calculateSetVolumeKg, formatWeight, useWeightUnit } from '@/lib/weightUtils';
 import { useExerciseNotesStore } from '@/store/exerciseNotesStore';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { ExerciseDetailModal } from '@/components/program/ExerciseDetailModal';
@@ -33,7 +36,7 @@ export default function HistoryDetail() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, tm, te, tw, language } = useI18n();
-  const { formatWithUnit, fromKg, toKg, unitLabel } = useWeightUnit();
+  const { formatWithUnit, fromKg, toKg, unit, unitLabel } = useWeightUnit();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const workouts = useWorkoutHistoryStore((state) => state.workouts);
   const loadHistory = useWorkoutHistoryStore((state) => state.loadHistory);
@@ -44,6 +47,11 @@ export default function HistoryDetail() {
   const [isSharing, setIsSharing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draftExercises, setDraftExercises] = useState<CompletedExercise[]>([]);
+  const [keypadTarget, setKeypadTarget] = useState<{
+    exIdx: number;
+    setIdx: number;
+    field: 'weight' | 'reps';
+  } | null>(null);
   const [selectedGuideExercise, setSelectedGuideExercise] = useState<{
     name: string;
     muscleGroup?: string;
@@ -98,20 +106,29 @@ export default function HistoryDetail() {
     hapticMedium();
     setIsSharing(true);
     try {
+      const isUk = language === 'uk';
       const prText = prs.length > 0
-        ? `\n🏆 Personal Records:\n${prs.map((p) => `• ${p.exerciseName}: ${p.label}`).join('\n')}`
+        ? isUk
+          ? `\n🏆 Особисті рекорди:\n${prs.map((p) => `• ${te(p.exerciseName)}: ${formatPersonalRecordLabel(p, unit, language)}`).join('\n')}`
+          : `\n🏆 Personal Records:\n${prs.map((p) => `• ${p.exerciseName}: ${formatPersonalRecordLabel(p, unit, language)}`).join('\n')}`
         : '';
 
-      const shareMessage =
-        `🔥 SPOT WORKOUT COMPLETE!\n\n` +
-        `🏋️ Workout: ${workout.workoutName}\n` +
-        `⏱ Duration: ${durationMin} min\n` +
-        `📊 Volume: ${formatVolume(workout.totalVolume)}\n` +
-        `🔢 Sets: ${workout.totalSets} completed${prText}\n\n` +
-        `Tracked with SPOT — AI Strength Coach.`;
+      const shareMessage = isUk
+        ? `🔥 ТРЕНУВАННЯ ЗАВЕРШЕНО В SPOT!\n\n` +
+          `🏋️ Тренування: ${tw(workout.workoutName)}\n` +
+          `⏱ Тривалість: ${durationMin} хв\n` +
+          `📊 Тоннаж: ${formatVolume(workout.totalVolume)}\n` +
+          `🔢 Підходів: ${workout.totalSets}${prText}\n\n` +
+          `Записано у SPOT — розумному трекері силових тренувань.`
+        : `🔥 SPOT WORKOUT COMPLETE!\n\n` +
+          `🏋️ Workout: ${workout.workoutName}\n` +
+          `⏱ Duration: ${durationMin} min\n` +
+          `📊 Volume: ${formatVolume(workout.totalVolume)}\n` +
+          `🔢 Sets: ${workout.totalSets} completed${prText}\n\n` +
+          `Tracked with SPOT — Strength Progression Tracker.`;
 
       await Share.share({
-        title: `${workout.workoutName} Summary • SPOT`,
+        title: isUk ? `${tw(workout.workoutName)} • SPOT` : `${workout.workoutName} Summary • SPOT`,
         message: shareMessage,
       });
     } catch {
@@ -167,7 +184,7 @@ export default function HistoryDetail() {
   const handleUpdateDraftSet = (
     exIdx: number,
     setIdx: number,
-    patch: { weightKg?: number; reps?: number }
+    patch: { weightKg?: number; reps?: number; rir?: number | null }
   ) => {
     setDraftExercises((prev) =>
       prev.map((ex, i) => {
@@ -182,11 +199,19 @@ export default function HistoryDetail() {
                 : s.weight;
             const nextReps =
               patch.reps !== undefined ? Math.max(1, Math.round(patch.reps)) : s.reps;
+            const nextRir =
+              patch.rir === null ? undefined : patch.rir !== undefined ? patch.rir : s.rir;
             return {
               ...s,
               weight: nextWeight,
               reps: nextReps,
-              volume: s.setType === 'warmup' ? 0 : Math.round(nextWeight * nextReps * 100) / 100,
+              rir: nextRir,
+              volume: calculateSetVolumeKg({
+                weightKg: nextWeight,
+                reps: nextReps,
+                exerciseName: ex.exerciseName,
+                setType: s.setType ?? 'normal',
+              }),
             };
           }),
         };
@@ -358,7 +383,7 @@ export default function HistoryDetail() {
         {prs.length > 0 && (
           <View style={styles.prsCard}>
             <View style={styles.prHeader}>
-              <MaterialCommunityIcons
+              <Ionicons
                 name="trophy"
                 size={16}
                 color="#FFD130"
@@ -383,7 +408,9 @@ export default function HistoryDetail() {
                 <Text numberOfLines={1} style={styles.prExerciseName}>
                   {te(record.exerciseName)}
                 </Text>
-                <Text style={styles.prValueText}>{record.label}</Text>
+                <Text style={styles.prValueText}>
+                  {formatPersonalRecordLabel(record, unit, language)}
+                </Text>
               </View>
             ))}
           </View>
@@ -715,9 +742,13 @@ export default function HistoryDetail() {
                         <Pressable
                           onPress={() => {
                             hapticLight();
-                            const stepKg = unitLabel === 'lbs' ? toKg(5) : 2.5;
+                            const stepDisplay = unit === 'lbs' ? 5 : 2.5;
+                            const nextDisplay = Math.max(
+                              0,
+                              Math.round((fromKg(set.weight) - stepDisplay) * 10) / 10
+                            );
                             handleUpdateDraftSet(exIdx, index, {
-                              weightKg: Math.max(0, set.weight - stepKg),
+                              weightKg: toKg(nextDisplay),
                             });
                           }}
                           style={{
@@ -731,35 +762,43 @@ export default function HistoryDetail() {
                             -
                           </Text>
                         </Pressable>
-                        <TextInput
-                          value={String(displayWeight)}
-                          onChangeText={(txt) => {
-                            const num = parseFloat(txt.replace(',', '.'));
-                            if (!isNaN(num) && num >= 0) {
-                              handleUpdateDraftSet(exIdx, index, { weightKg: toKg(num) });
-                            } else if (txt === '') {
-                              handleUpdateDraftSet(exIdx, index, { weightKg: 0 });
-                            }
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => {
+                            hapticLight();
+                            setKeypadTarget({ exIdx, setIdx: index, field: 'weight' });
                           }}
-                          keyboardType="decimal-pad"
                           style={{
                             flex: 1,
-                            color: colors.text,
-                            fontSize: 13.5,
-                            fontWeight: '800',
-                            textAlign: 'center',
-                            paddingVertical: 0,
+                            height: '100%',
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 3,
                           }}
-                        />
-                        <Text style={{ color: colors.muted, fontSize: 10, fontWeight: '700', marginRight: 2 }}>
-                          {unitLabel}
-                        </Text>
+                        >
+                          <Text
+                            style={{
+                              fontFamily: fonts.monoBold,
+                              color: colors.text,
+                              fontSize: 13.5,
+                              includeFontPadding: false,
+                            }}
+                          >
+                            {displayWeight}
+                          </Text>
+                          <Text style={{ color: colors.muted, fontSize: 10, fontWeight: '700' }}>
+                            {unitLabel}
+                          </Text>
+                        </Pressable>
                         <Pressable
                           onPress={() => {
                             hapticLight();
-                            const stepKg = unitLabel === 'lbs' ? toKg(5) : 2.5;
+                            const stepDisplay = unit === 'lbs' ? 5 : 2.5;
+                            const nextDisplay =
+                              Math.round((fromKg(set.weight) + stepDisplay) * 10) / 10;
                             handleUpdateDraftSet(exIdx, index, {
-                              weightKg: set.weight + stepKg,
+                              weightKg: toKg(nextDisplay),
                             });
                           }}
                           style={{
@@ -807,24 +846,30 @@ export default function HistoryDetail() {
                             -
                           </Text>
                         </Pressable>
-                        <TextInput
-                          value={String(set.reps)}
-                          onChangeText={(txt) => {
-                            const num = parseInt(txt, 10);
-                            if (!isNaN(num) && num >= 1) {
-                              handleUpdateDraftSet(exIdx, index, { reps: num });
-                            }
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => {
+                            hapticLight();
+                            setKeypadTarget({ exIdx, setIdx: index, field: 'reps' });
                           }}
-                          keyboardType="number-pad"
                           style={{
                             flex: 1,
-                            color: colors.text,
-                            fontSize: 13.5,
-                            fontWeight: '800',
-                            textAlign: 'center',
-                            paddingVertical: 0,
+                            height: '100%',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                           }}
-                        />
+                        >
+                          <Text
+                            style={{
+                              fontFamily: fonts.monoBold,
+                              color: colors.text,
+                              fontSize: 13.5,
+                              includeFontPadding: false,
+                            }}
+                          >
+                            {set.reps}
+                          </Text>
+                        </Pressable>
                         <Pressable
                           onPress={() => {
                             hapticLight();
@@ -1068,7 +1113,7 @@ export default function HistoryDetail() {
               {prs.length > 0 && (
                 <View style={styles.storyPrBox}>
                   <View style={styles.storyPrTitleRow}>
-                    <MaterialCommunityIcons name="trophy" size={15} color="#FFD130" />
+                    <Ionicons name="trophy" size={15} color="#FFD130" />
                     <Text style={styles.storyPrTitleText}>
                       {language === 'uk' ? 'НОВІ ОСОБИСТІ РЕКОРДИ' : 'NEW PERSONAL RECORDS'}
                     </Text>
@@ -1125,6 +1170,32 @@ export default function HistoryDetail() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+      {keypadTarget && draftExercises[keypadTarget.exIdx]?.sets[keypadTarget.setIdx] && (
+        <WorkoutKeypadSheet
+          visible={keypadTarget !== null}
+          exerciseName={te(draftExercises[keypadTarget.exIdx].exerciseName)}
+          canonicalExerciseName={draftExercises[keypadTarget.exIdx].exerciseName}
+          setNumber={keypadTarget.setIdx + 1}
+          totalSets={draftExercises[keypadTarget.exIdx].sets.length}
+          isCompleted={true}
+          initialWeightKg={draftExercises[keypadTarget.exIdx].sets[keypadTarget.setIdx].weight}
+          initialReps={draftExercises[keypadTarget.exIdx].sets[keypadTarget.setIdx].reps}
+          initialRir={draftExercises[keypadTarget.exIdx].sets[keypadTarget.setIdx].rir}
+          unitLabel={unitLabel}
+          unit={unit}
+          fromKg={fromKg}
+          initialFocusField={keypadTarget.field}
+          onClose={() => setKeypadTarget(null)}
+          onSave={({ weight, reps, rir }) => {
+            handleUpdateDraftSet(keypadTarget.exIdx, keypadTarget.setIdx, {
+              weightKg: weight,
+              reps,
+              rir,
+            });
+            setKeypadTarget(null);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

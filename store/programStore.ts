@@ -20,6 +20,7 @@ type ProgramState = {
   refreshProgram: (onboarding?: OnboardingData) => Promise<UserProgram>;
   updateUserProgram: (updatedProgram: UserProgram) => Promise<void>;
   setCustomProgram: (customProgram: UserProgram) => Promise<void>;
+  setPresetProgram: (presetProgram: UserProgram) => Promise<void>;
   saveRoutine: (routine: UserProgram) => Promise<void>;
   resetProgram: () => Promise<UserProgram>;
   getOrLoadProgram: () => Promise<UserProgram>;
@@ -306,6 +307,28 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
 
   saveRoutine: async (routine: UserProgram) => {
     return get().setCustomProgram(routine);
+  },
+
+  setPresetProgram: async (presetProgram: UserProgram) => {
+    const cloned: UserProgram = JSON.parse(JSON.stringify(presetProgram));
+    const now = new Date().toISOString();
+    cloned.id = cloned.id || generateUUID();
+    cloned.createdAt = cloned.createdAt || now;
+    cloned.updatedAt = now;
+
+    try {
+      await AsyncStorage.setItem(USER_PROGRAM_STORAGE_KEY, JSON.stringify(cloned));
+      await AsyncStorage.removeItem(LEGACY_PROGRAM_STORAGE_KEY);
+    } catch {
+      // Storage write error ignored
+    }
+
+    set({ program: cloned, hydrated: true });
+    if (cloned.workouts.length > 0) {
+      await useProgramProgressStore.getState().resetProgress(cloned.id, cloned.workouts[0].id);
+    } else {
+      await useProgramProgressStore.getState().loadProgress(cloned);
+    }
   },
 
   getOrLoadProgram: async () => {

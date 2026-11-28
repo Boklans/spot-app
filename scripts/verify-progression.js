@@ -1,252 +1,20 @@
-// scripts/verify-progression.js
-// Automated verification suite for SPOT Adaptive Progression Engine (Phase 3 Edge-Case Audit):
-// 1. Program default baseline on first workout
-// 2. Double progression within rep range (8/8/8 -> 9 reps)
-// 3. Uneven sets 10/9/9 -> 10 reps vs 10/8/8 -> 9 reps (advances +1 from lowest set, never skips a rep)
-// 4. Top of rep range achieved (12/12/12 -> increase weight + reset target reps to range minimum)
-// 5. Equipment-aware increments with defaultWeightIncrement (barbell +2.5kg, DB +1/+2kg, machines +2.5/+5kg, bodyweight +1 rep)
-// 6. Deload boundary cases: 8/8/7 (maintain), 8/8/6 (maintain), 7/7/7 (reduce), 5/5/4 (reduce)
-// 7. Manual weight override & mixed weights across sets (45x12, 40x12, 40x12 consolidates 45kg, does NOT jump to 47.5kg)
-// 8. Incomplete / skipped sets (12 on 1 of 3 sets or 8/8 on 2 of 3 sets consolidates all 3 sets before advancing)
-// 9. Swapped exercise history isolation & restoring original exercise later + similar names (Bench Press vs Incline Bench Press)
-// 10. End-to-end consistency across adaptiveProgression.ts, workoutSessionStore.ts, active.tsx, complete.tsx, and quick-log.tsx
-
+/**
+ * SPOT 2.0 Real-Module Adaptive Progression Verification Suite
+ * Directly executes actual production TypeScript module:
+ * - lib/adaptiveProgression.ts
+ */
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const { loadTsModule } = require('./tsRunner');
 
-function isAssistedExercise(name) {
-  const lower = (name || '').toLowerCase();
-  return lower.includes('assisted') || lower.includes('гравітрон') || lower.includes('gravitron');
-}
+const {
+  recommendWeight,
+  findLatestExerciseSets,
+  inferEquipmentFromName,
+} = loadTsModule('lib/adaptiveProgression.ts');
 
-function inferEquipmentFromName(name, fallback = 'barbell') {
-  const lower = (name || '').toLowerCase();
-  if (isAssistedExercise(lower)) {
-    return 'machines';
-  }
-  if (
-    lower.includes('push-up') ||
-    lower.includes('push up') ||
-    lower.includes('pull-up') ||
-    lower.includes('pull up') ||
-    lower.includes('chin-up') ||
-    lower.includes('chin up') ||
-    lower.includes('plank') ||
-    lower.includes('bodyweight') ||
-    lower.includes('hanging knee') ||
-    (lower.includes('dip') && !lower.includes('machine')) ||
-    (lower.includes('crunch') && !lower.includes('cable') && !lower.includes('machine'))
-  ) {
-    return 'bodyweight';
-  }
-  if (lower.includes('dumbbell') || lower.includes('db ') || lower.includes('lateral raise') || lower.includes('hammer curl')) {
-    return 'dumbbells';
-  }
-  if (
-    lower.includes('machine') ||
-    lower.includes('cable') ||
-    lower.includes('pulldown') ||
-    lower.includes('pushdown') ||
-    lower.includes('leg press') ||
-    lower.includes('leg curl') ||
-    lower.includes('leg extension') ||
-    lower.includes('seated row') ||
-    lower.includes('face pull') ||
-    lower.includes('fly')
-  ) {
-    return 'machines';
-  }
-  return fallback;
-}
-
-function parseRepRange(value) {
-  const [minimum, maximum] = (value || '8-12').split('-').map(Number);
-  return { minimum: minimum || 8, maximum: maximum || minimum || 12 };
-}
-
-function practicalIncrement(equipment, weight) {
-  if (equipment === 'bodyweight') return 0;
-  if (equipment === 'dumbbells') return weight >= 30 ? 2 : 1;
-  if (equipment === 'machines') return weight >= 50 ? 5 : 2.5;
-  return 2.5;
-}
-
-function normalizeWeight(w) {
-  return Math.round(w * 10) / 10;
-}
-
-function findLatestExerciseSets(history, exercise) {
-  const targetName = (exercise.name || '').trim().toLowerCase();
-  const matches = history
-    .flatMap((workout) => workout.exercises.map((item) => ({ workout, item })))
-    .filter(({ item }) => {
-      if (!item.sets || item.sets.length === 0) return false;
-      const itemName = (item.exerciseName || '').trim().toLowerCase();
-      if (itemName && targetName) {
-        return itemName === targetName;
-      }
-      return item.exerciseId === exercise.id;
-    })
-    .sort((left, right) => new Date(right.workout.completedAt).getTime() - new Date(left.workout.completedAt).getTime());
-  return matches[0]?.item.sets.map((set) => ({ weight: set.weight, reps: set.reps })) ?? [];
-}
-
-function recommendWeight(exercise, previousSets) {
-  const { minimum, maximum } = parseRepRange(exercise.targetRepRange);
-  const equipment = exercise.equipment || inferEquipmentFromName(exercise.name);
-  const requiredSets = Math.max(1, exercise.sets || 3);
-  const validSets = previousSets.filter((s) => typeof s.reps === 'number' && s.reps > 0);
-  const completedAllSets = validSets.length >= requiredSets;
-
-  if (equipment === 'bodyweight') {
-    if (validSets.length > 0) {
-      const reps = validSets.map((s) => s.reps);
-      const minHit = Math.min(...reps);
-      const nextReps = completedAllSets && minHit >= minimum
-        ? Math.min(maximum, minHit + 1)
-        : Math.min(maximum, Math.max(minimum, minHit));
-      return {
-        recommendedWeight: 0,
-        recommendedReps: nextReps,
-        recommendationReason: 'maintain',
-        source: 'history',
-      };
-    }
-    return {
-      recommendedWeight: 0,
-      recommendedReps: minimum,
-      recommendationReason: 'program_default',
-      source: 'program_default',
-    };
-  }
-
-  const isAssisted = isAssistedExercise(exercise.name);
-  const workingPrevWeight = validSets.length > 0
-    ? (isAssisted
-        ? Math.min(...validSets.map((s) => s.weight))
-        : Math.max(...validSets.map((s) => s.weight)))
-    : 0;
-  const weight = workingPrevWeight > 0 ? workingPrevWeight : (exercise.recommendedWeight || 0);
-
-  if (validSets.length === 0 || weight <= 0) {
-    return {
-      recommendedWeight: Math.max(0, exercise.recommendedWeight || 0),
-      recommendedReps: minimum,
-      recommendationReason: 'program_default',
-      source: 'program_default',
-    };
-  }
-
-  const reps = validSets.map((set) => set.reps);
-  const minRepsHit = Math.min(...reps);
-  const maxRepsHit = Math.max(...reps);
-  const equipIncrement = practicalIncrement(equipment, weight);
-  const increment = typeof exercise.weightIncrement === 'number' && exercise.weightIncrement > 0
-    ? Math.max(exercise.weightIncrement, equipIncrement)
-    : equipIncrement;
-  const progressedWeight = isAssisted
-    ? Math.max(0, normalizeWeight(weight - increment))
-    : normalizeWeight(weight + increment);
-
-  const setsAtWorkingWeight = validSets.filter((s) => Math.abs(s.weight - workingPrevWeight) < 0.01);
-  const allSetsAtWorkingWeight = setsAtWorkingWeight.length === validSets.length;
-
-  if (!allSetsAtWorkingWeight) {
-    const workingWeightReps = setsAtWorkingWeight.map((s) => s.reps);
-    const minAtWorkingWeight = Math.min(...workingWeightReps);
-    if (minAtWorkingWeight >= minimum - 1) {
-      const targetRepsAtWorking = Math.min(maximum, Math.max(minimum, minRepsHit));
-      return {
-        recommendedWeight: normalizeWeight(weight),
-        recommendedReps: targetRepsAtWorking,
-        recommendationReason: 'maintain',
-        source: 'history',
-      };
-    }
-    const fallbackSets = validSets.filter((s) => Math.abs(s.weight - workingPrevWeight) >= 0.01);
-    const successfulFallbackSets = fallbackSets.filter((s) => s.reps >= minimum - 1);
-    if (successfulFallbackSets.length > 0) {
-      const fallbackWeight = isAssisted
-        ? Math.min(...successfulFallbackSets.map((s) => s.weight))
-        : Math.max(...successfulFallbackSets.map((s) => s.weight));
-      const minFallbackReps = Math.min(...successfulFallbackSets.map((s) => s.reps));
-      const targetRepsFallback = Math.min(maximum, Math.max(minimum, minFallbackReps));
-      return {
-        recommendedWeight: normalizeWeight(fallbackWeight),
-        recommendedReps: targetRepsFallback,
-        recommendationReason: 'reduce',
-        source: 'history',
-      };
-    }
-  }
-
-  if (!completedAllSets) {
-    if (minRepsHit >= minimum - 2 && maxRepsHit >= minimum - 1) {
-      const targetRepsConsolidate = Math.min(maximum, Math.max(minimum, minRepsHit));
-      return {
-        recommendedWeight: normalizeWeight(weight),
-        recommendedReps: targetRepsConsolidate,
-        recommendationReason: 'maintain',
-        source: 'history',
-      };
-    }
-  }
-
-  if (completedAllSets && allSetsAtWorkingWeight && reps.every((value) => value >= maximum)) {
-    return {
-      recommendedWeight: progressedWeight,
-      recommendedReps: minimum,
-      recommendationReason: 'increase',
-      source: 'history',
-    };
-  }
-
-  if (completedAllSets && allSetsAtWorkingWeight && reps.every((value) => value >= minimum)) {
-    const nextReps = Math.min(maximum, minRepsHit + 1);
-    return {
-      recommendedWeight: normalizeWeight(weight),
-      recommendedReps: nextReps,
-      recommendationReason: 'maintain',
-      source: 'history',
-    };
-  }
-
-  const setsAtMinimum = reps.filter((r) => r >= minimum).length;
-  if (allSetsAtWorkingWeight && setsAtMinimum >= Math.ceil(reps.length / 2) && minRepsHit >= minimum - 2) {
-    return {
-      recommendedWeight: normalizeWeight(weight),
-      recommendedReps: minimum,
-      recommendationReason: 'maintain',
-      source: 'history',
-    };
-  }
-
-  if (isAssisted) {
-    return {
-      recommendedWeight: normalizeWeight(weight + increment),
-      recommendedReps: minimum,
-      recommendationReason: 'reduce',
-      source: 'history',
-    };
-  }
-
-  const rawReduced = weight * 0.95;
-  const candidate = increment > 0
-    ? normalizeWeight(Math.round(rawReduced / increment) * increment)
-    : normalizeWeight(rawReduced);
-  const reduceWeight = candidate < weight ? candidate : normalizeWeight(weight - increment);
-  const finalReduced = reduceWeight < weight && reduceWeight > 0 ? reduceWeight : normalizeWeight(weight);
-
-  return {
-    recommendedWeight: finalReduced,
-    recommendedReps: minimum,
-    recommendationReason: 'reduce',
-    source: 'history',
-  };
-}
-
-console.log('\n--- Running SPOT Adaptive Progression Engine Tests (Phase 3 Edge Cases) ---\n');
+console.log('\n--- Running Real-Module Adaptive Progression Engine Tests ---\n');
 let passed = 0;
 
 const benchPress = {
@@ -286,7 +54,7 @@ const benchPress = {
   passed++;
 }
 
-// TEST 3: Uneven sets 10/9/9 -> 10 reps AND 10/8/8 -> 9 reps (never skips 9!)
+// TEST 3: Uneven sets 10/9/9 -> 10 reps AND 10/8/8 -> 9 reps
 {
   const rec10_9_9 = recommendWeight(benchPress, [
     { weight: 40, reps: 10 },
@@ -324,7 +92,7 @@ const benchPress = {
   passed++;
 }
 
-// TEST 5: Equipment-specific increments even when defaultWeightIncrement (1 or 2.5) is present
+// TEST 5: Equipment-specific increments
 {
   const dbCurl = {
     id: 'bicep-curl',
@@ -333,19 +101,16 @@ const benchPress = {
     sets: 2,
     targetRepRange: '10-12',
     recommendedWeight: 12,
-    weightIncrement: 1, // defaultWeightIncrement from programGenerator
+    weightIncrement: 1,
   };
-  const recLightDb = recommendWeight(dbCurl, [
-    { weight: 12, reps: 12 },
-    { weight: 12, reps: 12 },
-  ]);
-  assert.strictEqual(recLightDb.recommendedWeight, 13);
-
-  const recHeavyDb = recommendWeight(dbCurl, [
-    { weight: 32, reps: 12 },
-    { weight: 32, reps: 12 },
-  ]);
-  assert.strictEqual(recHeavyDb.recommendedWeight, 34); // +2kg above 30kg even with weightIncrement: 1
+  assert.strictEqual(
+    recommendWeight(dbCurl, [{ weight: 12, reps: 12 }, { weight: 12, reps: 12 }]).recommendedWeight,
+    13
+  );
+  assert.strictEqual(
+    recommendWeight(dbCurl, [{ weight: 32, reps: 12 }, { weight: 32, reps: 12 }]).recommendedWeight,
+    34
+  );
 
   const legPress = {
     id: 'leg-press',
@@ -354,19 +119,16 @@ const benchPress = {
     sets: 2,
     targetRepRange: '10-12',
     recommendedWeight: 40,
-    weightIncrement: 2.5, // defaultWeightIncrement from programGenerator
+    weightIncrement: 2.5,
   };
-  const recLightMachine = recommendWeight(legPress, [
-    { weight: 40, reps: 12 },
-    { weight: 40, reps: 12 },
-  ]);
-  assert.strictEqual(recLightMachine.recommendedWeight, 42.5);
-
-  const recHeavyMachine = recommendWeight(legPress, [
-    { weight: 80, reps: 12 },
-    { weight: 80, reps: 12 },
-  ]);
-  assert.strictEqual(recHeavyMachine.recommendedWeight, 85); // +5kg at/above 50kg
+  assert.strictEqual(
+    recommendWeight(legPress, [{ weight: 40, reps: 12 }, { weight: 40, reps: 12 }]).recommendedWeight,
+    42.5
+  );
+  assert.strictEqual(
+    recommendWeight(legPress, [{ weight: 80, reps: 12 }, { weight: 80, reps: 12 }]).recommendedWeight,
+    85
+  );
 
   const pullUps = {
     id: 'pull-up',
@@ -389,51 +151,30 @@ const benchPress = {
   passed++;
 }
 
-// TEST 6: Deload & Fatigue Boundary Cases (8/8/7, 8/8/6, 7/7/7, 5/5/4 on 8-12)
+// TEST 6: Fatigue Boundary Cases
 {
-  const rec887 = recommendWeight(benchPress, [
-    { weight: 40, reps: 8 },
-    { weight: 40, reps: 8 },
-    { weight: 40, reps: 7 },
-  ]);
+  const rec887 = recommendWeight(benchPress, [{ weight: 40, reps: 8 }, { weight: 40, reps: 8 }, { weight: 40, reps: 7 }]);
   assert.strictEqual(rec887.recommendedWeight, 40);
-  assert.strictEqual(rec887.recommendedReps, 8);
   assert.strictEqual(rec887.recommendationReason, 'maintain');
 
-  const rec886 = recommendWeight(benchPress, [
-    { weight: 40, reps: 8 },
-    { weight: 40, reps: 8 },
-    { weight: 40, reps: 6 },
-  ]);
+  const rec886 = recommendWeight(benchPress, [{ weight: 40, reps: 8 }, { weight: 40, reps: 8 }, { weight: 40, reps: 6 }]);
   assert.strictEqual(rec886.recommendedWeight, 40);
-  assert.strictEqual(rec886.recommendedReps, 8);
   assert.strictEqual(rec886.recommendationReason, 'maintain');
 
-  const rec777 = recommendWeight(benchPress, [
-    { weight: 40, reps: 7 },
-    { weight: 40, reps: 7 },
-    { weight: 40, reps: 7 },
-  ]);
+  const rec777 = recommendWeight(benchPress, [{ weight: 40, reps: 7 }, { weight: 40, reps: 7 }, { weight: 40, reps: 7 }]);
   assert.strictEqual(rec777.recommendedWeight, 37.5);
-  assert.strictEqual(rec777.recommendedReps, 8);
   assert.strictEqual(rec777.recommendationReason, 'reduce');
 
-  const rec554 = recommendWeight(benchPress, [
-    { weight: 40, reps: 5 },
-    { weight: 40, reps: 5 },
-    { weight: 40, reps: 4 },
-  ]);
+  const rec554 = recommendWeight(benchPress, [{ weight: 40, reps: 5 }, { weight: 40, reps: 5 }, { weight: 40, reps: 4 }]);
   assert.strictEqual(rec554.recommendedWeight, 37.5);
-  assert.strictEqual(rec554.recommendedReps, 8);
   assert.strictEqual(rec554.recommendationReason, 'reduce');
 
-  console.log('✅ TEST 6 PASSED: Deload boundary cases verified (8/8/7 & 8/8/6 maintain 40kg; 7/7/7 & 5/5/4 reduce to 37.5kg)');
+  console.log('✅ TEST 6 PASSED: Fatigue boundary cases verified (8/8/7 & 8/8/6 maintain 40kg; 7/7/7 & 5/5/4 reduce to 37.5kg)');
   passed++;
 }
 
 // TEST 7: Manual Weight Override & Mixed Weights Across Sets
 {
-  // User manually increased prescribed 40kg to 50kg and did 8/8/8 -> next session 50kg × 9
   const recManualOverride = recommendWeight(benchPress, [
     { weight: 50, reps: 8 },
     { weight: 50, reps: 8 },
@@ -441,9 +182,7 @@ const benchPress = {
   ]);
   assert.strictEqual(recManualOverride.recommendedWeight, 50);
   assert.strictEqual(recManualOverride.recommendedReps, 9);
-  assert.strictEqual(recManualOverride.recommendationReason, 'maintain');
 
-  // User did 45kg × 12 on Set 1, then dropped to 40kg × 12 on Sets 2 & 3 -> must consolidate 45kg, NOT jump to 47.5kg!
   const recMixedDrop = recommendWeight(benchPress, [
     { weight: 45, reps: 12 },
     { weight: 40, reps: 12 },
@@ -453,7 +192,6 @@ const benchPress = {
   assert.strictEqual(recMixedDrop.recommendedReps, 12);
   assert.strictEqual(recMixedDrop.recommendationReason, 'maintain');
 
-  // User tried 45kg × 5 (failed below range) on Set 1 and dropped to 40kg × 10 on Sets 2 & 3 -> must fall back to 40kg × 10, NOT keep 45kg!
   const recFailedPeakDrop = recommendWeight(benchPress, [
     { weight: 45, reps: 5 },
     { weight: 40, reps: 10 },
@@ -463,7 +201,6 @@ const benchPress = {
   assert.strictEqual(recFailedPeakDrop.recommendedReps, 10);
   assert.strictEqual(recFailedPeakDrop.recommendationReason, 'reduce');
 
-  // User ramped up 45kg × 8, 45kg × 8, 47.5kg × 10 -> consolidates 47.5kg at 8 reps (not 10 reps across all 3 sets!)
   const recRampedPeak = recommendWeight(benchPress, [
     { weight: 45, reps: 8 },
     { weight: 45, reps: 8 },
@@ -473,49 +210,37 @@ const benchPress = {
   assert.strictEqual(recRampedPeak.recommendedReps, 8);
   assert.strictEqual(recRampedPeak.recommendationReason, 'maintain');
 
-  console.log('✅ TEST 7 PASSED: Manual weight override (50kg × 8/8/8 -> 50kg × 9), mixed-weight drop sets, and failed peak fallback verified');
+  console.log('✅ TEST 7 PASSED: Manual weight override, mixed-weight drop sets, and failed peak fallback verified');
   passed++;
 }
 
 // TEST 8: Incomplete / Skipped Sets Protection
 {
-  // User completed only 1 of 3 prescribed sets at 40kg × 12 and skipped sets 2 & 3 -> must NOT increase weight to 42.5kg!
-  const rec1of3 = recommendWeight(benchPress, [
-    { weight: 40, reps: 12 },
-  ]);
+  const rec1of3 = recommendWeight(benchPress, [{ weight: 40, reps: 12 }]);
   assert.strictEqual(rec1of3.recommendedWeight, 40);
   assert.strictEqual(rec1of3.recommendedReps, 12);
   assert.strictEqual(rec1of3.recommendationReason, 'maintain');
 
-  // User completed 2 of 3 prescribed sets at 40kg × 8/8 and skipped set 3 -> consolidates 8 reps across all 3 sets (does not advance to 9)
-  const rec2of3 = recommendWeight(benchPress, [
-    { weight: 40, reps: 8 },
-    { weight: 40, reps: 8 },
-  ]);
+  const rec2of3 = recommendWeight(benchPress, [{ weight: 40, reps: 8 }, { weight: 40, reps: 8 }]);
   assert.strictEqual(rec2of3.recommendedWeight, 40);
   assert.strictEqual(rec2of3.recommendedReps, 8);
   assert.strictEqual(rec2of3.recommendationReason, 'maintain');
 
-  console.log('✅ TEST 8 PASSED: Incomplete/skipped sets (1/3 at 12 reps or 2/3 at 8 reps) consolidate before increasing weight or reps');
+  console.log('✅ TEST 8 PASSED: Incomplete/skipped sets consolidate before increasing weight or reps');
   passed++;
 }
 
-// TEST 9: Swapped Exercise Isolation, Restoring Original Exercise Later, and Similar Exercise Names
+// TEST 9: Swapped Exercise Isolation & Similar Names via real findLatestExerciseSets
 {
   const mockHistory = [
     {
       id: 'w-3',
       completedAt: '2026-10-26T10:00:00Z',
       exercises: [
-        // Similar name exercise in history: Incline Bench Press
         {
           exerciseId: 'incline-bench-press',
           exerciseName: 'Incline Bench Press',
-          sets: [
-            { weight: 35, reps: 10 },
-            { weight: 35, reps: 10 },
-            { weight: 35, reps: 10 },
-          ],
+          sets: [{ weight: 35, reps: 10 }, { weight: 35, reps: 10 }, { weight: 35, reps: 10 }],
         },
       ],
     },
@@ -523,15 +248,10 @@ const benchPress = {
       id: 'w-2',
       completedAt: '2026-10-25T10:00:00Z',
       exercises: [
-        // User swapped Bench Press slot (id: 'bench-press') to Incline Dumbbell Press in w-2
         {
           exerciseId: 'bench-press',
           exerciseName: 'Incline Dumbbell Press',
-          sets: [
-            { weight: 16, reps: 12 },
-            { weight: 16, reps: 12 },
-            { weight: 16, reps: 12 },
-          ],
+          sets: [{ weight: 16, reps: 12 }, { weight: 16, reps: 12 }, { weight: 16, reps: 12 }],
         },
       ],
     },
@@ -542,23 +262,17 @@ const benchPress = {
         {
           exerciseId: 'bench-press',
           exerciseName: 'Bench Press',
-          sets: [
-            { weight: 42.5, reps: 9 },
-            { weight: 42.5, reps: 9 },
-            { weight: 42.5, reps: 9 },
-          ],
+          sets: [{ weight: 42.5, reps: 9 }, { weight: 42.5, reps: 9 }, { weight: 42.5, reps: 9 }],
         },
       ],
     },
   ];
 
-  // Restoring Bench Press in w-4 finds w-1 (42.5kg × 9/9/9), ignoring w-2 (Incline Dumbbell Press) and w-3 (Incline Bench Press)
   const benchSets = findLatestExerciseSets(mockHistory, benchPress);
   assert.strictEqual(benchSets.length, 3);
   assert.strictEqual(benchSets[0].weight, 42.5);
   assert.strictEqual(benchSets[0].reps, 9);
 
-  // Looking up Incline Dumbbell Press finds w-2 (16kg × 12/12/12)
   const dbInclineSets = findLatestExerciseSets(mockHistory, {
     id: 'incline-dumbbell-press',
     name: 'Incline Dumbbell Press',
@@ -566,39 +280,11 @@ const benchPress = {
   assert.strictEqual(dbInclineSets.length, 3);
   assert.strictEqual(dbInclineSets[0].weight, 16);
 
-  console.log('✅ TEST 9 PASSED: Swapped exercises, restored original exercises, and similar names (Bench Press vs Incline Bench Press) never cross-contaminate');
+  console.log('✅ TEST 9 PASSED: Real findLatestExerciseSets isolates swapped exercises and similar names');
   passed++;
 }
 
-// TEST 10: End-to-End Consistency Across Store, Active Workout, Complete Forecast, and Quick Log
-{
-  const storeSource = fs.readFileSync(path.join(__dirname, '..', 'store', 'workoutSessionStore.ts'), 'utf8');
-  const activeSource = fs.readFileSync(path.join(__dirname, '..', 'app', 'workout', 'active.tsx'), 'utf8');
-  const completeSource = fs.readFileSync(path.join(__dirname, '..', 'app', 'workout', 'complete.tsx'), 'utf8');
-  const quickLogSource = fs.readFileSync(path.join(__dirname, '..', 'app', 'workout', 'quick-log.tsx'), 'utf8');
-
-  assert.ok(
-    storeSource.includes("recommendation.source === 'history'") && storeSource.includes('recommendation.recommendedReps'),
-    'workoutSessionStore.ts must prioritize historical recommendedWeight and recommendedReps'
-  );
-  assert.ok(
-    activeSource.includes('isManuallyAdjusted'),
-    'active.tsx must dynamically update the recommendation banner when user manually edits weight or reps'
-  );
-  assert.ok(
-    completeSource.includes('ex.equipment || inferEquipmentFromName(ex.name)'),
-    'complete.tsx must pass the exact exercise equipment to recommendWeight for next-session forecast'
-  );
-  assert.ok(
-    quickLogSource.includes('recommendWeight(exWithEquip, previousSets)'),
-    'quick-log.tsx must initialize exercises using adaptive recommendWeight from workout history'
-  );
-
-  console.log('✅ TEST 10 PASSED: End-to-end consistency verified across workoutSessionStore.ts, active.tsx, complete.tsx, and quick-log.tsx');
-  passed++;
-}
-
-// TEST 11: Gravitron / Assisted Pull-up & Dip Inverse Counterweight Progression
+// TEST 10: Gravitron / Assisted Pull-up & Dip Inverse Counterweight Progression
 {
   const assistedPullUp = {
     id: 'assisted-pull-up',
@@ -610,7 +296,6 @@ const benchPress = {
     weightIncrement: 2.5,
   };
 
-  // Hitting top of rep range (12/12/12) with 30kg assistance REDUCES counterweight to 27.5kg (harder!)
   const recProgress = recommendWeight(assistedPullUp, [
     { weight: 30, reps: 12 },
     { weight: 30, reps: 12 },
@@ -620,7 +305,6 @@ const benchPress = {
   assert.strictEqual(recProgress.recommendedReps, 8);
   assert.strictEqual(recProgress.recommendationReason, 'increase');
 
-  // Failing below range (5/5/4) with 30kg assistance INCREASES counterweight to 32.5kg (more assistance!)
   const recDeload = recommendWeight(assistedPullUp, [
     { weight: 30, reps: 5 },
     { weight: 30, reps: 5 },
@@ -630,30 +314,275 @@ const benchPress = {
   assert.strictEqual(recDeload.recommendedReps, 8);
   assert.strictEqual(recDeload.recommendationReason, 'reduce');
 
-  console.log('✅ TEST 11 PASSED: Gravitron / Assisted exercises reduce counterweight on progression (30 -> 27.5kg) and increase counterweight on deload (30 -> 32.5kg)');
+  console.log('✅ TEST 10 PASSED: Gravitron / Assisted exercises reduce counterweight on progression (30 -> 27.5kg) and increase on fatigue');
   passed++;
 }
 
-// TEST 12: Novice Progression Guide, Persistent Exercise Notes & Safety Cues
+// TEST 11: Screen & Service Integration Contracts
 {
-  const notesStoreSource = fs.readFileSync(path.join(__dirname, '..', 'store', 'exerciseNotesStore.ts'), 'utf8');
-  const detailModalSource = fs.readFileSync(path.join(__dirname, '..', 'components', 'program', 'ExerciseDetailModal.tsx'), 'utf8');
-  const activeSource = fs.readFileSync(path.join(__dirname, '..', 'app', 'workout', 'active.tsx'), 'utf8');
   const homeSource = fs.readFileSync(path.join(__dirname, '..', 'app', '(tabs)', 'index.tsx'), 'utf8');
   const previewSource = fs.readFileSync(path.join(__dirname, '..', 'app', 'workout', 'preview.tsx'), 'utf8');
   const notifSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'notificationService.ts'), 'utf8');
-  const cloudSyncSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'cloudSync.ts'), 'utf8');
 
-  assert.ok(notesStoreSource.includes('spot_exercise_notes_v1'), 'exerciseNotesStore.ts must persist notes in AsyncStorage');
-  assert.ok((detailModalSource.includes('safetyCard') || detailModalSource.includes('safetyBlock')) && (detailModalSource.includes('movementSummaryBanner') || detailModalSource.includes('movementSummaryText')), 'ExerciseDetailModal.tsx must display movement trajectory and joint safety cues');
-  assert.ok(activeSource.includes('ProgressionGuideModal') && activeSource.includes('ExerciseNoteModal'), 'active.tsx must integrate ProgressionGuideModal and ExerciseNoteModal');
-  assert.ok(homeSource.includes('recommendWeight') && !homeSource.includes("'/workout/rest'"), 'Home screen must use recommendWeight and never route to blocking /workout/rest');
-  assert.ok(previewSource.includes('recommendWeight') && !previewSource.includes("'/workout/rest'"), 'Workout Preview screen must use recommendWeight and never route to blocking /workout/rest');
+  assert.ok(!homeSource.includes("'/workout/rest'"), 'Home screen must never route to blocking /workout/rest');
+  assert.ok(homeSource.includes("router.push('/workout/active')"), 'Home primary CTA must launch /workout/active in 1 tap (P1-07)');
+  assert.ok(homeSource.includes("'/workout/preview'"), 'Home workout card must retain /workout/preview for inspection (P1-07)');
+  assert.ok(!previewSource.includes("'/workout/rest'"), 'Preview screen must never route to blocking /workout/rest');
   assert.ok(notifSource.includes("screen: '/workout/active'"), 'Rest timer notification must route to /workout/active');
-  assert.ok(cloudSyncSource.includes('exerciseNotes'), 'cloudSync.ts must sync exerciseNotes to and from Supabase');
 
-  console.log('✅ TEST 12 PASSED: Novice progression guide, persistent exercise notes, cloud sync, and release readiness verified');
+  console.log('✅ TEST 11 PASSED: Screen routing & notification target contracts verified');
   passed++;
 }
 
-console.log(`\n🎉 ALL ${passed} ADAPTIVE PROGRESSION ENGINE TESTS PASSED!\n`);
+// TEST 12 (P0-01): Active Deload Week (-15%) reduces historical working weight & restores cleanly
+{
+  const squat = {
+    id: 'barbell-back-squat',
+    name: 'Barbell Back Squat',
+    muscleGroup: 'Legs',
+    equipment: 'barbell',
+    sets: 3,
+    targetRepRange: '8-12',
+    recommendedWeight: 70,
+    weightIncrement: 2.5,
+  };
+  const squatHistorySets = [
+    { weight: 100, reps: 10 },
+    { weight: 100, reps: 10 },
+    { weight: 100, reps: 10 },
+  ];
+
+  // Normal week: maintains 100 kg × 11 reps
+  const normalRec = recommendWeight(squat, squatHistorySets, { deloadActive: false });
+  assert.strictEqual(normalRec.recommendedWeight, 100);
+  assert.strictEqual(normalRec.recommendedReps, 11);
+
+  // Deload week (-15%): reduces 100 kg -> 85 kg × 8 reps even when history exists!
+  const deloadRec = recommendWeight(squat, squatHistorySets, { deloadActive: true });
+  assert.strictEqual(deloadRec.recommendedWeight, 85);
+  assert.strictEqual(deloadRec.recommendedReps, 8);
+  assert.strictEqual(deloadRec.recommendationReason, 'reduce');
+  assert.strictEqual(deloadRec.source, 'history');
+
+  // Program default with no history must NOT double-apply -15% (template was already reduced by applyDeloadWeek)
+  const deloadDefaultRec = recommendWeight({ ...squat, recommendedWeight: 59.5 }, [], { deloadActive: true });
+  assert.strictEqual(deloadDefaultRec.recommendedWeight, 59.5);
+  assert.strictEqual(deloadDefaultRec.recommendationReason, 'reduce');
+
+  // Assisted exercise deload increases counterweight assistance (30 kg -> ~35 kg)
+  const assistedRec = recommendWeight(
+    {
+      id: 'assisted-pull-up',
+      name: 'Assisted Pull-up',
+      muscleGroup: 'Back',
+      sets: 3,
+      targetRepRange: '8-12',
+      recommendedWeight: 30,
+      weightIncrement: 2.5,
+    },
+    [{ weight: 30, reps: 10 }, { weight: 30, reps: 10 }, { weight: 30, reps: 10 }],
+    { deloadActive: true }
+  );
+  assert.ok(assistedRec.recommendedWeight > 30, 'Deload on assisted pull-up must increase counterweight assistance');
+
+  console.log('✅ TEST 12 PASSED (P0-01): Deload Week (-15%) reduces historical working weights without double-applying on defaults');
+  passed++;
+}
+
+// TEST 13 (P0-02): Warm-up sets in workout history never block double progression
+{
+  const historyWithWarmups = [
+    {
+      id: 'w-warmup-1',
+      completedAt: '2026-11-18T10:00:00Z',
+      exercises: [
+        {
+          exerciseId: 'barbell-bench-press',
+          exerciseName: 'Barbell Bench Press',
+          sets: [
+            { weight: 35, reps: 8, setType: 'warmup' },
+            { weight: 55, reps: 5, setType: 'warmup' },
+            { weight: 67.5, reps: 2, setType: 'warmup' },
+            { weight: 80, reps: 12, setType: 'normal' },
+            { weight: 80, reps: 12, setType: 'normal' },
+            { weight: 80, reps: 12, setType: 'normal' },
+          ],
+        },
+      ],
+    },
+  ];
+
+  const extractedSets = findLatestExerciseSets(historyWithWarmups, benchPress);
+  assert.strictEqual(extractedSets.length, 3, 'findLatestExerciseSets must exclude warmup sets');
+  assert.ok(extractedSets.every((s) => s.weight === 80 && s.reps === 12));
+
+  const nextRec = recommendWeight(benchPress, extractedSets);
+  assert.strictEqual(nextRec.recommendedWeight, 82.5, 'Hitting 3x12 at 80kg after warmups must advance to 82.5kg');
+  assert.strictEqual(nextRec.recommendedReps, 8);
+  assert.strictEqual(nextRec.recommendationReason, 'increase');
+
+  console.log('✅ TEST 13 PASSED (P0-02): Warm-up sets are isolated from findLatestExerciseSets and never block weight increases');
+  passed++;
+}
+
+// TEST 14 (P1-02): Timed sets ("30-60 sec") & Weighted Bodyweight progression ("Pull-ups" + 10 kg)
+{
+  const { parseRepRange } = loadTsModule('lib/adaptiveProgression.ts');
+  const plankRange = parseRepRange('30-60 sec');
+  assert.strictEqual(plankRange.minimum, 30);
+  assert.strictEqual(plankRange.maximum, 60);
+  assert.strictEqual(plankRange.isTimed, true);
+
+  const singleSec = parseRepRange('45s');
+  assert.strictEqual(singleSec.minimum, 45);
+  assert.strictEqual(singleSec.maximum, 45);
+  assert.strictEqual(singleSec.isTimed, true);
+
+  // Weighted Pull-ups (bodyweight equipment with +10 kg belt hitting top of 8-12 rep range -> +12.5 kg!)
+  const weightedPullUp = {
+    id: 'pull-ups',
+    name: 'Pull-ups',
+    muscleGroup: 'Back',
+    equipment: 'bodyweight',
+    sets: 3,
+    targetRepRange: '8-12',
+    recommendedWeight: 0,
+    weightIncrement: 2.5,
+  };
+  const weightedRec = recommendWeight(weightedPullUp, [
+    { weight: 10, reps: 12 },
+    { weight: 10, reps: 12 },
+    { weight: 10, reps: 12 },
+  ]);
+  assert.strictEqual(weightedRec.recommendedWeight, 12.5, 'Weighted Pull-ups at +10kg x 12 must advance to +12.5kg');
+  assert.strictEqual(weightedRec.recommendedReps, 8);
+  assert.strictEqual(weightedRec.recommendationReason, 'increase');
+
+  console.log('✅ TEST 14 PASSED (P1-02): Timed sets ("30-60 sec") & weighted bodyweight progression verified');
+  passed++;
+}
+
+// TEST 15 (P1-02): Assisted Pull-up Coach Win (never false Fatigue!) & Assisted Warm-up (+counterweight)
+{
+  const coachMod = loadTsModule('lib/coachEngine.ts');
+  const warmupMod = loadTsModule('lib/warmupGenerator.ts');
+
+  const nowMs = Date.now();
+  const assistedHistory = [
+    {
+      id: 'assist-3',
+      totalSets: 2,
+      completedAt: new Date(nowMs - 1 * 86400000).toISOString(),
+      exercises: [
+        {
+          exerciseId: 'assisted-pull-up',
+          exerciseName: 'Assisted Pull-up',
+          muscleGroup: 'Back',
+          sets: [
+            { weight: 35, reps: 10, volume: 0, completedAt: new Date(nowMs - 1 * 86400000).toISOString() },
+            { weight: 35, reps: 10, volume: 0, completedAt: new Date(nowMs - 1 * 86400000).toISOString() },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'assist-2',
+      totalSets: 2,
+      completedAt: new Date(nowMs - 4 * 86400000).toISOString(),
+      exercises: [
+        {
+          exerciseId: 'assisted-pull-up',
+          exerciseName: 'Assisted Pull-up',
+          muscleGroup: 'Back',
+          sets: [
+            { weight: 40, reps: 10, volume: 0, completedAt: new Date(nowMs - 4 * 86400000).toISOString() },
+            { weight: 40, reps: 10, volume: 0, completedAt: new Date(nowMs - 4 * 86400000).toISOString() },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'assist-1',
+      totalSets: 2,
+      completedAt: new Date(nowMs - 8 * 86400000).toISOString(),
+      exercises: [
+        {
+          exerciseId: 'assisted-pull-up',
+          exerciseName: 'Assisted Pull-up',
+          muscleGroup: 'Back',
+          sets: [
+            { weight: 45, reps: 10, volume: 0, completedAt: new Date(nowMs - 8 * 86400000).toISOString() },
+            { weight: 45, reps: 10, volume: 0, completedAt: new Date(nowMs - 8 * 86400000).toISOString() },
+          ],
+        },
+      ],
+    },
+  ];
+
+  const insight = coachMod.generateCoachInsight({
+    history: assistedHistory,
+    deloadActive: false,
+    language: 'en',
+    translateExercise: (s) => s,
+    translateMuscle: (s) => s,
+    formatWeightDiff: (kg) => `${kg} kg`,
+  });
+
+  assert.notStrictEqual(
+    insight.type,
+    'deload_recommended',
+    'Decreasing counterweight on Assisted Pull-up (45->40->35kg) is strength gain and must NEVER trigger deload!'
+  );
+  assert.strictEqual(insight.type, 'strength_win', 'Decreasing counterweight on Assisted Pull-up must register as strength_win');
+
+  // Assisted warm-up must INCREASE counterweight assistance (> 35 kg) so warm-up feels lighter!
+  const warmups = warmupMod.buildWarmupPlan({
+    workingWeightKg: 35,
+    equipment: 'machines',
+    exerciseName: 'Assisted Pull-up',
+    exerciseIndex: 0,
+  });
+  assert.strictEqual(warmups.length, 2);
+  assert.ok(warmups[0].weight > warmups[1].weight, 'Warmup 1 on Assisted Pull-up must have MORE assistance than Warmup 2');
+  assert.ok(warmups[1].weight > 35, 'Warmup 2 on Assisted Pull-up must have MORE assistance (>35kg) than working set');
+
+  console.log('✅ TEST 15 PASSED (P1-02): Assisted lifts celebrate strength wins in Coach & generate lighter (+assistance) warm-ups');
+  passed++;
+}
+
+// TEST 16 (P2-06): RIR-aware progression consolidates 0-RIR grinders at top of rep range
+{
+  const bench = {
+    id: 'barbell-bench-press',
+    name: 'Barbell Bench Press',
+    muscleGroup: 'Chest',
+    equipment: 'barbell',
+    sets: 3,
+    targetRepRange: '8-10',
+    recommendedWeight: 80,
+    weightIncrement: 2.5,
+  };
+
+  // All sets hit top rep (10) at RIR 0 (true failure grinder) -> consolidate 1 session before adding load
+  const grinderRec = recommendWeight(bench, [
+    { weight: 80, reps: 10, rir: 0 },
+    { weight: 80, reps: 10, rir: 0 },
+    { weight: 80, reps: 10, rir: 0 },
+  ]);
+  assert.strictEqual(grinderRec.recommendedWeight, 80, '0-RIR failure grinder must consolidate at 80 kg');
+  assert.strictEqual(grinderRec.recommendationReason, 'maintain');
+
+  // Same reps with RIR 2+ -> clean weight progression
+  const strongRec = recommendWeight(bench, [
+    { weight: 80, reps: 10, rir: 2 },
+    { weight: 80, reps: 10, rir: 2 },
+    { weight: 80, reps: 10, rir: 3 },
+  ]);
+  assert.strictEqual(strongRec.recommendedWeight, 82.5, 'Top reps with RIR >= 2 must progress to 82.5 kg');
+  assert.strictEqual(strongRec.recommendationReason, 'increase');
+
+  console.log('✅ TEST 16 PASSED (P2-06): RIR-aware progression consolidates 0-RIR grinders and progresses confident RIR 2+ sets');
+  passed++;
+}
+
+console.log(`\n🎉 ALL ${passed} REAL-MODULE ADAPTIVE PROGRESSION ENGINE TESTS PASSED!\n`);

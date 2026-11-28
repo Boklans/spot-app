@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import {
   Modal,
@@ -130,7 +130,7 @@ export function ProgressionGuideModal({
               </Text>
               <View style={styles.stepPillList}>
                 <View style={styles.stepRow}>
-                  <Text style={styles.stepBadge}>КРОК 1</Text>
+                  <Text style={styles.stepBadge}>{isUk ? 'КРОК 1' : 'STEP 1'}</Text>
                   <Text style={styles.stepRowText}>
                     {isUk
                       ? 'Виконали 40 кг × 8/8/8 → наступного разу ціль 40 кг × 9 у всіх підходах.'
@@ -139,7 +139,7 @@ export function ProgressionGuideModal({
                 </View>
                 <View style={styles.stepRow}>
                   <Text style={[styles.stepBadge, { backgroundColor: colors.primary, color: '#0B0D0F' }]}>
-                    КРОК 2
+                    {isUk ? 'КРОК 2' : 'STEP 2'}
                   </Text>
                   <Text style={styles.stepRowText}>
                     {isUk
@@ -199,7 +199,7 @@ export function ProgressionGuideModal({
             <View style={styles.card}>
               <View style={styles.cardHeader}>
                 <View style={[styles.iconCircle, { backgroundColor: 'rgba(168, 85, 247, 0.14)' }]}>
-                  <MaterialCommunityIcons name="dumbbell" size={18} color="#C084FC" />
+                  <Ionicons name="barbell-outline" size={18} color="#C084FC" />
                 </View>
                 <Text style={styles.cardTitle}>
                   {isUk

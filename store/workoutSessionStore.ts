@@ -2,6 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { generateProgram, resolveRestSeconds, type EquipmentId, type GeneratedExercise, type GeneratedWorkout } from '@/lib/programGenerator';
 import { findLatestExerciseSets, inferEquipmentFromName, practicalIncrement, recommendWeight, type WeightRecommendation } from '@/lib/adaptiveProgression';
+import { createWarmupWorkoutSets } from '@/lib/warmupGenerator';
+import { toLocalDateKey } from '@/lib/dateUtils';
+import { calculateSetVolumeKg } from '@/lib/weightUtils';
 import type { CompletedWorkout, PersonalRecord, SetType } from '@/types/workout';
 import type { UserWorkout } from '@/types/userProgram';
 import { defaultOnboarding } from './workoutStore';
@@ -61,12 +64,42 @@ export const ACTIVE_WORKOUT_SESSION_STORAGE_KEY = 'spot_active_workout_session';
 export type ActiveWorkoutStorage = {
   session: WorkoutSession;
   restEndsAt: number | null;
+  restTotalSeconds?: number;
   restNextType: 'set' | 'exercise' | null;
+};
+
+export function getSupersetBadgeLabel(
+  exercises: Pick<WorkoutExercise, 'supersetWithNext'>[],
+  index: number
+): string | null {
+  if (!exercises || index < 0 || index >= exercises.length) return null;
+  const isFirstInPair = Boolean(exercises[index]?.supersetWithNext && exercises[index + 1]);
+  const isSecondInPair = Boolean(index > 0 && exercises[index - 1]?.supersetWithNext);
+  if (!isFirstInPair && !isSecondInPair) return null;
+
+  let groupOrdinal = 0;
+  for (let i = 0; i <= index; i++) {
+    if (exercises[i]?.supersetWithNext && exercises[i + 1]) {
+      if (i === index) {
+        return `${String.fromCharCode(65 + groupOrdinal)}1`;
+      }
+      if (i + 1 === index) {
+        return `${String.fromCharCode(65 + groupOrdinal)}2`;
+      }
+      groupOrdinal++;
+    }
+  }
+  return isFirstInPair ? 'A1' : 'A2';
+}
+
+export type SwapExerciseOptions = {
+  mode?: 'preserve_completed' | 'replace_all';
 };
 
 type WorkoutSessionState = {
   session: WorkoutSession | null;
   restEndsAt: number | null;
+  restTotalSeconds: number;
   restNextType: 'set' | 'exercise' | null;
   hydrated: boolean;
   hydrateSession: () => Promise<boolean>;
@@ -80,14 +113,17 @@ type WorkoutSessionState = {
   updateExerciseRest: (exerciseIndex: number, restSeconds: number, applyToAll?: boolean) => void;
   addRestTime: (seconds: number) => void;
   skipRest: () => void;
-  swapExercise: (newExercise: {
-    name: string;
-    muscleGroup: string;
-    defaultWeight?: number;
-    customImageUri?: string;
-    isCustom?: boolean;
-    equipment?: EquipmentId;
-  }) => void;
+  swapExercise: (
+    newExercise: {
+      name: string;
+      muscleGroup: string;
+      defaultWeight?: number;
+      customImageUri?: string;
+      isCustom?: boolean;
+      equipment?: EquipmentId;
+    },
+    options?: SwapExerciseOptions
+  ) => void;
   addExercise: (newExercise: {
     name: string;
     muscleGroup: string;
@@ -101,7 +137,9 @@ type WorkoutSessionState = {
   setCurrentSetIndex: (setIndex: number) => void;
   addSet: (exerciseIndex: number) => void;
   removeSet: (exerciseIndex: number) => void;
+  addWarmupSets: (exerciseIndex: number) => void;
   clearSession: () => void;
+  discardSession: () => Promise<void>;
 };
 
 let persistenceQueue = Promise.resolve();
@@ -171,6 +209,12 @@ function parseActiveWorkout(value: string | null): ActiveWorkoutStorage | null {
         exercises: normalizedExercises,
       },
       restEndsAt,
+      restTotalSeconds:
+        typeof parsed.restTotalSeconds === 'number' && parsed.restTotalSeconds > 0
+          ? parsed.restTotalSeconds
+          : restEndsAt && restEndsAt > Date.now()
+            ? Math.ceil((restEndsAt - Date.now()) / 1000)
+            : 0,
       restNextType,
     };
   } catch {
@@ -178,38 +222,28 @@ function parseActiveWorkout(value: string | null): ActiveWorkoutStorage | null {
   }
 }
 
-let pendingSnapshot: ActiveWorkoutStorage | null | undefined = undefined;
-let isPersisting = false;
-
-async function processPersistence() {
-  if (isPersisting || pendingSnapshot === undefined) return;
-  isPersisting = true;
-  const snapshotToSave = pendingSnapshot;
-  pendingSnapshot = undefined;
-  try {
-    if (!snapshotToSave) {
-      await AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
-    } else {
-      await AsyncStorage.setItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY, JSON.stringify(snapshotToSave));
-    }
-  } catch {}
-  isPersisting = false;
-  if (pendingSnapshot !== undefined) {
-    processPersistence();
-  }
+function enqueueStorageWrite(task: () => Promise<void>): Promise<void> {
+  persistenceQueue = persistenceQueue.then(task).catch(() => undefined);
+  return persistenceQueue;
 }
 
 function persistSnapshot(snapshot: ActiveWorkoutStorage | null) {
-  pendingSnapshot = snapshot;
-  processPersistence();
+  void enqueueStorageWrite(async () => {
+    if (!snapshot) {
+      await AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY);
+    } else {
+      await AsyncStorage.setItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY, JSON.stringify(snapshot));
+    }
+  });
 }
 
 function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history: CompletedWorkout[]): WorkoutExercise[] {
+  const deloadActive = useProgramStore.getState().deloadActive;
   return workout.exercises.map((exercise, exerciseIndex) => {
     const equipment: EquipmentId = (exercise as any).equipment || inferEquipmentFromName(exercise.name);
     const exerciseWithEquipment = { ...exercise, equipment } as GeneratedExercise;
     const previousSets = findLatestExerciseSets(history, exerciseWithEquipment);
-    const recommendation = recommendWeight(exerciseWithEquipment, previousSets);
+    const recommendation = recommendWeight(exerciseWithEquipment, previousSets, { deloadActive });
     const weight = recommendation.source === 'history'
       ? recommendation.recommendedWeight
       : (typeof exercise.recommendedWeight === 'number' && exercise.recommendedWeight > 0
@@ -252,6 +286,7 @@ function createSessionExercises(workout: GeneratedWorkout | UserWorkout, history
 export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
   session: null,
   restEndsAt: null,
+  restTotalSeconds: 0,
   restNextType: null,
   hydrated: false,
 
@@ -264,7 +299,13 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         set({ hydrated: true });
         return false;
       }
-      set({ session: snapshot.session, restEndsAt: snapshot.restEndsAt, restNextType: snapshot.restNextType, hydrated: true });
+      set({
+        session: snapshot.session,
+        restEndsAt: snapshot.restEndsAt,
+        restTotalSeconds: snapshot.restTotalSeconds ?? 0,
+        restNextType: snapshot.restNextType,
+        hydrated: true,
+      });
       return true;
     } catch {
       set({ hydrated: true });
@@ -283,7 +324,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         id: `session-${Date.now()}`,
         programWorkoutId: targetWorkout.id,
         workoutName: targetWorkout.name,
-        workoutDate: now.slice(0, 10),
+        workoutDate: toLocalDateKey(now),
         startedAt: now,
         currentExerciseIndex: 0,
         currentSetIndex: 0,
@@ -292,9 +333,10 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         completed: false,
       },
       restEndsAt: null,
+      restTotalSeconds: 0,
       restNextType: null,
     });
-    persistSnapshot(useWorkoutSessionStore.getState().session ? { session: useWorkoutSessionStore.getState().session as WorkoutSession, restEndsAt: null, restNextType: null } : null);
+    persistSnapshot(useWorkoutSessionStore.getState().session ? { session: useWorkoutSessionStore.getState().session as WorkoutSession, restEndsAt: null, restTotalSeconds: 0, restNextType: null } : null);
   },
 
   setPersonalRecords: (personalRecords) => {
@@ -386,34 +428,40 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       let nextSetIndex = targetSetIdx;
       let movedToAnotherExercise = false;
       let isSupersetTransitionToSecond = false;
+      let isSupersetRoundComplete = false;
+      const isWarmupSet = targetSet.setType === 'warmup';
 
-      // Smart Superset Check:
-      // 1) If current exercise is A1 in a superset (supersetWithNext === true), jump to A2 (targetExIdx + 1) if A2 has uncompleted sets
-      const nextPartnerEx = currentExUpdated.supersetWithNext
-        ? exercisesWithCompletedSet[targetExIdx + 1]
-        : undefined;
-      const prevPartnerEx = targetExIdx > 0 && exercisesWithCompletedSet[targetExIdx - 1]?.supersetWithNext
-        ? exercisesWithCompletedSet[targetExIdx - 1]
-        : undefined;
+      // Smart Superset Check (never jump exercises during warm-up sets):
+      const nextPartnerEx =
+        !isWarmupSet && currentExUpdated.supersetWithNext
+          ? exercisesWithCompletedSet[targetExIdx + 1]
+          : undefined;
+      const prevPartnerEx =
+        !isWarmupSet &&
+        targetExIdx > 0 &&
+        exercisesWithCompletedSet[targetExIdx - 1]?.supersetWithNext
+          ? exercisesWithCompletedSet[targetExIdx - 1]
+          : undefined;
 
       const nextPartnerUncompletedIdx = nextPartnerEx
-        ? nextPartnerEx.sets.findIndex((s) => !s.completed)
+        ? nextPartnerEx.sets.findIndex((s) => !s.completed && s.setType !== 'warmup')
         : -1;
       const prevPartnerUncompletedIdx = prevPartnerEx
-        ? prevPartnerEx.sets.findIndex((s) => !s.completed)
+        ? prevPartnerEx.sets.findIndex((s) => !s.completed && s.setType !== 'warmup')
         : -1;
 
       if (nextPartnerEx && nextPartnerUncompletedIdx !== -1) {
-        // Jump from A1 -> A2
+        // Jump from A1 -> A2 (0s rest inside superset pair)
         nextExerciseIndex = targetExIdx + 1;
         nextSetIndex = nextPartnerUncompletedIdx;
         movedToAnotherExercise = true;
         isSupersetTransitionToSecond = true;
       } else if (prevPartnerEx && prevPartnerUncompletedIdx !== -1) {
-        // Jump from A2 -> A1 for the next round of the superset
+        // Jump from A2 -> A1 for the next round of the superset (use A2's full rest duration!)
         nextExerciseIndex = targetExIdx - 1;
         nextSetIndex = prevPartnerUncompletedIdx;
         movedToAnotherExercise = true;
+        isSupersetRoundComplete = true;
       } else {
         // Standard progression within current exercise
         // 1. Next uncompleted set in current exercise after targetSetIdx
@@ -448,12 +496,15 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         }
       }
 
-      const targetExerciseForRest = movedToAnotherExercise
-        ? exercisesWithCompletedSet[nextExerciseIndex] ?? exercise
-        : exercise;
+      const targetExerciseForRest =
+        movedToAnotherExercise && !isSupersetRoundComplete
+          ? exercisesWithCompletedSet[nextExerciseIndex] ?? exercise
+          : exercise;
       const restDuration = isSupersetTransitionToSecond
         ? 0
-        : resolveRestSeconds(targetExerciseForRest);
+        : typeof targetExerciseForRest?.restSeconds === 'number'
+          ? targetExerciseForRest.restSeconds
+          : resolveRestSeconds(targetExerciseForRest);
 
       return {
         ...state,
@@ -464,11 +515,12 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
           currentSetIndex: nextSetIndex,
         },
         restEndsAt: restDuration > 0 ? Date.now() + restDuration * 1000 : null,
+        restTotalSeconds: restDuration > 0 ? restDuration : 0,
         restNextType: restDuration > 0 ? (movedToAnotherExercise ? 'exercise' : 'set') : null,
       };
     });
     const state = useWorkoutSessionStore.getState();
-    if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restNextType: state.restNextType });
+    if (state.session) persistSnapshot({ session: state.session, restEndsAt: state.restEndsAt, restTotalSeconds: state.restTotalSeconds, restNextType: state.restNextType });
   },
 
   updateCurrentSet: (values, propagate = false) => {
@@ -484,8 +536,9 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       const targetSet = targetExercise?.sets[setIndex];
       if (!targetExercise || !targetSet) return state;
 
-      // Completed sets must never propagate changes to other sets
-      const shouldPropagate = propagate && !targetSet.completed;
+      // Completed sets and warm-up sets must never propagate changes onto working sets
+      const targetSetType = targetSet.setType ?? 'normal';
+      const shouldPropagate = propagate && !targetSet.completed && targetSetType !== 'warmup' && targetSetType !== 'dropset';
 
       const sanitizedValues = { ...values };
       if (typeof sanitizedValues.weight === 'number') {
@@ -510,8 +563,13 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
                       const updatedRir = values.rir === null ? undefined : values.rir !== undefined ? values.rir : workoutSet.rir;
                       return { ...workoutSet, ...sanitizedValues, rir: updatedRir };
                     }
-                    // Forward-propagate weight and reps ONLY if explicitly requested AND target is uncompleted
-                    if (shouldPropagate && sIdx > setIndex && !workoutSet.completed) {
+                    // Forward-propagate weight and reps ONLY to subsequent uncompleted sets of the same non-warmup type
+                    if (
+                      shouldPropagate &&
+                      sIdx > setIndex &&
+                      !workoutSet.completed &&
+                      (workoutSet.setType ?? 'normal') === targetSetType
+                    ) {
                       const { rir: _unusedRir, ...propagateValues } = sanitizedValues;
                       return { ...workoutSet, ...propagateValues };
                     }
@@ -746,11 +804,25 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
 
   addRestTime: (seconds) => {
     set((state) => {
-      const base = Math.max(Date.now(), state.restEndsAt ?? Date.now());
-      const newRestEndsAt = Math.max(Date.now(), base + seconds * 1000);
+      if (state.restEndsAt === null && seconds <= 0) {
+        return state;
+      }
+      const now = Date.now();
+      const base = Math.max(now, state.restEndsAt ?? now);
+      const nextEndsAt = base + seconds * 1000;
+      if (nextEndsAt <= now) {
+        return {
+          ...state,
+          restEndsAt: null,
+          restTotalSeconds: 0,
+          restNextType: null,
+        };
+      }
+      const nextRemaining = Math.ceil((nextEndsAt - now) / 1000);
       return {
         ...state,
-        restEndsAt: newRestEndsAt,
+        restEndsAt: nextEndsAt,
+        restTotalSeconds: Math.max(state.restTotalSeconds || 0, nextRemaining),
       };
     });
 
@@ -759,41 +831,118 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
       persistSnapshot({
         session: state.session,
         restEndsAt: state.restEndsAt,
+        restTotalSeconds: state.restTotalSeconds,
         restNextType: state.restNextType,
       });
     }
   },
 
   skipRest: () => {
-    set({ restEndsAt: null, restNextType: null });
+    set({ restEndsAt: null, restTotalSeconds: 0, restNextType: null });
     const state = useWorkoutSessionStore.getState();
-    if (state.session) persistSnapshot({ session: state.session, restEndsAt: null, restNextType: null });
+    if (state.session) persistSnapshot({ session: state.session, restEndsAt: null, restTotalSeconds: 0, restNextType: null });
   },
 
-  swapExercise: (newExercise) => {
+  swapExercise: (newExercise, options) => {
     set((state) => {
       if (!state.session) return state;
       const { currentExerciseIndex } = state.session;
       const currentEx = state.session.exercises[currentExerciseIndex];
+      if (!currentEx) return state;
+
+      const completedSetsInCurrent = currentEx.sets.filter((s) => s.completed);
+      const uncompletedWorkingSets = currentEx.sets.filter(
+        (s) => !s.completed && s.setType !== 'warmup'
+      );
+      const mode = options?.mode ?? 'preserve_completed';
+      const shouldPreserveCompleted =
+        mode === 'preserve_completed' && completedSetsInCurrent.length > 0;
+
+      const targetSetCount = shouldPreserveCompleted
+        ? Math.max(1, uncompletedWorkingSets.length)
+        : Math.max(1, currentEx.sets.filter((s) => s.setType !== 'warmup').length || currentEx.sets.length || 3);
+
       const history = useWorkoutHistoryStore.getState().workouts;
       const isBw = typeof newExercise.defaultWeight === 'number' && newExercise.defaultWeight === 0;
       const inferredEquipment = newExercise.equipment || (isBw ? 'bodyweight' : inferEquipmentFromName(newExercise.name, 'barbell'));
-      const swappedId = newExercise.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const swappedId = `${newExercise.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'swapped'}-${Date.now()}`;
+      const targetRepRange =
+        uncompletedWorkingSets[0]?.targetReps ||
+        currentEx.sets.find((s) => s.setType !== 'warmup')?.targetReps ||
+        currentEx.sets[0]?.targetReps ||
+        '8-12';
+
       const generatedEx: GeneratedExercise = {
-        id: swappedId || `swapped-${Date.now()}`,
+        id: swappedId,
         name: newExercise.name,
         muscleGroup: newExercise.muscleGroup,
         equipment: inferredEquipment,
-        sets: currentEx?.sets.length ?? 3,
-        targetRepRange: currentEx?.sets[0]?.targetReps ?? '8-12',
+        sets: targetSetCount,
+        targetRepRange,
         recommendedWeight: newExercise.defaultWeight ?? 20,
         weightIncrement: practicalIncrement(inferredEquipment, newExercise.defaultWeight ?? 20),
-        restSeconds: currentEx?.restSeconds ?? 90,
+        restSeconds: currentEx.restSeconds ?? 90,
       };
       const previousSets = findLatestExerciseSets(history, generatedEx);
-      const rec = recommendWeight(generatedEx, previousSets);
+      const deloadActive = useProgramStore.getState().deloadActive;
+      const rec = recommendWeight(generatedEx, previousSets, { deloadActive });
       const defaultMinReps = Number.parseInt(generatedEx.targetRepRange ? generatedEx.targetRepRange.split('-')[0] : '8', 10) || 8;
       const resolvedIncrement = practicalIncrement(inferredEquipment, rec.recommendedWeight);
+
+      const replacementSets: WorkoutSet[] = Array.from({ length: targetSetCount }, (_, sIdx) => ({
+        id: `exercise-swap-${currentExerciseIndex + 1}-set-${sIdx + 1}-${Date.now()}`,
+        weight: rec.recommendedWeight,
+        reps: rec.recommendedReps ?? defaultMinReps,
+        targetReps: targetRepRange,
+        completed: false,
+        setType: 'normal',
+      }));
+
+      if (shouldPreserveCompleted) {
+        // Trim uncompleted sets from current exercise (retaining 100% of completed sets!)
+        // and insert the replacement exercise immediately after currentExerciseIndex.
+        const trimmedCurrent: WorkoutExercise = {
+          ...currentEx,
+          supersetWithNext: false,
+          sets: completedSetsInCurrent,
+        };
+        const insertedReplacement: WorkoutExercise = {
+          id: generatedEx.id,
+          name: newExercise.name,
+          muscleGroup: newExercise.muscleGroup,
+          equipment: inferredEquipment,
+          previousSets,
+          recommendation: rec,
+          weightIncrement: resolvedIncrement,
+          restSeconds: currentEx.restSeconds ?? 90,
+          isCustomRest: currentEx.isCustomRest,
+          customImageUri: newExercise.customImageUri,
+          isCustom: newExercise.isCustom,
+          supersetWithNext: currentEx.supersetWithNext,
+          sets: replacementSets,
+        };
+
+        const nextExercises = [
+          ...state.session.exercises.slice(0, currentExerciseIndex),
+          trimmedCurrent,
+          insertedReplacement,
+          ...state.session.exercises.slice(currentExerciseIndex + 1),
+        ];
+
+        return {
+          ...state,
+          restEndsAt: null,
+          restNextType: null,
+          session: {
+            ...state.session,
+            completed: false,
+            completedAt: undefined,
+            currentExerciseIndex: currentExerciseIndex + 1,
+            currentSetIndex: 0,
+            exercises: nextExercises,
+          },
+        };
+      }
 
       return {
         ...state,
@@ -815,13 +964,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
               weightIncrement: resolvedIncrement,
               customImageUri: newExercise.customImageUri,
               isCustom: newExercise.isCustom,
-              sets: ex.sets.map((s) => ({
-                ...s,
-                weight: rec.recommendedWeight,
-                reps: rec.recommendedReps ?? defaultMinReps,
-                completed: false,
-                completedAt: undefined,
-              })),
+              sets: replacementSets,
             };
           }),
         },
@@ -856,7 +999,8 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
         restSeconds: resolveRestSeconds(),
       };
       const previousSets = findLatestExerciseSets(history, generatedEx);
-      const rec = recommendWeight(generatedEx, previousSets);
+      const deloadActive = useProgramStore.getState().deloadActive;
+      const rec = recommendWeight(generatedEx, previousSets, { deloadActive });
       const defaultMinReps = Number.parseInt(generatedEx.targetRepRange ? generatedEx.targetRepRange.split('-')[0] : '8', 10) || 8;
       const resolvedIncrement = practicalIncrement(inferredEquipment, rec.recommendedWeight);
       const newExerciseIndex = state.session.exercises.length;
@@ -904,16 +1048,74 @@ export const useWorkoutSessionStore = create<WorkoutSessionState>((set) => ({
     }
   },
 
+  addWarmupSets: (exerciseIndex: number) => {
+    set((state) => {
+      if (!state.session) return state;
+      const targetEx = state.session.exercises[exerciseIndex];
+      if (!targetEx) return state;
+
+      // Prevent duplicate spam if warmup sets already exist on this exercise
+      if (targetEx.sets.some((s) => s.setType === 'warmup')) {
+        return state;
+      }
+
+      const firstWorkingSet = targetEx.sets.find((s) => s.setType !== 'warmup') ?? targetEx.sets[0];
+      const equipment = targetEx.equipment || inferEquipmentFromName(targetEx.name);
+      const warmups = createWarmupWorkoutSets({
+        workingWeightKg: firstWorkingSet?.weight ?? 0,
+        workingReps: firstWorkingSet?.reps ?? 8,
+        equipment,
+        exerciseName: targetEx.name,
+        exerciseIndex,
+      });
+
+      const nextExercises = state.session.exercises.map((ex, idx) =>
+        idx === exerciseIndex ? { ...ex, sets: [...warmups, ...ex.sets] } : ex
+      );
+
+      const isCurrentEx = state.session.currentExerciseIndex === exerciseIndex;
+      const updatedCurrentSetIndex = isCurrentEx ? 0 : state.session.currentSetIndex;
+
+      return {
+        ...state,
+        session: {
+          ...state.session,
+          completed: false,
+          completedAt: undefined,
+          currentSetIndex: updatedCurrentSetIndex,
+          exercises: nextExercises,
+        },
+      };
+    });
+    const state = useWorkoutSessionStore.getState();
+    if (state.session) {
+      persistSnapshot({
+        session: state.session,
+        restEndsAt: state.restEndsAt,
+        restNextType: state.restNextType,
+      });
+    }
+  },
+
   clearSession: () => {
     set({ session: null, restEndsAt: null, restNextType: null });
     persistSnapshot(null);
   },
+
+  discardSession: async () => {
+    set({ session: null, restEndsAt: null, restNextType: null });
+    await clearPersistedActiveWorkout();
+    try {
+      const notifMod = await import('@/lib/notificationService');
+      await notifMod.dismissActiveWorkoutNotification();
+    } catch {
+      // Safe fallback in offline/Node environments
+    }
+  },
 }));
 
 export async function clearPersistedActiveWorkout() {
-  pendingSnapshot = undefined;
-  persistenceQueue = persistenceQueue.then(() => AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY));
-  await persistenceQueue;
+  await enqueueStorageWrite(() => AsyncStorage.removeItem(ACTIVE_WORKOUT_SESSION_STORAGE_KEY));
 }
 
 function isValidSessionSet(workoutSet: WorkoutSet | null | undefined): boolean {
@@ -933,19 +1135,47 @@ export function getSessionProgress(session: WorkoutSession) {
 }
 
 export function getSessionSummary(session: WorkoutSession) {
-  const plannedSets = session.exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
+  const plannedTotalSets = session.exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
+  const plannedWorkingSets = session.exercises.reduce(
+    (total, exercise) => total + exercise.sets.filter((s) => s.setType !== 'warmup').length,
+    0
+  );
   const completedSets = session.exercises.flatMap((exercise) => exercise.sets.filter(isValidSessionSet));
   const workingCompletedSets = completedSets.filter((s) => s.setType !== 'warmup');
   const durationMs = session.completedAt
     ? Math.max(0, new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime())
     : 0;
   const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
-  const volume = Math.round(
-    workingCompletedSets.reduce((total, workoutSet) => total + workoutSet.weight * workoutSet.reps, 0) * 100
-  ) / 100;
+  const volume =
+    Math.round(
+      session.exercises.reduce((exSum, exercise) => {
+        const exWorkingSets = exercise.sets.filter(
+          (s) => isValidSessionSet(s) && s.setType !== 'warmup'
+        );
+        return (
+          exSum +
+          exWorkingSets.reduce(
+            (setSum, workoutSet) =>
+              setSum +
+              calculateSetVolumeKg({
+                weightKg: workoutSet.weight,
+                reps: workoutSet.reps,
+                exerciseName: exercise.name,
+                equipment: exercise.equipment,
+                setType: workoutSet.setType,
+              }),
+            0
+          )
+        );
+      }, 0) * 100
+    ) / 100;
   const exerciseCount = session.exercises.filter((exercise) => exercise.sets.some(isValidSessionSet)).length;
   const plannedExerciseCount = session.exercises.length;
-  const isPartial = plannedSets > 0 && completedSets.length < plannedSets;
+  const plannedSets = plannedWorkingSets > 0 ? plannedWorkingSets : plannedTotalSets;
+  const isPartial =
+    plannedWorkingSets > 0
+      ? workingCompletedSets.length < plannedWorkingSets
+      : completedSets.length > 0 || plannedTotalSets > 0;
 
   return {
     durationMinutes,

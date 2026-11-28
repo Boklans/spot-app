@@ -1,5 +1,6 @@
+import { areExercisesEquivalent, resolveCanonicalExerciseId } from '@/lib/exercises';
 import { calculateEstimated1RM } from '@/lib/personalRecords';
-import { convertVolumeToActiveUnit, getActiveWeightUnit } from '@/lib/weightUtils';
+import { calculateSetVolumeKg, convertVolumeToActiveUnit, getActiveWeightUnit } from '@/lib/weightUtils';
 import type { WeightUnit } from '@/store/userProfileStore';
 import type { UserProgram } from '@/types/userProgram';
 import type { CompletedExercise, CompletedWorkout } from '@/types/workout';
@@ -193,7 +194,14 @@ export function calculateMuscleRecoveryStats(
         const workingSets = (ex.sets || []).filter((s) => s.setType !== 'warmup');
         workoutWorkingSets += workingSets.length;
         workoutWorkingVol += workingSets.reduce(
-          (sum, s) => sum + (s.volume || (s.weight || 0) * (s.reps || 0)),
+          (sum, s) =>
+            sum +
+            calculateSetVolumeKg({
+              weightKg: s.weight || 0,
+              reps: s.reps || 0,
+              exerciseName: ex.exerciseName,
+              setType: s.setType,
+            }),
           0
         );
       }
@@ -248,7 +256,17 @@ function calculateMuscleVolumes(workouts: CompletedWorkout[]) {
     for (const exercise of workout.exercises) {
       const category = normalizeMuscleCategory(exercise.muscleGroup);
       const workingSets = exercise.sets.filter((s) => s.setType !== 'warmup');
-      const volume = workingSets.reduce((total, set) => total + set.volume, 0);
+      const volume = workingSets.reduce(
+        (total, set) =>
+          total +
+          calculateSetVolumeKg({
+            weightKg: set.weight || 0,
+            reps: set.reps || 0,
+            exerciseName: exercise.exerciseName,
+            setType: set.setType,
+          }),
+        0
+      );
       volumes.set(category, (volumes.get(category) ?? 0) + volume);
     }
   }
@@ -273,18 +291,10 @@ export function calculateExerciseProgress(
   period: ProgressPeriod,
   now = new Date()
 ): StrengthProgress {
-  const targetNameLower = (targetExercise.name || '').trim().toLowerCase();
-
-  // Match strictly by normalized exerciseName when available; fall back to exerciseId only if name is missing
+  // Match via canonical exercise identity so "Bench Press" and "Barbell Bench Press" share unified progress
   const matchingWorkouts = filterWorkoutsByPeriod(history, period, now)
     .map((workout) => {
-      const exercise = workout.exercises.find((ex) => {
-        const exNameLower = (ex.exerciseName || '').trim().toLowerCase();
-        if (exNameLower && targetNameLower) {
-          return exNameLower === targetNameLower;
-        }
-        return Boolean(targetExercise.id && ex.exerciseId === targetExercise.id);
-      });
+      const exercise = workout.exercises.find((ex) => areExercisesEquivalent(ex, targetExercise));
       return exercise && exercise.sets.length > 0 ? { workout, exercise } : null;
     })
     .filter((item): item is { workout: CompletedWorkout; exercise: CompletedExercise } => Boolean(item));
@@ -375,7 +385,7 @@ export function getAvailableExercisesForProgress(
     for (const exercise of workout.exercises) {
       if (!exercise.sets || exercise.sets.length === 0) continue;
       const trimmedName = exercise.exerciseName.trim();
-      const key = trimmedName.toLowerCase();
+      const key = resolveCanonicalExerciseId(trimmedName) || trimmedName.toLowerCase();
       const id = exercise.exerciseId;
 
       if (!seenNames.has(key)) {
@@ -397,7 +407,7 @@ export function getAvailableExercisesForProgress(
       if (!Array.isArray(workout.exercises)) continue;
       for (const exercise of workout.exercises) {
         const trimmedName = exercise.name.trim();
-        const key = trimmedName.toLowerCase();
+        const key = resolveCanonicalExerciseId(trimmedName) || trimmedName.toLowerCase();
         if (!seenNames.has(key)) {
           seenNames.add(key);
           if (exercise.id) seenIds.add(exercise.id);

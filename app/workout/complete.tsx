@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -14,11 +14,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { inferEquipmentFromName, isAssistedExercise, recommendWeight } from '@/lib/adaptiveProgression';
 import { getExerciseImage } from '@/lib/exerciseImages';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useI18n } from '@/lib/i18n';
+import { formatPersonalRecordLabel } from '@/lib/personalRecords';
 import { useWeightUnit } from '@/lib/weightUtils';
 import { useWorkoutHistoryStore } from '@/store/workoutHistoryStore';
 import { getSessionSummary, useWorkoutSessionStore } from '@/store/workoutSessionStore';
@@ -30,8 +33,9 @@ const SHOW_INSTAGRAM_STORIES = false;
 export default function Complete() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const reducedMotion = useReducedMotion();
   const { t, te, tw, language } = useI18n();
-  const { formatVolume, formatWithUnit } = useWeightUnit();
+  const { unit, formatVolume, formatWithUnit } = useWeightUnit();
   const session = useWorkoutSessionStore((state) => state.session);
   const clearSession = useWorkoutSessionStore((state) => state.clearSession);
   const workouts = useWorkoutHistoryStore((state) => state.workouts);
@@ -49,6 +53,14 @@ export default function Complete() {
       if (data?.name) setName(data.name);
     });
     loadHistory();
+
+    if (reducedMotion) {
+      badgeScale.setValue(1);
+      badgeOpacity.setValue(1);
+      bodyOpacity.setValue(1);
+      bodyTranslateY.setValue(0);
+      return;
+    }
 
     Animated.sequence([
       Animated.parallel([
@@ -79,7 +91,7 @@ export default function Complete() {
         }),
       ]),
     ]).start();
-  }, [badgeOpacity, badgeScale, bodyOpacity, bodyTranslateY, loadHistory]);
+  }, [badgeOpacity, badgeScale, bodyOpacity, bodyTranslateY, loadHistory, reducedMotion]);
 
   if (!session) {
     return (
@@ -327,22 +339,38 @@ export default function Complete() {
             transform: [{ translateY: bodyTranslateY }],
           }}
         >
-        {/* 3. Unified Stats Summary Strip */}
+        {/* 3. Unified Stats Summary Strip (with celebratory count-up) */}
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>{summary.durationMinutes} {t('min')}</Text>
+            <AnimatedNumber
+              value={summary.durationMinutes}
+              duration={520}
+              delay={200}
+              format={(v) => `${v} ${t('min')}`}
+              style={styles.statValue}
+            />
             <Text style={styles.statLabel}>{t('duration')}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>{formatVolume(summary.volume)}</Text>
+            <AnimatedNumber
+              value={Math.round(summary.volume)}
+              duration={740}
+              delay={240}
+              format={(v) => formatVolume(v)}
+              style={styles.statValue}
+            />
             <Text style={styles.statLabel}>{language === 'uk' ? 'Об’єм' : 'Volume'}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>
-              {isPartial ? `${summary.completedSets}/${summary.plannedSets}` : summary.completedSets}
-            </Text>
+            <AnimatedNumber
+              value={summary.completedSets}
+              duration={560}
+              delay={280}
+              format={(v) => (isPartial ? `${v}/${summary.plannedSets}` : String(v))}
+              style={styles.statValue}
+            />
             <Text style={styles.statLabel}>{t('sets')}</Text>
           </View>
         </View>
@@ -376,7 +404,7 @@ export default function Complete() {
         {prs.length > 0 && (
           <View style={styles.prsCard}>
             <View style={styles.prHeader}>
-              <MaterialCommunityIcons
+              <Ionicons
                 name="trophy"
                 size={15}
                 color="#FFD130"
@@ -404,12 +432,12 @@ export default function Complete() {
                     {te(record.exerciseName)}
                   </Text>
                   <Text numberOfLines={1} style={styles.prValueText}>
-                    {record.label}
+                    {formatPersonalRecordLabel(record, unit, language)}
                   </Text>
                 </View>
 
                 <View style={styles.prTrophyBadge}>
-                  <MaterialCommunityIcons name="trophy" size={12} color="#FFD130" />
+                  <Ionicons name="trophy" size={12} color="#FFD130" />
                   <Text style={styles.prTrophyBadgeText}>PR</Text>
                 </View>
               </View>

@@ -5,7 +5,9 @@ import { Screen } from '@/components/ui/Screen';
 import { useThemeColors, type ThemeColors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useI18n } from '@/lib/i18n';
+import { useCustomExercisesStore } from '@/store/customExercisesStore';
 import { useProgramStore } from '@/store/programStore';
+import { useUserProfileStore } from '@/store/userProfileStore';
 import { loadOnboarding } from '@/store/workoutStore';
 import { useWorkoutSessionStore } from '@/store/workoutSessionStore';
 
@@ -75,8 +77,10 @@ export default function Index() {
 
 		Promise.all([
 			loadOnboarding(),
+			useUserProfileStore.getState().loadProfile(),
 			useWorkoutSessionStore.getState().hydrateSession(),
 			useProgramStore.getState().loadProgram(),
+			useCustomExercisesStore.getState().loadCustomExercises(),
 		]).then(([data]) => {
 			if (!mounted) return;
 			router.replace(data?.completed ? '/(tabs)' : '/onboarding/welcome');

@@ -105,7 +105,7 @@ export function OnboardingHeader({
             },
           ]}
         >
-          {isUk ? `КРОК ${step} З ${totalSteps}` : `STEP ${step} OF ${totalSteps}`}
+          {isUk ? `КРОК ${step} / ${totalSteps}` : `STEP ${step} / ${totalSteps}`}
         </Animated.Text>
       </View>
 
@@ -158,7 +158,7 @@ const createStyles = (colors: ThemeColors) =>
       opacity: 0.55,
     },
     segmentCurrent: {
-      backgroundColor: colors.primary,
+      backgroundColor: colors.accentIndicator,
     },
     stepLabel: {
       fontSize: 10.5,
